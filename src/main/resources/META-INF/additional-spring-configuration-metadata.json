@@ -1,0 +1,24 @@
+{
+  "properties": [
+    {
+      "name": "jwt.secret",
+      "type": "java.lang.String",
+      "description": "Base64-encoded secret key for JWT HS512."
+    },
+    {
+      "name": "jwt.expirationMs",
+      "type": "java.lang.Integer",
+      "description": "JWT expiration in milliseconds."
+    },
+    {
+      "name": "jwt.expiration-ms",
+      "type": "java.lang.Integer",
+      "description": "JWT expiration in milliseconds (alias kebab-case)."
+    },
+    {
+      "name": "app.frontend-base-url",
+      "type": "java.lang.String",
+      "description": "Frontend base URL used for links in emails."
+    }
+  ]
+}
