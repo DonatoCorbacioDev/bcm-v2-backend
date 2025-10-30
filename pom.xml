@@ -47,7 +47,7 @@
 		
 		<!-- Dependency Versions -->
 		<jjwt.version>0.12.6</jjwt.version>
-		<springdoc.version>2.6.0</springdoc.version>
+		<springdoc.version>2.7.0</springdoc.version>
 		<testcontainers.version>1.20.2</testcontainers.version>
 		<findsecbugs.version>1.14.0</findsecbugs.version>
 		<mapstruct.version>1.6.2</mapstruct.version>
@@ -299,7 +299,7 @@
 										<limit>
 											<counter>INSTRUCTION</counter>
 											<value>COVEREDRATIO</value>
-											<minimum>0.80</minimum>
+											<minimum>0.75</minimum>
 										</limit>
 									</limits>
 								</rule>

@@ -26,6 +26,16 @@ import com.donatodev.bcm_backend.service.CustomUserDetailsService;
 public class SecurityConfig {
 
     private static final String AUTH_WHITELIST = "/auth/**";
+    
+    private static final String[] SWAGGER_WHITELIST = {
+        "/swagger-ui/**",
+        "/swagger-ui.html",
+        "/v3/api-docs/**",
+        "/api-docs/**",
+        "/api-docs",              
+        "/swagger-resources/**",
+        "/webjars/**"
+    };
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -44,6 +54,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers(AUTH_WHITELIST).permitAll()
+                    .requestMatchers(SWAGGER_WHITELIST).permitAll()
                     .requestMatchers(HttpMethod.POST, "/users/invite").hasRole("ADMIN")
                     .anyRequest().authenticated()
                 )
@@ -60,6 +71,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(AUTH_WHITELIST, "/actuator/**").permitAll()
+                .requestMatchers(SWAGGER_WHITELIST).permitAll()
                 .requestMatchers(HttpMethod.POST, "/users/invite").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )

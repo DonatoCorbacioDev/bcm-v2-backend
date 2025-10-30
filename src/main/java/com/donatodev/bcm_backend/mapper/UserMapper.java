@@ -13,19 +13,12 @@ import com.donatodev.bcm_backend.exception.RoleNotFoundException;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 
-/**
- * Mapper class responsible for converting between {@link Users} entities
- * and {@link UserDTO} data transfer objects.
- * <p>
- * This component handles the transformation logic for user-related data
- * and manages references to roles and managers using repositories.
- */
 @Component
 public class UserMapper {
 	
-	private static final Logger logger = LoggerFactory.getLogger(UserMapper.class);
+    private static final Logger logger = LoggerFactory.getLogger(UserMapper.class);
 
-	private final ManagersRepository managersRepository;
+    private final ManagersRepository managersRepository;
     private final RolesRepository rolesRepository;
 
     public UserMapper(ManagersRepository managersRepository, RolesRepository rolesRepository) {
@@ -37,6 +30,7 @@ public class UserMapper {
      * Converts a {@link Users} entity to a {@link UserDTO}.
      * <p>
      * The password is not included in the output for security reasons.
+     * Handles null manager gracefully.
      *
      * @param user the user entity
      * @return the corresponding DTO
@@ -46,7 +40,7 @@ public class UserMapper {
                 user.getId(),
                 user.getUsername(),
                 null, // Do not expose the hashed password
-                user.getManager().getId(),
+                user.getManager() != null ? user.getManager().getId() : null,  
                 user.getRole().getId()
         );
     }
@@ -62,7 +56,7 @@ public class UserMapper {
      * @throws RoleNotFoundException if the role ID is not found
      */
     public Users toEntity(UserDTO dto) {
-    	logger.info(">>> toEntity: managerId = {}, roleId = {}", dto.managerId(), dto.roleId());
+        logger.info(">>> toEntity: managerId = {}, roleId = {}", dto.managerId(), dto.roleId());
 
         Managers manager = null;
         if (dto.managerId() != null) {
@@ -79,6 +73,7 @@ public class UserMapper {
             .passwordHash(dto.password())
             .manager(manager)
             .role(role)
+            .verified(false) 
             .build();
     }
 }
