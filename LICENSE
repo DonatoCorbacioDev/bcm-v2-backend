@@ -1,0 +1,30 @@
+Business Contract Manager - Custom License
+Copyright (c) 2025 Donato Corbacio
+
+PERMITTED USES:
+✅ Viewing and studying the code for educational purposes
+✅ Using as reference for learning software architecture
+✅ Reviewing code quality for employment evaluation
+✅ Forking for personal, non-commercial experiments
+
+PROHIBITED USES WITHOUT EXPLICIT WRITTEN PERMISSION:
+❌ Commercial use or redistribution
+❌ Offering as Software-as-a-Service (SaaS)
+❌ Selling, sublicensing, or monetizing this software
+❌ Using in production environments for business purposes
+❌ Training AI/ML models on this codebase (*)
+
+(*) This codebase may not be used for training artificial intelligence
+or machine learning models without explicit written consent.
+
+ATTRIBUTION:
+If you use portions of this code in your own projects with permission,
+you must provide clear attribution to the original author.
+
+DISCLAIMER:
+This software is provided "as is", without warranty of any kind.
+This is a portfolio/demonstration project and should not be used
+in production without thorough security review and testing.
+
+For commercial licensing inquiries or permissions:
+Contact: donatocorbacio92@gmail.com
