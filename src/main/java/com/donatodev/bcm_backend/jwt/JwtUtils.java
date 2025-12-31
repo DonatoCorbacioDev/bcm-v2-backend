@@ -18,8 +18,12 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Utility class for generating, validating, and extracting information from JWT tokens.
@@ -31,6 +35,7 @@ import io.jsonwebtoken.security.Keys;
  * @since 1.0.0
  */
 @Component
+@Slf4j
 public class JwtUtils {
 	
 	private Clock clock = Clock.systemDefaultZone();
@@ -160,8 +165,6 @@ public class JwtUtils {
         try {
             final String username = getUsernameFromJwtToken(token);
             return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
-        } catch (ExpiredJwtException e) {
-            return false;
         } catch (Exception e) {
             return false;
         }
@@ -193,9 +196,11 @@ public class JwtUtils {
             getJwtParser().parseSignedClaims(authToken);
             return true;
         } catch (ExpiredJwtException e) {
-            System.err.println("JWT token is expired: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("JWT token validation error: " + e.getMessage());
+            log.warn("JWT token is expired: {}", e.getMessage());
+        } catch (MalformedJwtException | UnsupportedJwtException | IllegalArgumentException e) {
+            log.error("Invalid JWT token: {}", e.getMessage());
+        } catch (SignatureException e) {
+            log.error("JWT signature validation failed: {}", e.getMessage());
         }
         return false;
     }

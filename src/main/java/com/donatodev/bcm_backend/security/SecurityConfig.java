@@ -26,13 +26,13 @@ import com.donatodev.bcm_backend.service.CustomUserDetailsService;
 public class SecurityConfig {
 
     private static final String AUTH_WHITELIST = "/auth/**";
-    
+
     private static final String[] SWAGGER_WHITELIST = {
         "/swagger-ui/**",
         "/swagger-ui.html",
         "/v3/api-docs/**",
         "/api-docs/**",
-        "/api-docs",              
+        "/api-docs",
         "/swagger-resources/**",
         "/webjars/**"
     };
@@ -48,36 +48,40 @@ public class SecurityConfig {
 
         if (env.acceptsProfiles(org.springframework.core.env.Profiles.of("test"))) {
             http
-                .cors(Customizer.withDefaults())
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
+                    .cors(Customizer.withDefaults())
+                    // CSRF disabled: Stateless REST API using JWT (Authorization header).
+                    // No session cookies = no CSRF risk. Safe for this architecture.
+                    .csrf(csrf -> csrf.disable())
+                    .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    .authorizeHttpRequests(auth -> auth
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers(AUTH_WHITELIST).permitAll()
                     .requestMatchers(SWAGGER_WHITELIST).permitAll()
                     .requestMatchers(HttpMethod.POST, "/users/invite").hasRole("ADMIN")
                     .anyRequest().authenticated()
-                )
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthEntryPoint))
-                .authenticationManager(authenticationManager)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                    )
+                    .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthEntryPoint))
+                    .authenticationManager(authenticationManager)
+                    .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
             return http.build();
         }
 
         http
-            .cors(Customizer.withDefaults())
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
+                .cors(Customizer.withDefaults())
+                // CSRF disabled: Stateless REST API using JWT (Authorization header).
+                // No session cookies = no CSRF risk. Safe for this architecture.
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(AUTH_WHITELIST, "/actuator/**").permitAll()
                 .requestMatchers(SWAGGER_WHITELIST).permitAll()
                 .requestMatchers(HttpMethod.POST, "/users/invite").hasRole("ADMIN")
                 .anyRequest().authenticated()
-            )
-            .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthEntryPoint))
-            .authenticationManager(authenticationManager)
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                )
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthEntryPoint))
+                .authenticationManager(authenticationManager)
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

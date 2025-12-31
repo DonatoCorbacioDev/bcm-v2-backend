@@ -1,6 +1,6 @@
-# 🏢 BCM v2.0 - Business Contract Manager
+# 🏢 BCM v2.0 - Business Contracts Manager
 
-> Enterprise-grade SaaS platform for contract lifecycle management built with Spring Boot 3.5.5 and Java 21
+> Enterprise-grade SaaS platform for contract lifecycle management built with Spring Boot 3.5.9 and Java 21
 
 [![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.5-brightgreen?logo=spring)](https://spring.io/projects/spring-boot)

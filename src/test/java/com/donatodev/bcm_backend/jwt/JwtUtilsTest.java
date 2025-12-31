@@ -30,9 +30,9 @@ import io.jsonwebtoken.security.SignatureException;
 /**
  * Unit tests for {@link JwtUtils} class.
  * <p>
- * Tests JWT token generation, validation, extraction, and edge cases
- * including token expiration and tampering scenarios.
- * Updated for JJWT 0.12.6 API compatibility.
+ * Tests JWT token generation, validation, extraction, and edge cases including
+ * token expiration and tampering scenarios. Updated for JJWT 0.12.6 API
+ * compatibility.
  */
 @SpringBootTest
 @TestPropertySource(locations = "classpath:application-test.properties")
@@ -44,8 +44,10 @@ class JwtUtilsTest {
 
     private Users testUser;
     private Roles testRole;
+    private User springUser;
 
     @BeforeEach
+    @SuppressWarnings("unused")
     void setUp() {
         // Create test role
         testRole = Roles.builder()
@@ -61,6 +63,9 @@ class JwtUtilsTest {
                 .role(testRole)
                 .verified(true)
                 .build();
+
+        // Create Spring Security user for validation
+        springUser = new User("john", "password", List.of(() -> "ROLE_ADMIN"));
     }
 
     /**
@@ -70,7 +75,6 @@ class JwtUtilsTest {
     @Order(1)
     @DisplayName("Generate and validate JWT token from Authentication")
     void shouldGenerateAndValidateTokenFromAuthentication() {
-        User springUser = new User("john", "password", List.of(() -> "ROLE_ADMIN"));
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(springUser, null);
 
         // Use the correct method for Authentication object
@@ -92,8 +96,7 @@ class JwtUtilsTest {
 
         assertNotNull(token);
         assertEquals("john", jwtUtils.getUsernameFromToken(token));
-        
-        User springUser = new User("john", "password", List.of(() -> "ROLE_ADMIN"));
+
         assertTrue(jwtUtils.validateToken(token, springUser));
     }
 
@@ -104,9 +107,8 @@ class JwtUtilsTest {
     @Order(3)
     @DisplayName("Token should be invalid if tampered")
     void shouldFailValidationForTamperedToken() {
-        User springUser = new User("john", "password", List.of(() -> "ROLE_USER"));
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(springUser, null);
-        
+
         // Use the correct method for Authentication object
         String token = jwtUtils.generateJwtToken(auth);
 
@@ -117,33 +119,29 @@ class JwtUtilsTest {
     }
 
     /**
-     * Test: Should detect expired token using short expiration.
+     * Test: Should detect expired token using mocked clock.
      */
     @Test
     @Order(4)
     @DisplayName("Token should be invalid when expired")
-    void shouldFailValidationForExpiredToken() throws InterruptedException {
-        // Create a JwtUtils with very short expiration (100ms)
-        JwtUtils shortExpirationJwtUtils = new JwtUtils();
-        // Use reflection or create a test-specific instance with short expiration
-        // For this test, we'll simulate by setting a past clock
-        
-        Clock pastClock = Clock.fixed(Instant.now().minusSeconds(3600), ZoneId.systemDefault());
-        shortExpirationJwtUtils.setClock(pastClock);
-        
-        // Set the same secret as the main instance
-        // Note: In a real test, you'd inject or configure this properly
-        
+    void shouldFailValidationForExpiredToken() {
+        // Generate a token with current time
         String token = jwtUtils.generateToken(testUser);
-        
-        // Wait a bit to ensure expiration
-        Thread.sleep(200);
-        
-        User springUser = new User("john", "password", List.of(() -> "ROLE_ADMIN"));
-        
-        // The token should eventually be invalid due to our test setup
-        // For a more robust test, you'd need to properly configure expiration
-        assertNotNull(token);
+
+        // Move clock forward beyond expiration (default is usually 86400000ms = 24h)
+        Clock futureClock = Clock.fixed(
+                Instant.now().plusMillis(86400001), // More than 24 hours
+                ZoneId.systemDefault()
+        );
+
+        // Set the future clock to make the token appear expired
+        jwtUtils.setClock(futureClock);
+
+        // The token should now be invalid because it's "expired"
+        assertFalse(jwtUtils.validateToken(token, springUser));
+
+        // Reset clock for other tests
+        jwtUtils.setClock(Clock.systemDefaultZone());
     }
 
     /**
@@ -154,9 +152,9 @@ class JwtUtilsTest {
     @DisplayName("Should extract username from valid token")
     void shouldExtractUsernameFromValidToken() {
         String token = jwtUtils.generateToken(testUser);
-        
+
         String extractedUsername = jwtUtils.getUsernameFromToken(token);
-        
+
         assertEquals("john", extractedUsername);
     }
 
@@ -168,9 +166,9 @@ class JwtUtilsTest {
     @DisplayName("Should validate token structure")
     void shouldValidateTokenStructure() {
         String token = jwtUtils.generateToken(testUser);
-        
+
         assertTrue(jwtUtils.validateJwtToken(token));
-        
+
         // Invalid token should return false
         assertFalse(jwtUtils.validateJwtToken("invalid.token.here"));
     }
@@ -183,7 +181,7 @@ class JwtUtilsTest {
     @DisplayName("Should generate token from user entity")
     void shouldGenerateTokenFromUser() {
         String token = jwtUtils.generateTokenFromUser(testUser);
-        
+
         assertNotNull(token);
         assertEquals("john", jwtUtils.getUsernameFromToken(token));
     }
@@ -198,15 +196,14 @@ class JwtUtilsTest {
         // Generate tokens using both methods
         String token1 = jwtUtils.generateToken(testUser);
         String token2 = jwtUtils.generateTokenFromUser(testUser);
-        
+
         // Both should be valid and extract the same username
         assertNotNull(token1);
         assertNotNull(token2);
-        
-        assertEquals(jwtUtils.getUsernameFromToken(token1), 
-                    jwtUtils.getUsernameFromToken(token2));
-        
-        User springUser = new User("john", "password", List.of(() -> "ROLE_ADMIN"));
+
+        assertEquals(jwtUtils.getUsernameFromToken(token1),
+                jwtUtils.getUsernameFromToken(token2));
+
         assertTrue(jwtUtils.validateToken(token1, springUser));
         assertTrue(jwtUtils.validateToken(token2, springUser));
     }

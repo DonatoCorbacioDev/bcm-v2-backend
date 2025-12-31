@@ -13,11 +13,12 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * CORS (Cross-Origin Resource Sharing) configuration for the Business Contracts Manager API.
+ * CORS (Cross-Origin Resource Sharing) configuration for the Business Contracts
+ * Manager API.
  * <p>
  * This configuration allows cross-origin requests from the frontend application
  * and is environment-aware for enhanced security in production.
- * 
+ *
  * @author Donato Corbacio
  * @version 1.0
  * @since 1.0.0
@@ -26,7 +27,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class CorsConfig {
 
     private final Environment environment;
-    
+
     @Value("${app.frontend-base-url:http://localhost:3000}")
     private String frontendBaseUrl;
 
@@ -37,7 +38,8 @@ public class CorsConfig {
     /**
      * Configures CORS settings based on the active Spring profile.
      * <p>
-     * <strong>Development:</strong> Allows localhost:3000 and common development ports<br>
+     * <strong>Development:</strong> Allows localhost:3000 and common
+     * development ports<br>
      * <strong>Test:</strong> Allows all origins for testing flexibility<br>
      * <strong>Production:</strong> Restricts to configured frontend URL only
      *
@@ -46,55 +48,59 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
+
         // Configure allowed origins based on environment
         if (environment.acceptsProfiles(Profiles.of("test"))) {
-            // Test environment: Allow all origins for testing flexibility
-            configuration.setAllowedOriginPatterns(List.of("*"));
+            // Test environment: Allow localhost origins for integration testing.
+            // Using localhost patterns instead of wildcard for security.
+            configuration.setAllowedOriginPatterns(Arrays.asList(
+                    "http://localhost:*",
+                    "http://127.0.0.1:*"
+            ));
         } else if (environment.acceptsProfiles(Profiles.of("dev"))) {
             // Development environment: Allow common development URLs
             configuration.setAllowedOrigins(Arrays.asList(
-                frontendBaseUrl,
-                "http://localhost:3000",
-                "http://localhost:3001",
-                "http://127.0.0.1:3000"
+                    frontendBaseUrl,
+                    "http://localhost:3000",
+                    "http://localhost:3001",
+                    "http://127.0.0.1:3000"
             ));
         } else {
             // Production environment: Strict origin control
             configuration.setAllowedOrigins(List.of(frontendBaseUrl));
         }
-        
+
         // Configure allowed methods
         configuration.setAllowedMethods(Arrays.asList(
-            "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
         ));
-        
+
         // Configure allowed headers
         configuration.setAllowedHeaders(Arrays.asList(
-            "Authorization",
-            "Content-Type",
-            "X-Requested-With",
-            "Accept",
-            "Origin",
-            "Access-Control-Request-Method",
-            "Access-Control-Request-Headers"
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "Accept",
+                "Origin",
+                "Access-Control-Request-Method",
+                "Access-Control-Request-Headers"
         ));
-        
+
         // Configure exposed headers
         configuration.setExposedHeaders(Arrays.asList(
-            "Access-Control-Allow-Origin",
-            "Access-Control-Allow-Credentials"
+                "Access-Control-Allow-Origin",
+                "Access-Control-Allow-Credentials"
         ));
-        
+
         // Allow credentials for authentication
         configuration.setAllowCredentials(true);
-        
+
         // Cache preflight response for 1 hour
         configuration.setMaxAge(3600L);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
-        
+
         return source;
     }
 }
