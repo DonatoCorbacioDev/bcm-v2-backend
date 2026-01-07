@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.times;
@@ -29,14 +30,17 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.donatodev.bcm_backend.dto.ContractDTO;
+import com.donatodev.bcm_backend.dto.ContractStatsResponse;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
+import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.mapper.ContractMapper;
+import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 
@@ -45,11 +49,11 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
  * <p>
  * Verifies the business logic related to contract management including:
  * <ul>
- *   <li>Retrieving all contracts (for ADMIN and MANAGER)</li>
- *   <li>Fetching contract by ID</li>
- *   <li>Creating, updating and deleting contracts</li>
- *   <li>Handling authentication and user-role filtering</li>
- *   <li>Throwing appropriate exceptions for edge cases</li>
+ * <li>Retrieving all contracts (for ADMIN and MANAGER)</li>
+ * <li>Fetching contract by ID</li>
+ * <li>Creating, updating and deleting contracts</li>
+ * <li>Handling authentication and user-role filtering</li>
+ * <li>Throwing appropriate exceptions for edge cases</li>
  * </ul>
  */
 @ExtendWith(MockitoExtension.class)
@@ -64,6 +68,12 @@ class ContractServiceTest {
 
     @Mock
     private ContractMapper contractMapper;
+
+    @Mock
+    private ContractManagerRepository contractManagerRepository;
+
+    @Mock
+    private ManagerService managerService;
 
     @InjectMocks
     private ContractService contractService;
@@ -86,10 +96,10 @@ class ContractServiceTest {
     @SuppressWarnings("unused")
     class VerifyContractService {
 
-    	/**
-    	 * Tests that ADMIN can retrieve all contracts from the repository
-    	 * and that the returned list contains the expected DTO data.
-    	 */
+        /**
+         * Tests that ADMIN can retrieve all contracts from the repository and
+         * that the returned list contains the expected DTO data.
+         */
         @Test
         @Order(1)
         @DisplayName("Get all contracts as ADMIN")
@@ -136,22 +146,22 @@ class ContractServiceTest {
         }
 
         /**
-         * Tests that ContractNotFoundException is thrown when a contract
-         * with the given ID does not exist in the repository.
+         * Tests that ContractNotFoundException is thrown when a contract with
+         * the given ID does not exist in the repository.
          */
         @Test
         @Order(3)
         @DisplayName("Get contract by ID throws exception if not found")
         void shouldThrowWhenContractNotFound() {
             when(contractsRepository.findById(999L)).thenReturn(Optional.empty());
-            ContractNotFoundException ex =
-                assertThrows(ContractNotFoundException.class, () -> contractService.getContractById(999L));
+            ContractNotFoundException ex
+                    = assertThrows(ContractNotFoundException.class, () -> contractService.getContractById(999L));
             assertEquals("Contract ID 999 not found", ex.getMessage());
         }
 
         /**
-         * Tests that a contract is successfully created and saved to the repository,
-         * and the correct DTO is returned.
+         * Tests that a contract is successfully created and saved to the
+         * repository, and the correct DTO is returned.
          */
         @Test
         @Order(4)
@@ -206,11 +216,10 @@ class ContractServiceTest {
             assertEquals("NEW123", result.contractNumber());
         }
 
-
         /**
-        * Tests that the repository's deleteById method is called when
-        * deleting a contract.
-        */
+         * Tests that the repository's deleteById method is called when deleting
+         * a contract.
+         */
         @Test
         @Order(6)
         @DisplayName("Delete contract calls repository")
@@ -220,8 +229,8 @@ class ContractServiceTest {
         }
 
         /**
-         * Tests that UserNotFoundException is thrown when the current user
-         * is not found in the repository during contract retrieval.
+         * Tests that UserNotFoundException is thrown when the current user is
+         * not found in the repository during contract retrieval.
          */
         @Test
         @Order(7)
@@ -231,13 +240,14 @@ class ContractServiceTest {
             mockAuthentication("ghost", "USER");
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
-            UserNotFoundException ex =
-                assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
+            UserNotFoundException ex
+                    = assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
             assertEquals("User not found", ex.getMessage());
         }
-        
+
         /**
-         * Test retrieving all contracts as a MANAGER should return only those assigned to the manager.
+         * Test retrieving all contracts as a MANAGER should return only those
+         * assigned to the manager.
          */
         @Test
         @Order(8)
@@ -268,7 +278,8 @@ class ContractServiceTest {
         }
 
         /**
-         * Test retrieving contracts filtered by status as a MANAGER should return matching results.
+         * Test retrieving contracts filtered by status as a MANAGER should
+         * return matching results.
          */
         @Test
         @Order(9)
@@ -297,9 +308,10 @@ class ContractServiceTest {
             assertEquals(1, result.size());
             assertEquals("ClientB", result.get(0).customerName());
         }
-        
+
         /**
-         * Test should throw UserNotFoundException when authentication is missing.
+         * Test should throw UserNotFoundException when authentication is
+         * missing.
          */
         @Test
         @Order(10)
@@ -307,35 +319,36 @@ class ContractServiceTest {
         void shouldThrowIfAuthenticationInvalid() {
             SecurityContextHolder.clearContext();
 
-            UserNotFoundException ex =
-                assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
+            UserNotFoundException ex
+                    = assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
             assertEquals("No authenticated user", ex.getMessage());
         }
-        
+
         /**
-         * Test should throw UserNotFoundException when authentication context is null.
+         * Test should throw UserNotFoundException when authentication context
+         * is null.
          */
         @Test
         @Order(11)
         @DisplayName("Should throw if authentication is null")
         void shouldThrowIfAuthenticationNull() {
             SecurityContextHolder.getContext().setAuthentication(null); // Explicitly set authentication to null
-            UserNotFoundException ex =
-                assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
+            UserNotFoundException ex
+                    = assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
             assertEquals("No authenticated user", ex.getMessage());
         }
 
-        
         /**
-         * Test fallback to principal.toString() when principal is not instance of UserDetails.
+         * Test fallback to principal.toString() when principal is not instance
+         * of UserDetails.
          */
         @Test
         @Order(12)
         @DisplayName("Should return principal.toString() if not instance of UserDetails")
         void shouldReturnPrincipalToStringIfNotUserDetails() {
 
-            UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken("basicPrincipal", null, List.of(() -> "ROLE_ADMIN"));
+            UsernamePasswordAuthenticationToken auth
+                    = new UsernamePasswordAuthenticationToken("basicPrincipal", null, List.of(() -> "ROLE_ADMIN"));
 
             SecurityContextHolder.getContext().setAuthentication(auth);
 
@@ -351,60 +364,64 @@ class ContractServiceTest {
 
             assertTrue(result.isEmpty());
         }
-        
+
         /**
-         * Test should throw UserNotFoundException when authentication is present but not authenticated.
+         * Test should throw UserNotFoundException when authentication is
+         * present but not authenticated.
          */
         @Test
         @Order(13)
         @DisplayName("Should throw if authentication not authenticated")
         void shouldThrowIfAuthenticationNotAuthenticated() {
-            UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken("user", null, List.of());
-            auth.setAuthenticated(false); 
+            UsernamePasswordAuthenticationToken auth
+                    = new UsernamePasswordAuthenticationToken("user", null, List.of());
+            auth.setAuthenticated(false);
             SecurityContextHolder.getContext().setAuthentication(auth);
 
-            UserNotFoundException ex =
-                assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
+            UserNotFoundException ex
+                    = assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
             assertEquals("No authenticated user", ex.getMessage());
         }
 
         /**
-         * Test should throw UserNotFoundException when principal is explicitly null.
+         * Test should throw UserNotFoundException when principal is explicitly
+         * null.
          */
         @Test
         @Order(14)
         @DisplayName("Should throw if principal is null")
         void shouldThrowIfPrincipalIsNull() {
-            UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken(null, null, List.of());
+            UsernamePasswordAuthenticationToken auth
+                    = new UsernamePasswordAuthenticationToken(null, null, List.of());
             SecurityContextHolder.getContext().setAuthentication(auth);
 
-            UserNotFoundException ex =
-                assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
+            UserNotFoundException ex
+                    = assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
             assertEquals("No authenticated user", ex.getMessage());
         }
-        
+
         /**
-         * Test should throw UserNotFoundException if user is not found when filtering contracts by status.
+         * Test should throw UserNotFoundException if user is not found when
+         * filtering contracts by status.
          */
         @Test
         @Order(15)
         @DisplayName("Should throw if user not found in getContractsByStatus")
         void shouldThrowIfUserNotFoundInGetContractsByStatus() {
-        	
+
             mockAuthentication("ghost", "USER");
 
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
-            UserNotFoundException ex =
-                assertThrows(UserNotFoundException.class,
-                        () -> contractService.getContractsByStatus(ContractStatus.ACTIVE));
+            UserNotFoundException ex
+                    = assertThrows(UserNotFoundException.class,
+                            () -> contractService.getContractsByStatus(ContractStatus.ACTIVE));
             assertEquals("User not found", ex.getMessage());
         }
-        
+
         /**
-         * Test should throw ContractNotFoundException when trying to update a contract that doesn't exist.
+         * Test should throw ContractNotFoundException when trying to update a
+         * contract that doesn't exist.
          */
         @Test
         @Order(16)
@@ -416,9 +433,182 @@ class ContractServiceTest {
 
             when(contractsRepository.findById(contractId)).thenReturn(Optional.empty());
 
-            ContractNotFoundException ex =
-                assertThrows(ContractNotFoundException.class, () -> contractService.updateContract(contractId, dto));
+            ContractNotFoundException ex
+                    = assertThrows(ContractNotFoundException.class, () -> contractService.updateContract(contractId, dto));
             assertEquals("Contract not found", ex.getMessage());
+        }
+
+        @Test
+        @Order(17)
+        @DisplayName("Get contracts by status as ADMIN")
+        void shouldGetContractsByStatusAsAdmin() {
+            Roles adminRole = Roles.builder().role("ADMIN").build();
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(adminRole)
+                    .build();
+
+            Contracts contract = Contracts.builder()
+                    .id(1L)
+                    .status(ContractStatus.ACTIVE)
+                    .customerName("ClientA")
+                    .build();
+            ContractDTO dto = new ContractDTO(1L, "ClientA", "CON123", "WBS", "Proj",
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+
+            mockAuthentication("admin", "ADMIN");
+
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+            when(contractsRepository.findByStatus(ContractStatus.ACTIVE)).thenReturn(List.of(contract));
+            when(contractMapper.toDTO(contract)).thenReturn(dto);
+
+            List<ContractDTO> result = contractService.getContractsByStatus(ContractStatus.ACTIVE);
+
+            assertEquals(1, result.size());
+            assertEquals("ClientA", result.get(0).customerName());
+        }
+
+        @Test
+        @Order(18)
+        @DisplayName("Get contract stats returns correct counts")
+        void shouldGetContractStats() {
+            when(contractsRepository.countAllContracts()).thenReturn(100);
+            when(contractsRepository.countActiveContracts()).thenReturn(50);
+            when(contractsRepository.countExpiringContracts()).thenReturn(30);
+            when(contractsRepository.countExpiredContracts()).thenReturn(20);
+
+            ContractStatsResponse result = contractService.getContractStats();
+
+            assertEquals(100, result.getTotal());
+            assertEquals(50, result.getActive());
+            assertEquals(30, result.getExpiring());
+            assertEquals(20, result.getExpired());
+        }
+
+        @Test
+        @Order(19)
+        @DisplayName("Assign manager to contract successfully")
+        void shouldAssignManagerToContract() {
+            Long contractId = 1L;
+            Long managerId = 5L;
+
+            Contracts contract = Contracts.builder().id(contractId).build();
+            Managers manager = Managers.builder().id(managerId).build();
+
+            when(contractsRepository.findById(contractId)).thenReturn(Optional.of(contract));
+            when(managerService.getManagerEntity(managerId)).thenReturn(manager);
+            when(contractsRepository.save(contract)).thenReturn(contract);
+
+            contractService.assignManager(contractId, managerId);
+
+            verify(contractsRepository).save(contract);
+            assertEquals(manager, contract.getManager());
+        }
+
+        @Test
+        @Order(20)
+        @DisplayName("Assign manager throws when contract not found")
+        void shouldThrowWhenAssigningManagerToNonExistentContract() {
+            when(contractsRepository.findById(999L)).thenReturn(Optional.empty());
+
+            IllegalArgumentException ex
+                    = assertThrows(IllegalArgumentException.class,
+                            () -> contractService.assignManager(999L, 5L));
+            assertTrue(ex.getMessage().contains("Contract not found"));
+        }
+
+        @Test
+        @Order(21)
+        @DisplayName("Assign manager throws when manager not found")
+        void shouldThrowWhenAssigningNonExistentManager() {
+            Contracts contract = Contracts.builder().id(1L).build();
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(managerService.getManagerEntity(999L)).thenReturn(null);
+
+            ManagerNotFoundException ex
+                    = assertThrows(ManagerNotFoundException.class,
+                            () -> contractService.assignManager(1L, 999L));
+            assertTrue(ex.getMessage().contains("Manager not found"));
+        }
+
+        @Test
+        @Order(22)
+        @DisplayName("Get collaborator IDs returns list of manager IDs")
+        void shouldGetCollaboratorIds() {
+            Long contractId = 1L;
+            Contracts contract = Contracts.builder().id(contractId).build();
+            List<Long> managerIds = List.of(10L, 20L, 30L);
+
+            when(contractsRepository.findById(contractId)).thenReturn(Optional.of(contract));
+            when(contractManagerRepository.findManagerIdsByContractId(contractId)).thenReturn(managerIds);
+
+            List<Long> result = contractService.getCollaboratorIds(contractId);
+
+            assertEquals(3, result.size());
+            assertEquals(10L, result.get(0));
+            assertEquals(20L, result.get(1));
+            assertEquals(30L, result.get(2));
+            verify(contractManagerRepository).findManagerIdsByContractId(contractId);
+        }
+
+        @Test
+        @Order(23)
+        @DisplayName("Get collaborator IDs throws when contract not found")
+        void shouldThrowWhenGettingCollaboratorIdsForNonExistentContract() {
+            when(contractsRepository.findById(999L)).thenReturn(Optional.empty());
+
+            ContractNotFoundException ex
+                    = assertThrows(ContractNotFoundException.class,
+                            () -> contractService.getCollaboratorIds(999L));
+            assertTrue(ex.getMessage().contains("Contract not found"));
+        }
+
+        @Test
+        @Order(24)
+        @DisplayName("Set collaborators with valid manager IDs")
+        void shouldSetCollaborators() {
+            Long contractId = 1L;
+            List<Long> managerIds = List.of(5L, 10L, 15L);
+            Contracts contract = Contracts.builder().id(contractId).build();
+
+            when(contractsRepository.findById(contractId)).thenReturn(Optional.of(contract));
+
+            contractService.setCollaborators(contractId, managerIds);
+
+            verify(contractManagerRepository).deleteAllByContractId(contractId);
+            verify(contractManagerRepository).insertIgnore(contractId, 5L);
+            verify(contractManagerRepository).insertIgnore(contractId, 10L);
+            verify(contractManagerRepository).insertIgnore(contractId, 15L);
+        }
+
+        @Test
+        @Order(25)
+        @DisplayName("Set collaborators with null list removes all collaborators")
+        void shouldSetCollaboratorsWithNull() {
+            Long contractId = 1L;
+            Contracts contract = Contracts.builder().id(contractId).build();
+
+            when(contractsRepository.findById(contractId)).thenReturn(Optional.of(contract));
+
+            contractService.setCollaborators(contractId, null);
+
+            verify(contractManagerRepository).deleteAllByContractId(contractId);
+            verify(contractManagerRepository, times(0)).insertIgnore(any(), any());
+        }
+
+        @Test
+        @Order(26)
+        @DisplayName("Set collaborators throws when contract not found")
+        void shouldThrowWhenSettingCollaboratorsForNonExistentContract() {
+            when(contractsRepository.findById(999L)).thenReturn(Optional.empty());
+
+            List<Long> managerIds = List.of(1L, 2L);
+
+            ContractNotFoundException ex
+                    = assertThrows(ContractNotFoundException.class,
+                            () -> contractService.setCollaborators(999L, managerIds));
+            assertTrue(ex.getMessage().contains("Contract not found"));
         }
     }
 }
