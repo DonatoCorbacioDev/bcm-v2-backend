@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
+import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.repository.FinancialValuesRepository;
@@ -22,10 +23,11 @@ import com.donatodev.bcm_backend.repository.VerificationTokenRepository;
 @Component
 public class TestDataCleaner {
 
-	private final VerificationTokenRepository verificationTokenRepository;
+    private final VerificationTokenRepository verificationTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final ContractHistoryRepository contractHistoryRepository;
     private final FinancialValuesRepository financialValuesRepository;
+    private final ContractManagerRepository contractManagerRepository;
     private final ContractsRepository contractsRepository;
     private final UsersRepository usersRepository;
     private final ManagersRepository managersRepository;
@@ -34,21 +36,23 @@ public class TestDataCleaner {
     private final FinancialTypesRepository financialTypesRepository;
 
     public TestDataCleaner(
-        VerificationTokenRepository verificationTokenRepository,
-        PasswordResetTokenRepository passwordResetTokenRepository,
-        ContractHistoryRepository contractHistoryRepository,
-        FinancialValuesRepository financialValuesRepository,
-        ContractsRepository contractsRepository,
-        UsersRepository usersRepository,
-        ManagersRepository managersRepository,
-        RolesRepository rolesRepository,
-        BusinessAreasRepository businessAreasRepository,
-        FinancialTypesRepository financialTypesRepository
+            VerificationTokenRepository verificationTokenRepository,
+            PasswordResetTokenRepository passwordResetTokenRepository,
+            ContractHistoryRepository contractHistoryRepository,
+            FinancialValuesRepository financialValuesRepository,
+            ContractManagerRepository contractManagerRepository,
+            ContractsRepository contractsRepository,
+            UsersRepository usersRepository,
+            ManagersRepository managersRepository,
+            RolesRepository rolesRepository,
+            BusinessAreasRepository businessAreasRepository,
+            FinancialTypesRepository financialTypesRepository
     ) {
         this.verificationTokenRepository = verificationTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.contractHistoryRepository = contractHistoryRepository;
         this.financialValuesRepository = financialValuesRepository;
+        this.contractManagerRepository = contractManagerRepository;
         this.contractsRepository = contractsRepository;
         this.usersRepository = usersRepository;
         this.managersRepository = managersRepository;
@@ -58,14 +62,17 @@ public class TestDataCleaner {
     }
 
     /**
-     * Deletes all data from the repositories in the proper order.
-     * This effectively cleans the entire database of test data.
+     * Deletes all data from the repositories in the proper order. This
+     * effectively cleans the entire database of test data. Note:
+     * contract_manager must be deleted before contracts to avoid foreign key
+     * violations.
      */
     public void clean() {
         verificationTokenRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
         contractHistoryRepository.deleteAll();
         financialValuesRepository.deleteAll();
+        contractManagerRepository.deleteAll(); // Delete join table first
         contractsRepository.deleteAll();
         usersRepository.deleteAll();
         managersRepository.deleteAll();

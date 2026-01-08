@@ -1,12 +1,13 @@
 package com.donatodev.bcm_backend.service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;           
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,9 +29,9 @@ import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 
 /**
- * Service class managing business logic for contracts.
- * Includes methods to retrieve, search (paged), update, delete and assign managers,
- * with role-based access control (ADMIN vs MANAGER).
+ * Service class managing business logic for contracts. Includes methods to
+ * retrieve, search (paged), update, delete and assign managers, with role-based
+ * access control (ADMIN vs MANAGER).
  */
 @Service
 public class ContractService {
@@ -63,8 +64,8 @@ public class ContractService {
     }
 
     /**
-     * Retrieves all contracts accessible by the authenticated user.
-     * Admins: all contracts; Managers: only their contracts.
+     * Retrieves all contracts accessible by the authenticated user. Admins: all
+     * contracts; Managers: only their contracts.
      */
     public List<ContractDTO> getAllContracts() {
         String username = getAuthenticatedUsername();
@@ -98,7 +99,8 @@ public class ContractService {
     }
 
     /**
-     * Retrieves contracts filtered by status accessible by the authenticated user.
+     * Retrieves contracts filtered by status accessible by the authenticated
+     * user.
      */
     public List<ContractDTO> getContractsByStatus(ContractStatus status) {
         String username = getAuthenticatedUsername();
@@ -161,7 +163,8 @@ public class ContractService {
     public ContractStatsResponse getContractStats() {
         int total = contractsRepository.countAllContracts();
         int active = contractsRepository.countActiveContracts();
-        int expiring = contractsRepository.countExpiringContracts();
+        LocalDate thirtyDaysFromNow = LocalDate.now().plusDays(30);
+        int expiring = contractsRepository.countExpiringContracts(thirtyDaysFromNow);
         int expired = contractsRepository.countExpiredContracts();
         return new ContractStatsResponse(total, active, expiring, expired);
     }
@@ -238,7 +241,6 @@ public class ContractService {
     // -----------------------
     // Helpers Auth
     // -----------------------
-
     /**
      * Current username from SecurityContext.
      */
@@ -255,7 +257,8 @@ public class ContractService {
     }
 
     /**
-     * Returns role ("ADMIN"/"MANAGER") and (if MANAGER) the managerId of the current user.
+     * Returns role ("ADMIN"/"MANAGER") and (if MANAGER) the managerId of the
+     * current user.
      */
     private AuthCtx getAuthCtx() {
         String username = getAuthenticatedUsername();
@@ -267,29 +270,31 @@ public class ContractService {
     }
 
     private record AuthCtx(String role, Long managerId) {
-        boolean isAdmin() { return ContractService.ROLE_ADMIN.equalsIgnoreCase(role); }
+
+        boolean isAdmin() {
+            return ContractService.ROLE_ADMIN.equalsIgnoreCase(role);
+        }
     }
-    
+
     public List<Long> getCollaboratorIds(Long contractId) {
         contractsRepository.findById(contractId)
-            .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
+                .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
         return contractManagerRepository.findManagerIdsByContractId(contractId);
     }
-    
 
     public void setCollaborators(Long contractId, List<Long> managerIds) {
         contractsRepository.findById(contractId)
-            .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
+                .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
 
         contractManagerRepository.deleteAllByContractId(contractId);
-        
+
         if (managerIds != null) {
-            
+
             for (Long mid : managerIds) {
-                    contractManagerRepository.insertIgnore(contractId, mid);
+                contractManagerRepository.insertIgnore(contractId, mid);
             }
-            
+
         }
-    
+
     }
 }

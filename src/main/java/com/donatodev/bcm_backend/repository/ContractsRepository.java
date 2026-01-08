@@ -1,11 +1,13 @@
 package com.donatodev.bcm_backend.repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.donatodev.bcm_backend.entity.ContractStatus;
@@ -36,14 +38,15 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
     List<Contracts> findByManagerId(Long managerId);
 
     /**
-     * Finds all contracts assigned to a specific manager and having the specified status.
+     * Finds all contracts assigned to a specific manager and having the
+     * specified status.
      *
      * @param managerId the ID of the manager
-     * @param status    the contract status to filter by
+     * @param status the contract status to filter by
      * @return a list of matching {@link Contracts}
      */
     List<Contracts> findByManagerIdAndStatus(Long managerId, ContractStatus status);
-    
+
     @Query("SELECT COUNT(c) FROM Contracts c")
     int countAllContracts();
 
@@ -53,13 +56,13 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
     @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.EXPIRED")
     int countExpiredContracts();
 
-    @Query(value = """
-              SELECT COUNT(*) FROM contracts 
-              WHERE status = 'ACTIVE' 
-                AND end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-            """, nativeQuery = true)
-    int countExpiringContracts();
-    
+    @Query("""
+          SELECT COUNT(c) FROM Contracts c 
+          WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE 
+            AND c.endDate BETWEEN CURRENT_DATE AND :endDate
+        """)
+    int countExpiringContracts(@Param("endDate") LocalDate endDate);
+
     Page<Contracts> findAllBy(Pageable pageable);
 
     Page<Contracts> findByStatus(ContractStatus status, Pageable pageable);
