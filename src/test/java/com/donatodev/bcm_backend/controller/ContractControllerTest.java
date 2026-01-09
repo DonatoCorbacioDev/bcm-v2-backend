@@ -571,5 +571,74 @@ class ContractControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content").isArray());
         }
+
+        /**
+         * Test searching contracts with blank status should treat it as null.
+         */
+        @Test
+        @Order(18)
+        @DisplayName("Should treat blank status as null in search")
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        void shouldTreatBlankStatusAsNull() throws Exception {
+            Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
+            Managers manager = managersRepository.save(Managers.builder()
+                    .firstName("Blank").lastName("Manager").email("blank@example.com")
+                    .phoneNumber("123456").department("Blank").build());
+
+            usersRepository.save(Users.builder()
+                    .username("admin").passwordHash("admin").role(role).verified(true).build());
+
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+                    .name("Blank Area").description("Blank").build());
+
+            contractsRepository.save(Contracts.builder()
+                    .customerName("BlankClient").contractNumber("BLANK-1").wbsCode("WBS-BLANK")
+                    .projectName("Blank Project").businessArea(area).manager(manager)
+                    .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(30))
+                    .status(ContractStatus.ACTIVE).build());
+
+            // Pass a blank status (only spaces)
+            mockMvc.perform(get("/contracts/search")
+                    .param("status", "   ")
+                    .param("page", "0")
+                    .param("size", "10"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content").isArray());
+        }
+
+        /**
+         * Test searching contracts with status "ALL" should return all
+         * contracts.
+         */
+        @Test
+        @Order(19)
+        @DisplayName("Should return all contracts when status is ALL")
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        void shouldReturnAllContractsWhenStatusIsAll() throws Exception {
+            Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
+            Managers manager = managersRepository.save(Managers.builder()
+                    .firstName("All").lastName("Manager").email("all@example.com")
+                    .phoneNumber("123456").department("All").build());
+
+            usersRepository.save(Users.builder()
+                    .username("admin").passwordHash("admin").role(role).verified(true).build());
+
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+                    .name("All Area").description("All").build());
+
+            contractsRepository.save(Contracts.builder()
+                    .customerName("AllClient").contractNumber("ALL-1").wbsCode("WBS-ALL")
+                    .projectName("All Project").businessArea(area).manager(manager)
+                    .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(30))
+                    .status(ContractStatus.ACTIVE).build());
+
+            // Pass status = "ALL"
+            mockMvc.perform(get("/contracts/search")
+                    .param("status", "ALL")
+                    .param("page", "0")
+                    .param("size", "10"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content").isArray());
+        }
     }
 }

@@ -336,4 +336,22 @@ class JwtUtilsTest {
         // This should catch ExpiredJwtException and return false
         assertFalse(jwtUtils.validateJwtToken(expiredToken));
     }
+
+    /**
+     * Test: validateToken should return false when username doesn't match.
+     */
+    @Test
+    @Order(17)
+    @DisplayName("Should return false when token username doesn't match UserDetails")
+    void shouldReturnFalseWhenUsernameDoesNotMatch() {
+        // Generate a token for testUser (username: "john")
+        String token = jwtUtils.generateToken(testUser);
+
+        // Create a different Spring Security user with a different username
+        User differentUser = new User("differentUsername", "password", List.of(() -> "ROLE_ADMIN"));
+
+        // Validate the token with a different username
+        // Should return false because username doesn't match
+        assertFalse(jwtUtils.validateToken(token, differentUser));
+    }
 }
