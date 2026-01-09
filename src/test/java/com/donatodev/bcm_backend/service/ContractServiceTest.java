@@ -3,6 +3,7 @@ package com.donatodev.bcm_backend.service;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -15,6 +16,9 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
@@ -615,30 +619,61 @@ class ContractServiceTest {
             assertTrue(ex.getMessage().contains("Contract not found"));
         }
 
-        @Test
+        @ParameterizedTest(name = "[{index}] Search paged as ADMIN: term=''{0}'', status={1}")
+        @MethodSource("provideAdminSearchParameters")
         @Order(27)
-        @DisplayName("Search paged as ADMIN without filters returns all contracts")
-        void shouldSearchPagedAdminWithoutFilters() {
+        @DisplayName("Search paged as ADMIN with various filters")
+        void shouldSearchPagedAdmin(String searchTerm, ContractStatus status, String expectedRepoMethod) {
             Users admin = Users.builder()
                     .username("admin")
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
 
-            Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
-            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+            Contracts contract = Contracts.builder()
+                    .id(1L)
+                    .customerName("TestClient")
+                    .status(ContractStatus.ACTIVE)
+                    .build();
+            ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
             mockAuthentication("admin", "ADMIN");
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findAllBy(any(Pageable.class))).thenReturn(page);
+
+            // Mock repository based on expected method
+            switch (expectedRepoMethod) {
+                case "findAllBy" ->
+                    when(contractsRepository.findAllBy(any(Pageable.class))).thenReturn(page);
+                case "findByStatus" ->
+                    when(contractsRepository.findByStatus(eq(status), any(Pageable.class))).thenReturn(page);
+                case "findByTerm" ->
+                    when(contractsRepository.findByContractNumberContainingIgnoreCaseOrCustomerNameContainingIgnoreCase(
+                            eq(searchTerm), eq(searchTerm), any(Pageable.class))).thenReturn(page);
+                case "findByStatusAndTerm" ->
+                    when(contractsRepository.findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCustomerNameContainingIgnoreCase(
+                            eq(status), eq(searchTerm), eq(status), eq(searchTerm), any(Pageable.class))).thenReturn(page);
+                default ->
+                    throw new IllegalArgumentException("Unexpected repository method: " + expectedRepoMethod);
+            }
+
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
-            Page<ContractDTO> result = contractService.searchPaged(null, null, 0, 10);
+            Page<ContractDTO> result = contractService.searchPaged(searchTerm, status, 0, 10);
 
             assertEquals(1, result.getTotalElements());
-            verify(contractsRepository).findAllBy(any(Pageable.class));
+        }
+
+        private static Stream<Arguments> provideAdminSearchParameters() {
+            return Stream.of(
+                    Arguments.of(null, null, "findAllBy"),
+                    Arguments.of(null, ContractStatus.ACTIVE, "findByStatus"),
+                    Arguments.of("test", null, "findByTerm"),
+                    Arguments.of("test", ContractStatus.ACTIVE, "findByStatusAndTerm"),
+                    Arguments.of("   ", null, "findAllBy"), // blank term
+                    Arguments.of("", null, "findAllBy") // empty term
+            );
         }
 
         @Test
@@ -721,10 +756,11 @@ class ContractServiceTest {
             assertEquals(1, result.getTotalElements());
         }
 
-        @Test
+        @ParameterizedTest(name = "[{index}] Search paged as MANAGER: term=''{0}'', status={1}")
+        @MethodSource("provideManagerSearchParameters")
         @Order(31)
-        @DisplayName("Search paged as MANAGER without filters")
-        void shouldSearchPagedManagerWithoutFilters() {
+        @DisplayName("Search paged as MANAGER with various filters")
+        void shouldSearchPagedManager(String searchTerm, ContractStatus status, String expectedRepoMethod) {
             Managers manager = Managers.builder().id(5L).build();
             Users managerUser = Users.builder()
                     .username("manager")
@@ -732,21 +768,52 @@ class ContractServiceTest {
                     .manager(manager)
                     .build();
 
-            Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
-            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+            Contracts contract = Contracts.builder()
+                    .id(1L)
+                    .customerName("TestClient")
+                    .status(ContractStatus.ACTIVE)
+                    .build();
+            ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
             mockAuthentication("manager", "MANAGER");
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(contractsRepository.findByManagerId(eq(5L), any(Pageable.class))).thenReturn(page);
+
+            Long managerId = 5L;
+
+            // Mock repository based on expected method
+            switch (expectedRepoMethod) {
+                case "findByManagerId" ->
+                    when(contractsRepository.findByManagerId(eq(managerId), any(Pageable.class))).thenReturn(page);
+                case "findByManagerIdAndStatus" ->
+                    when(contractsRepository.findByManagerIdAndStatus(
+                            eq(managerId), eq(status), any(Pageable.class))).thenReturn(page);
+                case "findByManagerIdAndTerm" ->
+                    when(contractsRepository.findByManagerIdAndContractNumberContainingIgnoreCaseOrManagerIdAndCustomerNameContainingIgnoreCase(
+                            eq(managerId), eq(searchTerm), eq(managerId), eq(searchTerm), any(Pageable.class))).thenReturn(page);
+                case "findByManagerIdAndStatusAndTerm" ->
+                    when(contractsRepository.findByManagerIdAndStatusAndContractNumberContainingIgnoreCaseOrManagerIdAndStatusAndCustomerNameContainingIgnoreCase(
+                            eq(managerId), eq(status), eq(searchTerm), eq(managerId), eq(status), eq(searchTerm), any(Pageable.class))).thenReturn(page);
+                default ->
+                    throw new IllegalArgumentException("Unexpected repository method: " + expectedRepoMethod);
+            }
+
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
-            Page<ContractDTO> result = contractService.searchPaged(null, null, 0, 10);
+            Page<ContractDTO> result = contractService.searchPaged(searchTerm, status, 0, 10);
 
             assertEquals(1, result.getTotalElements());
-            verify(contractsRepository).findByManagerId(eq(5L), any(Pageable.class));
+        }
+
+        private static Stream<Arguments> provideManagerSearchParameters() {
+            return Stream.of(
+                    Arguments.of(null, null, "findByManagerId"),
+                    Arguments.of(null, ContractStatus.ACTIVE, "findByManagerIdAndStatus"),
+                    Arguments.of("test", null, "findByManagerIdAndTerm"),
+                    Arguments.of("test", ContractStatus.ACTIVE, "findByManagerIdAndStatusAndTerm")
+            );
         }
 
         @Test
@@ -882,6 +949,165 @@ class ContractServiceTest {
 
             assertEquals(1, result.getTotalElements());
             verify(contractsRepository).findAllBy(any(Pageable.class));
+        }
+
+        @Test
+        @Order(37)
+        @DisplayName("Search paged with blank search term should behave as no term")
+        void shouldSearchPagedWithBlankTerm() {
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .build();
+
+            Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
+            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+
+            Page<Contracts> page = new PageImpl<>(List.of(contract));
+
+            mockAuthentication("admin", "ADMIN");
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+            when(contractsRepository.findAllBy(any(Pageable.class))).thenReturn(page);
+            when(contractMapper.toDTO(contract)).thenReturn(dto);
+
+            // Testing with blank string (only spaces)
+            Page<ContractDTO> result = contractService.searchPaged("   ", null, 0, 10);
+
+            assertEquals(1, result.getTotalElements());
+            verify(contractsRepository).findAllBy(any(Pageable.class));
+        }
+
+        @Test
+        @Order(38)
+        @DisplayName("Search paged with empty string should behave as no term")
+        void shouldSearchPagedWithEmptyString() {
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .build();
+
+            Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
+            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+
+            Page<Contracts> page = new PageImpl<>(List.of(contract));
+
+            mockAuthentication("admin", "ADMIN");
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+            when(contractsRepository.findAllBy(any(Pageable.class))).thenReturn(page);
+            when(contractMapper.toDTO(contract)).thenReturn(dto);
+
+            // Testing with empty string
+            Page<ContractDTO> result = contractService.searchPaged("", null, 0, 10);
+
+            assertEquals(1, result.getTotalElements());
+            verify(contractsRepository).findAllBy(any(Pageable.class));
+        }
+
+        @Test
+        @Order(39)
+        @DisplayName("Search paged should use isAdmin() for both ADMIN and non-ADMIN users")
+        void shouldUseIsAdminMethodForBothRoles() {
+            // Test as ADMIN - forces isAdmin() to return true
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .build();
+
+            Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
+            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+
+            Page<Contracts> page = new PageImpl<>(List.of(contract));
+
+            mockAuthentication("admin", "ADMIN");
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+            when(contractsRepository.findAllBy(any(Pageable.class))).thenReturn(page);
+            when(contractMapper.toDTO(contract)).thenReturn(dto);
+
+            // Call that uses isAdmin() -> true branch
+            Page<ContractDTO> adminResult = contractService.searchPaged(null, null, 0, 10);
+            assertEquals(1, adminResult.getTotalElements());
+
+            // Clear context and test as MANAGER - forces isAdmin() to return false
+            SecurityContextHolder.clearContext();
+
+            Managers manager = Managers.builder().id(5L).build();
+            Users managerUser = Users.builder()
+                    .username("manager")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(manager)
+                    .build();
+
+            mockAuthentication("manager", "MANAGER");
+            when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
+            when(contractsRepository.findByManagerId(eq(5L), any(Pageable.class))).thenReturn(page);
+
+            // Call that uses isAdmin() -> false branch
+            Page<ContractDTO> managerResult = contractService.searchPaged(null, null, 0, 10);
+            assertEquals(1, managerResult.getTotalElements());
+        }
+
+        @Test
+        @Order(40)
+        @DisplayName("AuthCtx isAdmin method should return correct values for different roles")
+        void shouldTestAuthCtxIsAdminMethod() {
+            // Test 1: ADMIN role
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .build();
+
+            Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
+            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+
+            Page<Contracts> page = new PageImpl<>(List.of(contract));
+
+            mockAuthentication("admin", "ADMIN");
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+            when(contractsRepository.findAllBy(any(Pageable.class))).thenReturn(page);
+            when(contractMapper.toDTO(contract)).thenReturn(dto);
+
+            // This forces isAdmin() to be called and return true
+            contractService.searchPaged(null, null, 0, 10);
+
+            verify(contractsRepository).findAllBy(any(Pageable.class));
+
+            // Test 2: MANAGER role (non-admin)
+            SecurityContextHolder.clearContext();
+
+            Managers manager = Managers.builder().id(5L).build();
+            Users managerUser = Users.builder()
+                    .username("manager")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(manager)
+                    .build();
+
+            mockAuthentication("manager", "MANAGER");
+            when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
+            when(contractsRepository.findByManagerId(eq(5L), any(Pageable.class))).thenReturn(page);
+
+            // This forces isAdmin() to be called and return false
+            contractService.searchPaged(null, null, 0, 10);
+
+            verify(contractsRepository).findByManagerId(eq(5L), any(Pageable.class));
+        }
+
+        @Test
+        @Order(41)
+        @DisplayName("Search paged should throw if user not found in getAuthCtx")
+        void shouldThrowIfUserNotFoundInSearchPaged() {
+            mockAuthentication("ghostuser", "USER");
+
+            // User not found in database
+            when(usersRepository.findByUsername("ghostuser")).thenReturn(Optional.empty());
+
+            UserNotFoundException ex = assertThrows(UserNotFoundException.class,
+                    () -> contractService.searchPaged(null, null, 0, 10));
+
+            assertEquals("User not found", ex.getMessage());
         }
     }
 }

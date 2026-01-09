@@ -180,7 +180,7 @@ public class ContractService {
 
         AuthCtx auth = getAuthCtx();
 
-        Page<Contracts> pageResult = auth.isAdmin()
+        Page<Contracts> pageResult = ROLE_ADMIN.equalsIgnoreCase(auth.role())
                 ? searchPagedAdmin(status, hasTerm, term, pageable)
                 : searchPagedManager(auth.managerId(), status, hasTerm, term, pageable);
 
@@ -265,15 +265,17 @@ public class ContractService {
         Users user = usersRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException(MSG_USER_NOT_FOUND));
         String role = user.getRole().getRole();
-        Long managerId = (ROLE_ADMIN.equals(role) || user.getManager() == null) ? null : user.getManager().getId();
+
+        Long managerId = null;
+        if (!ROLE_ADMIN.equals(role) && user.getManager() != null) {
+            managerId = user.getManager().getId();
+        }
+
         return new AuthCtx(role, managerId);
     }
 
     private record AuthCtx(String role, Long managerId) {
 
-        boolean isAdmin() {
-            return ContractService.ROLE_ADMIN.equalsIgnoreCase(role);
-        }
     }
 
     public List<Long> getCollaboratorIds(Long contractId) {
