@@ -21,8 +21,9 @@ import com.donatodev.bcm_backend.repository.RolesRepository;
 /**
  * Unit tests for {@link UserMapper}.
  * <p>
- * Verifies correct mapping between {@link Users} entities and {@link UserDTO} objects,
- * including handling of optional relationships (manager) and error cases for missing entities.
+ * Verifies correct mapping between {@link Users} entities and {@link UserDTO}
+ * objects, including handling of optional relationships (manager) and error
+ * cases for missing entities.
  * </p>
  */
 @SpringBootTest
@@ -60,8 +61,8 @@ class UserMapperTest {
     }
 
     /**
-     * Tests conversion from {@link Users} to {@link UserDTO},
-     * ensuring all fields are correctly mapped except for the password.
+     * Tests conversion from {@link Users} to {@link UserDTO}, ensuring all
+     * fields are correctly mapped except for the password.
      */
     @Test
     void shouldMapToDTOCorrectly() {
@@ -82,7 +83,8 @@ class UserMapperTest {
     }
 
     /**
-     * Tests conversion from {@link UserDTO} to {@link Users} entity with a manager.
+     * Tests conversion from {@link UserDTO} to {@link Users} entity with a
+     * manager.
      */
     @Test
     void shouldMapToEntityWithManager() {
@@ -104,7 +106,8 @@ class UserMapperTest {
     }
 
     /**
-     * Tests conversion from {@link UserDTO} to {@link Users} entity when manager is null.
+     * Tests conversion from {@link UserDTO} to {@link Users} entity when
+     * manager is null.
      */
     @Test
     void shouldMapToEntityWithoutManager() {
@@ -125,7 +128,8 @@ class UserMapperTest {
     }
 
     /**
-     * Tests that a {@link ManagerNotFoundException} is thrown when the manager ID does not exist.
+     * Tests that a {@link ManagerNotFoundException} is thrown when the manager
+     * ID does not exist.
      */
     @Test
     void shouldThrowIfManagerNotFound() {
@@ -143,7 +147,8 @@ class UserMapperTest {
     }
 
     /**
-     * Tests that a {@link RoleNotFoundException} is thrown when the role ID does not exist.
+     * Tests that a {@link RoleNotFoundException} is thrown when the role ID
+     * does not exist.
      */
     @Test
     void shouldThrowIfRoleNotFound() {
@@ -159,5 +164,26 @@ class UserMapperTest {
         Exception ex = assertThrows(RoleNotFoundException.class, () -> userMapper.toEntity(dto));
         assertEquals("Role ID " + invalidRoleId + " not found", ex.getMessage());
     }
-}
 
+    /**
+     * Tests conversion from {@link Users} to {@link UserDTO} when user has no
+     * manager.
+     */
+    @Test
+    void shouldMapToDTOWithoutManager() {
+        Users user = Users.builder()
+                .id(5L)
+                .username("userWithoutManager")
+                .manager(null) // No manager
+                .role(savedRole)
+                .build();
+
+        UserDTO dto = userMapper.toDTO(user);
+
+        assertEquals(user.getId(), dto.id());
+        assertEquals(user.getUsername(), dto.username());
+        assertNull(dto.managerId());  // Should be null when user has no manager
+        assertEquals(savedRole.getId(), dto.roleId());
+        assertNull(dto.password());
+    }
+}

@@ -30,11 +30,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.donatodev.bcm_backend.dto.ForgotPasswordRequestDTO;
 import com.donatodev.bcm_backend.dto.ResetPasswordRequestDTO;
 import com.donatodev.bcm_backend.dto.UserDTO;
+import com.donatodev.bcm_backend.entity.InviteToken;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.PasswordResetToken;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.entity.VerificationToken;
+import com.donatodev.bcm_backend.repository.InviteTokenRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.PasswordResetTokenRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
@@ -45,10 +47,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * Integration tests for AuthController REST API endpoints.
  * <p>
- * This class tests user registration, email verification, login,
- * password reset processes, profile retrieval, error handling,
- * validation, and authorization checks.
- * Uses MockMvc to simulate HTTP requests in a Spring Boot test context.
+ * This class tests user registration, email verification, login, password reset
+ * processes, profile retrieval, error handling, validation, and authorization
+ * checks. Uses MockMvc to simulate HTTP requests in a Spring Boot test context.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -58,37 +59,41 @@ class AuthControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
-    
-    @Autowired 
+
+    @Autowired
     private ObjectMapper objectMapper;
 
-    @Autowired 
+    @Autowired
     private UsersRepository usersRepository;
-    
+
     @Autowired
     private RolesRepository rolesRepository;
-    
-    @Autowired 
+
+    @Autowired
     private ManagersRepository managersRepository;
-    
-    @Autowired 
+
+    @Autowired
     private VerificationTokenRepository verificationTokenRepository;
-    
-    @Autowired 
+
+    @Autowired
     private PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @Autowired
+    private InviteTokenRepository inviteTokenRepository;
 
     private Long roleId;
     private Long managerId;
 
     /**
-     * Setup method executed before each test.
-     * Cleans all relevant repositories and inserts a MANAGER role and a test manager.
+     * Setup method executed before each test. Cleans all relevant repositories
+     * and inserts a MANAGER role and a test manager.
      */
     @BeforeEach
     @SuppressWarnings("unused")
     void setup() {
         verificationTokenRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
+        inviteTokenRepository.deleteAll();  // <-- AGGIUNGI QUESTA RIGA
         usersRepository.deleteAll();
         managersRepository.deleteAll();
         rolesRepository.deleteAll();
@@ -111,8 +116,8 @@ class AuthControllerTest {
         UserDTO dto = new UserDTO(null, "donato", "abc123", managerId, roleId);
 
         mockMvc.perform(post("/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dto)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isCreated())
                 .andExpect(content().string(containsString("Registered user")));
     }
@@ -148,7 +153,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
-            .andExpect(status().isCreated());
+                .andExpect(status().isCreated());
 
         // Verify user manually
         Users user = usersRepository.findByUsername("loginuser").orElseThrow();
@@ -158,8 +163,8 @@ class AuthControllerTest {
         AuthRequestDTO loginDto = new AuthRequestDTO("loginuser", "mypwd123");
 
         mockMvc.perform(post("/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(loginDto)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(loginDto)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").exists());
     }
@@ -178,8 +183,8 @@ class AuthControllerTest {
         ForgotPasswordRequestDTO req = new ForgotPasswordRequestDTO("manager@test.com");
 
         mockMvc.perform(post("/auth/forgot-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Password reset link sent")));
     }
@@ -202,8 +207,8 @@ class AuthControllerTest {
         ResetPasswordRequestDTO req = new ResetPasswordRequestDTO("reset-token", "newpwd");
 
         mockMvc.perform(post("/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Password successfully reset")));
     }
@@ -264,8 +269,8 @@ class AuthControllerTest {
         ResetPasswordRequestDTO req = new ResetPasswordRequestDTO("expired-reset-token", "newpwd");
 
         mockMvc.perform(post("/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(containsString("Token expired")));
     }
@@ -280,8 +285,8 @@ class AuthControllerTest {
         UserDTO dto = new UserDTO(null, "broken", "pass123", 999L, roleId);
 
         mockMvc.perform(post("/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dto)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message").value(containsString("Manager ID 999 not found")));
     }
@@ -295,8 +300,8 @@ class AuthControllerTest {
         ResetPasswordRequestDTO req = new ResetPasswordRequestDTO("non-existent-token", "newpwd");
 
         mockMvc.perform(post("/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(containsString("Invalid token")));
     }
@@ -324,9 +329,9 @@ class AuthControllerTest {
         mockMvc.perform(post("/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalidDto)))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.message").exists())
-            .andExpect(jsonPath("$.message").value(containsString("Password must be at least 6 characters")));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists())
+                .andExpect(jsonPath("$.message").value(containsString("Password must be at least 6 characters")));
     }
 
     /**
@@ -346,8 +351,8 @@ class AuthControllerTest {
         UserDTO dto = new UserDTO(null, "testuser", "password", ghostManagerId, roleId);
 
         mockMvc.perform(post("/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dto)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message").value(containsString("Internal error")));
     }
@@ -365,7 +370,8 @@ class AuthControllerTest {
     }
 
     /**
-     * Test unauthorized response when authentication exists but is not authenticated.
+     * Test unauthorized response when authentication exists but is not
+     * authenticated.
      */
     @Test
     @Order(15)
@@ -390,14 +396,15 @@ class AuthControllerTest {
     }
 
     /**
-     * Test unauthorized response when principal is authenticated but is "anonymousUser".
+     * Test unauthorized response when principal is authenticated but is
+     * "anonymousUser".
      */
     @Test
     @Order(17)
     void shouldReturnUnauthorizedWhenAuthenticatedButPrincipalIsAnonymousUser() throws Exception {
-        org.springframework.security.core.Authentication auth =
-            new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
-                "anonymousUser", "N/A", java.util.Collections.emptyList());
+        org.springframework.security.core.Authentication auth
+                = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        "anonymousUser", "N/A", java.util.Collections.emptyList());
         // No need to call setAuthenticated(true); it's already authenticated
         org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
         mockMvc.perform(get("/auth/me"))
@@ -452,9 +459,9 @@ class AuthControllerTest {
         SecurityContextHolder.getContext().setAuthentication(auth);
 
         mockMvc.perform(get("/auth/me"))
-            .andExpect(status().isOk());
+                .andExpect(status().isOk());
     }
-    
+
     /**
      * Test AuthenticationException when login credentials are invalid.
      */
@@ -470,5 +477,34 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.message").value(containsString("Unauthorized")));
     }
-    
+
+    /**
+     * Test successful completion of invite.
+     */
+    @Test
+    @Order(22)
+    void shouldCompleteInviteSuccessfully() throws Exception {
+        // Create an invite token in the database
+        InviteToken inviteToken = new InviteToken();
+        inviteToken.setToken("valid-invite-token");
+        inviteToken.setUsername("inviteduser");
+        inviteToken.setRole("MANAGER");
+        inviteToken.setManagerId(managerId);
+        inviteToken.setExpiryDate(LocalDateTime.now().plusHours(24));
+        inviteToken.setUsed(false);
+        inviteTokenRepository.save(inviteToken);
+
+        // Create request object manually
+        String requestJson = """
+        {
+            "token": "valid-invite-token",
+            "password": "securePassword123"
+        }
+        """;
+
+        mockMvc.perform(post("/auth/complete-invite")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestJson))
+                .andExpect(status().isNoContent());
+    }
 }

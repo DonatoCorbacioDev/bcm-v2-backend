@@ -46,18 +46,19 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 /**
  * Unit tests for the {@link FinancialValueService} class.
  * <p>
- * This test class verifies the core business logic of financial value operations,
- * including access control, CRUD functionality, and exception handling.
- * It mocks dependencies like {@code FinancialValuesRepository}, {@code UsersRepository},
- * and {@code FinancialValueMapper} using Mockito and uses {@code @ExtendWith(MockitoExtension.class)}
- * to enable Spring-style unit testing with security context support.
+ * This test class verifies the core business logic of financial value
+ * operations, including access control, CRUD functionality, and exception
+ * handling. It mocks dependencies like {@code FinancialValuesRepository},
+ * {@code UsersRepository}, and {@code FinancialValueMapper} using Mockito and
+ * uses {@code @ExtendWith(MockitoExtension.class)} to enable Spring-style unit
+ * testing with security context support.
  * </p>
  */
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
 class FinancialValueServiceTest {
-	
-	private static final String TEST_PASSWORD = "pwd";
+
+    private static final String TEST_PASSWORD = "pwd";
 
     @Mock
     private FinancialValuesRepository valuesRepository;
@@ -83,9 +84,10 @@ class FinancialValueServiceTest {
     @SuppressWarnings("unused")
     class VerifyFinancialValueService {
 
-    	/**
-    	 * Test: Should return all financial values when the authenticated user is an ADMIN.
-    	 */
+        /**
+         * Test: Should return all financial values when the authenticated user
+         * is an ADMIN.
+         */
         @Test
         @Order(1)
         @DisplayName("Get all values as ADMIN")
@@ -115,7 +117,8 @@ class FinancialValueServiceTest {
         }
 
         /**
-         * Test: Should return the financial value DTO when searched by ID as ADMIN.
+         * Test: Should return the financial value DTO when searched by ID as
+         * ADMIN.
          */
         @Test
         @Order(2)
@@ -181,7 +184,8 @@ class FinancialValueServiceTest {
         }
 
         /**
-         * Test: Should throw FinancialValueNotFoundException if value is not found by ID.
+         * Test: Should throw FinancialValueNotFoundException if value is not
+         * found by ID.
          */
         @ParameterizedTest
         @Order(4)
@@ -189,8 +193,8 @@ class FinancialValueServiceTest {
         @DisplayName("Delete should throw FinancialValueNotFoundException for missing IDs")
         void shouldThrowWhenDeletingMissing(long id) {
             when(valuesRepository.findById(id)).thenReturn(Optional.empty());
-            FinancialValueNotFoundException ex =
-                assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(id));
+            FinancialValueNotFoundException ex
+                    = assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(id));
             assertEquals("Financial value ID " + id + " not found", ex.getMessage());
         }
 
@@ -215,9 +219,10 @@ class FinancialValueServiceTest {
             assertEquals(1L, result.id());
             assertEquals(300.0, result.financialAmount());
         }
-        
+
         /**
-         * Test: Should return only the manager's own financial values when user is MANAGER.
+         * Test: Should return only the manager's own financial values when user
+         * is MANAGER.
          */
         @Test
         @Order(6)
@@ -257,7 +262,8 @@ class FinancialValueServiceTest {
         }
 
         /**
-         * Test: Should throw SecurityException if a MANAGER tries to access a value not assigned to them.
+         * Test: Should throw SecurityException if a MANAGER tries to access a
+         * value not assigned to them.
          */
         @Test
         @Order(7)
@@ -292,7 +298,7 @@ class FinancialValueServiceTest {
             SecurityException ex = assertThrows(SecurityException.class, () -> service.getValueById(1L));
             assertTrue(ex.getMessage().contains("Access denied"));
         }
-        
+
         @Test
         @Order(8)
         @DisplayName("getAuthenticatedUsername should return null if authentication is null")
@@ -303,7 +309,8 @@ class FinancialValueServiceTest {
         }
 
         /**
-         * Test: Should throw UserNotFoundException if no authentication context is set.
+         * Test: Should throw UserNotFoundException if no authentication context
+         * is set.
          */
         @Test
         @Order(9)
@@ -315,9 +322,10 @@ class FinancialValueServiceTest {
             String result = invokePrivateGetAuthenticatedUsername(service);
             assertEquals("rawPrincipal", result);
         }
-        
+
         /**
-         * Test: Should throw the right exception when user not found in getAllValues.
+         * Test: Should throw the right exception when user not found in
+         * getAllValues.
          */
         @Test
         @Order(10)
@@ -338,9 +346,10 @@ class FinancialValueServiceTest {
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> service.getAllValues());
             assertEquals("User not found", ex.getMessage());
         }
-        
+
         /**
-         * Test: Should throw FinancialValueNotFoundException when a financial value is not found by ID.
+         * Test: Should throw FinancialValueNotFoundException when a financial
+         * value is not found by ID.
          */
         @Test
         @Order(11)
@@ -348,13 +357,14 @@ class FinancialValueServiceTest {
         void shouldThrowIfValueNotFound() {
             when(valuesRepository.findById(999L)).thenReturn(Optional.empty());
 
-            FinancialValueNotFoundException ex =
-                assertThrows(FinancialValueNotFoundException.class, () -> service.getValueById(999L));
+            FinancialValueNotFoundException ex
+                    = assertThrows(FinancialValueNotFoundException.class, () -> service.getValueById(999L));
             assertEquals("Financial value ID 999 not found", ex.getMessage());
         }
 
         /**
-         * Test: Should throw SecurityException when a MANAGER tries to delete a value not assigned to their contract.
+         * Test: Should throw SecurityException when a MANAGER tries to delete a
+         * value not assigned to their contract.
          */
         @Test
         @Order(12)
@@ -389,7 +399,8 @@ class FinancialValueServiceTest {
         }
 
         /**
-         * Test: Should throw UserNotFoundException if authentication exists but the user is not authenticated.
+         * Test: Should throw UserNotFoundException if authentication exists but
+         * the user is not authenticated.
          */
         @Test
         @Order(13)
@@ -403,9 +414,10 @@ class FinancialValueServiceTest {
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> service.getAllValues());
             assertEquals("User not found", ex.getMessage());
         }
-        
+
         /**
-         * Test: Should throw UserNotFoundException when checkAccessToFinancialValue is invoked and user is not found.
+         * Test: Should throw UserNotFoundException when
+         * checkAccessToFinancialValue is invoked and user is not found.
          */
         @Test
         @Order(14)
@@ -434,9 +446,10 @@ class FinancialValueServiceTest {
             Throwable cause = thrown.getCause();
             assertTrue(cause instanceof UserNotFoundException);
         }
- 
+
         /**
-         * Test: Should throw SecurityException when updating a financial value with a manager not assigned to the contract.
+         * Test: Should throw SecurityException when updating a financial value
+         * with a manager not assigned to the contract.
          */
         @Test
         @Order(15)
@@ -471,9 +484,10 @@ class FinancialValueServiceTest {
             SecurityException ex = assertThrows(SecurityException.class, () -> service.updateValue(1L, dto));
             assertTrue(ex.getMessage().contains("Access denied"));
         }
-        
+
         /**
-         * Test: Should throw FinancialValueNotFoundException if updating a financial value that does not exist.
+         * Test: Should throw FinancialValueNotFoundException if updating a
+         * financial value that does not exist.
          */
         @Test
         @Order(16)
@@ -483,13 +497,14 @@ class FinancialValueServiceTest {
 
             FinancialValueDTO dto = new FinancialValueDTO(999L, 1, 2024, 100.0, 1L, 1L, 1L);
 
-            FinancialValueNotFoundException ex =
-                assertThrows(FinancialValueNotFoundException.class, () -> service.updateValue(999L, dto));
+            FinancialValueNotFoundException ex
+                    = assertThrows(FinancialValueNotFoundException.class, () -> service.updateValue(999L, dto));
             assertEquals("Financial value ID 999 not found", ex.getMessage());
         }
 
         /**
-         * Test: Should throw FinancialValueNotFoundException when deleting a financial value that does not exist.
+         * Test: Should throw FinancialValueNotFoundException when deleting a
+         * financial value that does not exist.
          */
         @Test
         @Order(17)
@@ -497,13 +512,14 @@ class FinancialValueServiceTest {
         void shouldThrowWhenDeletingNonexistentValue() {
             when(valuesRepository.findById(999L)).thenReturn(Optional.empty());
 
-            FinancialValueNotFoundException ex =
-                assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(999L));
+            FinancialValueNotFoundException ex
+                    = assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(999L));
             assertEquals("Financial value ID 999 not found", ex.getMessage());
         }
 
         /**
-         * Test: Should throw UserNotFoundException if username is not found in the user repository.
+         * Test: Should throw UserNotFoundException if username is not found in
+         * the user repository.
          */
         @Test
         @Order(18)
@@ -526,7 +542,8 @@ class FinancialValueServiceTest {
         }
 
         /**
-         * Test: Should allow manager to access financial value when the contract is assigned to them.
+         * Test: Should allow manager to access financial value when the
+         * contract is assigned to them.
          */
         @Test
         @Order(19)
@@ -575,6 +592,21 @@ class FinancialValueServiceTest {
             } catch (InvocationTargetException e) {
                 throw new RuntimeException(e.getTargetException());
             }
+        }
+
+        /**
+         * Test: Should return null when principal is null in authentication.
+         */
+        @Test
+        @Order(20)
+        @DisplayName("getAuthenticatedUsername should return null when principal is null")
+        void shouldReturnNullWhenPrincipalIsNull() {
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(null, null, List.of());
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            // This will cause getAllValues to throw UserNotFoundException because username will be null
+            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> service.getAllValues());
+            assertEquals("User not found", ex.getMessage());
         }
     }
 }

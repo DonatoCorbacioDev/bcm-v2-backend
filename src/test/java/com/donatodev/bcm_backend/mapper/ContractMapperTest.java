@@ -27,8 +27,8 @@ import com.donatodev.bcm_backend.util.TestDataCleaner;
  * Integration tests for {@link ContractMapper}.
  * <p>
  * This test class verifies the correctness of the conversion logic between
- * {@link Contracts} entities and {@link ContractDTO} objects, including
- * various edge cases such as missing business areas or managers.
+ * {@link Contracts} entities and {@link ContractDTO} objects, including various
+ * edge cases such as missing business areas or managers.
  * </p>
  */
 @SpringBootTest
@@ -59,12 +59,12 @@ class ContractMapperTest {
     /**
      * Cleans the test database and sets up common test data before each test.
      */
-    @SuppressWarnings("unused") 
+    @SuppressWarnings("unused")
     @BeforeEach
     void setup() {
         cleaner.clean();
 
-        contractManagerRepository.deleteAll(); 
+        contractManagerRepository.deleteAll();
         contractsRepository.deleteAll();
         businessAreasRepository.deleteAll();
         managersRepository.deleteAll();
@@ -186,5 +186,42 @@ class ContractMapperTest {
         RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
         assertEquals("Manager not found", ex.getMessage());
     }
-}
 
+    /**
+     * Tests that toDTO returns null when given a null contract.
+     */
+    @Test
+    void shouldReturnNullWhenToDTOGivenNull() {
+        ContractDTO dto = contractMapper.toDTO(null);
+        assertNull(dto);
+    }
+
+    /**
+     * Tests that toEntity returns null when given a null DTO.
+     */
+    @Test
+    void shouldReturnNullWhenToEntityGivenNull() {
+        Contracts contract = contractMapper.toEntity(null);
+        assertNull(contract);
+    }
+
+    /**
+     * Tests mapping from DTO to entity when both area and manager are null.
+     */
+    @Test
+    void shouldMapToEntityWithNullAreaAndManager() {
+        ContractDTO dto = new ContractDTO(
+                7L, "ClientNoArea", "CN-007", "WBS-007", "NoAreaProject",
+                ContractStatus.ACTIVE,
+                LocalDate.now(), LocalDate.now().plusMonths(2),
+                null, // No area ID
+                null); // No manager ID
+
+        Contracts contract = contractMapper.toEntity(dto);
+
+        assertEquals("ClientNoArea", contract.getCustomerName());
+        assertEquals(ContractStatus.ACTIVE, contract.getStatus());
+        assertNull(contract.getBusinessArea());  // Should be null
+        assertNull(contract.getManager());       // Should be null
+    }
+}

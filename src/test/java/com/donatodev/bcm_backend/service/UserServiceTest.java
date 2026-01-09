@@ -1254,5 +1254,68 @@ class UserServiceTest {
 
             verify(usersRepository).findAll(any(Specification.class), eq(pageable));
         }
+
+        /**
+         * Test: Should throw exception if manager not found during complete
+         * invite.
+         */
+        @Test
+        @Order(58)
+        @DisplayName("Complete invite fails if manager not found")
+        void shouldThrowIfManagerNotFoundOnCompleteInvite() {
+            String token = "valid-token";
+            InviteToken inviteToken = InviteToken.builder()
+                    .token(token)
+                    .username("newuser")
+                    .role("MANAGER")
+                    .managerId(999L)
+                    .expiryDate(LocalDateTime.now().plusHours(24))
+                    .used(false)
+                    .build();
+
+            when(inviteTokenRepository.findByToken(token)).thenReturn(Optional.of(inviteToken));
+            when(usersRepository.existsByUsername("newuser")).thenReturn(false);
+            when(usersRepository.existsByManagerId(999L)).thenReturn(false);
+            when(managersRepository.findById(999L)).thenReturn(Optional.empty());
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> userService.completeInvite(token, "password"));
+
+            assertEquals("Manager not found", ex.getMessage());
+            verify(usersRepository, never()).save(any(Users.class));
+        }
+
+        /**
+         * Test: Should throw exception if role not found during complete
+         * invite.
+         */
+        @Test
+        @Order(59)
+        @DisplayName("Complete invite fails if role not found")
+        void shouldThrowIfRoleNotFoundOnCompleteInvite() {
+            String token = "valid-token";
+            Managers manager = Managers.builder().id(1L).email("mgr@company.com").build();
+
+            InviteToken inviteToken = InviteToken.builder()
+                    .token(token)
+                    .username("newuser")
+                    .role("INVALIDROLE")
+                    .managerId(1L)
+                    .expiryDate(LocalDateTime.now().plusHours(24))
+                    .used(false)
+                    .build();
+
+            when(inviteTokenRepository.findByToken(token)).thenReturn(Optional.of(inviteToken));
+            when(usersRepository.existsByUsername("newuser")).thenReturn(false);
+            when(usersRepository.existsByManagerId(1L)).thenReturn(false);
+            when(managersRepository.findById(1L)).thenReturn(Optional.of(manager));
+            when(rolesRepository.findByRole("INVALIDROLE")).thenReturn(Optional.empty());
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> userService.completeInvite(token, "password"));
+
+            assertEquals("Role not found: INVALIDROLE", ex.getMessage());
+            verify(usersRepository, never()).save(any(Users.class));
+        }
     }
 }

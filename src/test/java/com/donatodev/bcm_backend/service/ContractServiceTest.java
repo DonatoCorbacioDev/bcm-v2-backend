@@ -851,5 +851,37 @@ class ContractServiceTest {
 
             assertEquals(0, result.getTotalElements());
         }
+
+        /**
+         * Test: Should return managerId as null when user is ADMIN in
+         * searchPaged.
+         */
+        @Test
+        @Order(36)
+        @DisplayName("getAuthCtx should return null managerId for ADMIN role")
+        void shouldReturnNullManagerIdForAdminInSearchPaged() {
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .manager(Managers.builder().id(100L).build()) // Admin has a manager but should be ignored
+                    .build();
+
+            Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
+            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+
+            Page<Contracts> page = new PageImpl<>(List.of(contract));
+
+            mockAuthentication("admin", "ADMIN");
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+            when(contractsRepository.findAllBy(any(Pageable.class))).thenReturn(page);
+            when(contractMapper.toDTO(contract)).thenReturn(dto);
+
+            // This should trigger the ADMIN branch in getAuthCtx where managerId becomes null
+            Page<ContractDTO> result = contractService.searchPaged(null, null, 0, 10);
+
+            assertEquals(1, result.getTotalElements());
+            verify(contractsRepository).findAllBy(any(Pageable.class));
+        }
     }
 }

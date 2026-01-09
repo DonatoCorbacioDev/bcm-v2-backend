@@ -536,5 +536,40 @@ class ContractControllerTest {
                     .param("size", "10"))
                     .andExpect(status().isOk());
         }
+
+        /**
+         * Test searching contracts with invalid status should ignore it and
+         * continue.
+         */
+        @Test
+        @Order(17)
+        @DisplayName("Should ignore invalid status in search and continue")
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        void shouldIgnoreInvalidStatusInSearch() throws Exception {
+            Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
+            Managers manager = managersRepository.save(Managers.builder()
+                    .firstName("Test").lastName("Manager").email("test@example.com")
+                    .phoneNumber("123456").department("Test").build());
+
+            usersRepository.save(Users.builder()
+                    .username("admin").passwordHash("admin").role(role).verified(true).build());
+
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+                    .name("Test Area").description("Test").build());
+
+            contractsRepository.save(Contracts.builder()
+                    .customerName("TestClient").contractNumber("TEST-1").wbsCode("WBS-TEST")
+                    .projectName("Test Project").businessArea(area).manager(manager)
+                    .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(30))
+                    .status(ContractStatus.ACTIVE).build());
+
+            // Pass an invalid status that will be caught and ignored
+            mockMvc.perform(get("/contracts/search")
+                    .param("status", "INVALID_STATUS_IGNORED")
+                    .param("page", "0")
+                    .param("size", "10"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content").isArray());
+        }
     }
 }

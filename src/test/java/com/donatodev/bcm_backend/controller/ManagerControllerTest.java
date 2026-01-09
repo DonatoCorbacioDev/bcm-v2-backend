@@ -18,6 +18,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -30,10 +31,11 @@ import com.donatodev.bcm_backend.util.TestDataCleaner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Integration tests for {@link com.donatodev.bcm_backend.controller.ManagerController}.
+ * Integration tests for
+ * {@link com.donatodev.bcm_backend.controller.ManagerController}.
  * <p>
- * This class verifies the behavior of the REST endpoints related to the {@code Managers} entity,
- * including creation, retrieval, update, and deletion.
+ * This class verifies the behavior of the REST endpoints related to the
+ * {@code Managers} entity, including creation, retrieval, update, and deletion.
  * </p>
  * <p>
  * Each test runs in isolation using a test profile and in-memory database, with
@@ -88,8 +90,8 @@ class ManagerControllerTest {
             ManagerDTO dto = new ManagerDTO(null, "Francesco", "Neri", "francesco.neri@example.com", "1234567890", "IT");
 
             mockMvc.perform(post("/managers")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(dto)))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(dto)))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.firstName").value("Francesco"));
         }
@@ -153,8 +155,8 @@ class ManagerControllerTest {
             ManagerDTO updatedDTO = new ManagerDTO(original.getId(), "Marco", "Verdi", "marco@example.com", "999", "Marketing");
 
             mockMvc.perform(put("/managers/{id}", original.getId())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(updatedDTO)))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(updatedDTO)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.firstName").value("Marco"))
                     .andExpect(jsonPath("$.lastName").value("Verdi"));
@@ -190,6 +192,72 @@ class ManagerControllerTest {
         void shouldReturnNotFoundForInvalidId() throws Exception {
             mockMvc.perform(get("/managers/{id}", 9999L))
                     .andExpect(status().isNotFound());
+        }
+
+        /**
+         * Test searching managers with pagination.
+         */
+        @Test
+        @Order(7)
+        @DisplayName("Should search managers with pagination")
+        @WithMockUser(roles = "ADMIN")
+        void shouldSearchManagers() throws Exception {
+            repository.saveAll(List.of(
+                    Managers.builder().firstName("John").lastName("Doe").email("john@example.com")
+                            .phoneNumber("111").department("IT").build(),
+                    Managers.builder().firstName("Jane").lastName("Smith").email("jane@example.com")
+                            .phoneNumber("222").department("HR").build()
+            ));
+
+            mockMvc.perform(get("/managers/search")
+                    .param("q", "John")
+                    .param("page", "0")
+                    .param("size", "10"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content").isArray())
+                    .andExpect(jsonPath("$.totalElements").exists());
+        }
+
+        /**
+         * Test searching managers without query parameter.
+         */
+        @Test
+        @Order(8)
+        @DisplayName("Should search managers without query parameter")
+        @WithMockUser(roles = "ADMIN")
+        void shouldSearchManagersWithoutQuery() throws Exception {
+            repository.save(Managers.builder().firstName("Test").lastName("Manager")
+                    .email("test@example.com").phoneNumber("333").department("Sales").build());
+
+            mockMvc.perform(get("/managers/search")
+                    .param("page", "0")
+                    .param("size", "10"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content").isArray());
+        }
+
+        /**
+         * Test patching/updating a manager using PATCH method.
+         */
+        @Test
+        @Order(9)
+        @DisplayName("The manager has been patched successfully")
+        @WithMockUser(roles = "ADMIN")
+        void shouldPatchManager() throws Exception {
+            Managers original = repository.save(
+                    Managers.builder().firstName("OldName").lastName("OldLast")
+                            .email("old@example.com").phoneNumber("000").department("OldDept").build()
+            );
+
+            ManagerDTO patchedDTO = new ManagerDTO(original.getId(), "NewName", "NewLast",
+                    "new@example.com", "999", "NewDept");
+
+            mockMvc.perform(patch("/managers/{id}", original.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(patchedDTO)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.firstName").value("NewName"))
+                    .andExpect(jsonPath("$.lastName").value("NewLast"));
         }
     }
 }

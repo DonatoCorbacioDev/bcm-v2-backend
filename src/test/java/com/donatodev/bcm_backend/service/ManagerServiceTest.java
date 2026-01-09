@@ -18,6 +18,11 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.donatodev.bcm_backend.dto.ManagerDTO;
@@ -29,15 +34,15 @@ import com.donatodev.bcm_backend.repository.ManagersRepository;
 /**
  * Unit tests for {@link ManagerService}.
  * <p>
- * Verifies the behavior of the service layer responsible for manager-related operations.
- * This includes:
+ * Verifies the behavior of the service layer responsible for manager-related
+ * operations. This includes:
  * <ul>
- *     <li>Retrieving all managers</li>
- *     <li>Fetching a manager by ID</li>
- *     <li>Handling missing managers</li>
- *     <li>Creating a new manager</li>
- *     <li>Updating an existing manager</li>
- *     <li>Deleting a manager by ID</li>
+ * <li>Retrieving all managers</li>
+ * <li>Fetching a manager by ID</li>
+ * <li>Handling missing managers</li>
+ * <li>Creating a new manager</li>
+ * <li>Updating an existing manager</li>
+ * <li>Deleting a manager by ID</li>
  * </ul>
  * <p>
  * Tests are executed in order using {@link TestMethodOrder} with {@link Order}.
@@ -61,9 +66,10 @@ class ManagerServiceTest {
     @SuppressWarnings("unused")
     class VerifyManagerService {
 
-    	/**
-    	 * Verifies that a list of ManagerDTOs is returned correctly from the repository.
-    	 */
+        /**
+         * Verifies that a list of ManagerDTOs is returned correctly from the
+         * repository.
+         */
         @Test
         @Order(1)
         @DisplayName("Get all managers returns list of DTOs")
@@ -99,7 +105,8 @@ class ManagerServiceTest {
         }
 
         /**
-         * Verifies that {@link com.donatodev.bcm_backend.exception.ManagerNotFoundException} 
+         * Verifies that
+         * {@link com.donatodev.bcm_backend.exception.ManagerNotFoundException}
          * is thrown when the manager ID does not exist.
          */
         @Test
@@ -107,8 +114,8 @@ class ManagerServiceTest {
         @DisplayName("Get manager by ID throws exception if not found")
         void shouldThrowIfManagerNotFound() {
             when(managersRepository.findById(999L)).thenReturn(Optional.empty());
-            ManagerNotFoundException ex =
-                assertThrows(ManagerNotFoundException.class, () -> managerService.getManagerById(999L));
+            ManagerNotFoundException ex
+                    = assertThrows(ManagerNotFoundException.class, () -> managerService.getManagerById(999L));
             assertEquals("Manager ID 999 not found", ex.getMessage());
         }
 
@@ -135,7 +142,8 @@ class ManagerServiceTest {
         }
 
         /**
-         * Verifies that an existing manager is updated correctly and the updated DTO is returned.
+         * Verifies that an existing manager is updated correctly and the
+         * updated DTO is returned.
          */
         @Test
         @Order(5)
@@ -155,11 +163,11 @@ class ManagerServiceTest {
             assertEquals("Marketing", result.department());
         }
 
-
         /**
-        * Verifies that {@link com.donatodev.bcm_backend.exception.ManagerNotFoundException} 
-        * is thrown if the manager to update does not exist.
-        */
+         * Verifies that
+         * {@link com.donatodev.bcm_backend.exception.ManagerNotFoundException}
+         * is thrown if the manager to update does not exist.
+         */
         @Test
         @Order(6)
         @DisplayName("Update manager throws exception if not found")
@@ -167,13 +175,14 @@ class ManagerServiceTest {
             ManagerDTO dto = new ManagerDTO(1L, "Giulia", "Moretti", "giulia@example.com", "777888999", "Sales");
             when(managersRepository.findById(1L)).thenReturn(Optional.empty());
 
-            ManagerNotFoundException ex =
-                assertThrows(ManagerNotFoundException.class, () -> managerService.updateManager(1L, dto));
+            ManagerNotFoundException ex
+                    = assertThrows(ManagerNotFoundException.class, () -> managerService.updateManager(1L, dto));
             assertEquals("Manager ID 1 not found", ex.getMessage());
         }
 
         /**
-         * Verifies that the repository method is called to delete the manager by ID.
+         * Verifies that the repository method is called to delete the manager
+         * by ID.
          */
         @Test
         @Order(7)
@@ -181,6 +190,96 @@ class ManagerServiceTest {
         void shouldDeleteManager() {
             managerService.deleteManager(1L);
             verify(managersRepository, times(1)).deleteById(1L);
+        }
+
+        @Test
+        @Order(8)
+        @DisplayName("Search managers with null query returns all managers paginated")
+        void shouldSearchManagersWithNullQuery() {
+            Managers entity = Managers.builder().id(1L).firstName("Mario").lastName("Rossi").build();
+            ManagerDTO dto = new ManagerDTO(1L, "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
+
+            Page<Managers> page = new PageImpl<>(List.of(entity));
+            Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
+
+            when(managersRepository.findAll(pageable)).thenReturn(page);
+            when(managerMapper.toDTO(entity)).thenReturn(dto);
+
+            Page<ManagerDTO> result = managerService.searchManagers(null, 0, 10);
+
+            assertEquals(1, result.getTotalElements());
+            assertEquals("Mario", result.getContent().get(0).firstName());
+            verify(managersRepository, times(1)).findAll(pageable);
+        }
+
+        @Test
+        @Order(9)
+        @DisplayName("Search managers with blank query returns all managers paginated")
+        void shouldSearchManagersWithBlankQuery() {
+            Managers entity = Managers.builder().id(1L).firstName("Mario").lastName("Rossi").build();
+            ManagerDTO dto = new ManagerDTO(1L, "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
+
+            Page<Managers> page = new PageImpl<>(List.of(entity));
+            Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
+
+            when(managersRepository.findAll(pageable)).thenReturn(page);
+            when(managerMapper.toDTO(entity)).thenReturn(dto);
+
+            Page<ManagerDTO> result = managerService.searchManagers("   ", 0, 10);
+
+            assertEquals(1, result.getTotalElements());
+            assertEquals("Mario", result.getContent().get(0).firstName());
+            verify(managersRepository, times(1)).findAll(pageable);
+        }
+
+        @Test
+        @Order(10)
+        @DisplayName("Search managers with query term returns filtered results")
+        void shouldSearchManagersWithQuery() {
+            Managers entity = Managers.builder().id(1L).firstName("Mario").lastName("Rossi").build();
+            ManagerDTO dto = new ManagerDTO(1L, "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
+
+            Page<Managers> page = new PageImpl<>(List.of(entity));
+            Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
+
+            when(managersRepository.findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
+                    "Mario", "Mario", "Mario", pageable)).thenReturn(page);
+            when(managerMapper.toDTO(entity)).thenReturn(dto);
+
+            Page<ManagerDTO> result = managerService.searchManagers("Mario", 0, 10);
+
+            assertEquals(1, result.getTotalElements());
+            assertEquals("Mario", result.getContent().get(0).firstName());
+            verify(managersRepository, times(1)).findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
+                    "Mario", "Mario", "Mario", pageable);
+        }
+
+        @Test
+        @Order(11)
+        @DisplayName("Get manager entity returns entity when found")
+        void shouldGetManagerEntity() {
+            Managers entity = Managers.builder().id(1L).firstName("Mario").lastName("Rossi").build();
+
+            when(managersRepository.findById(1L)).thenReturn(Optional.of(entity));
+
+            Managers result = managerService.getManagerEntity(1L);
+
+            assertEquals(1L, result.getId());
+            assertEquals("Mario", result.getFirstName());
+        }
+
+        @Test
+        @Order(12)
+        @DisplayName("Get manager entity throws exception when not found")
+        void shouldThrowWhenGetManagerEntityNotFound() {
+            when(managersRepository.findById(999L)).thenReturn(Optional.empty());
+
+            ManagerNotFoundException ex = assertThrows(
+                    ManagerNotFoundException.class,
+                    () -> managerService.getManagerEntity(999L)
+            );
+
+            assertEquals("Manager ID 999 not found", ex.getMessage());
         }
     }
 }

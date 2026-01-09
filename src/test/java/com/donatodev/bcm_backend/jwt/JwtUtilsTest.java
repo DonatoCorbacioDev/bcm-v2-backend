@@ -207,4 +207,133 @@ class JwtUtilsTest {
         assertTrue(jwtUtils.validateToken(token1, springUser));
         assertTrue(jwtUtils.validateToken(token2, springUser));
     }
+
+    /**
+     * Test: getClock should return the current clock instance.
+     */
+    @Test
+    @Order(9)
+    @DisplayName("Should return clock instance")
+    void shouldReturnClockInstance() {
+        Clock clock = jwtUtils.getClock();
+
+        assertNotNull(clock);
+        // Verify it's a working clock by checking it can provide an instant
+        assertNotNull(clock.instant());
+    }
+
+    /**
+     * Test: validateJwtToken should catch and handle MalformedJwtException.
+     */
+    @Test
+    @Order(10)
+    @DisplayName("Should handle malformed token in validateJwtToken(String)")
+    void shouldHandleMalformedTokenInValidateJwtToken() {
+        // Test with various malformed tokens
+        assertFalse(jwtUtils.validateJwtToken(""));
+        assertFalse(jwtUtils.validateJwtToken("not.a.token"));
+        assertFalse(jwtUtils.validateJwtToken("malformed"));
+        assertFalse(jwtUtils.validateJwtToken("header.payload")); // Missing signature
+    }
+
+    /**
+     * Test: validateJwtToken should catch and handle SignatureException.
+     */
+    @Test
+    @Order(11)
+    @DisplayName("Should handle signature validation failure in validateJwtToken(String)")
+    void shouldHandleSignatureExceptionInValidateJwtToken() {
+        String token = jwtUtils.generateToken(testUser);
+
+        // Tamper with the token by appending characters
+        String tamperedToken = token + "tampered";
+
+        // This should catch SignatureException and return false
+        assertFalse(jwtUtils.validateJwtToken(tamperedToken));
+    }
+
+    /**
+     * Test: validateJwtToken with UserDetails should catch generic exceptions.
+     */
+    @Test
+    @Order(12)
+    @DisplayName("Should handle exception in validateJwtToken(String, UserDetails)")
+    void shouldHandleExceptionInValidateJwtTokenWithUserDetails() {
+        // Use a completely malformed token that will cause an exception during parsing
+        String malformedToken = "not.a.valid.jwt.token.at.all";
+
+        // This should catch the exception and return false
+        assertFalse(jwtUtils.validateJwtToken(malformedToken, springUser));
+    }
+
+    /**
+     * Test: getUsernameFromJwtToken should be an alias for
+     * getUsernameFromToken.
+     */
+    @Test
+    @Order(13)
+    @DisplayName("getUsernameFromJwtToken should work correctly")
+    void shouldExtractUsernameUsingAlternativeMethod() {
+        String token = jwtUtils.generateToken(testUser);
+
+        String username = jwtUtils.getUsernameFromJwtToken(token);
+
+        assertEquals("john", username);
+    }
+
+    /**
+     * Test: getExpirationDateFromToken should return expiration date.
+     */
+    @Test
+    @Order(14)
+    @DisplayName("Should extract expiration date from token")
+    void shouldExtractExpirationDate() {
+        String token = jwtUtils.generateToken(testUser);
+
+        java.util.Date expirationDate = jwtUtils.getExpirationDateFromToken(token);
+
+        assertNotNull(expirationDate);
+        // Expiration should be in the future
+        assertTrue(expirationDate.after(new java.util.Date()));
+    }
+
+    /**
+     * Test: validateJwtToken(String) should return false for null or empty
+     * token.
+     */
+    @Test
+    @Order(15)
+    @DisplayName("Should handle null or empty token gracefully")
+    void shouldHandleNullOrEmptyToken() {
+        // Empty token should return false (catches IllegalArgumentException)
+        assertFalse(jwtUtils.validateJwtToken(""));
+
+        // Malformed tokens should also return false
+        assertFalse(jwtUtils.validateJwtToken("invalid"));
+        assertFalse(jwtUtils.validateJwtToken("invalid.token"));
+    }
+
+    /**
+     * Test: validateJwtToken(String) should handle expired token.
+     */
+    @Test
+    @Order(16)
+    @DisplayName("Should handle expired token in validateJwtToken(String)")
+    void shouldHandleExpiredTokenInValidateJwtTokenString() {
+        // Create a clock set in the past to generate an already-expired token
+        Clock pastClock = Clock.fixed(
+                Instant.now().minusSeconds(86500), // More than 24 hours ago
+                ZoneId.systemDefault()
+        );
+
+        // Generate token with past clock (already expired)
+        jwtUtils.setClock(pastClock);
+        String expiredToken = jwtUtils.generateToken(testUser);
+
+        // Reset clock to current time
+        jwtUtils.setClock(Clock.systemDefaultZone());
+
+        // This should catch ExpiredJwtException and return false
+        assertFalse(jwtUtils.validateJwtToken(expiredToken));
+    }
 }

@@ -41,8 +41,8 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 /**
  * Unit tests for {@link ContractHistoryService}.
  * <p>
- * Covers CRUD operations, access control based on user roles (ADMIN and MANAGER),
- * and exception handling related to contract history records.
+ * Covers CRUD operations, access control based on user roles (ADMIN and
+ * MANAGER), and exception handling related to contract history records.
  * </p>
  */
 @ExtendWith(MockitoExtension.class)
@@ -73,9 +73,9 @@ class ContractHistoryServiceTest {
     @SuppressWarnings("unused")
     class VerifyContractHistoryService {
 
-    	/**
-    	 * Tests that an ADMIN user can retrieve all contract history records.
-    	 */
+        /**
+         * Tests that an ADMIN user can retrieve all contract history records.
+         */
         @Test
         @Order(1)
         @DisplayName("Get all histories as ADMIN")
@@ -91,9 +91,9 @@ class ContractHistoryServiceTest {
             ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.now(), ContractStatus.ACTIVE, ContractStatus.EXPIRED);
 
             SecurityContextHolder.getContext().setAuthentication(
-            		new UsernamePasswordAuthenticationToken(
-            			    new User("admin", "pwd", List.of(() -> "ROLE_ADMIN")), null, List.of(() -> "ROLE_ADMIN")
-            			)
+                    new UsernamePasswordAuthenticationToken(
+                            new User("admin", "pwd", List.of(() -> "ROLE_ADMIN")), null, List.of(() -> "ROLE_ADMIN")
+                    )
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
@@ -125,9 +125,9 @@ class ContractHistoryServiceTest {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
 
             SecurityContextHolder.getContext().setAuthentication(
-            		new UsernamePasswordAuthenticationToken(
-            			    new User("admin", "pwd", List.of(() -> "ROLE_ADMIN")), null, List.of(() -> "ROLE_ADMIN")
-            			)
+                    new UsernamePasswordAuthenticationToken(
+                            new User("admin", "pwd", List.of(() -> "ROLE_ADMIN")), null, List.of(() -> "ROLE_ADMIN")
+                    )
             );
 
             when(historyRepository.findById(1L)).thenReturn(Optional.of(entity));
@@ -227,7 +227,7 @@ class ContractHistoryServiceTest {
             ContractHistoryNotFoundException ex = assertThrows(ContractHistoryNotFoundException.class, () -> historyService.delete(999L));
             assertNotNull(ex);
         }
-        
+
         /**
          * Tests that an ADMIN user can retrieve contract history entries
          */
@@ -267,7 +267,7 @@ class ContractHistoryServiceTest {
             assertEquals(1, result.size());
             assertEquals(ContractStatus.EXPIRED, result.get(0).newStatus());
         }
-        
+
         /**
          * Tests that a MANAGER cannot access contract history by contract ID
          */
@@ -302,10 +302,10 @@ class ContractHistoryServiceTest {
             RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(1L));
             assertNotNull(ex);
         }
-        
+
         /**
-         * Tests that a MANAGER can retrieve contract history entries by contract ID
-         * if they are the owner of the contract.
+         * Tests that a MANAGER can retrieve contract history entries by
+         * contract ID if they are the owner of the contract.
          */
         @Test
         @Order(9)
@@ -330,8 +330,8 @@ class ContractHistoryServiceTest {
             ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.now(), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
 
             SecurityContextHolder.getContext().setAuthentication(
-            	    new UsernamePasswordAuthenticationToken("manager1", null, List.of(() -> "ROLE_MANAGER"))
-            	);
+                    new UsernamePasswordAuthenticationToken("manager1", null, List.of(() -> "ROLE_MANAGER"))
+            );
 
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(user));
             when(historyRepository.findByContractId(1L)).thenReturn(List.of(entity));
@@ -342,10 +342,10 @@ class ContractHistoryServiceTest {
             assertEquals(1, result.size());
             assertEquals(ContractStatus.CANCELLED, result.get(0).newStatus());
         }
-        
+
         /**
-         * Tests that a MANAGER can retrieve all contract histories
-         * where the contracts belong to them.
+         * Tests that a MANAGER can retrieve all contract histories where the
+         * contracts belong to them.
          */
         @Test
         @Order(10)
@@ -377,10 +377,10 @@ class ContractHistoryServiceTest {
             assertEquals(1, result.size());
             assertEquals(1L, result.get(0).id());
         }
-        
+
         /**
-         * Tests that a MANAGER can access a specific contract history
-         * if they are assigned to the contract.
+         * Tests that a MANAGER can access a specific contract history if they
+         * are assigned to the contract.
          */
         @Test
         @Order(11)
@@ -411,10 +411,10 @@ class ContractHistoryServiceTest {
             ContractHistoryDTO result = historyService.getById(1L);
             assertEquals(1L, result.id());
         }
-        
+
         /**
-         * Tests that a MANAGER receives an exception when trying to
-         * access contract histories of a contract they do not own.
+         * Tests that a MANAGER receives an exception when trying to access
+         * contract histories of a contract they do not own.
          */
         @Test
         @Order(12)
@@ -441,17 +441,17 @@ class ContractHistoryServiceTest {
             RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(1L));
             assertNotNull(ex);
         }
-        
+
         /**
-         * Tests that the service throws UserNotFoundException
-         * when the authenticated username does not exist in the database.
+         * Tests that the service throws UserNotFoundException when the
+         * authenticated username does not exist in the database.
          */
         @Test
         @Order(13)
         @DisplayName("Should throw UserNotFoundException if user not found")
         void shouldThrowUserNotFoundException() {
             SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("ghost", null, List.of(() -> "ROLE_MANAGER"))
+                    new UsernamePasswordAuthenticationToken("ghost", null, List.of(() -> "ROLE_MANAGER"))
             );
 
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
@@ -459,10 +459,10 @@ class ContractHistoryServiceTest {
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getAll());
             assertNotNull(ex);
         }
-        
+
         /**
-         * Tests that a MANAGER cannot access a contract history record
-         * if the contract is managed by a different manager.
+         * Tests that a MANAGER cannot access a contract history record if the
+         * contract is managed by a different manager.
          */
         @Test
         @Order(14)
@@ -491,10 +491,11 @@ class ContractHistoryServiceTest {
             RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getById(1L));
             assertNotNull(ex);
         }
-        
+
         /**
-         * Tests that the service throws UserNotFoundException if the user is not authenticated
-         * or if the authentication object is null or explicitly unauthenticated.
+         * Tests that the service throws UserNotFoundException if the user is
+         * not authenticated or if the authentication object is null or
+         * explicitly unauthenticated.
          */
         @Test
         @Order(15)
@@ -504,15 +505,15 @@ class ContractHistoryServiceTest {
             UserNotFoundException ex1 = assertThrows(UserNotFoundException.class, () -> historyService.getAll());
             assertNotNull(ex1);
 
-            UsernamePasswordAuthenticationToken token =
-                    new UsernamePasswordAuthenticationToken("user", null, List.of());
-            token.setAuthenticated(false);  
+            UsernamePasswordAuthenticationToken token
+                    = new UsernamePasswordAuthenticationToken("user", null, List.of());
+            token.setAuthenticated(false);
             SecurityContextHolder.getContext().setAuthentication(token);
 
             UserNotFoundException ex2 = assertThrows(UserNotFoundException.class, () -> historyService.getAll());
             assertNotNull(ex2);
         }
-        
+
         /**
          * Tests that getById throws UserNotFoundException when the
          * authenticated user does not exist in the system.
@@ -533,7 +534,7 @@ class ContractHistoryServiceTest {
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getById(1L));
             assertNotNull(ex);
         }
-        
+
         /**
          * Tests that getByContractId throws UserNotFoundException when the
          * authenticated user does not exist in the database.
@@ -549,6 +550,21 @@ class ContractHistoryServiceTest {
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getByContractId(1L));
+            assertNotNull(ex);
+        }
+
+        /**
+         * Test: Should return null when principal is null in authentication.
+         */
+        @Test
+        @Order(18)
+        @DisplayName("getAuthenticatedUsername should return null when principal is null")
+        void shouldReturnNullWhenPrincipalIsNull() {
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(null, null, List.of());
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            // This should trigger UserNotFoundException when calling getAll()
+            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getAll());
             assertNotNull(ex);
         }
     }
