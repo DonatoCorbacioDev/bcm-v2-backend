@@ -1,8 +1,5 @@
--- Crea il database principale
-CREATE DATABASE bcm;
-
--- Seleziona il database per le operazioni successive
-USE bcm;
+-- V1__initial_schema.sql
+-- Initial database schema for Business Contracts Manager
 
 -- Crea la tabella delle aree di business (settori aziendali)
 CREATE TABLE business_areas (
@@ -108,6 +105,7 @@ CREATE TABLE verification_token (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Crea la tabella dei token di invito
 CREATE TABLE invite_token (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     token VARCHAR(255) NOT NULL UNIQUE,
@@ -119,17 +117,11 @@ CREATE TABLE invite_token (
     CONSTRAINT fk_invite_manager FOREIGN KEY (manager_id) REFERENCES managers(id)
 );
 
--- Query di verifica delle tabelle create
-SELECT * FROM business_areas;
-SELECT * FROM financial_types;
-SELECT * FROM managers;
-SELECT * FROM contracts;
-SELECT * FROM contract_manager;
-SELECT * FROM financial_values;
-SELECT * FROM roles;
-SELECT * FROM users;
-SELECT * FROM contract_history;
-SELECT * FROM verification_token;
-
-
-
+-- Crea la tabella per il reset password
+CREATE TABLE password_reset_token (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    expiry_date DATETIME NOT NULL,
+    user_id BIGINT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
