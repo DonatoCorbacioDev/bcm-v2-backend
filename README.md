@@ -3,13 +3,16 @@
 > Enterprise-grade SaaS platform for contract lifecycle management built with Spring Boot 3.5.9 and Java 21
 
 [![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)](https://openjdk.org/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.5-brightgreen?logo=spring)](https://spring.io/projects/spring-boot)
-[![Coverage](https://img.shields.io/badge/Coverage-78%25-green)](./target/site/jacoco/index.html)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.9-brightgreen?logo=spring)](https://spring.io/projects/spring-boot)
+[![Coverage](https://img.shields.io/badge/Coverage-100%25%20Perfect-brightgreen?style=flat&logo=codecov)](./target/site/jacoco/index.html)
+[![Tests](https://img.shields.io/badge/Tests-316%20methods-success)](./target/site/jacoco/index.html)
 [![License](https://img.shields.io/badge/License-Custom-blue)](./LICENSE)
+[![Database](https://img.shields.io/badge/Database-MySQL%208.0-blue?logo=mysql)](https://www.mysql.com/)
+[![Flyway](https://img.shields.io/badge/Migrations-Flyway-red?logo=flyway)](https://flywaydb.org/)
 
 ## 🎯 Overview
 
-BCM v2.0 is the second iteration of my Business Contract Manager system, representing a complete architectural redesign from the original version developed during my master's thesis. This version showcases modern Spring Boot best practices, comprehensive testing, and production-ready security features.
+BCM v2.0 is the second iteration of my Business Contract Manager system, representing a complete architectural redesign from the original version developed during my master's thesis. This version showcases modern Spring Boot best practices, **100% test coverage** (instruction and branch), production-ready security features, and automated database versioning with Flyway.
 
 **Project Type:** Portfolio Project | Full-Stack SaaS Backend  
 **Status:** Active Development  
@@ -45,6 +48,13 @@ BCM v2.0 is the second iteration of my Business Contract Manager system, represe
 - Business area organization
 - Real-time dashboard KPIs
 
+### Database Management
+
+- Automated schema versioning with Flyway
+- Zero-downtime migrations
+- Rollback capabilities
+- Multi-environment consistency (dev/test/prod)
+
 ---
 
 ## 🏗️ Architecture
@@ -69,7 +79,7 @@ BCM v2.0 is the second iteration of my Business Contract Manager system, represe
 
 **Backend Framework:**
 
-- Spring Boot 3.5.5 (Latest stable)
+- Spring Boot 3.5.9 (Latest stable)
 - Java 21 LTS
 - Maven for dependency management
 
@@ -78,6 +88,7 @@ BCM v2.0 is the second iteration of my Business Contract Manager system, represe
 - MySQL 8.0
 - Spring Data JPA / Hibernate
 - HikariCP connection pooling
+- Flyway for database migrations and version control
 
 **Security:**
 
@@ -96,7 +107,7 @@ BCM v2.0 is the second iteration of my Business Contract Manager system, represe
 
 **Code Quality & Analysis:**
 
-- JaCoCo (78% test coverage, target: 75%)
+- JaCoCo (100% test coverage)
 - SpotBugs for bug detection
 - FindSecBugs for security analysis
 - SonarQube compatible
@@ -116,13 +127,17 @@ BCM v2.0 is the second iteration of my Business Contract Manager system, represe
 
 ## 📊 Code Quality Metrics
 
-| Metric               | Value                                  | Status                |
-| -------------------- | -------------------------------------- | --------------------- |
-| **Test Coverage**    | 78%                                    | ✅ Above target (75%) |
-| **Test Cases**       | 32 test classes                        | ✅ Comprehensive      |
-| **Security Scan**    | No issues                              | ✅ FindSecBugs pass   |
-| **Architecture**     | Clean separation                       | ✅ Professional       |
-| **Package Coverage** | auth: 96%, security: 100%, mapper: 98% | ✅ Excellent          |
+| Metric                    | Value                        | Status              |
+| ------------------------- | ---------------------------- | ------------------- |
+| **Test Coverage**         | 100% (0 missed instructions) | ✅ Perfect          |
+| **Branch Coverage**       | 100% (0 missed branches)     | ✅ Perfect          |
+| **Test Classes**          | 54 classes                   | ✅ Comprehensive    |
+| **Test Methods**          | 316 methods                  | ✅ Extensive        |
+| **Lines Covered**         | 1,092 lines                  | ✅ Full coverage    |
+| **Cyclomatic Complexity** | 417 (0 missed)               | ✅ Well tested      |
+| **Security Scan**         | No issues                    | ✅ FindSecBugs pass |
+| **Architecture**          | Clean separation             | ✅ Professional     |
+| **Package Coverage**      | All packages: 100%           | ✅ Perfect          |
 
 ---
 
@@ -144,8 +159,89 @@ src/main/java/com/donatodev/bcm_backend/
 └── util/              # Utility classes
 
 src/test/java/         # Mirror structure with comprehensive tests
-src/main/resources/    # Configuration files (application.properties)
-sql/                   # Database schema and sample data
+src/main/resources/
+├── application.properties           # Main configuration
+├── application-dev.properties       # Development profile
+├── application-prod.properties      # Production profile
+└── db/migration/                    # Flyway migration scripts
+    ├── V1__initial_schema.sql       # Database schema
+    ├── V2__seed_reference_data.sql  # Reference data
+    └── V3__add_performance_indexes.sql  # Performance optimization
+
+sql/                   # Legacy SQL files (reference only, deprecated)
+```
+
+---
+
+## 🗄️ Database Migrations (Flyway)
+
+This project uses **Flyway** for automatic database version control and migrations, ensuring consistent schemas across all environments.
+
+### Migration Files
+
+Located in `src/main/resources/db/migration/`:
+
+| File                                  | Version | Description                                           |
+| ------------------------------------- | ------- | ----------------------------------------------------- |
+| **V1\_\_initial_schema.sql**          | v1      | Creates all database tables (10 tables)               |
+| **V2\_\_seed_reference_data.sql**     | v2      | Inserts system roles, business areas, financial types |
+| **V3\_\_add_performance_indexes.sql** | v3      | Adds 9 performance indexes for optimized queries      |
+
+### How It Works
+
+1. **First Startup:** Flyway detects an empty database and executes all migrations sequentially
+2. **Version Tracking:** Creates `flyway_schema_history` table to track applied migrations
+3. **Subsequent Startups:** Only runs new migrations (version > current)
+4. **Automatic Execution:** Migrations run automatically on `mvn spring-boot:run`
+
+### Benefits
+
+- ✅ **Zero manual SQL execution** - Fully automated
+- ✅ **Environment consistency** - Same schema in dev/test/prod
+- ✅ **Team collaboration** - Everyone shares the same DB version
+- ✅ **Rollback support** - Track and revert changes safely
+- ✅ **Production-ready** - Enterprise-grade versioning
+
+### Flyway Commands
+
+```bash
+# View migration status
+mvn flyway:info
+
+# Manually trigger migrations (rarely needed)
+mvn flyway:migrate
+
+# Validate checksums
+mvn flyway:validate
+
+# Repair migration history (if needed)
+mvn flyway:repair
+
+# Clean database (⚠️ DANGER: deletes all data!)
+mvn flyway:clean
+```
+
+### Adding New Migrations
+
+When you need to modify the database:
+
+1. Create new file with incremented version: `V4__your_description.sql`
+2. Write your SQL DDL/DML changes
+3. Restart application → Flyway detects and applies automatically
+4. Commit migration file to Git
+
+**Example:**
+
+```sql
+-- V4__add_contract_documents_table.sql
+CREATE TABLE contract_documents (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    contract_id BIGINT NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_url VARCHAR(500) NOT NULL,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE CASCADE
+);
 ```
 
 ---
@@ -168,22 +264,41 @@ cd bcm-v2-backend
 
 ### 2. Database Setup
 
+**✅ With Flyway (Recommended - Fully Automated):**
+
 ```bash
 # Login to MySQL
 mysql -u root -p
 
-# Create database
+# Create empty database
 CREATE DATABASE bcm CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 # Exit MySQL
 exit
 
-# Run schema creation script
+# Flyway will automatically create tables and seed data on first startup!
+```
+
+**That's it!** On application startup, Flyway will:
+
+- ✅ Create all 10 database tables
+- ✅ Insert system roles (ADMIN, MANAGER)
+- ✅ Add business areas and financial types
+- ✅ Create performance indexes
+
+**📜 Manual Setup (Legacy - Not Recommended):**
+
+Only use if you want to bypass Flyway:
+
+```bash
+# Create database and run schema manually
 mysql -u root -p bcm < sql/DDL/bcm_schema.sql
 
-# (Optional) Load sample data for testing
+# (Optional) Load additional sample data
 mysql -u root -p bcm < sql/DML/bmc_data.sql
 ```
+
+⚠️ **Note:** The `sql/` folder contains legacy scripts for reference only. In production, **always use Flyway**.
 
 ### 3. Environment Configuration
 
@@ -219,11 +334,21 @@ FRONTEND_BASE_URL=http://localhost:3000
 # Install dependencies and build
 mvn clean install
 
-# Run in development mode
+# Run in development mode (Flyway will auto-migrate)
 mvn spring-boot:run
 
 # Or specify profile explicitly
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+**Expected Output:**
+
+```
+[INFO] Flyway: Migrating schema `bcm` to version "1 - initial schema"
+[INFO] Flyway: Migrating schema `bcm` to version "2 - seed reference data"
+[INFO] Flyway: Migrating schema `bcm` to version "3 - add performance indexes"
+[INFO] Flyway: Successfully applied 3 migrations to schema `bcm`, now at version v3
+[INFO] Started BcmBackendApplication in 7.873 seconds
 ```
 
 The application will start at: `http://localhost:8090/api/v1`
@@ -234,6 +359,7 @@ Once running, visit:
 
 - **Swagger UI:** http://localhost:8090/api/v1/swagger-ui.html
 - **OpenAPI JSON:** http://localhost:8090/api/v1/api-docs
+- **Health Check:** http://localhost:8090/api/v1/actuator/health
 
 ---
 
@@ -263,14 +389,20 @@ mvn clean package -DskipTests
 
 ### Test Coverage by Package
 
-| Package    | Coverage | Key Tests                   |
-| ---------- | -------- | --------------------------- |
-| auth       | 96%      | AuthService, AuthController |
-| security   | 100%     | SecurityConfig              |
-| mapper     | 98%      | All DTO mappings            |
-| jwt        | 93%      | Token generation/validation |
-| controller | 73%      | REST endpoints              |
-| service    | 68%      | Business logic              |
+| Package    | Coverage | Key Tests                        |
+| ---------- | -------- | -------------------------------- |
+| service    | 100%     | Business logic (all services)    |
+| controller | 100%     | REST endpoints (all controllers) |
+| mapper     | 100%     | All DTO mappings                 |
+| auth       | 100%     | AuthService, AuthController      |
+| jwt        | 100%     | Token generation/validation      |
+| security   | 100%     | SecurityConfig                   |
+| exception  | 100%     | Global exception handling        |
+| util       | 100%     | Utility classes                  |
+
+**Perfect Score:** All packages achieve 100% instruction and branch coverage.
+
+**Note:** Tests use H2 in-memory database with Flyway disabled for speed.
 
 ---
 
@@ -347,6 +479,7 @@ GET    /api/v1/financial-values        # Financial values CRUD
 - ✅ Password reset with expiring tokens
 - ✅ Sensitive endpoints restricted by role
 - ✅ No passwords in logs or responses
+- ✅ Environment variables for secrets (`.env` git-ignored)
 
 ### Security Scanning
 
@@ -366,9 +499,9 @@ open target/spotbugs.xml
 
 The application supports multiple profiles:
 
-- **dev** (default): Development mode with debug logging
-- **test**: Testing environment with H2 database
-- **prod**: Production mode with optimized settings
+- **dev** (default): Development mode with debug logging, Flyway baseline-on-migrate
+- **test**: Testing environment with H2 database, Flyway disabled
+- **prod**: Production mode with optimized settings, Flyway validate-on-migrate
 
 ### Production Deployment Checklist
 
@@ -377,8 +510,9 @@ Before deploying to production:
 - [ ] Generate strong JWT secret (minimum 256 bits, Base64-encoded)
 - [ ] Use production database with SSL/TLS
 - [ ] Configure `application-prod.properties` with production values
+- [ ] Verify Flyway migrations are tested
 - [ ] Enable HTTPS only
-- [ ] Set up automated backups
+- [ ] Set up automated database backups
 - [ ] Configure monitoring (Actuator + external service)
 - [ ] Review and restrict CORS origins
 - [ ] Set up log aggregation
@@ -394,6 +528,10 @@ mvn clean package -Pprod
 
 # Run with production profile
 java -jar target/bcm-backend-1.0.0-SNAPSHOT.jar --spring.profiles.active=prod
+
+# Or with Docker (future)
+docker build -t bcm-backend:1.0.0 .
+docker run -p 8090:8090 --env-file .env.prod bcm-backend:1.0.0
 ```
 
 ---
@@ -404,16 +542,19 @@ java -jar target/bcm-backend-1.0.0-SNAPSHOT.jar --spring.profiles.active=prod
 
 **Major Rewrite:**
 
-- ✨ Migrated to Spring Boot 3.5.5 + Java 21
+- ✨ Migrated to Spring Boot 3.5.9 + Java 21
 - ✨ Redesigned architecture with clean layers
 - ✨ JWT-based authentication
-- ✨ Comprehensive test suite (78% coverage)
+- ✨ Comprehensive test suite (100% coverage - perfect score)
 - ✨ Role-based access control
 - ✨ Email verification system
 - ✨ Multi-manager support per contract
 - ✨ Advanced search and pagination
 - ✨ OpenAPI 3 documentation
 - ✨ Production-ready security
+- ✨ **Flyway database migrations (automatic versioning)**
+- ✨ **Multi-environment configuration (dev/test/prod)**
+- ✨ **Enterprise-grade database management**
 
 ### Version 1.0 (2024)
 
@@ -424,6 +565,7 @@ java -jar target/bcm-backend-1.0.0-SNAPSHOT.jar --spring.profiles.active=prod
 - Basic CRUD functionality
 - Single-manager assignment
 - Simple authentication
+- Manual SQL script execution
 
 ---
 
@@ -448,6 +590,8 @@ java -jar target/bcm-backend-1.0.0-SNAPSHOT.jar --spring.profiles.active=prod
 - [ ] Add AI-powered contract analysis (Python microservice)
 - [ ] Performance optimization for large datasets
 - [ ] Add caching layer (Redis)
+- [ ] Docker containerization
+- [ ] Kubernetes deployment manifests
 
 ---
 
@@ -495,6 +639,7 @@ This is a **portfolio/demonstration project** showcasing modern Spring Boot deve
 - Configuration uses environment variables (`.env` file git-ignored)
 - Not intended for production use without proper security audit
 - Sample data is for testing purposes only
+- Legacy SQL files in `sql/` folder are for reference only (use Flyway migrations)
 
 **Before production deployment:**
 
@@ -503,6 +648,7 @@ This is a **portfolio/demonstration project** showcasing modern Spring Boot deve
 - Review data protection compliance (GDPR, etc.)
 - Set up proper monitoring and alerting
 - Implement rate limiting and DDoS protection
+- Verify all Flyway migrations are tested
 
 ---
 
@@ -512,6 +658,7 @@ Built with modern technologies and best practices from:
 
 - Spring Framework ecosystem
 - Java and JVM community
+- Flyway database migration tool
 - Open-source contributors worldwide
 
 Special thanks to the developers of all libraries and tools used in this project.

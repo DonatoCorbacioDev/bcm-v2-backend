@@ -18,9 +18,10 @@
 	
     <licenses>
         <license>
-            <name>MIT License</name>
-            <url>https://opensource.org/licenses/MIT</url>
+            <name>Proprietary License</name>
+            <url>https://github.com/donatocorbacio/bcm-v2/blob/main/LICENSE</url>
             <distribution>repo</distribution>
+            <comments>Custom restrictive license. Commercial use prohibited without written permission. See LICENSE file for full terms.</comments>
         </license>
     </licenses>
 	
