@@ -25,7 +25,7 @@ public class OpenApiConfig {
                         .version("2.0.0")
                         .contact(new Contact()
                                 .name("Donato Corbacio")
-                                .email("your-email@example.com"))
+                                .email("donatocorbacio92@gmail.com"))
                         .license(new License()
                                 .name("Proprietary License")
                                 .url("https://github.com/DonatoCorbacioDev/bcm-v2-backend")))
