@@ -1,5 +1,9 @@
 package com.donatodev.bcm_backend.entity;
 
+import java.time.LocalDateTime;
+
+import org.hibernate.annotations.CreationTimestamp;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -18,8 +22,8 @@ import lombok.Setter;
 /**
  * Represents a system user account.
  * <p>
- * Each user can be assigned to a {@link Managers} profile and a {@link Roles} role.
- * Passwords must always be securely stored using hash algorithms.
+ * Each user can be assigned to a {@link Managers} profile and a {@link Roles}
+ * role. Passwords must always be securely stored using hash algorithms.
  */
 @Entity
 @Table(name = "users")
@@ -31,23 +35,20 @@ import lombok.Setter;
 public class Users {
 
     /**
-     * Primary key for the user.
-     * Auto-incremented ID.
+     * Primary key for the user. Auto-incremented ID.
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /**
-     * Unique username used for login and identification.
-     * Cannot be null.
+     * Unique username used for login and identification. Cannot be null.
      */
     @Column(name = "username", nullable = false, unique = true)
     private String username;
 
     /**
-     * Securely hashed password.
-     * Never store plain-text passwords!
+     * Securely hashed password. Never store plain-text passwords!
      */
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
@@ -62,18 +63,21 @@ public class Users {
     private Managers manager;
 
     /**
-     * User role association (e.g., ADMIN, MANAGER).
-     * Required field.
+     * User role association (e.g., ADMIN, MANAGER). Required field.
      */
     @ManyToOne
     @JoinColumn(name = "role_id", nullable = false)
     private Roles role;
 
     /**
-     * Indicates whether the user has completed email verification or account activation.
-     * Default value is false.
+     * Indicates whether the user has completed email verification or account
+     * activation. Default value is false.
      */
     @Builder.Default
     @Column(nullable = false)
     private boolean verified = false;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 }

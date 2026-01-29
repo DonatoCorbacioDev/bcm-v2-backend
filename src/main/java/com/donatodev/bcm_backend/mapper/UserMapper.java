@@ -15,7 +15,7 @@ import com.donatodev.bcm_backend.repository.RolesRepository;
 
 @Component
 public class UserMapper {
-	
+
     private static final Logger logger = LoggerFactory.getLogger(UserMapper.class);
 
     private final ManagersRepository managersRepository;
@@ -29,8 +29,8 @@ public class UserMapper {
     /**
      * Converts a {@link Users} entity to a {@link UserDTO}.
      * <p>
-     * The password is not included in the output for security reasons.
-     * Handles null manager gracefully.
+     * The password is not included in the output for security reasons. Handles
+     * null manager gracefully.
      *
      * @param user the user entity
      * @return the corresponding DTO
@@ -40,19 +40,23 @@ public class UserMapper {
                 user.getId(),
                 user.getUsername(),
                 null, // Do not expose the hashed password
-                user.getManager() != null ? user.getManager().getId() : null,  
-                user.getRole().getId()
+                user.getManager() != null ? user.getManager().getId() : null,
+                user.getRole().getId(),
+                user.isVerified(),
+                user.getCreatedAt()
         );
     }
 
     /**
      * Converts a {@link UserDTO} to a {@link Users} entity.
      * <p>
-     * This method fetches the referenced {@link Managers} and {@link Roles} entities.
+     * This method fetches the referenced {@link Managers} and {@link Roles}
+     * entities.
      *
      * @param dto the DTO to convert
      * @return the corresponding entity
-     * @throws ManagerNotFoundException if the manager ID is provided but not found
+     * @throws ManagerNotFoundException if the manager ID is provided but not
+     * found
      * @throws RoleNotFoundException if the role ID is not found
      */
     public Users toEntity(UserDTO dto) {
@@ -61,19 +65,19 @@ public class UserMapper {
         Managers manager = null;
         if (dto.managerId() != null) {
             manager = managersRepository.findById(dto.managerId())
-                .orElseThrow(() -> new ManagerNotFoundException("Manager ID " + dto.managerId() + " not found"));
+                    .orElseThrow(() -> new ManagerNotFoundException("Manager ID " + dto.managerId() + " not found"));
         }
 
         Roles role = rolesRepository.findById(dto.roleId())
-            .orElseThrow(() -> new RoleNotFoundException("Role ID " + dto.roleId() + " not found"));
+                .orElseThrow(() -> new RoleNotFoundException("Role ID " + dto.roleId() + " not found"));
 
         return Users.builder()
-            .id(dto.id())
-            .username(dto.username())
-            .passwordHash(dto.password())
-            .manager(manager)
-            .role(role)
-            .verified(false) 
-            .build();
+                .id(dto.id())
+                .username(dto.username())
+                .passwordHash(dto.password())
+                .manager(manager)
+                .role(role)
+                .verified(false)
+                .build();
     }
 }

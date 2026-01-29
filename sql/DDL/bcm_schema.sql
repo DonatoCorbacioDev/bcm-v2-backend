@@ -130,6 +130,3 @@ SELECT * FROM roles;
 SELECT * FROM users;
 SELECT * FROM contract_history;
 SELECT * FROM verification_token;
-
-
-

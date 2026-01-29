@@ -115,7 +115,7 @@ class UserServiceTest {
         @DisplayName("Get all users")
         void shouldGetAllUsers() {
             Users user = Users.builder().id(1L).username("admin").build();
-            UserDTO dto = new UserDTO(1L, "admin", "pass", 1L, 1L);
+            UserDTO dto = new UserDTO(1L, "admin", "pass", 1L, 1L, null, null);
 
             when(usersRepository.findAll()).thenReturn(List.of(user));
             when(userMapper.toDTO(user)).thenReturn(dto);
@@ -135,7 +135,7 @@ class UserServiceTest {
         @DisplayName("Get user by ID")
         void shouldGetUserById() {
             Users user = Users.builder().id(1L).username("admin").build();
-            UserDTO dto = new UserDTO(1L, "admin", "pass", 1L, 1L);
+            UserDTO dto = new UserDTO(1L, "admin", "pass", 1L, 1L, null, null);
 
             when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
             when(userMapper.toDTO(user)).thenReturn(dto);
@@ -166,10 +166,10 @@ class UserServiceTest {
         @Order(4)
         @DisplayName("Create user successfully")
         void shouldCreateUser() {
-            UserDTO dto = new UserDTO(null, "user1", "plainpass", 1L, 1L);
+            UserDTO dto = new UserDTO(null, "user1", "plainpass", 1L, 1L, null, null);
             Users user = Users.builder().username("user1").build();
             Users saved = Users.builder().id(1L).username("user1").build();
-            UserDTO savedDTO = new UserDTO(1L, "user1", null, 1L, 1L);
+            UserDTO savedDTO = new UserDTO(1L, "user1", null, 1L, 1L, null, null);
 
             when(usersRepository.existsByUsername("user1")).thenReturn(false);
             when(userMapper.toEntity(dto)).thenReturn(user);
@@ -194,8 +194,8 @@ class UserServiceTest {
             Users user = Users.builder().id(1L).username("olduser").build();
             Managers manager = Managers.builder().id(2L).build();
             Roles role = Roles.builder().id(3L).role("MANAGER").build();
-            UserDTO dto = new UserDTO(1L, "updatedUser", "newpass", 2L, 3L);
-            UserDTO resultDTO = new UserDTO(1L, "updatedUser", null, 2L, 3L);
+            UserDTO dto = new UserDTO(1L, "updatedUser", "newpass", 2L, 3L, null, null);
+            UserDTO resultDTO = new UserDTO(1L, "updatedUser", null, 2L, 3L, null, null);
 
             when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
             when(passwordEncoder.encode("newpass")).thenReturn("encodedpass");
@@ -301,7 +301,7 @@ class UserServiceTest {
         @Order(10)
         @DisplayName("Register user fails if username exists")
         void shouldThrowIfUsernameExists() {
-            UserDTO dto = new UserDTO(null, "existingUser", "pass", null, null);
+            UserDTO dto = new UserDTO(null, "existingUser", "pass", null, null, null, null);
             when(usersRepository.existsByUsername("existingUser")).thenReturn(true);
 
             IllegalArgumentException ex
@@ -317,7 +317,7 @@ class UserServiceTest {
         @Order(11)
         @DisplayName("Register user fails if manager already assigned")
         void shouldThrowIfManagerAlreadyAssigned() {
-            UserDTO dto = new UserDTO(null, "newuser", "pass", 1L, null);
+            UserDTO dto = new UserDTO(null, "newuser", "pass", 1L, null, null, null);
             when(usersRepository.existsByUsername("newuser")).thenReturn(false);
             when(usersRepository.existsByManagerId(1L)).thenReturn(true);
 
@@ -334,7 +334,7 @@ class UserServiceTest {
         @Order(12)
         @DisplayName("Update user fails if manager not found")
         void shouldThrowIfManagerNotFound() {
-            UserDTO dto = new UserDTO(1L, "user", "pass", 10L, 1L);
+            UserDTO dto = new UserDTO(1L, "user", "pass", 10L, 1L, null, null);
             Users user = Users.builder().id(1L).build();
 
             when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -353,7 +353,7 @@ class UserServiceTest {
         @Order(13)
         @DisplayName("Update user fails if role not found")
         void shouldThrowIfRoleNotFound() {
-            UserDTO dto = new UserDTO(1L, "user", "pass", 1L, 20L);
+            UserDTO dto = new UserDTO(1L, "user", "pass", 1L, 20L, null, null);
             Users user = Users.builder().id(1L).build();
             Managers manager = Managers.builder().id(1L).build();
 
@@ -426,10 +426,10 @@ class UserServiceTest {
         @Order(17)
         @DisplayName("Register user passes if managerId is not null and not assigned")
         void shouldRegisterUserIfManagerIdNotAssigned() {
-            UserDTO dto = new UserDTO(null, "newUser", "password", 1L, 2L);
+            UserDTO dto = new UserDTO(null, "newUser", "password", 1L, 2L, null, null);
             Users user = Users.builder().username("newUser").build();
             Users saved = Users.builder().id(1L).username("newUser").build();
-            UserDTO savedDTO = new UserDTO(1L, "newUser", null, 1L, 2L);
+            UserDTO savedDTO = new UserDTO(1L, "newUser", null, 1L, 2L, null, null);
 
             when(usersRepository.existsByUsername("newUser")).thenReturn(false);
             when(usersRepository.existsByManagerId(1L)).thenReturn(false);
@@ -492,10 +492,10 @@ class UserServiceTest {
         @Order(20)
         @DisplayName("Register user when managerId is null")
         void shouldRegisterUserIfManagerIdIsNull() {
-            UserDTO dto = new UserDTO(null, "userNoManager", "pass", null, 2L);
+            UserDTO dto = new UserDTO(null, "userNoManager", "pass", null, 2L, null, null);
             Users user = Users.builder().username("userNoManager").build();
             Users saved = Users.builder().id(1L).username("userNoManager").build();
-            UserDTO savedDTO = new UserDTO(1L, "userNoManager", null, null, 2L);
+            UserDTO savedDTO = new UserDTO(1L, "userNoManager", null, null, 2L, null, null);
 
             when(usersRepository.existsByUsername("userNoManager")).thenReturn(false);
             when(userMapper.toEntity(dto)).thenReturn(user);
@@ -533,7 +533,7 @@ class UserServiceTest {
         @DisplayName("Update user throws with correct UserNotFoundException message")
         void shouldThrowUserNotFoundWithCorrectMessageInUpdate() {
             long userId = 999L;
-            UserDTO dto = new UserDTO(userId, "updatedUser", "pass", 1L, 1L);
+            UserDTO dto = new UserDTO(userId, "updatedUser", "pass", 1L, 1L, null, null);
 
             when(usersRepository.findById(userId)).thenReturn(Optional.empty());
 

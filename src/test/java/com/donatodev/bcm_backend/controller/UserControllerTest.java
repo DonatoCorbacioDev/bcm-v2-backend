@@ -114,7 +114,9 @@ class UserControllerTest {
                     "mario.rossi",
                     "password123",
                     manager.getId(),
-                    role.getId()
+                    role.getId(),
+                    null,
+                    null
             );
 
             mockMvc.perform(post("/users")
@@ -229,7 +231,9 @@ class UserControllerTest {
                     "giovanni.verdi.new",
                     "newpassword",
                     manager.getId(),
-                    role.getId()
+                    role.getId(),
+                    null,
+                    null
             );
 
             mockMvc.perform(put("/users/{id}", originalUser.getId())

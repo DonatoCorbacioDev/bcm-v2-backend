@@ -93,7 +93,7 @@ class AuthControllerTest {
     void setup() {
         verificationTokenRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
-        inviteTokenRepository.deleteAll();  // <-- AGGIUNGI QUESTA RIGA
+        inviteTokenRepository.deleteAll();
         usersRepository.deleteAll();
         managersRepository.deleteAll();
         rolesRepository.deleteAll();
@@ -113,7 +113,7 @@ class AuthControllerTest {
     @Test
     @Order(1)
     void shouldRegisterSuccessfully() throws Exception {
-        UserDTO dto = new UserDTO(null, "donato", "abc123", managerId, roleId);
+        UserDTO dto = new UserDTO(null, "donato", "abc123", managerId, roleId, false, null);
 
         mockMvc.perform(post("/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -149,7 +149,7 @@ class AuthControllerTest {
     @Order(3)
     void shouldLoginSuccessfully() throws Exception {
         // Register new user
-        UserDTO dto = new UserDTO(null, "loginuser", "mypwd123", managerId, roleId);
+        UserDTO dto = new UserDTO(null, "loginuser", "mypwd123", managerId, roleId, false, null);
         mockMvc.perform(post("/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
@@ -282,7 +282,7 @@ class AuthControllerTest {
     @Order(9)
     void shouldFailRegisterWithInvalidManagerId() throws Exception {
         // uso un managerId inesistente per forzare un'eccezione
-        UserDTO dto = new UserDTO(null, "broken", "pass123", 999L, roleId);
+        UserDTO dto = new UserDTO(null, "broken", "pass123", 999L, roleId, false, null);
 
         mockMvc.perform(post("/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -324,7 +324,7 @@ class AuthControllerTest {
     @Test
     @Order(12)
     void shouldReturnValidationError() throws Exception {
-        UserDTO invalidDto = new UserDTO(null, "validUser", "123", managerId, roleId);
+        UserDTO invalidDto = new UserDTO(null, "validUser", "123", managerId, roleId, false, null);
 
         mockMvc.perform(post("/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -348,7 +348,7 @@ class AuthControllerTest {
         Long ghostManagerId = ghostManager.getId();
         managersRepository.deleteById(ghostManagerId);
 
-        UserDTO dto = new UserDTO(null, "testuser", "password", ghostManagerId, roleId);
+        UserDTO dto = new UserDTO(null, "testuser", "password", ghostManagerId, roleId, false, null);
 
         mockMvc.perform(post("/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

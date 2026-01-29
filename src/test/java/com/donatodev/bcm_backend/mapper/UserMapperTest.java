@@ -93,7 +93,9 @@ class UserMapperTest {
                 "entityUser",
                 "password123",
                 savedManager.getId(),
-                savedRole.getId()
+                savedRole.getId(),
+                null,
+                null
         );
 
         Users user = userMapper.toEntity(dto);
@@ -116,7 +118,9 @@ class UserMapperTest {
                 "userNoManager",
                 "securePass",
                 null,
-                savedRole.getId()
+                savedRole.getId(),
+                null,
+                null
         );
 
         Users user = userMapper.toEntity(dto);
@@ -139,7 +143,9 @@ class UserMapperTest {
                 "errorUser",
                 "pass",
                 invalidManagerId,
-                savedRole.getId()
+                savedRole.getId(),
+                null,
+                null
         );
 
         Exception ex = assertThrows(ManagerNotFoundException.class, () -> userMapper.toEntity(dto));
@@ -158,7 +164,9 @@ class UserMapperTest {
                 "errorRoleUser",
                 "pass",
                 null,
-                invalidRoleId
+                invalidRoleId,
+                null,
+                null
         );
 
         Exception ex = assertThrows(RoleNotFoundException.class, () -> userMapper.toEntity(dto));

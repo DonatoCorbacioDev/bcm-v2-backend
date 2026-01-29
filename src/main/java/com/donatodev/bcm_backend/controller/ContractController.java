@@ -27,14 +27,15 @@ import com.donatodev.bcm_backend.service.ContractService;
 /**
  * REST controller for managing company contracts.
  * <p>
- * Provides endpoints for creating, retrieving, updating, deleting, and filtering contracts.
- * Access to endpoints is controlled by roles (ADMIN, MANAGER).
+ * Provides endpoints for creating, retrieving, updating, deleting, and
+ * filtering contracts. Access to endpoints is controlled by roles (ADMIN,
+ * MANAGER).
  */
 @RestController
 @RequestMapping("/contracts")
 public class ContractController {
 
-	private final ContractService contractService;
+    private final ContractService contractService;
 
     public ContractController(ContractService contractService) {
         this.contractService = contractService;
@@ -68,7 +69,8 @@ public class ContractController {
     /**
      * Retrieves contracts filtered by status.
      *
-     * @param status the status to filter contracts (e.g., ACTIVE, EXPIRED, CANCELLED)
+     * @param status the status to filter contracts (e.g., ACTIVE, EXPIRED,
+     * CANCELLED)
      * @return a list of {@link ContractDTO} matching the given status
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
@@ -99,7 +101,7 @@ public class ContractController {
     /**
      * Updates an existing contract by ID.
      *
-     * @param id          the contract ID
+     * @param id the contract ID
      * @param contractDTO the updated contract data
      * @return the updated {@link ContractDTO}
      */
@@ -117,18 +119,18 @@ public class ContractController {
      * @return HTTP 204 No Content if the contract was successfully deleted
      */
     @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("{id}")
+    @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteContract(@PathVariable Long id) {
         contractService.deleteContract(id);
         return ResponseEntity.noContent().build();
     }
-    
+
     @GetMapping("/stats")
     public ResponseEntity<ContractStatsResponse> getStats() {
         ContractStatsResponse stats = contractService.getContractStats();
         return ResponseEntity.ok(stats);
     }
-    
+
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/search")
     public ResponseEntity<Page<ContractDTO>> search(
@@ -158,7 +160,7 @@ public class ContractController {
         contractService.assignManager(id, body.managerId());
         return ResponseEntity.noContent().build();
     }
-    
+
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @GetMapping("/{id}/collaborators")
     public ResponseEntity<List<Long>> getCollaborators(@PathVariable Long id) {
