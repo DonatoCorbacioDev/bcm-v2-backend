@@ -24,7 +24,8 @@ public interface FinancialValuesRepository extends JpaRepository<FinancialValues
     List<FinancialValues> findByContractId(Long contractId);
 
     /**
-     * Retrieves all financial values where the contract is assigned to a specific manager.
+     * Retrieves all financial values where the contract is assigned to a
+     * specific manager.
      *
      * @param managerId the ID of the manager
      * @return a list of matching {@link FinancialValues}

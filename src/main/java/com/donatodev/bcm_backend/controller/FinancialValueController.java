@@ -13,13 +13,14 @@ import com.donatodev.bcm_backend.service.FinancialValueService;
 /**
  * REST controller for managing financial values.
  * <p>
- * Provides endpoints to retrieve, create, update, and delete financial value records.
+ * Provides endpoints to retrieve, create, update, and delete financial value
+ * records.
  */
 @RestController
 @RequestMapping("/financial-values")
 public class FinancialValueController {
 
-	private final FinancialValueService financialValueService;
+    private final FinancialValueService financialValueService;
 
     public FinancialValueController(FinancialValueService financialValueService) {
         this.financialValueService = financialValueService;
@@ -66,7 +67,7 @@ public class FinancialValueController {
     /**
      * Updates an existing financial value.
      *
-     * @param id  the ID of the financial value to update
+     * @param id the ID of the financial value to update
      * @param dto the updated data
      * @return the updated {@link FinancialValueDTO}
      */
@@ -78,8 +79,8 @@ public class FinancialValueController {
     }
 
     /**
-     * Deletes a financial value by its ID.
-     * Only accessible by users with ADMIN role.
+     * Deletes a financial value by its ID. Only accessible by users with ADMIN
+     * role.
      *
      * @param id the ID of the financial value to delete
      * @return HTTP 204 No Content on successful deletion
@@ -89,5 +90,20 @@ public class FinancialValueController {
     public ResponseEntity<Void> deleteValue(@PathVariable Long id) {
         financialValueService.deleteValue(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Retrieves financial values filtered by contract ID.
+     *
+     * @param contractId optional contract ID to filter by
+     * @return a list of {@link FinancialValueDTO} matching the filter
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @GetMapping("/by-contract/{contractId}")
+    public ResponseEntity<List<FinancialValueDTO>> getValuesByContract(
+            @PathVariable Long contractId
+    ) {
+        List<FinancialValueDTO> values = financialValueService.getValuesByContractId(contractId);
+        return ResponseEntity.ok(values);
     }
 }
