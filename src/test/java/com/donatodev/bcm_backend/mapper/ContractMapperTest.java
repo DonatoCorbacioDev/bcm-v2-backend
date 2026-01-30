@@ -133,7 +133,7 @@ class ContractMapperTest {
         ContractDTO dto = new ContractDTO(
                 3L, "Client", "CN-003", "WBS-003", "TestProject", ContractStatus.ACTIVE,
                 LocalDate.now(), LocalDate.now().plusMonths(6),
-                savedArea.getId(), savedManager.getId());
+                savedArea.getId(), savedManager.getId(), null, null);
 
         Contracts contract = contractMapper.toEntity(dto);
 
@@ -151,7 +151,7 @@ class ContractMapperTest {
         ContractDTO dto = new ContractDTO(
                 4L, "Client2", "CN-004", "WBS-004", "SoloArea", ContractStatus.CANCELLED,
                 LocalDate.now(), LocalDate.now().plusMonths(3),
-                savedArea.getId(), null);
+                savedArea.getId(), null, null, null);
 
         Contracts contract = contractMapper.toEntity(dto);
 
@@ -168,7 +168,7 @@ class ContractMapperTest {
     void shouldThrowIfAreaNotFound() {
         ContractDTO dto = new ContractDTO(
                 5L, "Missing", "CN-005", "WBS-005", "Error", ContractStatus.CANCELLED,
-                LocalDate.now(), LocalDate.now(), 999L, null);
+                LocalDate.now(), LocalDate.now(), 999L, null, null, null);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
         assertEquals("Business Area not found", ex.getMessage());
@@ -181,7 +181,7 @@ class ContractMapperTest {
     void shouldThrowIfManagerNotFound() {
         ContractDTO dto = new ContractDTO(
                 6L, "Missing", "CN-006", "WBS-006", "Errore", ContractStatus.EXPIRED,
-                LocalDate.now(), LocalDate.now(), savedArea.getId(), 888L);
+                LocalDate.now(), LocalDate.now(), savedArea.getId(), 888L, null, null);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
         assertEquals("Manager not found", ex.getMessage());
@@ -215,7 +215,9 @@ class ContractMapperTest {
                 ContractStatus.ACTIVE,
                 LocalDate.now(), LocalDate.now().plusMonths(2),
                 null, // No area ID
-                null); // No manager ID
+                null, // No manager ID
+                null, // No manager nested
+                null); // No area nested
 
         Contracts contract = contractMapper.toEntity(dto);
 

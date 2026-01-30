@@ -110,7 +110,7 @@ class ContractControllerTest {
 
             ContractDTO dto = new ContractDTO(null, "Client 1", "CNTR-TEST-1", "WBS-001", "Project X",
                     ContractStatus.ACTIVE, LocalDate.of(2025, 5, 1), LocalDate.of(2026, 5, 1),
-                    area.getId(), manager.getId());
+                    area.getId(), manager.getId(), null, null);
 
             mockMvc.perform(post("/contracts")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -151,7 +151,7 @@ class ContractControllerTest {
             ContractDTO dto = new ContractDTO(null, "Client A", "CNTR-GET-ALL", "WBS-GET",
                     "Project Get", ContractStatus.ACTIVE,
                     LocalDate.of(2025, 6, 1), LocalDate.of(2026, 6, 1),
-                    area.getId(), manager.getId());
+                    area.getId(), manager.getId(), null, null);
 
             mockMvc.perform(post("/contracts")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -204,17 +204,25 @@ class ContractControllerTest {
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                     .name("Finance").description("Money").build());
 
+            // Create user in DB for history tracking (needed when status changes)
+            Roles adminRole = rolesRepository.save(Roles.builder().role("ADMIN").build());
+            Users adminUser = usersRepository.save(Users.builder()
+                    .username("user") // Must match @WithMockUser default username
+                    .passwordHash("password")
+                    .verified(true)
+                    .role(adminRole)
+                    .build());
+
             Contracts original = contractsRepository.save(Contracts.builder()
                     .customerName("Client Old").contractNumber("CNTR-TEST-4").wbsCode("WBS-OLD")
-                    .projectName("Old Project").businessArea(area).manager(manager
-            )
+                    .projectName("Old Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2025, 1, 1)).endDate(LocalDate.of(2025, 12, 31))
                     .status(ContractStatus.ACTIVE).build());
 
             ContractDTO updated = new ContractDTO(original.getId(), "Client Updated", "CNTR-TEST-4", "WBS-NEW",
                     "Updated Project", ContractStatus.EXPIRED,
                     LocalDate.of(2025, 2, 1), LocalDate.of(2025, 11, 30),
-                    area.getId(), manager.getId());
+                    area.getId(), manager.getId(), null, null);
 
             mockMvc.perform(put("/contracts/{id}", original.getId())
                     .contentType(MediaType.APPLICATION_JSON)
@@ -506,7 +514,7 @@ class ContractControllerTest {
         @WithMockUser(roles = "MANAGER")
         void shouldForbidCreateForManager() throws Exception {
             ContractDTO dto = new ContractDTO(null, "Test", "TEST", "WBS", "Test",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null);
 
             mockMvc.perform(post("/contracts")
                     .contentType(MediaType.APPLICATION_JSON)

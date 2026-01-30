@@ -44,14 +44,17 @@ import com.donatodev.bcm_backend.util.TestDataCleaner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Integration tests for {@link com.donatodev.bcm_backend.controller.FinancialValueController}.
+ * Integration tests for
+ * {@link com.donatodev.bcm_backend.controller.FinancialValueController}.
  * <p>
- * This test class verifies the REST API endpoints related to {@code FinancialValues},
- * ensuring correct functionality of CRUD operations and response validation.
+ * This test class verifies the REST API endpoints related to
+ * {@code FinancialValues}, ensuring correct functionality of CRUD operations
+ * and response validation.
  * </p>
  * <p>
- * Each test is executed in an isolated environment using an in-memory test database.
- * The {@link TestDataCleaner} utility is used to reset the state between tests.
+ * Each test is executed in an isolated environment using an in-memory test
+ * database. The {@link TestDataCleaner} utility is used to reset the state
+ * between tests.
  * </p>
  */
 @SpringBootTest
@@ -99,7 +102,8 @@ class FinancialValueControllerTest {
     }
 
     /**
-     * Utility method to create and persist an ADMIN user associated with a manager.
+     * Utility method to create and persist an ADMIN user associated with a
+     * manager.
      *
      * @param manager the manager to associate with the user
      * @return the persisted user entity
@@ -132,7 +136,7 @@ class FinancialValueControllerTest {
     /**
      * Utility method to create and persist a contract.
      *
-     * @param area    the business area
+     * @param area the business area
      * @param manager the manager
      * @return the persisted contract
      */
@@ -182,8 +186,8 @@ class FinancialValueControllerTest {
                     type.getId(), area.getId(), contract.getId());
 
             mockMvc.perform(post("/financial-values")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(dto)))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(dto)))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.financialAmount").value(10000.00))
                     .andExpect(jsonPath("$.month").value(5))
@@ -278,8 +282,8 @@ class FinancialValueControllerTest {
                     type.getId(), area.getId(), contract.getId());
 
             mockMvc.perform(put("/financial-values/{id}", original.getId())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(updatedDTO)))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(updatedDTO)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(original.getId()))
                     .andExpect(jsonPath("$.financialAmount").value(3000.00))
@@ -323,7 +327,8 @@ class FinancialValueControllerTest {
         }
 
         /**
-         * Tests error handling when retrieving a financial value by a non-existent ID.
+         * Tests error handling when retrieving a financial value by a
+         * non-existent ID.
          */
         @Test
         @Order(6)
@@ -332,6 +337,54 @@ class FinancialValueControllerTest {
         void shouldReturnNotFoundForInvalidId() throws Exception {
             mockMvc.perform(get("/financial-values/{id}", 9999L))
                     .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @Order(7)
+        @DisplayName("Get financial values by contract ID")
+        @WithMockUser(roles = "ADMIN")
+        void shouldGetValuesByContract() throws Exception {
+            // Create area and type FIRST
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+                    .name("Sales")
+                    .description("Sales Department")
+                    .build());
+
+            FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder()
+                    .name("Revenue")
+                    .description("Revenue Type")
+                    .build());
+
+            // Create manager (needed for contract)
+            Managers manager = createManager();
+
+            // Create contract with area and manager
+            Contracts contract = contractsRepository.save(Contracts.builder()
+                    .customerName("Client")
+                    .contractNumber("C123")
+                    .wbsCode("WBS")
+                    .projectName("Project")
+                    .status(ContractStatus.ACTIVE)
+                    .startDate(LocalDate.now())
+                    .endDate(LocalDate.now().plusDays(30))
+                    .businessArea(area)
+                    .manager(manager)
+                    .build());
+
+            // Create financial value
+            FinancialValues value = financialValuesRepository.save(FinancialValues.builder()
+                    .contract(contract)
+                    .financialType(type)
+                    .businessArea(area)
+                    .month(1)
+                    .year(2025)
+                    .financialAmount(1000.00)
+                    .build());
+
+            // Test the endpoint
+            mockMvc.perform(get("/financial-values/by-contract/{contractId}", contract.getId()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].financialAmount").value(1000.00));
         }
     }
 }

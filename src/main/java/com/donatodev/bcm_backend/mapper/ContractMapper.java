@@ -2,17 +2,20 @@ package com.donatodev.bcm_backend.mapper;
 
 import org.springframework.stereotype.Component;
 
+import com.donatodev.bcm_backend.dto.BusinessAreaDTO;
 import com.donatodev.bcm_backend.dto.ContractDTO;
+import com.donatodev.bcm_backend.dto.ManagerDTO;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 
 /**
- * Mapper responsible for converting between {@link Contracts} entities and {@link ContractDTO} objects.
+ * Mapper responsible for converting between {@link Contracts} entities and
+ * {@link ContractDTO} objects.
  * <p>
- * This component helps isolate persistence logic from the API layer
- * and centralizes the transformation logic for contract data.
+ * This component helps isolate persistence logic from the API layer and
+ * centralizes the transformation logic for contract data.
  */
 @Component
 public class ContractMapper {
@@ -21,19 +24,42 @@ public class ContractMapper {
     private final ManagersRepository managersRepository;
 
     public ContractMapper(BusinessAreasRepository businessAreasRepository,
-                          ManagersRepository managersRepository) {
+            ManagersRepository managersRepository) {
         this.businessAreasRepository = businessAreasRepository;
         this.managersRepository = managersRepository;
     }
 
     /**
-     * Converts a {@link Contracts} entity into a {@link ContractDTO}.
+     * Converts a {@link Contracts} entity into a {@link ContractDTO}. Includes
+     * nested manager and business area DTOs for complete representation.
      *
      * @param contract the contract entity
-     * @return the corresponding DTO
+     * @return the corresponding DTO with nested objects
      */
     public ContractDTO toDTO(Contracts contract) {
-        if (contract == null) return null;
+        if (contract == null) {
+            return null;
+        }
+
+        // Convert nested entities to DTOs
+        ManagerDTO managerDTO = contract.getManager() != null
+                ? new ManagerDTO(
+                        contract.getManager().getId(),
+                        contract.getManager().getFirstName(),
+                        contract.getManager().getLastName(),
+                        contract.getManager().getEmail(),
+                        contract.getManager().getPhoneNumber(),
+                        contract.getManager().getDepartment()
+                )
+                : null;
+
+        BusinessAreaDTO areaDTO = contract.getBusinessArea() != null
+                ? new BusinessAreaDTO(
+                        contract.getBusinessArea().getId(),
+                        contract.getBusinessArea().getName(),
+                        contract.getBusinessArea().getDescription()
+                )
+                : null;
 
         return new ContractDTO(
                 contract.getId(),
@@ -45,21 +71,27 @@ public class ContractMapper {
                 contract.getStartDate(),
                 contract.getEndDate(),
                 contract.getBusinessArea() != null ? contract.getBusinessArea().getId() : null,
-                contract.getManager() != null ? contract.getManager().getId() : null
+                contract.getManager() != null ? contract.getManager().getId() : null,
+                managerDTO,
+                areaDTO
         );
     }
 
     /**
      * Converts a {@link ContractDTO} into a {@link Contracts} entity.
      * <p>
-     * Related entities such as business area and manager are resolved using repositories.
+     * Related entities such as business area and manager are resolved using
+     * repositories.
      *
      * @param dto the DTO to convert
      * @return the corresponding entity
-     * @throws RuntimeException if referenced business area or manager is not found
+     * @throws RuntimeException if referenced business area or manager is not
+     * found
      */
     public Contracts toEntity(ContractDTO dto) {
-        if (dto == null) return null;
+        if (dto == null) {
+            return null;
+        }
 
         return Contracts.builder()
                 .id(dto.id())
@@ -72,15 +104,15 @@ public class ContractMapper {
                 .endDate(dto.endDate())
                 .businessArea(dto.areaId() != null
                         ? businessAreasRepository.findById(dto.areaId())
-                            .orElseThrow(() -> new RuntimeException("Business Area not found"))
+                                .orElseThrow(() -> new RuntimeException("Business Area not found"))
                         : null)
                 .manager(resolveManager(dto.managerId()))
                 .build();
     }
 
     /**
-     * Resolves the manager entity based on the given ID.
-     * Returns {@code null} if the ID is {@code null}.
+     * Resolves the manager entity based on the given ID. Returns {@code null}
+     * if the ID is {@code null}.
      */
     private Managers resolveManager(Long managerId) {
         if (managerId == null) {

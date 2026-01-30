@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -48,6 +49,7 @@ import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.mapper.ContractMapper;
+import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
@@ -82,6 +84,9 @@ class ContractServiceTest {
 
     @Mock
     private ManagerService managerService;
+
+    @Mock
+    private ContractHistoryRepository contractHistoryRepository;
 
     @InjectMocks
     private ContractService contractService;
@@ -119,7 +124,7 @@ class ContractServiceTest {
                     .build();
 
             ContractDTO dto = new ContractDTO(1L, "Cliente", "CONTR123", "WBS001", "Progetto A",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 2L, 3L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 2L, 3L, null, null);
             Contracts entity = Contracts.builder().id(1L).customerName("Cliente").build();
 
             mockAuthentication("admin", "ADMIN");
@@ -143,7 +148,7 @@ class ContractServiceTest {
         void shouldGetContractById() {
             Contracts contract = Contracts.builder().id(1L).contractNumber("ABC123").customerName("Mario").build();
             ContractDTO dto = new ContractDTO(1L, "Mario", "ABC123", "WBS001", "Progetto",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(10), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(10), 1L, 1L, null, null);
 
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
             when(contractMapper.toDTO(contract)).thenReturn(dto);
@@ -176,12 +181,12 @@ class ContractServiceTest {
         @DisplayName("Create contract returns saved DTO")
         void shouldCreateContract() {
             ContractDTO dto = new ContractDTO(null, "NewClient", "ABC123", "WBS001", "NewProject",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(10), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(10), 1L, 1L, null, null);
 
             Contracts entity = Contracts.builder().customerName("NewClient").build();
             Contracts saved = Contracts.builder().id(1L).customerName("NewClient").build();
             ContractDTO savedDTO = new ContractDTO(1L, "NewClient", "ABC123", "WBS001", "NewProject",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(10), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(10), 1L, 1L, null, null);
 
             when(contractMapper.toEntity(dto)).thenReturn(entity);
             when(contractsRepository.save(entity)).thenReturn(saved);
@@ -200,6 +205,17 @@ class ContractServiceTest {
         @Order(5)
         @DisplayName("Update contract returns updated DTO")
         void shouldUpdateContract() {
+
+            // Mock authentication (needed for history tracking)
+            mockAuthentication("admin", "ADMIN");
+
+            Roles adminRole = Roles.builder().role("ADMIN").build();
+            Users adminUser = Users.builder()
+                    .id(100L)
+                    .username("admin")
+                    .role(adminRole)
+                    .build();
+
             Contracts existing = Contracts.builder()
                     .id(1L)
                     .customerName("OldClient")
@@ -212,16 +228,20 @@ class ContractServiceTest {
                     .build();
 
             ContractDTO updateDTO = new ContractDTO(1L, "UpdatedClient", "NEW123", "WBSNEW", "NewProject",
-                    ContractStatus.EXPIRED, LocalDate.now(), LocalDate.now().plusDays(5), 1L, 1L);
+                    ContractStatus.EXPIRED, LocalDate.now(), LocalDate.now().plusDays(5), 1L, 1L, null, null);
 
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(adminUser));
             when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
 
             ContractDTO result = contractService.updateContract(1L, updateDTO);
 
             assertEquals("UpdatedClient", result.customerName());
             assertEquals("NEW123", result.contractNumber());
+
+            // Verify history was saved (status changed from ACTIVE to EXPIRED)
+            verify(contractHistoryRepository, times(1)).save(any());
         }
 
         /**
@@ -271,7 +291,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("ClientA").build();
             ContractDTO dto = new ContractDTO(1L, "ClientA", "CON123", "WBS", "Proj", ContractStatus.ACTIVE,
-                    LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L);
+                    LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L, null, null);
 
             mockAuthentication("manager1", "MANAGER");
 
@@ -303,7 +323,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(2L).status(ContractStatus.ACTIVE).customerName("ClientB").build();
             ContractDTO dto = new ContractDTO(2L, "ClientB", "CON456", "WBS2", "Proj2", ContractStatus.ACTIVE,
-                    LocalDate.now(), LocalDate.now().plusDays(20), 7L, 1L);
+                    LocalDate.now(), LocalDate.now().plusDays(20), 7L, 1L, null, null);
 
             mockAuthentication("manager2", "MANAGER");
 
@@ -437,7 +457,7 @@ class ContractServiceTest {
         void shouldThrowIfContractToUpdateNotFound() {
             Long contractId = 999L;
             ContractDTO dto = new ContractDTO(contractId, "x", "x", "x", "x",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(5), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(5), 1L, 1L, null, null);
 
             when(contractsRepository.findById(contractId)).thenReturn(Optional.empty());
 
@@ -462,7 +482,7 @@ class ContractServiceTest {
                     .customerName("ClientA")
                     .build();
             ContractDTO dto = new ContractDTO(1L, "ClientA", "CON123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null);
 
             mockAuthentication("admin", "ADMIN");
 
@@ -635,7 +655,7 @@ class ContractServiceTest {
                     .status(ContractStatus.ACTIVE)
                     .build();
             ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -687,7 +707,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).status(ContractStatus.ACTIVE).build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -714,7 +734,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
             ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -740,7 +760,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
             ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -774,7 +794,7 @@ class ContractServiceTest {
                     .status(ContractStatus.ACTIVE)
                     .build();
             ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -829,7 +849,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).status(ContractStatus.ACTIVE).build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -857,7 +877,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
             ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -885,7 +905,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
             ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -935,7 +955,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -962,7 +982,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -989,7 +1009,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -1017,7 +1037,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -1061,7 +1081,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -1108,6 +1128,86 @@ class ContractServiceTest {
                     () -> contractService.searchPaged(null, null, 0, 10));
 
             assertEquals("User not found", ex.getMessage());
+        }
+
+        @Test
+        @Order(42)
+        @DisplayName("Update contract without status change should not create history")
+        void shouldUpdateContractWithoutStatusChange() {
+            // Mock authentication
+            mockAuthentication("admin", "ADMIN");
+
+            Roles adminRole = Roles.builder().role("ADMIN").build();
+            Users adminUser = Users.builder()
+                    .id(100L)
+                    .username("admin")
+                    .role(adminRole)
+                    .build();
+
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .customerName("OldClient")
+                    .contractNumber("OLD123")
+                    .wbsCode("OLDWBS")
+                    .projectName("OldProject")
+                    .status(ContractStatus.ACTIVE) // ← ACTIVE
+                    .startDate(LocalDate.now())
+                    .endDate(LocalDate.now().plusDays(10))
+                    .build();
+
+            // Update DTO with SAME status 
+            ContractDTO updateDTO = new ContractDTO(1L, "UpdatedClient", "NEW123", "WBSNEW", "NewProject",
+                    ContractStatus.ACTIVE,
+                    LocalDate.now(), LocalDate.now().plusDays(5), 1L, 1L, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.save(existing)).thenReturn(existing);
+            when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
+
+            ContractDTO result = contractService.updateContract(1L, updateDTO);
+
+            assertEquals("UpdatedClient", result.customerName());
+
+            // Verify history was NOT saved (status didn't change)
+            verify(contractHistoryRepository, never()).save(any());
+            // Verify usersRepository was NOT called (no need to fetch user)
+            verify(usersRepository, never()).findByUsername(any());
+        }
+
+        @Test
+        @Order(43)
+        @DisplayName("Update contract with status change should throw if user not found")
+        void shouldThrowWhenUpdatingContractWithStatusChangeAndUserNotFound() {
+            // Mock authentication
+            mockAuthentication("ghost", "ADMIN");
+
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .customerName("Client")
+                    .contractNumber("C123")
+                    .wbsCode("WBS")
+                    .projectName("Project")
+                    .status(ContractStatus.ACTIVE)
+                    .startDate(LocalDate.now())
+                    .endDate(LocalDate.now().plusDays(10))
+                    .build();
+
+            // Update DTO with DIFFERENT status
+            ContractDTO updateDTO = new ContractDTO(1L, "Client", "C123", "WBS", "Project",
+                    ContractStatus.EXPIRED,
+                    LocalDate.now(), LocalDate.now().plusDays(10), 1L, 1L, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
+
+            // Should throw UserNotFoundException when trying to create history
+            UserNotFoundException ex = assertThrows(UserNotFoundException.class,
+                    () -> contractService.updateContract(1L, updateDTO));
+
+            assertEquals("User not found", ex.getMessage());
+
+            // Verify history was NOT saved (exception thrown before)
+            verify(contractHistoryRepository, never()).save(any());
         }
     }
 }
