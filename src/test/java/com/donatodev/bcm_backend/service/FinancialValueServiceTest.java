@@ -100,7 +100,7 @@ class FinancialValueServiceTest {
 
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
             FinancialValues entity = FinancialValues.builder().id(1L).build();
-            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 500.0, 1L, 1L, 1L);
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 500.0, 1L, 1L, 1L, "Type", "Area", "Contract");
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
@@ -135,7 +135,7 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
                     .build();
 
-            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 1000.0, 1L, 1L, 1L);
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 1000.0, 1L, 1L, 1L, "Type", "Area", "Contract");
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
 
             SecurityContextHolder.getContext().setAuthentication(
@@ -205,10 +205,10 @@ class FinancialValueServiceTest {
         @Order(5)
         @DisplayName("Create value returns saved DTO")
         void shouldCreateValue() {
-            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L);
+            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
             FinancialValues entity = FinancialValues.builder().build();
             FinancialValues saved = FinancialValues.builder().id(1L).build();
-            FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 1, 2024, 300.0, 1L, 1L, 1L);
+            FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
 
             when(mapper.toEntity(dto)).thenReturn(entity);
             when(valuesRepository.save(entity)).thenReturn(saved);
@@ -246,7 +246,7 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(manager).build())
                     .build();
 
-            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 800.0, 1L, 1L, 1L);
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 800.0, 1L, 1L, 1L, "Type", "Area", "Contract");
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
@@ -472,7 +472,7 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(Managers.builder().id(99L).build()).build())
                     .build();
 
-            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 100.0, 1L, 1L, 1L);
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 100.0, 1L, 1L, 1L, "Type", "Area", "Contract");
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
@@ -495,7 +495,7 @@ class FinancialValueServiceTest {
         void shouldThrowFinancialValueNotFoundException() {
             when(valuesRepository.findById(999L)).thenReturn(Optional.empty());
 
-            FinancialValueDTO dto = new FinancialValueDTO(999L, 1, 2024, 100.0, 1L, 1L, 1L);
+            FinancialValueDTO dto = new FinancialValueDTO(999L, 1, 2024, 100.0, 1L, 1L, 1L, "Type", "Area", "Contract");
 
             FinancialValueNotFoundException ex
                     = assertThrows(FinancialValueNotFoundException.class, () -> service.updateValue(999L, dto));

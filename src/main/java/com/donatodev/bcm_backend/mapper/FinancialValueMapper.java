@@ -9,16 +9,16 @@ import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 
 /**
- * Mapper class responsible for converting between {@link FinancialValues} entities
- * and {@link FinancialValueDTO} data transfer objects.
+ * Mapper class responsible for converting between {@link FinancialValues}
+ * entities and {@link FinancialValueDTO} data transfer objects.
  * <p>
- * This layer ensures clean separation between the persistence model and
- * the data exposed via the API.
+ * This layer ensures clean separation between the persistence model and the
+ * data exposed via the API.
  */
 @Component
 public class FinancialValueMapper {
 
-	private final FinancialTypesRepository financialTypesRepository;
+    private final FinancialTypesRepository financialTypesRepository;
     private final BusinessAreasRepository businessAreaRepository;
     private final ContractsRepository contractsRepository;
 
@@ -37,22 +37,30 @@ public class FinancialValueMapper {
      * @param value the financial value entity
      * @return the corresponding DTO
      */
-    public FinancialValueDTO toDTO(FinancialValues value) {
+    public FinancialValueDTO toDTO(FinancialValues entity) {
+        if (entity == null) {
+            return null;
+        }
+
         return new FinancialValueDTO(
-                value.getId(),
-                value.getMonth(),
-                value.getYear(),
-                value.getFinancialAmount(),
-                value.getFinancialType().getId(),
-                value.getBusinessArea().getId(),
-                value.getContract().getId()
+                entity.getId(),
+                entity.getMonth(),
+                entity.getYear(),
+                entity.getFinancialAmount(),
+                entity.getFinancialType() != null ? entity.getFinancialType().getId() : null,
+                entity.getBusinessArea() != null ? entity.getBusinessArea().getId() : null,
+                entity.getContract() != null ? entity.getContract().getId() : null,
+                entity.getFinancialType() != null ? entity.getFinancialType().getName() : null,
+                entity.getBusinessArea() != null ? entity.getBusinessArea().getName() : null,
+                entity.getContract() != null ? entity.getContract().getCustomerName() : null
         );
     }
 
     /**
      * Converts a {@link FinancialValueDTO} to a {@link FinancialValues} entity.
      * <p>
-     * This method also retrieves related entities (type, area, contract) from the database.
+     * This method also retrieves related entities (type, area, contract) from
+     * the database.
      *
      * @param dto the DTO to convert
      * @return the corresponding entity
