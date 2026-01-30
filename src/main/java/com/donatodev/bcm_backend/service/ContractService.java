@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ContractStatsResponse;
+import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Managers;
@@ -24,6 +26,7 @@ import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.mapper.ContractMapper;
+import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
@@ -48,19 +51,22 @@ public class ContractService {
     private final UsersRepository usersRepository;
     private final ManagerService managerService;
     private final ContractManagerRepository contractManagerRepository;
+    private final ContractHistoryRepository contractHistoryRepository;
 
     public ContractService(
             ContractsRepository contractsRepository,
             ContractMapper contractMapper,
             UsersRepository usersRepository,
             ManagerService managerService,
-            ContractManagerRepository contractManagerRepository
+            ContractManagerRepository contractManagerRepository,
+            ContractHistoryRepository contractHistoryRepository
     ) {
         this.contractsRepository = contractsRepository;
         this.contractMapper = contractMapper;
         this.usersRepository = usersRepository;
         this.managerService = managerService;
         this.contractManagerRepository = contractManagerRepository;
+        this.contractHistoryRepository = contractHistoryRepository;
     }
 
     /**
@@ -132,11 +138,15 @@ public class ContractService {
     }
 
     /**
-     * Updates an existing contract.
+     * Updates an existing contract. If the status changes, a history record is
+     * automatically created.
      */
     public ContractDTO updateContract(Long id, ContractDTO contractDTO) {
         Contracts contract = contractsRepository.findById(id)
                 .orElseThrow(() -> new ContractNotFoundException("Contract not found"));
+
+        // Save previous status for history tracking
+        ContractStatus previousStatus = contract.getStatus();
 
         contract.setCustomerName(contractDTO.customerName());
         contract.setContractNumber(contractDTO.contractNumber());
@@ -147,6 +157,23 @@ public class ContractService {
         contract.setEndDate(contractDTO.endDate());
 
         contract = contractsRepository.save(contract);
+
+        // Create history record if status changed
+        if (previousStatus != contractDTO.status()) {
+            String username = getAuthenticatedUsername();
+            Users user = usersRepository.findByUsername(username)
+                    .orElseThrow(() -> new UserNotFoundException(MSG_USER_NOT_FOUND));
+
+            ContractHistory history = new ContractHistory();
+            history.setContract(contract);
+            history.setModifiedBy(user);
+            history.setModificationDate(LocalDateTime.now());
+            history.setPreviousStatus(previousStatus);
+            history.setNewStatus(contract.getStatus());
+
+            contractHistoryRepository.save(history);
+        }
+
         return contractMapper.toDTO(contract);
     }
 
