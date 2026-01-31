@@ -131,6 +131,22 @@ public class ContractController {
         return ResponseEntity.ok(stats);
     }
 
+    /**
+     * Retrieves all ACTIVE contracts that will expire within the specified
+     * number of days.
+     *
+     * @param days the number of days to look ahead (default: 30)
+     * @return HTTP 200 with a list of expiring contracts
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @GetMapping("/expiring")
+    public ResponseEntity<List<ContractDTO>> getExpiringContracts(
+            @RequestParam(defaultValue = "30") int days
+    ) {
+        List<ContractDTO> expiring = contractService.getExpiringContracts(days);
+        return ResponseEntity.ok(expiring);
+    }
+
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/search")
     public ResponseEntity<Page<ContractDTO>> search(

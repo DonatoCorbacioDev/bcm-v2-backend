@@ -197,6 +197,26 @@ public class ContractService {
     }
 
     /**
+     * Retrieves all ACTIVE contracts that will expire within the specified
+     * number of days.
+     *
+     * @param days the number of days in the future to check for expiring
+     * contracts
+     * @return a list of {@link ContractDTO} representing expiring contracts,
+     * ordered by end date
+     */
+    public List<ContractDTO> getExpiringContracts(int days) {
+        LocalDate today = LocalDate.now();
+        LocalDate futureDate = today.plusDays(days);
+
+        List<Contracts> expiring = contractsRepository.findExpiringContracts(today, futureDate);
+
+        return expiring.stream()
+                .map(contractMapper::toDTO)
+                .toList();
+    }
+
+    /**
      * Paged search with optional term (q) and status filter.
      */
     public Page<ContractDTO> searchPaged(String q, ContractStatus status, int page, int size) {

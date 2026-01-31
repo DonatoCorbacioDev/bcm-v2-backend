@@ -1,10 +1,14 @@
 package com.donatodev.bcm_backend.mapper;
 
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+
 import org.springframework.stereotype.Component;
 
 import com.donatodev.bcm_backend.dto.BusinessAreaDTO;
 import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ManagerDTO;
+import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
@@ -61,6 +65,13 @@ public class ContractMapper {
                 )
                 : null;
 
+        // Calculate days until expiry (only for ACTIVE contracts)
+        Integer daysUntilExpiry = null;
+        if (contract.getStatus() == ContractStatus.ACTIVE && contract.getEndDate() != null) {
+            long days = ChronoUnit.DAYS.between(LocalDate.now(), contract.getEndDate());
+            daysUntilExpiry = (int) days;
+        }
+
         return new ContractDTO(
                 contract.getId(),
                 contract.getCustomerName(),
@@ -73,7 +84,8 @@ public class ContractMapper {
                 contract.getBusinessArea() != null ? contract.getBusinessArea().getId() : null,
                 contract.getManager() != null ? contract.getManager().getId() : null,
                 managerDTO,
-                areaDTO
+                areaDTO,
+                daysUntilExpiry
         );
     }
 

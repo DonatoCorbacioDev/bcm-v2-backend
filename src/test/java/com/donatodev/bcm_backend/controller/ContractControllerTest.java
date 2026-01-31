@@ -110,7 +110,7 @@ class ContractControllerTest {
 
             ContractDTO dto = new ContractDTO(null, "Client 1", "CNTR-TEST-1", "WBS-001", "Project X",
                     ContractStatus.ACTIVE, LocalDate.of(2025, 5, 1), LocalDate.of(2026, 5, 1),
-                    area.getId(), manager.getId(), null, null);
+                    area.getId(), manager.getId(), null, null, null);
 
             mockMvc.perform(post("/contracts")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -151,7 +151,7 @@ class ContractControllerTest {
             ContractDTO dto = new ContractDTO(null, "Client A", "CNTR-GET-ALL", "WBS-GET",
                     "Project Get", ContractStatus.ACTIVE,
                     LocalDate.of(2025, 6, 1), LocalDate.of(2026, 6, 1),
-                    area.getId(), manager.getId(), null, null);
+                    area.getId(), manager.getId(), null, null, null);
 
             mockMvc.perform(post("/contracts")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -222,7 +222,7 @@ class ContractControllerTest {
             ContractDTO updated = new ContractDTO(original.getId(), "Client Updated", "CNTR-TEST-4", "WBS-NEW",
                     "Updated Project", ContractStatus.EXPIRED,
                     LocalDate.of(2025, 2, 1), LocalDate.of(2025, 11, 30),
-                    area.getId(), manager.getId(), null, null);
+                    area.getId(), manager.getId(), null, null, null);
 
             mockMvc.perform(put("/contracts/{id}", original.getId())
                     .contentType(MediaType.APPLICATION_JSON)
@@ -514,7 +514,7 @@ class ContractControllerTest {
         @WithMockUser(roles = "MANAGER")
         void shouldForbidCreateForManager() throws Exception {
             ContractDTO dto = new ContractDTO(null, "Test", "TEST", "WBS", "Test",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null);
 
             mockMvc.perform(post("/contracts")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -647,6 +647,147 @@ class ContractControllerTest {
                     .param("size", "10"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content").isArray());
+        }
+
+        @Test
+        @Order(20)
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        @DisplayName("GET /contracts/expiring - Should return expiring contracts")
+        void shouldGetExpiringContracts() throws Exception {
+            // Arrange
+            BusinessAreas area = businessAreasRepository.save(
+                    BusinessAreas.builder().name("IT").description("IT Department").build()
+            );
+
+            Managers manager = managersRepository.save(
+                    Managers.builder()
+                            .firstName("John")
+                            .lastName("Doe")
+                            .email("john@test.com")
+                            .phoneNumber("123456789")
+                            .department("IT")
+                            .build()
+            );
+
+            // Create ACTIVE contract expiring in 10 days
+            LocalDate today = LocalDate.now();
+            Contracts expiringContract = contractsRepository.save(
+                    Contracts.builder()
+                            .contractNumber("CNT-EXP-001")
+                            .customerName("Expiring Corp")
+                            .wbsCode("WBS-EXP")
+                            .projectName("Expiring Project")
+                            .status(ContractStatus.ACTIVE)
+                            .startDate(today.minusMonths(6))
+                            .endDate(today.plusDays(10))
+                            .businessArea(area)
+                            .manager(manager)
+                            .build()
+            );
+
+            // Create ACTIVE contract expiring in 25 days
+            Contracts expiringContract2 = contractsRepository.save(
+                    Contracts.builder()
+                            .contractNumber("CNT-EXP-002")
+                            .customerName("Almost Expired Inc")
+                            .wbsCode("WBS-EXP2")
+                            .projectName("Almost Expired Project")
+                            .status(ContractStatus.ACTIVE)
+                            .startDate(today.minusMonths(3))
+                            .endDate(today.plusDays(25))
+                            .businessArea(area)
+                            .manager(manager)
+                            .build()
+            );
+
+            // Create ACTIVE contract NOT expiring (60 days away)
+            contractsRepository.save(
+                    Contracts.builder()
+                            .contractNumber("CNT-SAFE-001")
+                            .customerName("Safe Corp")
+                            .wbsCode("WBS-SAFE")
+                            .projectName("Safe Project")
+                            .status(ContractStatus.ACTIVE)
+                            .startDate(today.minusMonths(2))
+                            .endDate(today.plusDays(60))
+                            .businessArea(area)
+                            .manager(manager)
+                            .build()
+            );
+
+            // Act & Assert
+            mockMvc.perform(get("/contracts/expiring")
+                    .param("days", "30")
+                    .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$.length()").value(2))
+                    .andExpect(jsonPath("$[0].contractNumber").value("CNT-EXP-001"))
+                    .andExpect(jsonPath("$[0].customerName").value("Expiring Corp"))
+                    .andExpect(jsonPath("$[0].daysUntilExpiry").value(10))
+                    .andExpect(jsonPath("$[1].contractNumber").value("CNT-EXP-002"))
+                    .andExpect(jsonPath("$[1].customerName").value("Almost Expired Inc"))
+                    .andExpect(jsonPath("$[1].daysUntilExpiry").value(25));
+        }
+
+        @Test
+        @Order(21)
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        @DisplayName("GET /contracts/expiring - Should return empty list when no contracts expiring")
+        void shouldReturnEmptyListWhenNoExpiringContracts() throws Exception {
+            // Arrange - No contracts in DB or all expire beyond the days parameter
+
+            // Act & Assert
+            mockMvc.perform(get("/contracts/expiring")
+                    .param("days", "30")
+                    .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$.length()").value(0));
+        }
+
+        @Test
+        @Order(22)
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        @DisplayName("GET /contracts/expiring - Should use default days=30 when not specified")
+        void shouldUseDefaultDaysWhenNotSpecified() throws Exception {
+            // Arrange
+            BusinessAreas area = businessAreasRepository.save(
+                    BusinessAreas.builder().name("IT").description("IT Department").build()
+            );
+
+            Managers manager = managersRepository.save(
+                    Managers.builder()
+                            .firstName("Jane")
+                            .lastName("Smith")
+                            .email("jane@test.com")
+                            .phoneNumber("987654321")
+                            .department("IT")
+                            .build()
+            );
+
+            LocalDate today = LocalDate.now();
+            contractsRepository.save(
+                    Contracts.builder()
+                            .contractNumber("CNT-DEFAULT-001")
+                            .customerName("Default Test Corp")
+                            .wbsCode("WBS-DEF")
+                            .projectName("Default Test Project")
+                            .status(ContractStatus.ACTIVE)
+                            .startDate(today.minusMonths(1))
+                            .endDate(today.plusDays(20))
+                            .businessArea(area)
+                            .manager(manager)
+                            .build()
+            );
+
+            // Act & Assert - Call without 'days' param (should default to 30)
+            mockMvc.perform(get("/contracts/expiring")
+                    .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].contractNumber").value("CNT-DEFAULT-001"));
         }
     }
 }

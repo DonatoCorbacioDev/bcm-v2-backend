@@ -63,6 +63,22 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
         """)
     int countExpiringContracts(@Param("endDate") LocalDate endDate);
 
+    /**
+     * Finds all ACTIVE contracts that will expire between today and a future
+     * date.
+     *
+     * @param today the current date
+     * @param futureDate the end date for the expiry window
+     * @return a list of expiring {@link Contracts}
+     */
+    @Query("""
+        SELECT c FROM Contracts c 
+        WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE 
+          AND c.endDate BETWEEN :today AND :futureDate
+        ORDER BY c.endDate ASC
+      """)
+    List<Contracts> findExpiringContracts(@Param("today") LocalDate today, @Param("futureDate") LocalDate futureDate);
+
     Page<Contracts> findAllBy(Pageable pageable);
 
     Page<Contracts> findByStatus(ContractStatus status, Pageable pageable);

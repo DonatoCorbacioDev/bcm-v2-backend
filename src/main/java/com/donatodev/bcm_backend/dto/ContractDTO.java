@@ -36,7 +36,8 @@ public record ContractDTO(
         Long areaId,
         Long managerId,
         ManagerDTO manager,
-        BusinessAreaDTO area
+        BusinessAreaDTO area,
+        Integer daysUntilExpiry
         ) {
 
 }

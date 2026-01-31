@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -133,7 +134,7 @@ class ContractMapperTest {
         ContractDTO dto = new ContractDTO(
                 3L, "Client", "CN-003", "WBS-003", "TestProject", ContractStatus.ACTIVE,
                 LocalDate.now(), LocalDate.now().plusMonths(6),
-                savedArea.getId(), savedManager.getId(), null, null);
+                savedArea.getId(), savedManager.getId(), null, null, null);
 
         Contracts contract = contractMapper.toEntity(dto);
 
@@ -151,7 +152,7 @@ class ContractMapperTest {
         ContractDTO dto = new ContractDTO(
                 4L, "Client2", "CN-004", "WBS-004", "SoloArea", ContractStatus.CANCELLED,
                 LocalDate.now(), LocalDate.now().plusMonths(3),
-                savedArea.getId(), null, null, null);
+                savedArea.getId(), null, null, null, null);
 
         Contracts contract = contractMapper.toEntity(dto);
 
@@ -168,7 +169,7 @@ class ContractMapperTest {
     void shouldThrowIfAreaNotFound() {
         ContractDTO dto = new ContractDTO(
                 5L, "Missing", "CN-005", "WBS-005", "Error", ContractStatus.CANCELLED,
-                LocalDate.now(), LocalDate.now(), 999L, null, null, null);
+                LocalDate.now(), LocalDate.now(), 999L, null, null, null, null);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
         assertEquals("Business Area not found", ex.getMessage());
@@ -181,7 +182,7 @@ class ContractMapperTest {
     void shouldThrowIfManagerNotFound() {
         ContractDTO dto = new ContractDTO(
                 6L, "Missing", "CN-006", "WBS-006", "Errore", ContractStatus.EXPIRED,
-                LocalDate.now(), LocalDate.now(), savedArea.getId(), 888L, null, null);
+                LocalDate.now(), LocalDate.now(), savedArea.getId(), 888L, null, null, null);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
         assertEquals("Manager not found", ex.getMessage());
@@ -217,7 +218,8 @@ class ContractMapperTest {
                 null, // No area ID
                 null, // No manager ID
                 null, // No manager nested
-                null); // No area nested
+                null, // No area nested
+                null); // No days until expiry
 
         Contracts contract = contractMapper.toEntity(dto);
 
@@ -225,5 +227,71 @@ class ContractMapperTest {
         assertEquals(ContractStatus.ACTIVE, contract.getStatus());
         assertNull(contract.getBusinessArea());  // Should be null
         assertNull(contract.getManager());       // Should be null
+    }
+
+    @Test
+    @DisplayName("toDTO should set daysUntilExpiry to null for ACTIVE contract with null endDate")
+    void shouldSetDaysUntilExpiryToNullWhenActiveContractHasNullEndDate() {
+        // Arrange
+        Contracts contract = Contracts.builder()
+                .id(10L)
+                .contractNumber("CNT-NULL-DATE")
+                .customerName("Null Date Corp")
+                .wbsCode("WBS-NULL")
+                .projectName("Null Date Project")
+                .status(ContractStatus.ACTIVE)
+                .startDate(LocalDate.now())
+                .endDate(null) // NULL end date
+                .build();
+
+        // Act
+        ContractDTO dto = contractMapper.toDTO(contract);
+
+        // Assert
+        assertNotNull(dto);
+        assertEquals(ContractStatus.ACTIVE, dto.status());
+        assertNull(dto.daysUntilExpiry(), "daysUntilExpiry should be null when endDate is null");
+    }
+
+    @Test
+    @DisplayName("toDTO should set daysUntilExpiry to null for non-ACTIVE contracts")
+    void shouldSetDaysUntilExpiryToNullForNonActiveContracts() {
+        // Arrange
+        LocalDate futureDate = LocalDate.now().plusDays(15);
+
+        Contracts expiredContract = Contracts.builder()
+                .id(11L)
+                .contractNumber("CNT-EXPIRED")
+                .customerName("Expired Corp")
+                .wbsCode("WBS-EXP")
+                .projectName("Expired Project")
+                .status(ContractStatus.EXPIRED)
+                .startDate(LocalDate.now().minusMonths(6))
+                .endDate(futureDate) // Has endDate but is EXPIRED
+                .build();
+
+        Contracts cancelledContract = Contracts.builder()
+                .id(12L)
+                .contractNumber("CNT-CANCELLED")
+                .customerName("Cancelled Corp")
+                .wbsCode("WBS-CAN")
+                .projectName("Cancelled Project")
+                .status(ContractStatus.CANCELLED)
+                .startDate(LocalDate.now().minusMonths(3))
+                .endDate(futureDate) // Has endDate but is CANCELLED
+                .build();
+
+        // Act
+        ContractDTO expiredDTO = contractMapper.toDTO(expiredContract);
+        ContractDTO cancelledDTO = contractMapper.toDTO(cancelledContract);
+
+        // Assert
+        assertNotNull(expiredDTO);
+        assertEquals(ContractStatus.EXPIRED, expiredDTO.status());
+        assertNull(expiredDTO.daysUntilExpiry(), "daysUntilExpiry should be null for EXPIRED contracts");
+
+        assertNotNull(cancelledDTO);
+        assertEquals(ContractStatus.CANCELLED, cancelledDTO.status());
+        assertNull(cancelledDTO.daysUntilExpiry(), "daysUntilExpiry should be null for CANCELLED contracts");
     }
 }
