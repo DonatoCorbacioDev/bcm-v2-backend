@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import java.io.IOException;
 import java.time.LocalDate;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -9,6 +10,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,12 +19,15 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -37,8 +43,10 @@ import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+import com.donatodev.bcm_backend.service.ExportService;
 import com.donatodev.bcm_backend.util.TestDataCleaner;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.itextpdf.text.DocumentException;
 
 /**
  * Integration tests for {@link ContractController}.
@@ -75,6 +83,9 @@ class ContractControllerTest {
     @Autowired
     private TestDataCleaner testDataCleaner;
 
+    @MockitoBean
+    private ExportService exportService;
+
     /**
      * Clean database before each test to ensure a fresh state.
      */
@@ -82,6 +93,28 @@ class ContractControllerTest {
     @SuppressWarnings("unused")
     void cleanDb() {
         testDataCleaner.clean();
+    }
+
+    private Users createUser(String username, String roleName, Managers manager) {
+        Roles role = rolesRepository.save(Roles.builder().role(roleName).build());
+        Users user = Users.builder()
+                .username(username)
+                .passwordHash("password")
+                .verified(true)
+                .role(role)
+                .manager(manager)
+                .build();
+        return usersRepository.save(user);
+    }
+
+    private Managers createManager(String firstName, String lastName, String email) {
+        return managersRepository.save(Managers.builder()
+                .firstName(firstName)
+                .lastName(lastName)
+                .email(email)
+                .phoneNumber("123456")
+                .department("Export")
+                .build());
     }
 
     /**
@@ -788,6 +821,139 @@ class ContractControllerTest {
                     .andExpect(jsonPath("$").isArray())
                     .andExpect(jsonPath("$.length()").value(1))
                     .andExpect(jsonPath("$[0].contractNumber").value("CNT-DEFAULT-001"));
+        }
+
+        @Test
+        @Order(23)
+        @DisplayName("Should export contracts to Excel with ADMIN role")
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        void shouldExportToExcel_WithAdminRole() throws Exception {
+            // Arrange
+            createUser("admin", "ADMIN", null);
+            byte[] excelData = "fake-excel-data".getBytes();
+            when(exportService.exportContractsToExcel(any())).thenReturn(excelData);
+
+            // Act & Assert
+            mockMvc.perform(get("/contracts/export/excel"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_OCTET_STREAM))
+                    .andExpect(header().exists("Content-Disposition"))
+                    .andExpect(header().string("Content-Disposition",
+                            "form-data; name=\"attachment\"; filename=\"contracts_export.xlsx\""))
+                    .andExpect(content().bytes(excelData));
+        }
+
+        @Test
+        @Order(24)
+        @DisplayName("Should export contracts to Excel with MANAGER role")
+        @WithMockUser(username = "manager1", roles = "MANAGER")
+        void shouldExportToExcel_WithManagerRole() throws Exception {
+            // Arrange
+            Managers manager = createManager("Export", "Manager", "export.manager@example.com");
+            createUser("manager1", "MANAGER", manager);
+            byte[] excelData = "fake-excel-data".getBytes();
+            when(exportService.exportContractsToExcel(any())).thenReturn(excelData);
+
+            // Act & Assert
+            mockMvc.perform(get("/contracts/export/excel"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_OCTET_STREAM));
+        }
+
+        @Test
+        @Order(25)
+        @DisplayName("Should return 401 when exporting Excel without authentication")
+        void shouldReturn401_ExportExcel_WithoutAuth() throws Exception {
+            // Act & Assert
+            mockMvc.perform(get("/contracts/export/excel"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @Order(26)
+        @DisplayName("Should export contracts to PDF with ADMIN role")
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        void shouldExportToPDF_WithAdminRole() throws Exception {
+            // Arrange
+            createUser("admin", "ADMIN", null);
+            byte[] pdfData = "fake-pdf-data".getBytes();
+            when(exportService.exportContractsToPDF(any())).thenReturn(pdfData);
+
+            // Act & Assert
+            mockMvc.perform(get("/contracts/export/pdf"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                    .andExpect(header().exists("Content-Disposition"))
+                    .andExpect(header().string("Content-Disposition",
+                            "form-data; name=\"attachment\"; filename=\"contracts_export.pdf\""))
+                    .andExpect(content().bytes(pdfData));
+        }
+
+        @Test
+        @Order(27)
+        @DisplayName("Should export contracts to PDF with MANAGER role")
+        @WithMockUser(username = "manager1", roles = "MANAGER")
+        void shouldExportToPDF_WithManagerRole() throws Exception {
+            // Arrange
+            Managers manager = createManager("Pdf", "Manager", "pdf.manager@example.com");
+            createUser("manager1", "MANAGER", manager);
+            byte[] pdfData = "fake-pdf-data".getBytes();
+            when(exportService.exportContractsToPDF(any())).thenReturn(pdfData);
+
+            // Act & Assert
+            mockMvc.perform(get("/contracts/export/pdf"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_PDF));
+        }
+
+        @Test
+        @Order(28)
+        @DisplayName("Should return 401 when exporting PDF without authentication")
+        void shouldReturn401_ExportPDF_WithoutAuth() throws Exception {
+            // Act & Assert
+            mockMvc.perform(get("/contracts/export/pdf"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @Order(29)
+        @DisplayName("Should return 500 when Excel export fails")
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        void shouldReturn500_WhenExcelExportFails() throws Exception {
+            // Serve l'utente nel DB per passare getAllContracts()
+            Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
+            usersRepository.save(Users.builder()
+                    .username("admin")
+                    .passwordHash("admin")
+                    .verified(true)
+                    .role(role)
+                    .build());
+
+            when(exportService.exportContractsToExcel(any()))
+                    .thenThrow(new IOException("Export failed"));
+
+            mockMvc.perform(get("/contracts/export/excel"))
+                    .andExpect(status().isInternalServerError());
+        }
+
+        @Test
+        @Order(30)
+        @DisplayName("Should return 500 when PDF export fails")
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        void shouldReturn500_WhenPDFExportFails() throws Exception {
+            Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
+            usersRepository.save(Users.builder()
+                    .username("admin")
+                    .passwordHash("admin")
+                    .verified(true)
+                    .role(role)
+                    .build());
+
+            when(exportService.exportContractsToPDF(any()))
+                    .thenThrow(new DocumentException("PDF generation failed"));
+
+            mockMvc.perform(get("/contracts/export/pdf"))
+                    .andExpect(status().isInternalServerError());
         }
     }
 }

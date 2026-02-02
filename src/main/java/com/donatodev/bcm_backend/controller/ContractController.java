@@ -1,9 +1,14 @@
 package com.donatodev.bcm_backend.controller;
 
+import java.io.IOException;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -23,6 +28,8 @@ import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ContractStatsResponse;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.service.ContractService;
+import com.donatodev.bcm_backend.service.ExportService;
+import com.itextpdf.text.DocumentException;
 
 /**
  * REST controller for managing company contracts.
@@ -35,10 +42,14 @@ import com.donatodev.bcm_backend.service.ContractService;
 @RequestMapping("/contracts")
 public class ContractController {
 
-    private final ContractService contractService;
+    private static final Logger logger = LoggerFactory.getLogger(ContractController.class);
 
-    public ContractController(ContractService contractService) {
+    private final ContractService contractService;
+    private final ExportService exportService;
+
+    public ContractController(ContractService contractService, ExportService exportService) {
         this.contractService = contractService;
+        this.exportService = exportService;
     }
 
     /**
@@ -190,5 +201,55 @@ public class ContractController {
             @RequestBody CollaboratorsRequest body) {
         contractService.setCollaborators(id, body.managerIds());
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Exports all contracts to Excel format (.xlsx).
+     *
+     * @return Excel file as byte array
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @GetMapping("/export/excel")
+    public ResponseEntity<byte[]> exportContractsToExcel() {
+        try {
+            List<ContractDTO> contracts = contractService.getAllContracts();
+            byte[] excelData = exportService.exportContractsToExcel(contracts);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", "contracts_export.xlsx");
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(excelData);
+        } catch (IOException e) {
+            logger.error("Failed to export contracts to Excel", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Exports all contracts to PDF format.
+     *
+     * @return PDF file as byte array
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @GetMapping("/export/pdf")
+    public ResponseEntity<byte[]> exportContractsToPDF() {
+        try {
+            List<ContractDTO> contracts = contractService.getAllContracts();
+            byte[] pdfData = exportService.exportContractsToPDF(contracts);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", "contracts_export.pdf");
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(pdfData);
+        } catch (DocumentException e) {
+            logger.error("Failed to export contracts to PDF", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 }
