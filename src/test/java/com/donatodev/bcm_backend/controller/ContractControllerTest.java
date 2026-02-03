@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -687,7 +689,7 @@ class ContractControllerTest {
         @WithMockUser(username = "admin", roles = "ADMIN")
         @DisplayName("GET /contracts/expiring - Should return expiring contracts")
         void shouldGetExpiringContracts() throws Exception {
-            // Arrange
+
             BusinessAreas area = businessAreasRepository.save(
                     BusinessAreas.builder().name("IT").description("IT Department").build()
             );
@@ -748,7 +750,6 @@ class ContractControllerTest {
                             .build()
             );
 
-            // Act & Assert
             mockMvc.perform(get("/contracts/expiring")
                     .param("days", "30")
                     .contentType(MediaType.APPLICATION_JSON))
@@ -768,9 +769,8 @@ class ContractControllerTest {
         @WithMockUser(username = "admin", roles = "ADMIN")
         @DisplayName("GET /contracts/expiring - Should return empty list when no contracts expiring")
         void shouldReturnEmptyListWhenNoExpiringContracts() throws Exception {
-            // Arrange - No contracts in DB or all expire beyond the days parameter
+            // No contracts in DB or all expire beyond the days parameter
 
-            // Act & Assert
             mockMvc.perform(get("/contracts/expiring")
                     .param("days", "30")
                     .contentType(MediaType.APPLICATION_JSON))
@@ -828,12 +828,11 @@ class ContractControllerTest {
         @DisplayName("Should export contracts to Excel with ADMIN role")
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldExportToExcel_WithAdminRole() throws Exception {
-            // Arrange
+
             createUser("admin", "ADMIN", null);
             byte[] excelData = "fake-excel-data".getBytes();
             when(exportService.exportContractsToExcel(any())).thenReturn(excelData);
 
-            // Act & Assert
             mockMvc.perform(get("/contracts/export/excel"))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType(MediaType.APPLICATION_OCTET_STREAM))
@@ -848,13 +847,12 @@ class ContractControllerTest {
         @DisplayName("Should export contracts to Excel with MANAGER role")
         @WithMockUser(username = "manager1", roles = "MANAGER")
         void shouldExportToExcel_WithManagerRole() throws Exception {
-            // Arrange
+
             Managers manager = createManager("Export", "Manager", "export.manager@example.com");
             createUser("manager1", "MANAGER", manager);
             byte[] excelData = "fake-excel-data".getBytes();
             when(exportService.exportContractsToExcel(any())).thenReturn(excelData);
 
-            // Act & Assert
             mockMvc.perform(get("/contracts/export/excel"))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType(MediaType.APPLICATION_OCTET_STREAM));
@@ -864,7 +862,7 @@ class ContractControllerTest {
         @Order(25)
         @DisplayName("Should return 401 when exporting Excel without authentication")
         void shouldReturn401_ExportExcel_WithoutAuth() throws Exception {
-            // Act & Assert
+
             mockMvc.perform(get("/contracts/export/excel"))
                     .andExpect(status().isUnauthorized());
         }
@@ -874,12 +872,11 @@ class ContractControllerTest {
         @DisplayName("Should export contracts to PDF with ADMIN role")
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldExportToPDF_WithAdminRole() throws Exception {
-            // Arrange
+
             createUser("admin", "ADMIN", null);
             byte[] pdfData = "fake-pdf-data".getBytes();
             when(exportService.exportContractsToPDF(any())).thenReturn(pdfData);
 
-            // Act & Assert
             mockMvc.perform(get("/contracts/export/pdf"))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType(MediaType.APPLICATION_PDF))
@@ -894,13 +891,12 @@ class ContractControllerTest {
         @DisplayName("Should export contracts to PDF with MANAGER role")
         @WithMockUser(username = "manager1", roles = "MANAGER")
         void shouldExportToPDF_WithManagerRole() throws Exception {
-            // Arrange
+
             Managers manager = createManager("Pdf", "Manager", "pdf.manager@example.com");
             createUser("manager1", "MANAGER", manager);
             byte[] pdfData = "fake-pdf-data".getBytes();
             when(exportService.exportContractsToPDF(any())).thenReturn(pdfData);
 
-            // Act & Assert
             mockMvc.perform(get("/contracts/export/pdf"))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType(MediaType.APPLICATION_PDF));
@@ -920,7 +916,7 @@ class ContractControllerTest {
         @DisplayName("Should return 500 when Excel export fails")
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldReturn500_WhenExcelExportFails() throws Exception {
-            // Serve l'utente nel DB per passare getAllContracts()
+
             Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
             usersRepository.save(Users.builder()
                     .username("admin")
@@ -954,6 +950,38 @@ class ContractControllerTest {
 
             mockMvc.perform(get("/contracts/export/pdf"))
                     .andExpect(status().isInternalServerError());
+        }
+
+        @ParameterizedTest
+        @Order(31)
+        @DisplayName("Should get dashboard stats for authenticated admin")
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        @CsvSource({
+            "/contracts/stats/timeline,Should get contracts timeline",
+            "/contracts/stats/top-managers,Should get top managers",
+            "/contracts/stats/by-area,Should get contracts by area"
+        })
+        void shouldGetDashboardStats(String endpoint, String description) throws Exception {
+            // Arrange
+            createUser("admin", "ADMIN", null);
+
+            // Act & Assert
+            mockMvc.perform(get(endpoint))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray());
+        }
+
+        @ParameterizedTest
+        @Order(32)
+        @DisplayName("Should return 401 for dashboard stats without auth")
+        @CsvSource({
+            "/contracts/stats/by-area,contracts by area",
+            "/contracts/stats/timeline,timeline",
+            "/contracts/stats/top-managers,top managers"
+        })
+        void shouldReturn401_DashboardStats_WithoutAuth(String endpoint, String description) throws Exception {
+            mockMvc.perform(get(endpoint))
+                    .andExpect(status().isUnauthorized());
         }
     }
 }

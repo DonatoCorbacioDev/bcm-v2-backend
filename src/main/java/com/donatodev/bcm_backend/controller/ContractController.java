@@ -26,6 +26,9 @@ import com.donatodev.bcm_backend.dto.AssignManagerRequest;
 import com.donatodev.bcm_backend.dto.CollaboratorsRequest;
 import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ContractStatsResponse;
+import com.donatodev.bcm_backend.dto.ContractsByAreaDTO;
+import com.donatodev.bcm_backend.dto.ContractsTimelineDTO;
+import com.donatodev.bcm_backend.dto.TopManagerDTO;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.service.ContractService;
 import com.donatodev.bcm_backend.service.ExportService;
@@ -251,5 +254,38 @@ public class ContractController {
             logger.error("Failed to export contracts to PDF", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    /**
+     * Get contract distribution by business area.
+     *
+     * @return list of business areas with contract counts
+     */
+    @GetMapping("/stats/by-area")
+    public ResponseEntity<List<ContractsByAreaDTO>> getContractsByArea() {
+        List<ContractsByAreaDTO> stats = contractService.getContractsByArea();
+        return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * Get contracts timeline (created per month).
+     *
+     * @return list of months with contract counts
+     */
+    @GetMapping("/stats/timeline")
+    public ResponseEntity<List<ContractsTimelineDTO>> getContractsTimeline() {
+        List<ContractsTimelineDTO> timeline = contractService.getContractsTimeline();
+        return ResponseEntity.ok(timeline);
+    }
+
+    /**
+     * Get top 5 managers by number of assigned contracts.
+     *
+     * @return list of top managers with contract counts
+     */
+    @GetMapping("/stats/top-managers")
+    public ResponseEntity<List<TopManagerDTO>> getTopManagers() {
+        List<TopManagerDTO> topManagers = contractService.getTopManagers();
+        return ResponseEntity.ok(topManagers);
     }
 }

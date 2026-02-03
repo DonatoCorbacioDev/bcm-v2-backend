@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -10,6 +11,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.donatodev.bcm_backend.dto.ContractsByAreaDTO;
+import com.donatodev.bcm_backend.dto.TopManagerDTO;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 
@@ -104,5 +107,61 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
             Long managerId1, ContractStatus status1, String contractNumber,
             Long managerId2, ContractStatus status2, String customerName,
             Pageable pageable);
+
+    /**
+     * Count contracts grouped by business area.
+     *
+     * @return list of business area names with contract counts
+     */
+    @Query("""
+        SELECT new com.donatodev.bcm_backend.dto.ContractsByAreaDTO(
+            ba.name, 
+            COUNT(c.id)
+        )
+        FROM Contracts c
+        JOIN c.businessArea ba
+        GROUP BY ba.id, ba.name
+        ORDER BY COUNT(c.id) DESC
+    """)
+    List<ContractsByAreaDTO> countContractsByArea();
+
+    /**
+     * Count contracts created per month for the last 6 months. Uses HQL with
+     * EXTRACT functions for cross-database compatibility.
+     *
+     * @param sixMonthsAgo the date 6 months ago
+     * @return list of Object arrays containing [year, month, count]
+     */
+    @Query("""
+    SELECT 
+        EXTRACT(YEAR FROM c.createdAt),
+        EXTRACT(MONTH FROM c.createdAt),
+        COUNT(c)
+    FROM Contracts c
+    WHERE c.createdAt >= :sixMonthsAgo
+    GROUP BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
+    ORDER BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
+""")
+    List<Object[]> countContractsByMonth(@Param("sixMonthsAgo") LocalDateTime sixMonthsAgo);
+
+    /**
+     * Get top managers by number of assigned contracts.
+     *
+     * @param pageable pagination info (limit to top 5)
+     * @return list of top managers with contract counts
+     */
+    @Query("""
+        SELECT new com.donatodev.bcm_backend.dto.TopManagerDTO(
+            m.id,
+            CONCAT(m.firstName, ' ', m.lastName),
+            COUNT(c.id)
+        )
+        FROM Contracts c
+        JOIN c.manager m
+        WHERE m IS NOT NULL
+        GROUP BY m.id, m.firstName, m.lastName
+        ORDER BY COUNT(c.id) DESC
+    """)
+    List<TopManagerDTO> findTopManagers(Pageable pageable);
 
 }

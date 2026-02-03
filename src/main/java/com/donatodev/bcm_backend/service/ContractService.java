@@ -17,6 +17,9 @@ import org.springframework.stereotype.Service;
 
 import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ContractStatsResponse;
+import com.donatodev.bcm_backend.dto.ContractsByAreaDTO;
+import com.donatodev.bcm_backend.dto.ContractsTimelineDTO;
+import com.donatodev.bcm_backend.dto.TopManagerDTO;
 import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
@@ -285,6 +288,73 @@ public class ContractService {
         contractsRepository.save(c);
     }
 
+    /**
+     * Gets collaborator manager IDs for a contract.
+     */
+    public List<Long> getCollaboratorIds(Long contractId) {
+        contractsRepository.findById(contractId)
+                .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
+        return contractManagerRepository.findManagerIdsByContractId(contractId);
+    }
+
+    /**
+     * Sets collaborators for a contract.
+     */
+    public void setCollaborators(Long contractId, List<Long> managerIds) {
+        contractsRepository.findById(contractId)
+                .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
+
+        contractManagerRepository.deleteAllByContractId(contractId);
+
+        if (managerIds != null) {
+            for (Long mid : managerIds) {
+                contractManagerRepository.insertIgnore(contractId, mid);
+            }
+        }
+    }
+
+    /**
+     * Get contract distribution by business area.
+     *
+     * @return list of business areas with contract counts
+     */
+    public List<ContractsByAreaDTO> getContractsByArea() {
+        return contractsRepository.countContractsByArea();
+    }
+
+    /**
+     * Get contracts timeline (created per month for last 6 months). Converts
+     * native query results (Object[]) to DTOs.
+     *
+     * @return list of months with contract counts
+     */
+    public List<ContractsTimelineDTO> getContractsTimeline() {
+        LocalDateTime sixMonthsAgo = LocalDateTime.now().minusMonths(6);
+        List<Object[]> results = contractsRepository.countContractsByMonth(sixMonthsAgo);
+
+        return results.stream()
+                .map(row -> {
+                    int year = ((Number) row[0]).intValue();
+                    int month = ((Number) row[1]).intValue();
+                    long count = ((Number) row[2]).longValue();
+
+                    // Format as YYYY-MM
+                    String monthStr = String.format("%04d-%02d", year, month);
+                    return new ContractsTimelineDTO(monthStr, count);
+                })
+                .toList();
+    }
+
+    /**
+     * Get top 5 managers by number of assigned contracts.
+     *
+     * @return list of top managers with contract counts
+     */
+    public List<TopManagerDTO> getTopManagers() {
+        Pageable topFive = PageRequest.of(0, 5);
+        return contractsRepository.findTopManagers(topFive);
+    }
+
     // -----------------------
     // Helpers Auth
     // -----------------------
@@ -322,28 +392,6 @@ public class ContractService {
     }
 
     private record AuthCtx(String role, Long managerId) {
-
-    }
-
-    public List<Long> getCollaboratorIds(Long contractId) {
-        contractsRepository.findById(contractId)
-                .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
-        return contractManagerRepository.findManagerIdsByContractId(contractId);
-    }
-
-    public void setCollaborators(Long contractId, List<Long> managerIds) {
-        contractsRepository.findById(contractId)
-                .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
-
-        contractManagerRepository.deleteAllByContractId(contractId);
-
-        if (managerIds != null) {
-
-            for (Long mid : managerIds) {
-                contractManagerRepository.insertIgnore(contractId, mid);
-            }
-
-        }
 
     }
 }

@@ -1,12 +1,14 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +42,9 @@ import org.springframework.test.context.ActiveProfiles;
 
 import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ContractStatsResponse;
+import com.donatodev.bcm_backend.dto.ContractsByAreaDTO;
+import com.donatodev.bcm_backend.dto.ContractsTimelineDTO;
+import com.donatodev.bcm_backend.dto.TopManagerDTO;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Managers;
@@ -1214,7 +1219,7 @@ class ContractServiceTest {
         @Order(44)
         @DisplayName("Get expiring contracts within 30 days")
         void shouldGetExpiringContracts() {
-            // Arrange
+
             LocalDate today = LocalDate.now();
             LocalDate futureDate = today.plusDays(30);
 
@@ -1249,10 +1254,8 @@ class ContractServiceTest {
                             null, null, null, null, 25)
             );
 
-            // Act
             List<ContractDTO> result = contractService.getExpiringContracts(30);
 
-            // Assert
             assertEquals(2, result.size());
             assertEquals("CNT-001", result.get(0).contractNumber());
             assertEquals("CNT-002", result.get(1).contractNumber());
@@ -1261,21 +1264,112 @@ class ContractServiceTest {
         }
 
         @Test
+        @Order(45)
         @DisplayName("Get expiring contracts returns empty list when none expiring")
         void shouldReturnEmptyListWhenNoExpiringContracts() {
-            // Arrange
+
             LocalDate today = LocalDate.now();
             LocalDate futureDate = today.plusDays(30);
 
             when(contractsRepository.findExpiringContracts(today, futureDate))
                     .thenReturn(List.of());
 
-            // Act
             List<ContractDTO> result = contractService.getExpiringContracts(30);
 
-            // Assert
             assertTrue(result.isEmpty());
             verify(contractsRepository, times(1)).findExpiringContracts(today, futureDate);
+        }
+
+        @Test
+        @Order(46)
+        @DisplayName("Should get contracts timeline")
+        void shouldGetContractsTimeline() {
+            LocalDateTime sixMonthsAgo = LocalDateTime.now().minusMonths(6);
+
+            List<Object[]> mockResults = List.of(
+                    new Object[]{2025, 8, 5L},
+                    new Object[]{2025, 9, 3L},
+                    new Object[]{2025, 10, 7L}
+            );
+
+            when(contractsRepository.countContractsByMonth(any(LocalDateTime.class)))
+                    .thenReturn(mockResults);
+
+            List<ContractsTimelineDTO> result = contractService.getContractsTimeline();
+
+            assertNotNull(result);
+            assertEquals(3, result.size());
+            assertEquals("2025-08", result.get(0).getMonth());
+            assertEquals(5L, result.get(0).getCount());
+            assertEquals("2025-09", result.get(1).getMonth());
+            assertEquals(3L, result.get(1).getCount());
+            assertEquals("2025-10", result.get(2).getMonth());
+            assertEquals(7L, result.get(2).getCount());
+
+            verify(contractsRepository, times(1)).countContractsByMonth(any(LocalDateTime.class));
+        }
+
+        @Test
+        @Order(47)
+        @DisplayName("Should get contracts by area")
+        void shouldGetContractsByArea() {
+
+            List<ContractsByAreaDTO> mockResults = List.of(
+                    new ContractsByAreaDTO("IT", 10L),
+                    new ContractsByAreaDTO("Finance", 7L),
+                    new ContractsByAreaDTO("HR", 3L)
+            );
+
+            when(contractsRepository.countContractsByArea()).thenReturn(mockResults);
+
+            List<ContractsByAreaDTO> result = contractService.getContractsByArea();
+
+            assertNotNull(result);
+            assertEquals(3, result.size());
+            assertEquals("IT", result.get(0).getAreaName());
+            assertEquals(10L, result.get(0).getCount());
+
+            verify(contractsRepository, times(1)).countContractsByArea();
+        }
+
+        @Test
+        @Order(48)
+        @DisplayName("Should get top managers")
+        void shouldGetTopManagers() {
+
+            List<TopManagerDTO> mockResults = List.of(
+                    new TopManagerDTO(1L, "John Doe", 15L),
+                    new TopManagerDTO(2L, "Jane Smith", 12L),
+                    new TopManagerDTO(3L, "Bob Johnson", 8L)
+            );
+
+            when(contractsRepository.findTopManagers(any(Pageable.class)))
+                    .thenReturn(mockResults);
+
+            List<TopManagerDTO> result = contractService.getTopManagers();
+
+            assertNotNull(result);
+            assertEquals(3, result.size());
+            assertEquals("John Doe", result.get(0).getManagerName());
+            assertEquals(15L, result.get(0).getContractsCount());
+
+            verify(contractsRepository, times(1)).findTopManagers(any(Pageable.class));
+        }
+
+        @Test
+        @Order(49)
+        @DisplayName("Should return empty list when no contracts timeline data")
+        void shouldReturnEmptyListWhenNoTimelineData() {
+
+            when(contractsRepository.countContractsByMonth(any(LocalDateTime.class)))
+                    .thenReturn(List.of());
+
+            List<ContractsTimelineDTO> result = contractService.getContractsTimeline();
+
+            assertNotNull(result);
+            assertTrue(result.isEmpty());
+
+            verify(contractsRepository, times(1)).countContractsByMonth(any(LocalDateTime.class));
         }
     }
 }
