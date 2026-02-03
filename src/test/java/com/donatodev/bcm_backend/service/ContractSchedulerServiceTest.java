@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -14,9 +15,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -26,6 +31,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
@@ -49,6 +55,9 @@ class ContractSchedulerServiceTest {
 
     @Mock
     private UsersRepository usersRepository;
+
+    @Mock
+    private IEmailService emailService;
 
     @InjectMocks
     private ContractSchedulerService schedulerService;
@@ -317,6 +326,192 @@ class ContractSchedulerServiceTest {
             assertEquals(ContractStatus.EXPIRED, overdueContract.getStatus());
             assertEquals(ContractStatus.ACTIVE, activeContract.getStatus());
             assertEquals(ContractStatus.ACTIVE, contractWithoutEndDate.getStatus());
+        }
+
+        @Test
+        @Order(9)
+        @DisplayName("Should send expiration notifications for contracts expiring in 20 days")
+        void shouldSendExpirationNotifications() {
+            // Given: Contract expiring in 20 days with manager
+            LocalDate today = LocalDate.now();
+            LocalDate expiringDate = today.plusDays(20);
+
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setFirstName("John");
+            manager.setLastName("Doe");
+            manager.setEmail("john.doe@example.com");
+
+            Contracts expiringContract = new Contracts();
+            expiringContract.setId(1L);
+            expiringContract.setContractNumber("CNT-2025-EXPIRING");
+            expiringContract.setCustomerName("Test Customer");
+            expiringContract.setProjectName("Test Project");
+            expiringContract.setStatus(ContractStatus.ACTIVE);
+            expiringContract.setStartDate(today.minusMonths(6));
+            expiringContract.setEndDate(expiringDate);
+            expiringContract.setManager(manager);
+
+            when(contractsRepository.findByStatusAndEndDateBetween(
+                    eq(ContractStatus.ACTIVE),
+                    any(LocalDate.class),
+                    any(LocalDate.class)
+            )).thenReturn(List.of(expiringContract));
+
+            schedulerService.sendExpirationNotifications();
+
+            verify(contractsRepository).findByStatusAndEndDateBetween(
+                    eq(ContractStatus.ACTIVE),
+                    any(LocalDate.class),
+                    any(LocalDate.class)
+            );
+            verify(emailService).sendEmail(
+                    eq("john.doe@example.com"),
+                    contains("CNT-2025-EXPIRING"),
+                    anyString()
+            );
+        }
+
+        @Test
+        @Order(10)
+        @DisplayName("Should not send notification when contract has no manager")
+        void shouldNotSendNotificationWhenContractHasNoManager() {
+            // Given: Contract without manager
+            LocalDate today = LocalDate.now();
+
+            Contracts contractWithoutManager = new Contracts();
+            contractWithoutManager.setId(1L);
+            contractWithoutManager.setContractNumber("CNT-NO-MANAGER");
+            contractWithoutManager.setStatus(ContractStatus.ACTIVE);
+            contractWithoutManager.setEndDate(today.plusDays(15));
+            contractWithoutManager.setManager(null);
+
+            when(contractsRepository.findByStatusAndEndDateBetween(
+                    any(ContractStatus.class),
+                    any(LocalDate.class),
+                    any(LocalDate.class)
+            )).thenReturn(List.of(contractWithoutManager));
+
+            schedulerService.sendExpirationNotifications();
+
+            verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+        }
+
+        @Test
+        @Order(11)
+        @DisplayName("Should not send notification when manager has no email")
+        void shouldNotSendNotificationWhenManagerHasNoEmail() {
+            // Given: Contract with manager but no email
+            LocalDate today = LocalDate.now();
+
+            Managers managerWithoutEmail = new Managers();
+            managerWithoutEmail.setId(1L);
+            managerWithoutEmail.setFirstName("Jane");
+            managerWithoutEmail.setLastName("Smith");
+            managerWithoutEmail.setEmail(null);
+
+            Contracts contract = new Contracts();
+            contract.setId(1L);
+            contract.setContractNumber("CNT-NO-EMAIL");
+            contract.setStatus(ContractStatus.ACTIVE);
+            contract.setEndDate(today.plusDays(25));
+            contract.setManager(managerWithoutEmail);
+
+            when(contractsRepository.findByStatusAndEndDateBetween(
+                    any(ContractStatus.class),
+                    any(LocalDate.class),
+                    any(LocalDate.class)
+            )).thenReturn(List.of(contract));
+
+            schedulerService.sendExpirationNotifications();
+
+            verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+        }
+
+        @Test
+        @Order(12)
+        @DisplayName("Should not send notification when email sending fails")
+        void shouldHandleEmailSendingException() {
+            // Given: Email service throws exception
+            LocalDate today = LocalDate.now();
+
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setFirstName("Test");
+            manager.setLastName("User");
+            manager.setEmail("test@example.com");
+
+            Contracts contract = new Contracts();
+            contract.setId(1L);
+            contract.setContractNumber("CNT-ERROR");
+            contract.setCustomerName("Error Test");
+            contract.setProjectName("Error Project");
+            contract.setStatus(ContractStatus.ACTIVE);
+            contract.setEndDate(today.plusDays(10));
+            contract.setManager(manager);
+
+            when(contractsRepository.findByStatusAndEndDateBetween(
+                    any(ContractStatus.class),
+                    any(LocalDate.class),
+                    any(LocalDate.class)
+            )).thenReturn(List.of(contract));
+
+            doThrow(new RuntimeException("Email sending failed"))
+                    .when(emailService).sendEmail(anyString(), anyString(), anyString());
+
+            // When & Then: Should not throw exception (handled internally)
+            assertDoesNotThrow(() -> schedulerService.sendExpirationNotifications());
+
+            verify(emailService).sendEmail(anyString(), anyString(), anyString());
+        }
+
+        @Test
+        @Order(13)
+        @DisplayName("Should send multiple notifications for multiple contracts")
+        void shouldSendMultipleNotificationsForMultipleContracts() {
+            // Given: Multiple contracts expiring
+            LocalDate today = LocalDate.now();
+
+            Managers manager1 = new Managers();
+            manager1.setId(1L);
+            manager1.setFirstName("Manager");
+            manager1.setLastName("One");
+            manager1.setEmail("manager1@example.com");
+
+            Managers manager2 = new Managers();
+            manager2.setId(2L);
+            manager2.setFirstName("Manager");
+            manager2.setLastName("Two");
+            manager2.setEmail("manager2@example.com");
+
+            Contracts contract1 = createContract(1L, "CNT-001", today.plusDays(15), manager1);
+            Contracts contract2 = createContract(2L, "CNT-002", today.plusDays(20), manager2);
+
+            when(contractsRepository.findByStatusAndEndDateBetween(
+                    any(ContractStatus.class),
+                    any(LocalDate.class),
+                    any(LocalDate.class)
+            )).thenReturn(List.of(contract1, contract2));
+
+            schedulerService.sendExpirationNotifications();
+
+            verify(emailService, times(2)).sendEmail(anyString(), anyString(), anyString());
+            verify(emailService).sendEmail(eq("manager1@example.com"), anyString(), anyString());
+            verify(emailService).sendEmail(eq("manager2@example.com"), anyString(), anyString());
+        }
+
+        // Helper method
+        private Contracts createContract(Long id, String contractNumber, LocalDate endDate, Managers manager) {
+            Contracts contract = new Contracts();
+            contract.setId(id);
+            contract.setContractNumber(contractNumber);
+            contract.setCustomerName("Customer " + id);
+            contract.setProjectName("Project " + id);
+            contract.setStatus(ContractStatus.ACTIVE);
+            contract.setStartDate(LocalDate.now().minusMonths(6));
+            contract.setEndDate(endDate);
+            contract.setManager(manager);
+            return contract;
         }
     }
 }

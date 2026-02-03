@@ -10,7 +10,7 @@ public interface IEmailService {
     /**
      * Sends an account verification email.
      *
-     * @param to               the recipient's email address
+     * @param to the recipient's email address
      * @param verificationLink the verification link to be included in the email
      */
     void sendVerificationEmail(String to, String verificationLink);
@@ -18,8 +18,17 @@ public interface IEmailService {
     /**
      * Sends a password reset email.
      *
-     * @param to        the recipient's email address
+     * @param to the recipient's email address
      * @param resetLink the password reset link to be included in the email
      */
     void sendResetPasswordEmail(String to, String resetLink);
+
+    /**
+     * Sends a generic email with custom subject and body.
+     *
+     * @param to the recipient's email address
+     * @param subject the email subject
+     * @param body the email body (can be HTML)
+     */
+    void sendEmail(String to, String subject, String body);
 }

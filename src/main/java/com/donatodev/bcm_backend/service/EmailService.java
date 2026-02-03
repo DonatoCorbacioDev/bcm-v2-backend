@@ -11,8 +11,8 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Implementation of {@link IEmailService} that sends real emails
- * using Spring's {@link JavaMailSender}.
+ * Implementation of {@link IEmailService} that sends real emails using Spring's
+ * {@link JavaMailSender}.
  * <p>
  * Supports sending verification and password reset emails with HTML content.
  */
@@ -25,7 +25,7 @@ public class EmailService implements IEmailService {
     /**
      * Sends an account verification email to the specified recipient.
      *
-     * @param to               the recipient's email address
+     * @param to the recipient's email address
      * @param verificationLink the verification link to include in the email
      * @throws RuntimeException if there is an error while sending the email
      */
@@ -37,8 +37,8 @@ public class EmailService implements IEmailService {
             helper.setTo(to);
             helper.setSubject("Verify your account");
             helper.setText(
-                "<p>Hello!</p><p>Click the link below to verify your email:</p>" +
-                "<p><a href=\"" + verificationLink + "\">Verify email</a></p>", true);
+                    "<p>Hello!</p><p>Click the link below to verify your email:</p>"
+                    + "<p><a href=\"" + verificationLink + "\">Verify email</a></p>", true);
             mailSender.send(message);
         } catch (MessagingException e) {
             throw new EmailSendingException("Error sending verification email", e);
@@ -48,7 +48,7 @@ public class EmailService implements IEmailService {
     /**
      * Sends a password reset email to the specified recipient.
      *
-     * @param to        the recipient's email address
+     * @param to the recipient's email address
      * @param resetLink the password reset link to include in the email
      * @throws RuntimeException if there is an error while sending the email
      */
@@ -60,11 +60,33 @@ public class EmailService implements IEmailService {
             helper.setTo(to);
             helper.setSubject("Reset your password");
             helper.setText(
-                "<p>Click below to reset your password:</p>" +
-                "<p><a href=\"" + resetLink + "\">Reset Password</a></p>", true);
+                    "<p>Click below to reset your password:</p>"
+                    + "<p><a href=\"" + resetLink + "\">Reset Password</a></p>", true);
             mailSender.send(message);
         } catch (MessagingException e) {
             throw new EmailSendingException("Error sending reset password email", e);
+        }
+    }
+
+    /**
+     * Sends a generic email with custom subject and body.
+     *
+     * @param to the recipient's email address
+     * @param subject the email subject
+     * @param body the email body (can be HTML)
+     * @throws RuntimeException if there is an error while sending the email
+     */
+    @Override
+    public void sendEmail(String to, String subject, String body) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(body, true);
+            mailSender.send(message);
+        } catch (MessagingException e) {
+            throw new EmailSendingException("Error sending email", e);
         }
     }
 }

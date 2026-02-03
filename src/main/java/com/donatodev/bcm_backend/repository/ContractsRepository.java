@@ -164,4 +164,17 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
     """)
     List<TopManagerDTO> findTopManagers(Pageable pageable);
 
+    /**
+     * Find contracts by status and end date within a date range.
+     *
+     * @param status the contract status
+     * @param startDate the start date of the range
+     * @param endDate the end date of the range
+     * @return list of contracts matching the criteria
+     */
+    List<Contracts> findByStatusAndEndDateBetween(
+            ContractStatus status,
+            LocalDate startDate,
+            LocalDate endDate
+    );
 }
