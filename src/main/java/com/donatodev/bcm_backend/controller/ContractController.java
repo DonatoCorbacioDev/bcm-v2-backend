@@ -30,6 +30,7 @@ import com.donatodev.bcm_backend.dto.ContractsByAreaDTO;
 import com.donatodev.bcm_backend.dto.ContractsTimelineDTO;
 import com.donatodev.bcm_backend.dto.TopManagerDTO;
 import com.donatodev.bcm_backend.entity.ContractStatus;
+import com.donatodev.bcm_backend.service.ContractSchedulerService;
 import com.donatodev.bcm_backend.service.ContractService;
 import com.donatodev.bcm_backend.service.ExportService;
 import com.itextpdf.text.DocumentException;
@@ -49,10 +50,15 @@ public class ContractController {
 
     private final ContractService contractService;
     private final ExportService exportService;
+    private final ContractSchedulerService contractSchedulerService;
 
-    public ContractController(ContractService contractService, ExportService exportService) {
+    public ContractController(
+            ContractService contractService,
+            ExportService exportService,
+            ContractSchedulerService contractSchedulerService) {
         this.contractService = contractService;
         this.exportService = exportService;
+        this.contractSchedulerService = contractSchedulerService;
     }
 
     /**
@@ -287,5 +293,19 @@ public class ContractController {
     public ResponseEntity<List<TopManagerDTO>> getTopManagers() {
         List<TopManagerDTO> topManagers = contractService.getTopManagers();
         return ResponseEntity.ok(topManagers);
+    }
+
+    /**
+     * Manually triggers the contract expiration check. Updates all ACTIVE
+     * contracts that have passed their end date to EXPIRED status.
+     *
+     * @return HTTP 200 with success message
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/expire-overdue")
+    public ResponseEntity<String> triggerExpireOverdueContracts() {
+        logger.info("Manual trigger of contract expiration check requested");
+        contractSchedulerService.expireOverdueContracts();
+        return ResponseEntity.ok("Contract expiration check completed successfully");
     }
 }

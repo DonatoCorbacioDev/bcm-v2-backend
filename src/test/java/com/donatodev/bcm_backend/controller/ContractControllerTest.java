@@ -13,6 +13,8 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -45,6 +47,7 @@ import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+import com.donatodev.bcm_backend.service.ContractSchedulerService;
 import com.donatodev.bcm_backend.service.ExportService;
 import com.donatodev.bcm_backend.util.TestDataCleaner;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -87,6 +90,9 @@ class ContractControllerTest {
 
     @MockitoBean
     private ExportService exportService;
+
+    @MockitoBean
+    private ContractSchedulerService contractSchedulerService;
 
     /**
      * Clean database before each test to ensure a fresh state.
@@ -784,7 +790,7 @@ class ContractControllerTest {
         @WithMockUser(username = "admin", roles = "ADMIN")
         @DisplayName("GET /contracts/expiring - Should use default days=30 when not specified")
         void shouldUseDefaultDaysWhenNotSpecified() throws Exception {
-            // Arrange
+
             BusinessAreas area = businessAreasRepository.save(
                     BusinessAreas.builder().name("IT").description("IT Department").build()
             );
@@ -906,7 +912,7 @@ class ContractControllerTest {
         @Order(28)
         @DisplayName("Should return 401 when exporting PDF without authentication")
         void shouldReturn401_ExportPDF_WithoutAuth() throws Exception {
-            // Act & Assert
+
             mockMvc.perform(get("/contracts/export/pdf"))
                     .andExpect(status().isUnauthorized());
         }
@@ -962,10 +968,9 @@ class ContractControllerTest {
             "/contracts/stats/by-area,Should get contracts by area"
         })
         void shouldGetDashboardStats(String endpoint, String description) throws Exception {
-            // Arrange
+
             createUser("admin", "ADMIN", null);
 
-            // Act & Assert
             mockMvc.perform(get(endpoint))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$").isArray());
@@ -982,6 +987,42 @@ class ContractControllerTest {
         void shouldReturn401_DashboardStats_WithoutAuth(String endpoint, String description) throws Exception {
             mockMvc.perform(get(endpoint))
                     .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @Order(33)
+        @DisplayName("Should trigger contract expiration check as admin")
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        void shouldTriggerExpireOverdueContracts_AsAdmin() throws Exception {
+
+            createUser("admin", "ADMIN", null);
+
+            mockMvc.perform(post("/contracts/expire-overdue").with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string("Contract expiration check completed successfully"));
+
+            // Verify the scheduler service was called
+            verify(contractSchedulerService, times(1)).expireOverdueContracts();
+        }
+
+        @Test
+        @Order(34)
+        @DisplayName("Should return 401 when triggering expiration check without auth")
+        void shouldReturn401_TriggerExpireOverdue_WithoutAuth() throws Exception {
+            mockMvc.perform(post("/contracts/expire-overdue").with(csrf()))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @Order(35)
+        @DisplayName("Should return 403 when triggering expiration check as manager")
+        @WithMockUser(username = "manager", roles = "MANAGER")
+        void shouldReturn403_TriggerExpireOverdue_AsManager() throws Exception {
+
+            createUser("manager", "MANAGER", null);
+
+            mockMvc.perform(post("/contracts/expire-overdue").with(csrf()))
+                    .andExpect(status().isForbidden());
         }
     }
 }
