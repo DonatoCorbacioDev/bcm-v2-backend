@@ -599,7 +599,7 @@ docker run -p 8090:8090 --env-file .env.prod bcm-backend:1.0.0
 
 **Donato Corbacio**
 
-- 🎓 Master's Degree in Computer Science and Software Production Technologies (Dec 2024)
+- 🎓 Bachelor's Degree in Computer Science and Software Production Technologies (Dec 2024)
 - 💼 Junior Full-Stack Developer seeking opportunities
 - 📚 Currently studying: Python IFTS & AI Automation Business
 - 🌍 Based in Puglia, Italy
