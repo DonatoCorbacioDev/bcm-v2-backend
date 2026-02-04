@@ -75,6 +75,7 @@ class ExportServiceTest {
                 LocalDate.of(2025, 12, 31), // endDate
                 1L, // areaId
                 1L, // managerId
+                "Mario Rossi", // managerName
                 manager1, // manager
                 area1, // area
                 null // daysUntilExpiry
@@ -91,6 +92,7 @@ class ExportServiceTest {
                 LocalDate.of(2025, 11, 30),
                 2L,
                 2L,
+                "Luigi Bianchi", // managerName
                 manager2,
                 area2,
                 null
@@ -114,6 +116,7 @@ class ExportServiceTest {
                 LocalDate.of(2025, 9, 30),
                 null, // areaId
                 null, // managerId
+                null, // managerName
                 null, // manager
                 null, // area
                 null // daysUntilExpiry
@@ -236,6 +239,7 @@ class ExportServiceTest {
                         LocalDate.of(2025, 12, 31),
                         (long) i,
                         (long) i,
+                        "Manager" + i + " Test" + i,
                         manager,
                         area,
                         null
@@ -371,6 +375,7 @@ class ExportServiceTest {
                         LocalDate.of(2025, 12, 31),
                         (long) i,
                         (long) i,
+                        "Manager" + i + " Test" + i,
                         manager,
                         area,
                         null

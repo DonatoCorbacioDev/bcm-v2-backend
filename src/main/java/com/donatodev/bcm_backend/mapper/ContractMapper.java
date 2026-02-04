@@ -83,6 +83,7 @@ public class ContractMapper {
                 contract.getEndDate(),
                 contract.getBusinessArea() != null ? contract.getBusinessArea().getId() : null,
                 contract.getManager() != null ? contract.getManager().getId() : null,
+                contract.getManager() != null ? contract.getManager().getFirstName() + " " + contract.getManager().getLastName() : null,
                 managerDTO,
                 areaDTO,
                 daysUntilExpiry

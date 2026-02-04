@@ -21,6 +21,7 @@ import com.donatodev.bcm_backend.entity.ContractStatus;
  * @param endDate the end date of the contract
  * @param areaId the ID of the associated business area
  * @param managerId the ID of the assigned manager
+ * @param managerName the name of the assigned manager
  * @param manager the nested manager details (optional)
  * @param area the nested business area details (optional)
  */
@@ -35,6 +36,7 @@ public record ContractDTO(
         LocalDate endDate,
         Long areaId,
         Long managerId,
+        String managerName,
         ManagerDTO manager,
         BusinessAreaDTO area,
         Integer daysUntilExpiry

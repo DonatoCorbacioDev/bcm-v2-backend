@@ -151,7 +151,7 @@ class ContractControllerTest {
 
             ContractDTO dto = new ContractDTO(null, "Client 1", "CNTR-TEST-1", "WBS-001", "Project X",
                     ContractStatus.ACTIVE, LocalDate.of(2025, 5, 1), LocalDate.of(2026, 5, 1),
-                    area.getId(), manager.getId(), null, null, null);
+                    area.getId(), manager.getId(), null, null, null, null);
 
             mockMvc.perform(post("/contracts")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -192,7 +192,7 @@ class ContractControllerTest {
             ContractDTO dto = new ContractDTO(null, "Client A", "CNTR-GET-ALL", "WBS-GET",
                     "Project Get", ContractStatus.ACTIVE,
                     LocalDate.of(2025, 6, 1), LocalDate.of(2026, 6, 1),
-                    area.getId(), manager.getId(), null, null, null);
+                    area.getId(), manager.getId(), null, null, null, null);
 
             mockMvc.perform(post("/contracts")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -263,7 +263,7 @@ class ContractControllerTest {
             ContractDTO updated = new ContractDTO(original.getId(), "Client Updated", "CNTR-TEST-4", "WBS-NEW",
                     "Updated Project", ContractStatus.EXPIRED,
                     LocalDate.of(2025, 2, 1), LocalDate.of(2025, 11, 30),
-                    area.getId(), manager.getId(), null, null, null);
+                    area.getId(), manager.getId(), null, null, null, null);
 
             mockMvc.perform(put("/contracts/{id}", original.getId())
                     .contentType(MediaType.APPLICATION_JSON)
@@ -555,7 +555,7 @@ class ContractControllerTest {
         @WithMockUser(roles = "MANAGER")
         void shouldForbidCreateForManager() throws Exception {
             ContractDTO dto = new ContractDTO(null, "Test", "TEST", "WBS", "Test",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null, null);
 
             mockMvc.perform(post("/contracts")
                     .contentType(MediaType.APPLICATION_JSON)
