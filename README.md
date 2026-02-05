@@ -63,31 +63,31 @@ BCM v2.0 is the second iteration of my Business Contract Manager system, represe
 
 ```mermaid
 graph TB
-    subgraph "External Layer"
-        A[Client Applications<br/>Browser, Mobile, Postman]
+    subgraph External["External Layer"]
+        A["Client Applications<br>(Browser, Mobile, Postman)"]
     end
     
-    subgraph "Presentation Layer"
-        B[REST Controllers<br/>@RestController]
-        C[Exception Handler<br/>@ControllerAdvice]
-        D[Security Filter<br/>JWT Authentication]
+    subgraph Presentation["Presentation Layer"]
+        B["REST Controllers<br>(@RestController)"]
+        C["Exception Handler<br>(@ControllerAdvice)"]
+        D["Security Filter<br>(JWT Authentication)"]
     end
     
-    subgraph "Application Layer"
-        E[Service Layer<br/>@Service @Transactional]
-        F[Scheduler Service<br/>@Scheduled]
-        G[Email Service<br/>JavaMailSender]
+    subgraph Application["Application Layer"]
+        E["Service Layer<br>(@Service @Transactional)"]
+        F["Scheduler Service<br>(@Scheduled)"]
+        G["Email Service<br>(JavaMailSender)"]
     end
     
-    subgraph "Domain Layer"
-        H[Entities<br/>@Entity JPA]
-        I[DTOs<br/>Data Transfer Objects]
-        J[Mappers<br/>@Mapper MapStruct]
+    subgraph Domain["Domain Layer"]
+        H["Entities<br>(@Entity JPA)"]
+        I["DTOs<br>(Data Transfer Objects)"]
+        J["Mappers<br>(@Mapper MapStruct)"]
     end
     
-    subgraph "Infrastructure Layer"
-        K[Repositories<br/>@Repository Spring Data]
-        L[MySQL Database<br/>Flyway Migrations]
+    subgraph Infrastructure["Infrastructure Layer"]
+        K["Repositories<br>(@Repository Spring Data)"]
+        L["MySQL Database<br>(Flyway Migrations)"]
     end
     
     A -->|HTTP Request| D
@@ -685,7 +685,7 @@ docker run -p 8090:8090 --env-file .env.prod bcm-backend:1.0.0
 **Donato Corbacio**
 
 - 🎓 Bachelor's Degree in Computer Science and Software Production Technologies (Dec 2024)
-- 💼 Junior Full-Stack Developer seeking opportunities
+- 💼 Full-Stack Developer seeking opportunities
 - 📚 Currently studying: Python IFTS & AI Automation Business
 - 🌍 Based in Puglia, Italy
 - 💡 Passionate about clean code, modern architecture, and continuous learning
