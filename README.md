@@ -102,11 +102,11 @@ graph TB
     E -->|Sends Emails| G
     F -->|Scheduled Tasks| E
     
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style B fill:#bbf,stroke:#333,stroke-width:2px
-    style E fill:#bfb,stroke:#333,stroke-width:2px
-    style K fill:#ffb,stroke:#333,stroke-width:2px
-    style L fill:#fbb,stroke:#333,stroke-width:2px
+    style A fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style B fill:#bbdefb,stroke:#1976d2,stroke-width:2px
+    style E fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
+    style K fill:#fff9c4,stroke:#f57c00,stroke-width:2px
+    style L fill:#ffccbc,stroke:#d84315,stroke-width:2px
 ```
 
 ### Clean Architecture Pattern
