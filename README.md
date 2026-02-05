@@ -59,6 +59,56 @@ BCM v2.0 is the second iteration of my Business Contract Manager system, represe
 
 ## 🏗️ Architecture
 
+### System Overview
+
+```mermaid
+graph TB
+    subgraph "External Layer"
+        A[Client Applications<br/>Browser, Mobile, Postman]
+    end
+    
+    subgraph "Presentation Layer"
+        B[REST Controllers<br/>@RestController]
+        C[Exception Handler<br/>@ControllerAdvice]
+        D[Security Filter<br/>JWT Authentication]
+    end
+    
+    subgraph "Application Layer"
+        E[Service Layer<br/>@Service @Transactional]
+        F[Scheduler Service<br/>@Scheduled]
+        G[Email Service<br/>JavaMailSender]
+    end
+    
+    subgraph "Domain Layer"
+        H[Entities<br/>@Entity JPA]
+        I[DTOs<br/>Data Transfer Objects]
+        J[Mappers<br/>@Mapper MapStruct]
+    end
+    
+    subgraph "Infrastructure Layer"
+        K[Repositories<br/>@Repository Spring Data]
+        L[MySQL Database<br/>Flyway Migrations]
+    end
+    
+    A -->|HTTP Request| D
+    D -->|Authenticated| B
+    B -->|Delegates| E
+    B -.->|Exception| C
+    E -->|Uses| J
+    J -->|Converts| I
+    J -.->|Maps| H
+    E -->|CRUD Operations| K
+    K -->|JPA/Hibernate| L
+    E -->|Sends Emails| G
+    F -->|Scheduled Tasks| E
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style B fill:#bbf,stroke:#333,stroke-width:2px
+    style E fill:#bfb,stroke:#333,stroke-width:2px
+    style K fill:#ffb,stroke:#333,stroke-width:2px
+    style L fill:#fbb,stroke:#333,stroke-width:2px
+```
+
 ### Clean Architecture Pattern
 
 ```
@@ -73,6 +123,41 @@ BCM v2.0 is the second iteration of my Business Contract Manager system, represe
 ├─────────────────────────────────────────┤
 │         Entities (JPA)                  │  Domain Models
 └─────────────────────────────────────────┘
+```
+
+**Key Principles:**
+- **Separation of Concerns:** Each layer has a single responsibility
+- **Dependency Rule:** Inner layers don't depend on outer layers
+- **Testability:** Each layer can be tested independently
+- **Maintainability:** Changes in one layer don't affect others
+
+### Request Flow Example
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant JWT as JWT Filter
+    participant Controller
+    participant Service
+    participant Mapper
+    participant Repository
+    participant Database
+    
+    Client->>JWT: POST /api/v1/contracts<br/>{JWT Token}
+    JWT->>JWT: Validate Token
+    JWT->>Controller: Authenticated Request
+    Controller->>Controller: Validate Input (@Valid)
+    Controller->>Service: create(ContractDTO)
+    Service->>Mapper: toEntity(DTO)
+    Mapper-->>Service: Contract Entity
+    Service->>Repository: save(entity)
+    Repository->>Database: INSERT INTO contracts
+    Database-->>Repository: Saved Entity
+    Repository-->>Service: Contract Entity
+    Service->>Mapper: toDTO(entity)
+    Mapper-->>Service: ContractDTO
+    Service-->>Controller: ContractDTO
+    Controller-->>Client: 201 Created + JSON Response
 ```
 
 ### Technology Stack
