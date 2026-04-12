@@ -190,16 +190,16 @@ class BusinessAreaControllerTest {
             mockMvc.perform(get("/business-areas/{id}", 9999L))
                     .andExpect(status().isNotFound());
         }
-    }
-    
+
         @Test
         @Order(7)
         @DisplayName("Access denied for non-admin user")
-        @WithMockUser(roles = "MANAGER") 
+        @WithMockUser(roles = "MANAGER")
         void shouldReturnForbiddenForManagerRole() throws Exception {
             mockMvc.perform(get("/business-areas"))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.status").value(403))
                     .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Forbidden")));
+        }
     }
 }

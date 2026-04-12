@@ -177,4 +177,14 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
             LocalDate startDate,
             LocalDate endDate
     );
+
+    /**
+     * Finds all contracts with the given status whose end date is before the specified date.
+     * Used by the scheduler to expire overdue contracts without loading all active contracts.
+     *
+     * @param status  the contract status to filter by
+     * @param endDate the cutoff date (contracts ending before this date are returned)
+     * @return list of matching contracts
+     */
+    List<Contracts> findByStatusAndEndDateBefore(ContractStatus status, LocalDate endDate);
 }

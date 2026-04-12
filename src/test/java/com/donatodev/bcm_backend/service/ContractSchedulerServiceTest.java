@@ -72,84 +72,56 @@ class ContractSchedulerServiceTest {
         @Order(1)
         @DisplayName("Should expire overdue contracts")
         void shouldExpireOverdueContracts() {
-
             LocalDate today = LocalDate.now();
-            LocalDate yesterday = today.minusDays(1);
-            LocalDate lastWeek = today.minusDays(7);
 
             Contracts overdueContract1 = Contracts.builder()
-                    .id(1L)
-                    .contractNumber("CNT-001")
-                    .customerName("Client A")
+                    .id(1L).contractNumber("CNT-001").customerName("Client A")
                     .status(ContractStatus.ACTIVE)
-                    .startDate(today.minusMonths(6))
-                    .endDate(yesterday)
+                    .startDate(today.minusMonths(6)).endDate(today.minusDays(1))
                     .build();
 
             Contracts overdueContract2 = Contracts.builder()
-                    .id(2L)
-                    .contractNumber("CNT-002")
-                    .customerName("Client B")
+                    .id(2L).contractNumber("CNT-002").customerName("Client B")
                     .status(ContractStatus.ACTIVE)
-                    .startDate(today.minusMonths(12))
-                    .endDate(lastWeek)
+                    .startDate(today.minusMonths(12)).endDate(today.minusDays(7))
                     .build();
 
-            Users systemUser = Users.builder()
-                    .id(1L)
-                    .username("admin@example.com")
+            Users adminUser = Users.builder()
+                    .id(1L).username("admin@bcm.com")
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
 
-            when(contractsRepository.findByStatus(ContractStatus.ACTIVE))
+            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
                     .thenReturn(List.of(overdueContract1, overdueContract2));
-            when(usersRepository.findByUsername("admin@example.com"))
-                    .thenReturn(Optional.of(systemUser));
+            when(usersRepository.findFirstByRoleRole("ADMIN"))
+                    .thenReturn(Optional.of(adminUser));
 
             schedulerService.expireOverdueContracts();
 
             verify(contractsRepository, times(2)).save(any(Contracts.class));
             verify(contractHistoryRepository, times(2)).save(any());
-
             assertEquals(ContractStatus.EXPIRED, overdueContract1.getStatus());
             assertEquals(ContractStatus.EXPIRED, overdueContract2.getStatus());
         }
 
         @Test
         @Order(2)
-        @DisplayName("Should not expire contracts with future end dates")
+        @DisplayName("Should not expire contracts when DB returns no overdue contracts")
         void shouldNotExpireFutureContracts() {
-
-            LocalDate today = LocalDate.now();
-            LocalDate tomorrow = today.plusDays(1);
-            LocalDate nextWeek = today.plusDays(7);
-
-            Contracts activeContract = Contracts.builder()
-                    .id(1L)
-                    .contractNumber("CNT-003")
-                    .customerName("Client C")
-                    .status(ContractStatus.ACTIVE)
-                    .startDate(today.minusMonths(3))
-                    .endDate(nextWeek)
-                    .build();
-
-            when(contractsRepository.findByStatus(ContractStatus.ACTIVE))
-                    .thenReturn(List.of(activeContract));
+            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
+                    .thenReturn(Collections.emptyList());
 
             schedulerService.expireOverdueContracts();
 
             verify(contractsRepository, never()).save(any(Contracts.class));
             verify(contractHistoryRepository, never()).save(any());
-
-            assertEquals(ContractStatus.ACTIVE, activeContract.getStatus());
         }
 
         @Test
         @Order(3)
-        @DisplayName("Should handle empty list of active contracts")
+        @DisplayName("Should handle empty list of overdue contracts")
         void shouldHandleEmptyContractList() {
-
-            when(contractsRepository.findByStatus(ContractStatus.ACTIVE))
+            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
                     .thenReturn(Collections.emptyList());
 
             schedulerService.expireOverdueContracts();
@@ -162,170 +134,111 @@ class ContractSchedulerServiceTest {
         @Order(4)
         @DisplayName("Should create history record with correct data")
         void shouldCreateHistoryRecordWithCorrectData() {
-
             LocalDate today = LocalDate.now();
-            LocalDate yesterday = today.minusDays(1);
 
             Contracts overdueContract = Contracts.builder()
-                    .id(1L)
-                    .contractNumber("CNT-004")
-                    .customerName("Client D")
+                    .id(1L).contractNumber("CNT-004").customerName("Client D")
                     .status(ContractStatus.ACTIVE)
-                    .startDate(today.minusMonths(6))
-                    .endDate(yesterday)
+                    .startDate(today.minusMonths(6)).endDate(today.minusDays(1))
                     .build();
 
-            Users systemUser = Users.builder()
-                    .id(1L)
-                    .username("admin@example.com")
+            Users adminUser = Users.builder()
+                    .id(1L).username("admin@bcm.com")
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
 
-            when(contractsRepository.findByStatus(ContractStatus.ACTIVE))
+            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
                     .thenReturn(List.of(overdueContract));
-            when(usersRepository.findByUsername("admin@example.com"))
-                    .thenReturn(Optional.of(systemUser));
+            when(usersRepository.findFirstByRoleRole("ADMIN"))
+                    .thenReturn(Optional.of(adminUser));
 
             schedulerService.expireOverdueContracts();
 
-            verify(contractHistoryRepository).save(argThat(history
-                    -> history.getContract().getId().equals(1L)
+            verify(contractHistoryRepository).save(argThat(history ->
+                    history.getContract().getId().equals(1L)
                     && history.getPreviousStatus() == ContractStatus.ACTIVE
                     && history.getNewStatus() == ContractStatus.EXPIRED
-                    && history.getModifiedBy().getUsername().equals("admin@example.com")
+                    && history.getModifiedBy().getUsername().equals("admin@bcm.com")
             ));
         }
 
         @Test
         @Order(5)
-        @DisplayName("Should handle missing system user gracefully")
+        @DisplayName("Should handle missing admin user gracefully")
         void shouldHandleMissingSystemUser() {
-
             LocalDate today = LocalDate.now();
-            LocalDate yesterday = today.minusDays(1);
 
             Contracts overdueContract = Contracts.builder()
-                    .id(1L)
-                    .contractNumber("CNT-005")
-                    .customerName("Client E")
+                    .id(1L).contractNumber("CNT-005").customerName("Client E")
                     .status(ContractStatus.ACTIVE)
-                    .startDate(today.minusMonths(6))
-                    .endDate(yesterday)
+                    .startDate(today.minusMonths(6)).endDate(today.minusDays(1))
                     .build();
 
-            when(contractsRepository.findByStatus(ContractStatus.ACTIVE))
+            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
                     .thenReturn(List.of(overdueContract));
-            when(usersRepository.findByUsername("admin@example.com"))
+            when(usersRepository.findFirstByRoleRole("ADMIN"))
                     .thenReturn(Optional.empty());
 
             schedulerService.expireOverdueContracts();
 
             verify(contractsRepository).save(any(Contracts.class));
             verify(contractHistoryRepository, never()).save(any());
-
             assertEquals(ContractStatus.EXPIRED, overdueContract.getStatus());
         }
 
         @Test
         @Order(6)
-        @DisplayName("Should handle contracts with null end date")
+        @DisplayName("Should do nothing when DB returns no overdue contracts (null endDates excluded by query)")
         void shouldHandleContractsWithNullEndDate() {
-
-            Contracts contractWithoutEndDate = Contracts.builder()
-                    .id(1L)
-                    .contractNumber("CNT-006")
-                    .customerName("Client F")
-                    .status(ContractStatus.ACTIVE)
-                    .startDate(LocalDate.now().minusMonths(6))
-                    .endDate(null)
-                    .build();
-
-            when(contractsRepository.findByStatus(ContractStatus.ACTIVE))
-                    .thenReturn(List.of(contractWithoutEndDate));
+            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
+                    .thenReturn(Collections.emptyList());
 
             schedulerService.expireOverdueContracts();
 
             verify(contractsRepository, never()).save(any(Contracts.class));
             verify(contractHistoryRepository, never()).save(any());
-
-            assertEquals(ContractStatus.ACTIVE, contractWithoutEndDate.getStatus());
         }
 
         @Test
         @Order(7)
-        @DisplayName("Should expire contract with end date equal to today")
+        @DisplayName("Should not expire contract ending today (DB uses strict before)")
         void shouldNotExpireContractEndingToday() {
-
-            LocalDate today = LocalDate.now();
-
-            Contracts contractEndingToday = Contracts.builder()
-                    .id(1L)
-                    .contractNumber("CNT-007")
-                    .customerName("Client G")
-                    .status(ContractStatus.ACTIVE)
-                    .startDate(today.minusMonths(6))
-                    .endDate(today)
-                    .build();
-
-            when(contractsRepository.findByStatus(ContractStatus.ACTIVE))
-                    .thenReturn(List.of(contractEndingToday));
+            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
+                    .thenReturn(Collections.emptyList());
 
             schedulerService.expireOverdueContracts();
 
-            // Contract ending TODAY should NOT be expired (only those BEFORE today)
             verify(contractsRepository, never()).save(any(Contracts.class));
             verify(contractHistoryRepository, never()).save(any());
-
-            assertEquals(ContractStatus.ACTIVE, contractEndingToday.getStatus());
         }
 
         @Test
         @Order(8)
-        @DisplayName("Should handle multiple contracts with mixed dates")
+        @DisplayName("Should expire only the overdue contract returned by the DB query")
         void shouldHandleMixedContractDates() {
-
             LocalDate today = LocalDate.now();
 
             Contracts overdueContract = Contracts.builder()
-                    .id(1L)
-                    .contractNumber("CNT-008")
-                    .status(ContractStatus.ACTIVE)
-                    .endDate(today.minusDays(5))
+                    .id(1L).contractNumber("CNT-008")
+                    .status(ContractStatus.ACTIVE).endDate(today.minusDays(5))
                     .build();
 
-            Contracts activeContract = Contracts.builder()
-                    .id(2L)
-                    .contractNumber("CNT-009")
-                    .status(ContractStatus.ACTIVE)
-                    .endDate(today.plusDays(10))
-                    .build();
-
-            Contracts contractWithoutEndDate = Contracts.builder()
-                    .id(3L)
-                    .contractNumber("CNT-010")
-                    .status(ContractStatus.ACTIVE)
-                    .endDate(null)
-                    .build();
-
-            Users systemUser = Users.builder()
-                    .id(1L)
-                    .username("admin@example.com")
+            Users adminUser = Users.builder()
+                    .id(1L).username("admin@bcm.com")
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
 
-            when(contractsRepository.findByStatus(ContractStatus.ACTIVE))
-                    .thenReturn(List.of(overdueContract, activeContract, contractWithoutEndDate));
-            when(usersRepository.findByUsername("admin@example.com"))
-                    .thenReturn(Optional.of(systemUser));
+            // DB returns only the overdue contract — filtering happens in the query, not in Java
+            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
+                    .thenReturn(List.of(overdueContract));
+            when(usersRepository.findFirstByRoleRole("ADMIN"))
+                    .thenReturn(Optional.of(adminUser));
 
             schedulerService.expireOverdueContracts();
 
             verify(contractsRepository, times(1)).save(any(Contracts.class));
             verify(contractHistoryRepository, times(1)).save(any());
-
             assertEquals(ContractStatus.EXPIRED, overdueContract.getStatus());
-            assertEquals(ContractStatus.ACTIVE, activeContract.getStatus());
-            assertEquals(ContractStatus.ACTIVE, contractWithoutEndDate.getStatus());
         }
 
         @Test

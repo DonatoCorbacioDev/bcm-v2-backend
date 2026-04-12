@@ -39,4 +39,13 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
      * @return {@code true} if a user exists with the given username, {@code false} otherwise
      */
     boolean existsByUsername(String username);
+
+    /**
+     * Finds the first user with the given role name.
+     * Used by the scheduler to attribute system-generated history records to an admin account.
+     *
+     * @param roleName the role name (e.g., "ADMIN")
+     * @return an {@link Optional} containing the first matching user, or empty if none found
+     */
+    Optional<Users> findFirstByRoleRole(String roleName);
 }

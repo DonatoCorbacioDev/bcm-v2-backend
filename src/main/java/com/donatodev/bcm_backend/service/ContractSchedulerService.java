@@ -118,24 +118,23 @@ public class ContractSchedulerService {
         logger.info("Starting automatic contract expiration check...");
 
         LocalDate today = LocalDate.now();
-        List<Contracts> activeContracts = contractsRepository.findByStatus(ContractStatus.ACTIVE);
+        List<Contracts> overdueContracts = contractsRepository.findByStatusAndEndDateBefore(
+                ContractStatus.ACTIVE, today);
 
         int expiredCount = 0;
 
-        for (Contracts contract : activeContracts) {
-            if (contract.getEndDate() != null && contract.getEndDate().isBefore(today)) {
-                logger.info("Expiring contract: {} (ID: {}) - End date: {}",
-                        contract.getContractNumber(),
-                        contract.getId(),
-                        contract.getEndDate());
+        for (Contracts contract : overdueContracts) {
+            logger.info("Expiring contract: {} (ID: {}) - End date: {}",
+                    contract.getContractNumber(),
+                    contract.getId(),
+                    contract.getEndDate());
 
-                ContractStatus previousStatus = contract.getStatus();
-                contract.setStatus(ContractStatus.EXPIRED);
-                contractsRepository.save(contract);
+            ContractStatus previousStatus = contract.getStatus();
+            contract.setStatus(ContractStatus.EXPIRED);
+            contractsRepository.save(contract);
 
-                createHistoryRecord(contract, previousStatus);
-                expiredCount++;
-            }
+            createHistoryRecord(contract, previousStatus);
+            expiredCount++;
         }
 
         logger.info("Contract expiration check completed. {} contracts expired.", expiredCount);
@@ -224,7 +223,7 @@ public class ContractSchedulerService {
     }
 
     private void createHistoryRecord(Contracts contract, ContractStatus previousStatus) {
-        Users systemUser = usersRepository.findByUsername("admin@example.com")
+        Users systemUser = usersRepository.findFirstByRoleRole("ADMIN")
                 .orElse(null);
 
         if (systemUser != null) {
@@ -237,7 +236,7 @@ public class ContractSchedulerService {
 
             contractHistoryRepository.save(history);
         } else {
-            logger.warn("System user not found. History record not created for contract ID: {}",
+            logger.warn("No admin user found. History record not created for contract ID: {}",
                     contract.getId());
         }
     }
