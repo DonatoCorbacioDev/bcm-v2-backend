@@ -3,6 +3,8 @@ package com.donatodev.bcm_backend.dto;
 import java.time.LocalDate;
 
 import com.donatodev.bcm_backend.entity.ContractStatus;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 /**
  * Data Transfer Object for Contract.
@@ -27,14 +29,14 @@ import com.donatodev.bcm_backend.entity.ContractStatus;
  */
 public record ContractDTO(
         Long id,
-        String customerName,
-        String contractNumber,
+        @NotBlank(message = "Customer name is required") String customerName,
+        @NotBlank(message = "Contract number is required") String contractNumber,
         String wbsCode,
         String projectName,
         ContractStatus status,
-        LocalDate startDate,
-        LocalDate endDate,
-        Long areaId,
+        @NotNull(message = "Start date is required") LocalDate startDate,
+        @NotNull(message = "End date is required") LocalDate endDate,
+        @NotNull(message = "Business area is required") Long areaId,
         Long managerId,
         String managerName,
         ManagerDTO manager,

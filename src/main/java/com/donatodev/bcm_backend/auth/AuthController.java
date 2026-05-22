@@ -115,7 +115,7 @@ public class AuthController {
      * @return JWT token if authentication is successful
      */
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseDTO> login(@RequestBody AuthRequestDTO request) {
+    public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody AuthRequestDTO request) {
         String token = authService.authenticate(request.username(), request.password());
         return ResponseEntity.ok(new AuthResponseDTO(token));
     }

@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.auth;
 
+import jakarta.validation.constraints.NotBlank;
+
 /**
  * Data Transfer Object (DTO) for authentication requests.
  * <p>
@@ -9,6 +11,6 @@ package com.donatodev.bcm_backend.auth;
  * @param password the user's password
  */
 public record AuthRequestDTO(
-        String username,
-        String password
+        @NotBlank(message = "Username is required") String username,
+        @NotBlank(message = "Password is required") String password
 ) {}

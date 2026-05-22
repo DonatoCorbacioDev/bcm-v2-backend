@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -113,7 +114,7 @@ public class ContractController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<ContractDTO> createContract(@RequestBody ContractDTO contractDTO) {
+    public ResponseEntity<ContractDTO> createContract(@Valid @RequestBody ContractDTO contractDTO) {
         ContractDTO newContract = contractService.createContract(contractDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(newContract);
     }
@@ -127,7 +128,7 @@ public class ContractController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<ContractDTO> updateContract(@PathVariable Long id, @RequestBody ContractDTO contractDTO) {
+    public ResponseEntity<ContractDTO> updateContract(@PathVariable Long id, @Valid @RequestBody ContractDTO contractDTO) {
         ContractDTO updatedContract = contractService.updateContract(id, contractDTO);
         return ResponseEntity.ok(updatedContract);
     }
