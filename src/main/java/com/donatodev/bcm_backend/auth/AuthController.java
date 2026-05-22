@@ -3,6 +3,7 @@ package com.donatodev.bcm_backend.auth;
 import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -33,6 +34,12 @@ public class AuthController {
     private final IEmailService emailService;
     private final PasswordResetTokenService passwordResetTokenService;
     private final AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
+
+    @Value("${app.backend-base-url}")
+    private String backendBaseUrl;
+
+    @Value("${app.frontend-base-url}")
+    private String frontendBaseUrl;
     
 
     @Autowired
@@ -92,7 +99,7 @@ public class AuthController {
         try {
             Users createdUser = userService.registerUser(userDTO);
             VerificationToken token = verificationTokenService.createToken(createdUser);
-            String verificationLink = "http://localhost:8090/auth/verify?token=" + token.getToken();
+            String verificationLink = backendBaseUrl + "/auth/verify?token=" + token.getToken();
             emailService.sendVerificationEmail(createdUser.getManager().getEmail(), verificationLink);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body("Registered user. Check your email to confirm your account.");
@@ -124,7 +131,7 @@ public class AuthController {
         return userService.findByEmail(request.email())
                 .map(user -> {
                     PasswordResetToken token = passwordResetTokenService.createToken(user);
-                    String resetLink = "http://localhost:8090/auth/reset-password?token=" + token.getToken();
+                    String resetLink = frontendBaseUrl + "/reset-password?token=" + token.getToken();
                     emailService.sendResetPasswordEmail(request.email(), resetLink);
                     return ResponseEntity.ok("Password reset link sent to your email.");
                 })
