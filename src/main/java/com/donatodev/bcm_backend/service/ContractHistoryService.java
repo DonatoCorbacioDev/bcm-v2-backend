@@ -63,8 +63,7 @@ public class ContractHistoryService {
 					.toList();
 		} else {
 			Long managerId = user.getManager().getId();
-			return historyRepository.findAll().stream()
-					.filter(h -> h.getContract().getManager().getId().equals(managerId))
+			return historyRepository.findByContractManagerId(managerId).stream()
 					.map(historyMapper::toDTO)
 					.toList();
 		}

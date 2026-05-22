@@ -370,7 +370,7 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(historyRepository.findAll()).thenReturn(List.of(entity));
+            when(historyRepository.findByContractManagerId(5L)).thenReturn(List.of(entity));
             when(historyMapper.toDTO(entity)).thenReturn(dto);
 
             List<ContractHistoryDTO> result = historyService.getAll();

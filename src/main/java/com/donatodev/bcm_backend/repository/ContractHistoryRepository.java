@@ -23,4 +23,6 @@ public interface ContractHistoryRepository extends JpaRepository<ContractHistory
      * @return a list of {@link ContractHistory} records
      */
     List<ContractHistory> findByContractId(Long contractId);
+
+    List<ContractHistory> findByContractManagerId(Long managerId);
 }
