@@ -145,6 +145,7 @@ public class ContractController {
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/stats")
     public ResponseEntity<ContractStatsResponse> getStats() {
         ContractStatsResponse stats = contractService.getContractStats();
@@ -267,6 +268,7 @@ public class ContractController {
      *
      * @return list of business areas with contract counts
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/stats/by-area")
     public ResponseEntity<List<ContractsByAreaDTO>> getContractsByArea() {
         List<ContractsByAreaDTO> stats = contractService.getContractsByArea();
@@ -278,6 +280,7 @@ public class ContractController {
      *
      * @return list of months with contract counts
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/stats/timeline")
     public ResponseEntity<List<ContractsTimelineDTO>> getContractsTimeline() {
         List<ContractsTimelineDTO> timeline = contractService.getContractsTimeline();
@@ -289,6 +292,7 @@ public class ContractController {
      *
      * @return list of top managers with contract counts
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/stats/top-managers")
     public ResponseEntity<List<TopManagerDTO>> getTopManagers() {
         List<TopManagerDTO> topManagers = contractService.getTopManagers();
