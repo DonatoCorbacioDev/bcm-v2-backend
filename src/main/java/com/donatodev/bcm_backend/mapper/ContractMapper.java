@@ -11,6 +11,8 @@ import com.donatodev.bcm_backend.dto.ManagerDTO;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
+import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 
@@ -117,7 +119,7 @@ public class ContractMapper {
                 .endDate(dto.endDate())
                 .businessArea(dto.areaId() != null
                         ? businessAreasRepository.findById(dto.areaId())
-                                .orElseThrow(() -> new RuntimeException("Business Area not found"))
+                                .orElseThrow(() -> new BusinessAreaNotFoundException("Business area not found: " + dto.areaId()))
                         : null)
                 .manager(resolveManager(dto.managerId()))
                 .build();
@@ -132,6 +134,6 @@ public class ContractMapper {
             return null;
         }
         return managersRepository.findById(managerId)
-                .orElseThrow(() -> new RuntimeException("Manager not found"));
+                .orElseThrow(() -> new ManagerNotFoundException("Manager not found: " + managerId));
     }
 }

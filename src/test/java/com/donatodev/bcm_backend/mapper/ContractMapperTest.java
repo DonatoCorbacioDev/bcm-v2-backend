@@ -172,7 +172,7 @@ class ContractMapperTest {
                 LocalDate.now(), LocalDate.now(), 999L, null, null, null, null, null);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
-        assertEquals("Business Area not found", ex.getMessage());
+        assertEquals("Business area not found: 999", ex.getMessage());
     }
 
     /**
@@ -185,7 +185,7 @@ class ContractMapperTest {
                 LocalDate.now(), LocalDate.now(), savedArea.getId(), 888L, null, null, null, null);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
-        assertEquals("Manager not found", ex.getMessage());
+        assertEquals("Manager not found: 888", ex.getMessage());
     }
 
     /**
