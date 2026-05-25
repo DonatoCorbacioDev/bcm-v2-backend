@@ -381,6 +381,37 @@ class ContractSchedulerServiceTest {
             verify(emailService).sendEmail(eq("manager2@example.com"), anyString(), anyString());
         }
 
+        @Test
+        @Order(14)
+        @DisplayName("Should send notification for contract with null project name")
+        void shouldSendNotificationWhenProjectNameIsNull() {
+            LocalDate today = LocalDate.now();
+
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setFirstName("John");
+            manager.setLastName("Doe");
+            manager.setEmail("john.doe@example.com");
+
+            Contracts contract = new Contracts();
+            contract.setId(1L);
+            contract.setContractNumber("CNT-NO-PROJECT");
+            contract.setCustomerName("Test Customer");
+            contract.setProjectName(null);
+            contract.setStatus(ContractStatus.ACTIVE);
+            contract.setStartDate(today.minusMonths(6));
+            contract.setEndDate(today.plusDays(10));
+            contract.setManager(manager);
+
+            when(contractsRepository.findByStatusAndEndDateBetween(
+                    eq(ContractStatus.ACTIVE), any(LocalDate.class), any(LocalDate.class)))
+                    .thenReturn(List.of(contract));
+
+            schedulerService.sendExpirationNotifications();
+
+            verify(emailService).sendEmail(eq("john.doe@example.com"), anyString(), anyString());
+        }
+
         // Helper method
         private Contracts createContract(Long id, String contractNumber, LocalDate endDate, Managers manager) {
             Contracts contract = new Contracts();

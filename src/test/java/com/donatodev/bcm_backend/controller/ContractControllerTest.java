@@ -1024,5 +1024,55 @@ class ContractControllerTest {
             mockMvc.perform(post("/contracts/expire-overdue").with(csrf()))
                     .andExpect(status().isForbidden());
         }
+
+        @Test
+        @Order(36)
+        @DisplayName("Should return 400 when request body is malformed JSON")
+        @WithMockUser(roles = "ADMIN")
+        void shouldReturn400WhenBodyIsMalformedJson() throws Exception {
+            mockMvc.perform(post("/contracts")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{invalid-json"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.status").value(400))
+                    .andExpect(jsonPath("$.message").value("Malformed or unreadable request body"));
+        }
+
+        @Test
+        @Order(37)
+        @DisplayName("Should return 409 when contract number already exists")
+        @WithMockUser(roles = "ADMIN")
+        void shouldReturn409WhenContractNumberIsDuplicate() throws Exception {
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+                    .name("Area-Dup").description("Dup").build());
+
+            ContractDTO dto = new ContractDTO(null, "Client Dup", "CNTR-DUP-001", "WBS", "Proj",
+                    ContractStatus.ACTIVE, LocalDate.of(2025, 1, 1), LocalDate.of(2026, 1, 1),
+                    area.getId(), null, null, null, null, null);
+
+            mockMvc.perform(post("/contracts")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(dto)))
+                    .andExpect(status().isCreated());
+
+            mockMvc.perform(post("/contracts")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(dto)))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.status").value(409));
+        }
+
+        @Test
+        @Order(38)
+        @DisplayName("Should return 400 when assigning manager to non-existent contract")
+        @WithMockUser(roles = "ADMIN")
+        void shouldReturn400WhenAssigningManagerToNonExistentContract() throws Exception {
+            mockMvc.perform(patch("/contracts/99999/assign-manager")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"managerId\": 1}")
+                    .with(csrf()))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.status").value(400));
+        }
     }
 }

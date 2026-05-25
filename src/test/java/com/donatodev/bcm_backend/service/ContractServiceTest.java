@@ -1371,5 +1371,43 @@ class ContractServiceTest {
 
             verify(contractsRepository, times(1)).countContractsByMonth(any(LocalDateTime.class));
         }
+
+        @Test
+        @Order(50)
+        @DisplayName("Get all contracts as MANAGER with no manager assigned returns empty list")
+        void shouldReturnEmptyListWhenManagerHasNoManagerAssigned() {
+            Roles managerRole = Roles.builder().role("MANAGER").build();
+            Users managerUser = Users.builder()
+                    .username("unassigned")
+                    .role(managerRole)
+                    .manager(null)
+                    .build();
+
+            mockAuthentication("unassigned", "MANAGER");
+            when(usersRepository.findByUsername("unassigned")).thenReturn(Optional.of(managerUser));
+
+            List<ContractDTO> result = contractService.getAllContracts();
+
+            assertTrue(result.isEmpty());
+        }
+
+        @Test
+        @Order(51)
+        @DisplayName("Get contracts by status as MANAGER with no manager assigned returns empty list")
+        void shouldReturnEmptyListByStatusWhenManagerHasNoManagerAssigned() {
+            Roles managerRole = Roles.builder().role("MANAGER").build();
+            Users managerUser = Users.builder()
+                    .username("unassigned2")
+                    .role(managerRole)
+                    .manager(null)
+                    .build();
+
+            mockAuthentication("unassigned2", "MANAGER");
+            when(usersRepository.findByUsername("unassigned2")).thenReturn(Optional.of(managerUser));
+
+            List<ContractDTO> result = contractService.getContractsByStatus(ContractStatus.ACTIVE);
+
+            assertTrue(result.isEmpty());
+        }
     }
 }
