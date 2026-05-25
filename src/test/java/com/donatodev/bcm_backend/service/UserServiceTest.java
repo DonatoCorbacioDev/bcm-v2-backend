@@ -264,7 +264,7 @@ class UserServiceTest {
                     .manager(Managers.builder().email("email@example.com").build())
                     .build();
 
-            when(usersRepository.findAll()).thenReturn(List.of(user));
+            when(usersRepository.findByManagerEmailIgnoreCase("email@example.com")).thenReturn(Optional.of(user));
 
             Optional<Users> result = userService.findByEmail("email@example.com");
 
@@ -405,13 +405,7 @@ class UserServiceTest {
         @Order(16)
         @DisplayName("Find user by manager email returns empty if not found")
         void shouldReturnEmptyIfManagerEmailNotFound() {
-            Users user = Users.builder()
-                    .id(1L)
-                    .username("managerUser")
-                    .manager(Managers.builder().email("other@example.com").build())
-                    .build();
-
-            when(usersRepository.findAll()).thenReturn(List.of(user));
+            when(usersRepository.findByManagerEmailIgnoreCase("notfound@example.com")).thenReturn(Optional.empty());
 
             Optional<Users> result = userService.findByEmail("notfound@example.com");
 
@@ -452,13 +446,7 @@ class UserServiceTest {
         @Order(18)
         @DisplayName("Find user by email where manager is null")
         void shouldSkipUserIfManagerIsNull() {
-            Users user = Users.builder()
-                    .id(1L)
-                    .username("userWithoutManager")
-                    .manager(null)
-                    .build();
-
-            when(usersRepository.findAll()).thenReturn(List.of(user));
+            when(usersRepository.findByManagerEmailIgnoreCase("email@example.com")).thenReturn(Optional.empty());
 
             Optional<Users> result = userService.findByEmail("email@example.com");
 
@@ -472,13 +460,7 @@ class UserServiceTest {
         @Order(19)
         @DisplayName("Find by email should skip users with null manager email")
         void shouldSkipUserIfManagerEmailIsNull() {
-            Users user = Users.builder()
-                    .id(2L)
-                    .username("nullEmailManager")
-                    .manager(Managers.builder().email(null).build())
-                    .build();
-
-            when(usersRepository.findAll()).thenReturn(List.of(user));
+            when(usersRepository.findByManagerEmailIgnoreCase("email@example.com")).thenReturn(Optional.empty());
 
             Optional<Users> result = userService.findByEmail("email@example.com");
 

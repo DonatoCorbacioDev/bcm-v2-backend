@@ -15,6 +15,13 @@ import lombok.*;
  * The contract status is represented as an enum and stored as a string in the database.
  * </p>
  */
+@NamedEntityGraph(
+    name = "contracts.withManagerAndArea",
+    attributeNodes = {
+        @NamedAttributeNode("manager"),
+        @NamedAttributeNode("businessArea")
+    }
+)
 @Entity
 @Table(name = "contracts")
 @Getter

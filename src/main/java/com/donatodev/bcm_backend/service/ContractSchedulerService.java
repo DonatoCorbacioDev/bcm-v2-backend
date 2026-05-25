@@ -13,6 +13,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 
 import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.entity.ContractStatus;
@@ -148,6 +149,15 @@ public class ContractSchedulerService {
 
         String subject = String.format("⚠️ Contract Expiring Soon: %s", contract.getContractNumber());
 
+        String firstName = HtmlUtils.htmlEscape(manager.getFirstName());
+        String lastName = HtmlUtils.htmlEscape(manager.getLastName());
+        String contractNumber = HtmlUtils.htmlEscape(contract.getContractNumber());
+        String customerName = HtmlUtils.htmlEscape(contract.getCustomerName());
+        String projectName = contract.getProjectName() != null
+                ? HtmlUtils.htmlEscape(contract.getProjectName())
+                : "";
+        String expirationDate = contract.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+
         String body = String.format(
                 """
                 <!DOCTYPE html>
@@ -170,15 +180,15 @@ public class ContractSchedulerService {
                         <div class="header">
                             <h2>Contract Expiration Notification</h2>
                         </div>
-                        
+
                         <div class="content">
                             <p>Dear %s %s,</p>
-                            
+
                             <div class="warning">
                                 <strong>⚠️ Action Required</strong><br>
                                 The following contract will expire in <strong>%d days</strong>.
                             </div>
-                            
+
                             <h3>Contract Details:</h3>
                             <div class="detail">
                                 <span class="label">Contract Number:</span>
@@ -196,12 +206,12 @@ public class ContractSchedulerService {
                                 <span class="label">Expiration Date:</span>
                                 <span class="value">%s</span>
                             </div>
-                            
+
                             <p style="margin-top: 20px;">
                                 Please review this contract and take necessary actions before the expiration date.
                             </p>
                         </div>
-                        
+
                         <div class="footer">
                             <p>This is an automated notification from Business Contracts Manager.</p>
                             <p>© 2025 BCM - Business Contracts Manager</p>
@@ -210,13 +220,13 @@ public class ContractSchedulerService {
                 </body>
                 </html>
                 """,
-                manager.getFirstName(),
-                manager.getLastName(),
+                firstName,
+                lastName,
                 daysUntilExpiration,
-                contract.getContractNumber(),
-                contract.getCustomerName(),
-                contract.getProjectName(),
-                contract.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                contractNumber,
+                customerName,
+                projectName,
+                expirationDate
         );
 
         emailService.sendEmail(manager.getEmail(), subject, body);

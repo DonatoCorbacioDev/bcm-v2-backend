@@ -175,13 +175,7 @@ public class UserService {
 	 * @return an {@link Optional} containing the found {@link Users} if any
 	 */
 	public Optional<Users> findByEmail(String email) {
-		return usersRepository.findAll().stream()
-				.filter(user ->
-						user.getManager() != null &&
-						user.getManager().getEmail() != null &&
-						user.getManager().getEmail().equalsIgnoreCase(email)
-				)
-				.findFirst();
+		return usersRepository.findByManagerEmailIgnoreCase(email);
 	}
 
 	/**

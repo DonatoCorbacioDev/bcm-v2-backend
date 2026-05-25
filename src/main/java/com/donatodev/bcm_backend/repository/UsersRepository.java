@@ -41,6 +41,14 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
     boolean existsByUsername(String username);
 
     /**
+     * Finds a user whose associated manager has the given email (case-insensitive).
+     *
+     * @param email the manager's email address
+     * @return an {@link Optional} containing the matching user, or empty if none found
+     */
+    Optional<Users> findByManagerEmailIgnoreCase(String email);
+
+    /**
      * Finds the first user with the given role name.
      * Used by the scheduler to attribute system-generated history records to an admin account.
      *

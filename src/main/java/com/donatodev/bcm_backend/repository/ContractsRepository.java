@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -82,27 +83,35 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
       """)
     List<Contracts> findExpiringContracts(@Param("today") LocalDate today, @Param("futureDate") LocalDate futureDate);
 
+    @EntityGraph("contracts.withManagerAndArea")
     Page<Contracts> findAllBy(Pageable pageable);
 
+    @EntityGraph("contracts.withManagerAndArea")
     Page<Contracts> findByStatus(ContractStatus status, Pageable pageable);
 
+    @EntityGraph("contracts.withManagerAndArea")
     Page<Contracts> findByContractNumberContainingIgnoreCaseOrCustomerNameContainingIgnoreCase(
             String contractNumber, String customerName, Pageable pageable);
 
+    @EntityGraph("contracts.withManagerAndArea")
     Page<Contracts> findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCustomerNameContainingIgnoreCase(
             ContractStatus s1, String contractNumber,
             ContractStatus s2, String customerName,
             Pageable pageable);
 
+    @EntityGraph("contracts.withManagerAndArea")
     Page<Contracts> findByManagerId(Long managerId, Pageable pageable);
 
+    @EntityGraph("contracts.withManagerAndArea")
     Page<Contracts> findByManagerIdAndStatus(Long managerId, ContractStatus status, Pageable pageable);
 
+    @EntityGraph("contracts.withManagerAndArea")
     Page<Contracts> findByManagerIdAndContractNumberContainingIgnoreCaseOrManagerIdAndCustomerNameContainingIgnoreCase(
             Long managerId1, String contractNumber,
             Long managerId2, String customerName,
             Pageable pageable);
 
+    @EntityGraph("contracts.withManagerAndArea")
     Page<Contracts> findByManagerIdAndStatusAndContractNumberContainingIgnoreCaseOrManagerIdAndStatusAndCustomerNameContainingIgnoreCase(
             Long managerId1, ContractStatus status1, String contractNumber,
             Long managerId2, ContractStatus status2, String customerName,
