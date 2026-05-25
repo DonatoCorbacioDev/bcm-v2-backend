@@ -1,39 +1,50 @@
 package com.donatodev.bcm_backend.jwt;
 
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.time.LocalDateTime;
+
+import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
+import com.donatodev.bcm_backend.exception.ApiErrorResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Entry point for unauthorized requests intercepted by Spring Security.
  * <p>
- * This component is triggered whenever a request is made to a secured endpoint
- * without proper authentication credentials (e.g., missing or invalid JWT token).
- * It responds with HTTP status code {@code 401 Unauthorized}.
+ * Returns a structured JSON {@link ApiErrorResponse} with HTTP 401 instead of
+ * the default HTML error page.
  */
 @Component
 public class JwtAuthEntryPoint implements AuthenticationEntryPoint {
 
-    /**
-     * Called when an unauthenticated user tries to access a secured REST endpoint.
-     *
-     * @param request       the HTTP request
-     * @param response      the HTTP response
-     * @param authException the authentication exception thrown
-     * @throws IOException      if an I/O error occurs
-     * @throws ServletException if a servlet error occurs
-     */
+    private final ObjectMapper objectMapper;
+
+    public JwtAuthEntryPoint(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
     @Override
     public void commence(HttpServletRequest request,
                          HttpServletResponse response,
                          AuthenticationException authException)
             throws IOException, ServletException {
 
-        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+
+        ApiErrorResponse errorResponse = new ApiErrorResponse(
+                HttpServletResponse.SC_UNAUTHORIZED,
+                "Unauthorized: " + authException.getMessage(),
+                LocalDateTime.now()
+        );
+
+        objectMapper.writeValue(response.getWriter(), errorResponse);
     }
 }

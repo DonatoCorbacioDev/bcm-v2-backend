@@ -77,25 +77,20 @@ public class ContractService {
      * contracts; Managers: only their contracts.
      */
     public List<ContractDTO> getAllContracts() {
-        String username = getAuthenticatedUsername();
-        logger.info("Authenticated user: {}", username);
+        AuthCtx auth = getAuthCtx();
+        logger.info("Authenticated user role: {}", auth.role());
 
-        Users user = usersRepository.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException(MSG_USER_NOT_FOUND));
-
-        boolean isAdmin = ROLE_ADMIN.equals(user.getRole().getRole());
-        if (isAdmin) {
+        if (ROLE_ADMIN.equalsIgnoreCase(auth.role())) {
             return contractsRepository.findAll()
                     .stream()
                     .map(contractMapper::toDTO)
                     .toList();
-        } else {
-            Long managerId = user.getManager().getId();
-            return contractsRepository.findByManagerId(managerId)
-                    .stream()
-                    .map(contractMapper::toDTO)
-                    .toList();
         }
+        if (auth.managerId() == null) return List.of();
+        return contractsRepository.findByManagerId(auth.managerId())
+                .stream()
+                .map(contractMapper::toDTO)
+                .toList();
     }
 
     /**
@@ -112,23 +107,18 @@ public class ContractService {
      * user.
      */
     public List<ContractDTO> getContractsByStatus(ContractStatus status) {
-        String username = getAuthenticatedUsername();
-        Users user = usersRepository.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException(MSG_USER_NOT_FOUND));
-
-        boolean isAdmin = ROLE_ADMIN.equals(user.getRole().getRole());
-        if (isAdmin) {
+        AuthCtx auth = getAuthCtx();
+        if (ROLE_ADMIN.equalsIgnoreCase(auth.role())) {
             return contractsRepository.findByStatus(status)
                     .stream()
                     .map(contractMapper::toDTO)
                     .toList();
-        } else {
-            Long managerId = user.getManager().getId();
-            return contractsRepository.findByManagerIdAndStatus(managerId, status)
-                    .stream()
-                    .map(contractMapper::toDTO)
-                    .toList();
         }
+        if (auth.managerId() == null) return List.of();
+        return contractsRepository.findByManagerIdAndStatus(auth.managerId(), status)
+                .stream()
+                .map(contractMapper::toDTO)
+                .toList();
     }
 
     /**
