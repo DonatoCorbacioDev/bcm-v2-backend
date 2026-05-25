@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -104,23 +106,15 @@ class ContractSchedulerServiceTest {
             assertEquals(ContractStatus.EXPIRED, overdueContract2.getStatus());
         }
 
-        @Test
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {
+            "DB returns no overdue contracts",
+            "empty list of overdue contracts",
+            "null endDates excluded by DB query",
+            "contract ending today not expired (strict before)"
+        })
         @Order(2)
-        @DisplayName("Should not expire contracts when DB returns no overdue contracts")
-        void shouldNotExpireFutureContracts() {
-            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
-                    .thenReturn(Collections.emptyList());
-
-            schedulerService.expireOverdueContracts();
-
-            verify(contractsRepository, never()).save(any(Contracts.class));
-            verify(contractHistoryRepository, never()).save(any());
-        }
-
-        @Test
-        @Order(3)
-        @DisplayName("Should handle empty list of overdue contracts")
-        void shouldHandleEmptyContractList() {
+        void shouldNotExpireWhenNoOverdueContracts(String scenario) {
             when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
                     .thenReturn(Collections.emptyList());
 
@@ -188,32 +182,6 @@ class ContractSchedulerServiceTest {
 
         @Test
         @Order(6)
-        @DisplayName("Should do nothing when DB returns no overdue contracts (null endDates excluded by query)")
-        void shouldHandleContractsWithNullEndDate() {
-            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
-                    .thenReturn(Collections.emptyList());
-
-            schedulerService.expireOverdueContracts();
-
-            verify(contractsRepository, never()).save(any(Contracts.class));
-            verify(contractHistoryRepository, never()).save(any());
-        }
-
-        @Test
-        @Order(7)
-        @DisplayName("Should not expire contract ending today (DB uses strict before)")
-        void shouldNotExpireContractEndingToday() {
-            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
-                    .thenReturn(Collections.emptyList());
-
-            schedulerService.expireOverdueContracts();
-
-            verify(contractsRepository, never()).save(any(Contracts.class));
-            verify(contractHistoryRepository, never()).save(any());
-        }
-
-        @Test
-        @Order(8)
         @DisplayName("Should expire only the overdue contract returned by the DB query")
         void shouldHandleMixedContractDates() {
             LocalDate today = LocalDate.now();

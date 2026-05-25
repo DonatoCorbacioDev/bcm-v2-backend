@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -15,6 +17,9 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -251,25 +256,34 @@ class UserServiceTest {
         }
 
         /**
-         * Test: Find user by associated manager email address. Verifies correct
-         * filtering among all users.
+         * Tests findByEmail() across all scenarios: found, not found, null manager, null email.
          */
-        @Test
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("findByEmailCases")
         @Order(8)
-        @DisplayName("Find user by manager email")
-        void shouldFindUserByManagerEmail() {
-            Users user = Users.builder()
+        void findByEmail(String description, String email, Optional<Users> repoResponse, boolean expectedPresent) {
+            when(usersRepository.findByManagerEmailIgnoreCase(email)).thenReturn(repoResponse);
+
+            Optional<Users> result = userService.findByEmail(email);
+
+            assertEquals(expectedPresent, result.isPresent());
+            if (expectedPresent) {
+                assertEquals("managerUser", result.get().getUsername());
+            }
+        }
+
+        static Stream<Arguments> findByEmailCases() {
+            Users found = Users.builder()
                     .id(1L)
                     .username("managerUser")
-                    .manager(Managers.builder().email("email@example.com").build())
+                    .manager(Managers.builder().email("found@example.com").build())
                     .build();
-
-            when(usersRepository.findByManagerEmailIgnoreCase("email@example.com")).thenReturn(Optional.of(user));
-
-            Optional<Users> result = userService.findByEmail("email@example.com");
-
-            assertTrue(result.isPresent());
-            assertEquals("managerUser", result.get().getUsername());
+            return Stream.of(
+                    Arguments.of("found by manager email", "found@example.com", Optional.of(found), true),
+                    Arguments.of("email not found returns empty", "notfound@example.com", Optional.empty(), false),
+                    Arguments.of("manager is null returns empty", "email@example.com", Optional.empty(), false),
+                    Arguments.of("manager email is null returns empty", "email@example.com", Optional.empty(), false)
+            );
         }
 
         /**
@@ -399,20 +413,6 @@ class UserServiceTest {
         }
 
         /**
-         * Test: Should return empty when no user's manager has the given email.
-         */
-        @Test
-        @Order(16)
-        @DisplayName("Find user by manager email returns empty if not found")
-        void shouldReturnEmptyIfManagerEmailNotFound() {
-            when(usersRepository.findByManagerEmailIgnoreCase("notfound@example.com")).thenReturn(Optional.empty());
-
-            Optional<Users> result = userService.findByEmail("notfound@example.com");
-
-            assertTrue(result.isEmpty());
-        }
-
-        /**
          * Test: Successfully register user when manager ID is provided and not
          * yet assigned.
          */
@@ -436,35 +436,6 @@ class UserServiceTest {
 
             assertEquals("newUser", result.username());
             verify(usersRepository).save(user);
-        }
-
-        /**
-         * Test: Should skip user in findByEmail() if user has no manager
-         * assigned.
-         */
-        @Test
-        @Order(18)
-        @DisplayName("Find user by email where manager is null")
-        void shouldSkipUserIfManagerIsNull() {
-            when(usersRepository.findByManagerEmailIgnoreCase("email@example.com")).thenReturn(Optional.empty());
-
-            Optional<Users> result = userService.findByEmail("email@example.com");
-
-            assertTrue(result.isEmpty());
-        }
-
-        /**
-         * Test: Should skip user in findByEmail() if manager's email is null.
-         */
-        @Test
-        @Order(19)
-        @DisplayName("Find by email should skip users with null manager email")
-        void shouldSkipUserIfManagerEmailIsNull() {
-            when(usersRepository.findByManagerEmailIgnoreCase("email@example.com")).thenReturn(Optional.empty());
-
-            Optional<Users> result = userService.findByEmail("email@example.com");
-
-            assertTrue(result.isEmpty());
         }
 
         /**
