@@ -17,6 +17,7 @@ import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.exception.RoleNotFoundException;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
+import com.donatodev.bcm_backend.util.TestDataCleaner;
 
 /**
  * Unit tests for {@link UserMapper}.
@@ -39,6 +40,9 @@ class UserMapperTest {
     @Autowired
     private RolesRepository rolesRepository;
 
+    @Autowired
+    private TestDataCleaner testDataCleaner;
+
     private Roles savedRole;
     private Managers savedManager;
 
@@ -48,8 +52,7 @@ class UserMapperTest {
     @BeforeEach
     @SuppressWarnings("unused")
     void setup() {
-        managersRepository.deleteAll();
-        rolesRepository.deleteAll();
+        testDataCleaner.clean();
 
         savedRole = rolesRepository.save(Roles.builder().role("ADMIN").build());
 
