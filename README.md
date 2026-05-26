@@ -2,6 +2,7 @@
 
 > Enterprise-grade SaaS platform for contract lifecycle management built with Spring Boot 3.5.9 and Java 21
 
+[![CI](https://github.com/DonatoCorbacioDev/bcm-v2-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/DonatoCorbacioDev/bcm-v2-backend/actions/workflows/ci.yml)
 [![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.9-brightgreen?logo=spring)](https://spring.io/projects/spring-boot)
 [![Coverage](https://img.shields.io/badge/Coverage-100%25%20Perfect-brightgreen?style=flat&logo=codecov)](./target/site/jacoco/index.html)
