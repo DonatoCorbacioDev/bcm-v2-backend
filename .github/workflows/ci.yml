@@ -28,8 +28,8 @@ jobs:
         run: |
           chmod +x mvnw
           ./mvnw verify sonar:sonar --batch-mode -P test \
-            -Dsonar.projectKey=donato-dev_bcm-v2-backend \
-            -Dsonar.organization=donato-dev \
+            -Dsonar.projectKey=DonatoCorbacioDev_bcm-v2-backend \
+            -Dsonar.organization=donatocorbaciodev \
             -Dsonar.host.url=https://sonarcloud.io
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
