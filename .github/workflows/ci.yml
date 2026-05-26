@@ -23,4 +23,6 @@ jobs:
           cache: maven
 
       - name: Build and run tests
-        run: ./mvnw test --batch-mode -P test
+        run: |
+          chmod +x mvnw
+          ./mvnw test --batch-mode -P test
