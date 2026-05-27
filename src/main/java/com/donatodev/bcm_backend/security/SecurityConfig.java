@@ -38,6 +38,7 @@ public class SecurityConfig {
     };
 
     @Bean
+    @SuppressWarnings("java:S4502") // Stateless JWT API — no session cookies, no CSRF risk
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
