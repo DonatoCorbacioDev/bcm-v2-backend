@@ -46,6 +46,7 @@ public class ContractService {
 
     private static final Logger logger = LoggerFactory.getLogger(ContractService.class);
 
+    private static final String CRLF_REGEX = "[\r\n]";
     private static final String MSG_USER_NOT_FOUND = "User not found";
     private static final String MSG_NO_AUTH_USER = "No authenticated user";
     private static final String MSG_CONTRACT_NOT_FOUND_PREFIX = "Contract not found: ";
@@ -80,7 +81,8 @@ public class ContractService {
      */
     public List<ContractDTO> getAllContracts() {
         AuthCtx auth = getAuthCtx();
-        logger.info("Authenticated user role: {}", auth.role().replaceAll("[\r\n]", "_"));
+        String safeRole = auth.role().replaceAll(CRLF_REGEX, "_");
+        logger.info("Authenticated user role: {}", safeRole);
 
         if (ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
             return contractsRepository.findAll()

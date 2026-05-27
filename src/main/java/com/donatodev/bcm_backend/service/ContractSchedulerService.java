@@ -32,6 +32,7 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 public class ContractSchedulerService {
 
     private static final Logger logger = LoggerFactory.getLogger(ContractSchedulerService.class);
+    private static final String CRLF_REGEX = "[\r\n]";
 
     private final ContractsRepository contractsRepository;
     private final ContractHistoryRepository contractHistoryRepository;
@@ -82,14 +83,14 @@ public class ContractSchedulerService {
         for (Contracts contract : expiringContracts) {
             Managers manager = contract.getManager();
 
-            String safeContractNumber = contract.getContractNumber().replaceAll("[\r\n]", "_");
+            String safeContractNumber = contract.getContractNumber().replaceAll(CRLF_REGEX, "_");
             if (manager != null && manager.getEmail() != null) {
                 try {
                     sendExpirationEmail(contract, manager);
                     notificationsSent++;
+                    String safeEmail = manager.getEmail().replaceAll(CRLF_REGEX, "_");
                     logger.info("Expiration notification sent for contract: {} to manager: {}",
-                            safeContractNumber,
-                            manager.getEmail().replaceAll("[\r\n]", "_"));
+                            safeContractNumber, safeEmail);
                 } catch (Exception e) {
                     logger.error("Failed to send expiration notification for contract: {}",
                             safeContractNumber, e);
@@ -126,7 +127,7 @@ public class ContractSchedulerService {
         int expiredCount = 0;
 
         for (Contracts contract : overdueContracts) {
-            String safeContractNumber = contract.getContractNumber().replaceAll("[\r\n]", "_");
+            String safeContractNumber = contract.getContractNumber().replaceAll(CRLF_REGEX, "_");
             logger.info("Expiring contract: {} (ID: {}) - End date: {}",
                     safeContractNumber,
                     contract.getId(),

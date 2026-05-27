@@ -37,7 +37,9 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @Slf4j
 public class JwtUtils {
-	
+
+    private static final String CRLF_REGEX = "[\r\n]";
+
 	private Clock clock = Clock.systemDefaultZone();
 	
 	public Clock getClock() {
@@ -197,11 +199,11 @@ public class JwtUtils {
             getJwtParser().parseSignedClaims(authToken);
             return true;
         } catch (ExpiredJwtException e) {
-            log.warn("JWT token is expired: {}", e.getMessage().replaceAll("[\r\n]", "_"));
+            log.warn("JWT token is expired: {}", e.getMessage().replaceAll(CRLF_REGEX, "_"));
         } catch (MalformedJwtException | UnsupportedJwtException | IllegalArgumentException e) {
-            log.error("Invalid JWT token: {}", e.getMessage().replaceAll("[\r\n]", "_"));
+            log.error("Invalid JWT token: {}", e.getMessage().replaceAll(CRLF_REGEX, "_"));
         } catch (SignatureException e) {
-            log.error("JWT signature validation failed: {}", e.getMessage().replaceAll("[\r\n]", "_"));
+            log.error("JWT signature validation failed: {}", e.getMessage().replaceAll(CRLF_REGEX, "_"));
         }
         return false;
     }

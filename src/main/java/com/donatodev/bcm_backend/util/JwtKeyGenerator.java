@@ -20,6 +20,7 @@ import io.jsonwebtoken.Jwts;
 public final class JwtKeyGenerator {
 	
 	private static final Logger logger = LoggerFactory.getLogger(JwtKeyGenerator.class);
+    private static final String CRLF_REGEX = "[\r\n]";
 
     // Private constructor to prevent instantiation
     private JwtKeyGenerator() {
@@ -39,6 +40,7 @@ public final class JwtKeyGenerator {
         byte[] key = Jwts.SIG.HS256.key().build().getEncoded();
         String base64Key = Base64.getEncoder().encodeToString(key);
         logger.info("JWT Secret (HMAC-SHA256, base64):");
-        logger.info("{}", base64Key.replaceAll("[\r\n]", "_"));
+        String safeKey = base64Key.replaceAll(CRLF_REGEX, "_");
+        logger.info("{}", safeKey);
     }
 }

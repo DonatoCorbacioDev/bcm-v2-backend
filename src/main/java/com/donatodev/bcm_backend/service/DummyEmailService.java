@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 public class DummyEmailService implements IEmailService {
 
     private static final Logger logger = LoggerFactory.getLogger(DummyEmailService.class);
+    private static final String CRLF_REGEX = "[\r\n]";
 
     /**
      * Constructor that logs activation of the dummy email service.
@@ -34,9 +35,10 @@ public class DummyEmailService implements IEmailService {
      */
     @Override
     public void sendVerificationEmail(String to, String verificationLink) {
-        logger.info("[TEST] Fake verification email sent to: {} with link: {}",
-                sanitize(to),
-                sanitize(verificationLink));
+        if (logger.isInfoEnabled()) {
+            logger.info("[TEST] Fake verification email sent to: {} with link: {}",
+                    sanitize(to), sanitize(verificationLink));
+        }
     }
 
     /**
@@ -47,9 +49,10 @@ public class DummyEmailService implements IEmailService {
      */
     @Override
     public void sendResetPasswordEmail(String to, String resetLink) {
-        logger.info("[TEST] Fake password reset email sent to: {} with link: {}",
-                sanitize(to),
-                sanitize(resetLink));
+        if (logger.isInfoEnabled()) {
+            logger.info("[TEST] Fake password reset email sent to: {} with link: {}",
+                    sanitize(to), sanitize(resetLink));
+        }
     }
 
     /**
@@ -61,13 +64,16 @@ public class DummyEmailService implements IEmailService {
      */
     @Override
     public void sendEmail(String to, String subject, String body) {
-        logger.info("[TEST] Fake email sent to: {} with subject: {}",
-                sanitize(to),
-                sanitize(subject));
-        logger.debug("[TEST] Email body: {}", sanitize(body));
+        if (logger.isInfoEnabled()) {
+            logger.info("[TEST] Fake email sent to: {} with subject: {}",
+                    sanitize(to), sanitize(subject));
+        }
+        if (logger.isDebugEnabled()) {
+            logger.debug("[TEST] Email body: {}", sanitize(body));
+        }
     }
 
     private static String sanitize(String value) {
-        return value == null ? null : value.replaceAll("[\r\n]", "_");
+        return value == null ? null : value.replaceAll(CRLF_REGEX, "_");
     }
 }
