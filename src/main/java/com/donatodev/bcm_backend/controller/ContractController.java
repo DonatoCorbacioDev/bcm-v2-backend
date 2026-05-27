@@ -1,7 +1,9 @@
 package com.donatodev.bcm_backend.controller;
 
 import java.io.IOException;
+import java.text.Normalizer;
 import java.util.List;
+import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -98,7 +100,7 @@ public class ContractController {
     @GetMapping("/filter")
     public ResponseEntity<List<ContractDTO>> getContractsByStatus(@RequestParam String status) {
         try {
-            ContractStatus contractStatus = ContractStatus.valueOf(status.toUpperCase());
+            ContractStatus contractStatus = ContractStatus.valueOf(Normalizer.normalize(status, Normalizer.Form.NFC).toUpperCase(Locale.ROOT));
             List<ContractDTO> contracts = contractService.getContractsByStatus(contractStatus);
             return ResponseEntity.ok(contracts);
         } catch (IllegalArgumentException e) {
@@ -178,9 +180,9 @@ public class ContractController {
             @RequestParam(required = false) String status
     ) {
         ContractStatus st = null;
-        if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
+        if (status != null && !status.isBlank() && !"ALL".equals(Normalizer.normalize(status, Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
             try {
-                st = ContractStatus.valueOf(status.toUpperCase());
+                st = ContractStatus.valueOf(Normalizer.normalize(status, Normalizer.Form.NFC).toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException ignored) {
                 // Invalid status provided; fallback to no status filter
             }

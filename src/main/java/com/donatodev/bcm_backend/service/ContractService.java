@@ -1,8 +1,10 @@
 package com.donatodev.bcm_backend.service;
 
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,9 +80,9 @@ public class ContractService {
      */
     public List<ContractDTO> getAllContracts() {
         AuthCtx auth = getAuthCtx();
-        logger.info("Authenticated user role: {}", auth.role());
+        logger.info("Authenticated user role: {}", auth.role().replaceAll("[\r\n]", "_"));
 
-        if (ROLE_ADMIN.equalsIgnoreCase(auth.role())) {
+        if (ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
             return contractsRepository.findAll()
                     .stream()
                     .map(contractMapper::toDTO)
@@ -108,7 +110,7 @@ public class ContractService {
      */
     public List<ContractDTO> getContractsByStatus(ContractStatus status) {
         AuthCtx auth = getAuthCtx();
-        if (ROLE_ADMIN.equalsIgnoreCase(auth.role())) {
+        if (ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
             return contractsRepository.findByStatus(status)
                     .stream()
                     .map(contractMapper::toDTO)
@@ -220,7 +222,7 @@ public class ContractService {
 
         AuthCtx auth = getAuthCtx();
 
-        Page<Contracts> pageResult = ROLE_ADMIN.equalsIgnoreCase(auth.role())
+        Page<Contracts> pageResult = ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))
                 ? searchPagedAdmin(status, hasTerm, term, pageable)
                 : searchPagedManager(auth.managerId(), status, hasTerm, term, pageable);
 

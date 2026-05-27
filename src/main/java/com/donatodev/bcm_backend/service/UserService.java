@@ -1,7 +1,9 @@
 package com.donatodev.bcm_backend.service;
 
+import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -214,7 +216,7 @@ public class UserService {
 			throw new IllegalArgumentException("Username already exists.");
 		}
 
-		if (!"MANAGER".equalsIgnoreCase(role)) {
+		if (!"MANAGER".equals(Normalizer.normalize(role, Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
 			throw new IllegalArgumentException("Only MANAGER role allowed via invite.");
 		}
 		Managers manager = managersRepository.findById(managerId)
@@ -321,7 +323,7 @@ public class UserService {
 
 		if (q != null && !q.isBlank()) {
 			spec = spec.and((root, query, cb) ->
-				cb.like(cb.lower(root.get("username")), "%" + q.toLowerCase() + "%")
+				cb.like(cb.lower(root.get("username")), "%" + q.toLowerCase(Locale.ROOT) + "%")
 			);
 		}
 		if (role != null && !role.isBlank()) {

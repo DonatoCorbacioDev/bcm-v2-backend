@@ -82,7 +82,7 @@ public class AuthController {
             verificationTokenService.deleteToken(verificationToken);
 
             return ResponseEntity.ok("Email verified successfully. You can now log in.");
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body("Invalid or expired verification token.");
         }
@@ -159,7 +159,7 @@ public class AuthController {
             passwordResetTokenService.deleteToken(token);
 
             return ResponseEntity.ok("Password successfully reset.");
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid token.");
         }
     }

@@ -34,7 +34,9 @@ public class DummyEmailService implements IEmailService {
      */
     @Override
     public void sendVerificationEmail(String to, String verificationLink) {
-        logger.info("[TEST] Fake verification email sent to: {} with link: {}", to, verificationLink);
+        logger.info("[TEST] Fake verification email sent to: {} with link: {}",
+                sanitize(to),
+                sanitize(verificationLink));
     }
 
     /**
@@ -45,7 +47,9 @@ public class DummyEmailService implements IEmailService {
      */
     @Override
     public void sendResetPasswordEmail(String to, String resetLink) {
-        logger.info("[TEST] Fake password reset email sent to: {} with link: {}", to, resetLink);
+        logger.info("[TEST] Fake password reset email sent to: {} with link: {}",
+                sanitize(to),
+                sanitize(resetLink));
     }
 
     /**
@@ -57,7 +61,13 @@ public class DummyEmailService implements IEmailService {
      */
     @Override
     public void sendEmail(String to, String subject, String body) {
-        logger.info("[TEST] Fake email sent to: {} with subject: {}", to, subject);
-        logger.debug("[TEST] Email body: {}", body);
+        logger.info("[TEST] Fake email sent to: {} with subject: {}",
+                sanitize(to),
+                sanitize(subject));
+        logger.debug("[TEST] Email body: {}", sanitize(body));
+    }
+
+    private static String sanitize(String value) {
+        return value == null ? null : value.replaceAll("[\r\n]", "_");
     }
 }

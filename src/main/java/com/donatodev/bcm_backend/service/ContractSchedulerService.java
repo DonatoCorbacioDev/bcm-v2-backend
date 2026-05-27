@@ -82,20 +82,21 @@ public class ContractSchedulerService {
         for (Contracts contract : expiringContracts) {
             Managers manager = contract.getManager();
 
+            String safeContractNumber = contract.getContractNumber().replaceAll("[\r\n]", "_");
             if (manager != null && manager.getEmail() != null) {
                 try {
                     sendExpirationEmail(contract, manager);
                     notificationsSent++;
                     logger.info("Expiration notification sent for contract: {} to manager: {}",
-                            contract.getContractNumber(),
-                            manager.getEmail());
+                            safeContractNumber,
+                            manager.getEmail().replaceAll("[\r\n]", "_"));
                 } catch (Exception e) {
                     logger.error("Failed to send expiration notification for contract: {}",
-                            contract.getContractNumber(), e);
+                            safeContractNumber, e);
                 }
             } else {
                 logger.warn("Contract {} has no manager assigned or manager has no email",
-                        contract.getContractNumber());
+                        safeContractNumber);
             }
         }
 
@@ -125,8 +126,9 @@ public class ContractSchedulerService {
         int expiredCount = 0;
 
         for (Contracts contract : overdueContracts) {
+            String safeContractNumber = contract.getContractNumber().replaceAll("[\r\n]", "_");
             logger.info("Expiring contract: {} (ID: {}) - End date: {}",
-                    contract.getContractNumber(),
+                    safeContractNumber,
                     contract.getId(),
                     contract.getEndDate());
 
@@ -158,76 +160,39 @@ public class ContractSchedulerService {
                 : "";
         String expirationDate = contract.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
-        String body = String.format(
-                """
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <style>
-                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                        .header { background-color: #f59e0b; color: white; padding: 20px; border-radius: 5px; }
-                        .content { background-color: #f9fafb; padding: 20px; border-radius: 5px; margin-top: 20px; }
-                        .detail { margin: 10px 0; }
-                        .label { font-weight: bold; color: #555; }
-                        .value { color: #111; }
-                        .warning { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px; margin: 20px 0; }
-                        .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; }
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        <div class="header">
-                            <h2>Contract Expiration Notification</h2>
-                        </div>
-
-                        <div class="content">
-                            <p>Dear %s %s,</p>
-
-                            <div class="warning">
-                                <strong>⚠️ Action Required</strong><br>
-                                The following contract will expire in <strong>%d days</strong>.
-                            </div>
-
-                            <h3>Contract Details:</h3>
-                            <div class="detail">
-                                <span class="label">Contract Number:</span>
-                                <span class="value">%s</span>
-                            </div>
-                            <div class="detail">
-                                <span class="label">Customer:</span>
-                                <span class="value">%s</span>
-                            </div>
-                            <div class="detail">
-                                <span class="label">Project:</span>
-                                <span class="value">%s</span>
-                            </div>
-                            <div class="detail">
-                                <span class="label">Expiration Date:</span>
-                                <span class="value">%s</span>
-                            </div>
-
-                            <p style="margin-top: 20px;">
-                                Please review this contract and take necessary actions before the expiration date.
-                            </p>
-                        </div>
-
-                        <div class="footer">
-                            <p>This is an automated notification from Business Contracts Manager.</p>
-                            <p>© 2025 BCM - Business Contracts Manager</p>
-                        </div>
-                    </div>
-                </body>
-                </html>
-                """,
-                firstName,
-                lastName,
-                daysUntilExpiration,
-                contractNumber,
-                customerName,
-                projectName,
-                expirationDate
-        );
+        String body = "<!DOCTYPE html><html><head><style>"
+                + "body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }"
+                + ".container { max-width: 600px; margin: 0 auto; padding: 20px; }"
+                + ".header { background-color: #f59e0b; color: white; padding: 20px; border-radius: 5px; }"
+                + ".content { background-color: #f9fafb; padding: 20px; border-radius: 5px; margin-top: 20px; }"
+                + ".detail { margin: 10px 0; }"
+                + ".label { font-weight: bold; color: #555; }"
+                + ".value { color: #111; }"
+                + ".warning { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px; margin: 20px 0; }"
+                + ".footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; }"
+                + "</style></head><body>"
+                + "<div class=\"container\">"
+                + "<div class=\"header\"><h2>Contract Expiration Notification</h2></div>"
+                + "<div class=\"content\">"
+                + "<p>Dear " + firstName + " " + lastName + ",</p>"
+                + "<div class=\"warning\"><strong>&#9888;&#65039; Action Required</strong><br>"
+                + "The following contract will expire in <strong>" + daysUntilExpiration + " days</strong>.</div>"
+                + "<h3>Contract Details:</h3>"
+                + "<div class=\"detail\"><span class=\"label\">Contract Number:</span>"
+                + " <span class=\"value\">" + contractNumber + "</span></div>"
+                + "<div class=\"detail\"><span class=\"label\">Customer:</span>"
+                + " <span class=\"value\">" + customerName + "</span></div>"
+                + "<div class=\"detail\"><span class=\"label\">Project:</span>"
+                + " <span class=\"value\">" + projectName + "</span></div>"
+                + "<div class=\"detail\"><span class=\"label\">Expiration Date:</span>"
+                + " <span class=\"value\">" + expirationDate + "</span></div>"
+                + "<p style=\"margin-top: 20px;\">Please review this contract and take necessary actions"
+                + " before the expiration date.</p>"
+                + "</div>"
+                + "<div class=\"footer\">"
+                + "<p>This is an automated notification from Business Contracts Manager.</p>"
+                + "<p>&#169; 2025 BCM - Business Contracts Manager</p>"
+                + "</div></div></body></html>";
 
         emailService.sendEmail(manager.getEmail(), subject, body);
     }

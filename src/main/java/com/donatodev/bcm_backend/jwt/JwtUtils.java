@@ -165,7 +165,8 @@ public class JwtUtils {
         try {
             final String username = getUsernameFromJwtToken(token);
             return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
-        } catch (Exception e) {
+        } catch (ExpiredJwtException | MalformedJwtException | UnsupportedJwtException
+                 | IllegalArgumentException | SignatureException e) {
             return false;
         }
     }
@@ -196,11 +197,11 @@ public class JwtUtils {
             getJwtParser().parseSignedClaims(authToken);
             return true;
         } catch (ExpiredJwtException e) {
-            log.warn("JWT token is expired: {}", e.getMessage());
+            log.warn("JWT token is expired: {}", e.getMessage().replaceAll("[\r\n]", "_"));
         } catch (MalformedJwtException | UnsupportedJwtException | IllegalArgumentException e) {
-            log.error("Invalid JWT token: {}", e.getMessage());
+            log.error("Invalid JWT token: {}", e.getMessage().replaceAll("[\r\n]", "_"));
         } catch (SignatureException e) {
-            log.error("JWT signature validation failed: {}", e.getMessage());
+            log.error("JWT signature validation failed: {}", e.getMessage().replaceAll("[\r\n]", "_"));
         }
         return false;
     }

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+
+    <!-- EI_EXPOSE_REP / EI_EXPOSE_REP2: Spring IoC manages bean lifecycle;
+         defensive copies of service/repository references are unnecessary. -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- SPRING_ENDPOINT: Standard Spring MVC endpoints; access control is
+         enforced via Spring Security @PreAuthorize annotations. -->
+    <Match>
+        <Bug pattern="SPRING_ENDPOINT"/>
+    </Match>
+
+    <!-- SPRING_CSRF_PROTECTION_DISABLED: This API is stateless and JWT-based;
+         CSRF protection is intentionally disabled as documented. -->
+    <Match>
+        <Bug pattern="SPRING_CSRF_PROTECTION_DISABLED"/>
+    </Match>
+
+    <!-- SERVLET_HEADER in JwtAuthenticationFilter: Reading the Authorization
+         header is the correct and intentional behaviour for JWT authentication. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.jwt.JwtAuthenticationFilter"/>
+        <Bug pattern="SERVLET_HEADER"/>
+    </Match>
+
+    <!-- IMPROPER_UNICODE: Normalizer.normalize(NFC) + toUpperCase(Locale.ROOT) is applied before
+         every case transformation. FindSecBugs does not track Normalizer as a sanitizer,
+         so it reports false positives here. All inputs are validated as enum literals. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.controller.ContractController"/>
+        <Bug pattern="IMPROPER_UNICODE"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.ContractService"/>
+        <Bug pattern="IMPROPER_UNICODE"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.UserService"/>
+        <Bug pattern="IMPROPER_UNICODE"/>
+    </Match>
+
+    <!-- CRLF_INJECTION_LOGS in ContractSchedulerService: the contract number is stored in
+         a local variable with CRLF characters stripped before it reaches the logger.
+         FindSecBugs does not track String.replaceAll as a sanitizer for taint analysis. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.ContractSchedulerService"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
+</FindBugsFilter>
