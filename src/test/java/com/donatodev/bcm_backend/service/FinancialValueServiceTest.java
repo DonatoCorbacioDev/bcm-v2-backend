@@ -448,11 +448,50 @@ class FinancialValueServiceTest {
         }
 
         /**
+         * Test: Should update all fields including financial type when updateValue is called.
+         */
+        @Test
+        @Order(15)
+        @DisplayName("updateValue should update all fields including financialType")
+        void shouldUpdateAllFieldsIncludingRelations() {
+            UserDetails userDetails = org.springframework.security.core.userdetails.User
+                    .withUsername("admin")
+                    .password(TEST_PASSWORD)
+                    .roles("ADMIN")
+                    .build();
+
+            FinancialValues entity = FinancialValues.builder()
+                    .id(1L)
+                    .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
+                    .build();
+            FinancialValues saved = FinancialValues.builder().id(1L).build();
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 3, 2025, 750.0, 2L, 2L, 2L, "Sales", "Area2", "Contract2");
+            FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 3, 2025, 750.0, 2L, 2L, 2L, "Sales", "Area2", "Contract2");
+            Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
+
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
+            );
+
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+            when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(valuesRepository.save(entity)).thenReturn(saved);
+            when(mapper.toDTO(saved)).thenReturn(savedDTO);
+
+            FinancialValueDTO result = service.updateValue(1L, dto);
+
+            verify(mapper).updateEntity(entity, dto);
+            verify(valuesRepository).save(entity);
+            assertEquals(2L, result.financialTypeId());
+            assertEquals(750.0, result.financialAmount());
+        }
+
+        /**
          * Test: Should throw SecurityException when updating a financial value
          * with a manager not assigned to the contract.
          */
         @Test
-        @Order(15)
+        @Order(16)
         @DisplayName("updateValue should throw SecurityException if manager not owner")
         void shouldDenyUpdateIfManagerNotAssigned() {
             UserDetails userDetails = org.springframework.security.core.userdetails.User
@@ -490,7 +529,7 @@ class FinancialValueServiceTest {
          * financial value that does not exist.
          */
         @Test
-        @Order(16)
+        @Order(17)
         @DisplayName("updateValue should throw FinancialValueNotFoundException if ID not found")
         void shouldThrowFinancialValueNotFoundException() {
             when(valuesRepository.findById(999L)).thenReturn(Optional.empty());
@@ -507,7 +546,7 @@ class FinancialValueServiceTest {
          * financial value that does not exist.
          */
         @Test
-        @Order(17)
+        @Order(18)
         @DisplayName("deleteValue should throw FinancialValueNotFoundException if ID not found")
         void shouldThrowWhenDeletingNonexistentValue() {
             when(valuesRepository.findById(999L)).thenReturn(Optional.empty());
@@ -522,7 +561,7 @@ class FinancialValueServiceTest {
          * the user repository.
          */
         @Test
-        @Order(18)
+        @Order(19)
         @DisplayName("getAllValues should throw UserNotFoundException if username not found")
         void shouldThrowUserNotFoundWithoutReflection() {
             UserDetails userDetails = org.springframework.security.core.userdetails.User
@@ -546,7 +585,7 @@ class FinancialValueServiceTest {
          * contract is assigned to them.
          */
         @Test
-        @Order(19)
+        @Order(20)
         @DisplayName("checkAccessToFinancialValue should NOT throw if manager is assigned")
         void shouldAllowManagerAccessToOwnContract() {
             UserDetails userDetails = org.springframework.security.core.userdetails.User
@@ -598,7 +637,7 @@ class FinancialValueServiceTest {
          * Test: Should return null when principal is null in authentication.
          */
         @Test
-        @Order(20)
+        @Order(21)
         @DisplayName("getAuthenticatedUsername should return null when principal is null")
         void shouldReturnNullWhenPrincipalIsNull() {
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(null, null, List.of());

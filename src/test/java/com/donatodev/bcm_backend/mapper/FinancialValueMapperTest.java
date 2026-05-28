@@ -176,6 +176,93 @@ class FinancialValueMapperTest {
     }
 
     /**
+     * Tests that updateEntity updates all scalar and relation fields in-place.
+     */
+    @Test
+    @DisplayName("updateEntity should update all fields including relations")
+    void shouldUpdateEntityInPlace() {
+        FinancialTypes newType = FinancialTypes.builder().id(2L).build();
+        BusinessAreas newArea = BusinessAreas.builder().id(3L).build();
+        Contracts newContract = Contracts.builder().id(4L).build();
+
+        FinancialValues existing = FinancialValues.builder()
+                .id(10L)
+                .month(1)
+                .year(2024)
+                .financialAmount(100.0)
+                .financialType(FinancialTypes.builder().id(1L).build())
+                .businessArea(BusinessAreas.builder().id(1L).build())
+                .contract(Contracts.builder().id(1L).build())
+                .build();
+
+        FinancialValueDTO dto = new FinancialValueDTO(10L, 6, 2025, 999.0, 2L, 3L, 4L, "NewType", "NewArea", "NewContract");
+
+        when(financialTypesRepository.findById(2L)).thenReturn(Optional.of(newType));
+        when(businessAreaRepository.findById(3L)).thenReturn(Optional.of(newArea));
+        when(contractsRepository.findById(4L)).thenReturn(Optional.of(newContract));
+
+        financialValueMapper.updateEntity(existing, dto);
+
+        assertEquals(6, existing.getMonth());
+        assertEquals(2025, existing.getYear());
+        assertEquals(999.0, existing.getFinancialAmount());
+        assertEquals(newType, existing.getFinancialType());
+        assertEquals(newArea, existing.getBusinessArea());
+        assertEquals(newContract, existing.getContract());
+    }
+
+    /**
+     * Tests that updateEntity throws when the financial type is not found.
+     */
+    @Test
+    @DisplayName("updateEntity should throw if financial type not found")
+    void shouldThrowOnUpdateIfFinancialTypeNotFound() {
+        FinancialValues existing = FinancialValues.builder().id(1L).build();
+        FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2025, 100.0, 99L, 2L, 3L, null, null, null);
+
+        when(financialTypesRepository.findById(99L)).thenReturn(Optional.empty());
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> financialValueMapper.updateEntity(existing, dto));
+        assertEquals("Financial type not found", ex.getMessage());
+    }
+
+    /**
+     * Tests that updateEntity throws when the business area is not found.
+     */
+    @Test
+    @DisplayName("updateEntity should throw if business area not found")
+    void shouldThrowOnUpdateIfBusinessAreaNotFound() {
+        FinancialValues existing = FinancialValues.builder().id(1L).build();
+        FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2025, 100.0, 1L, 99L, 3L, null, null, null);
+
+        when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(FinancialTypes.builder().id(1L).build()));
+        when(businessAreaRepository.findById(99L)).thenReturn(Optional.empty());
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> financialValueMapper.updateEntity(existing, dto));
+        assertEquals("Business area not found", ex.getMessage());
+    }
+
+    /**
+     * Tests that updateEntity throws when the contract is not found.
+     */
+    @Test
+    @DisplayName("updateEntity should throw if contract not found")
+    void shouldThrowOnUpdateIfContractNotFound() {
+        FinancialValues existing = FinancialValues.builder().id(1L).build();
+        FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2025, 100.0, 1L, 2L, 99L, null, null, null);
+
+        when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(FinancialTypes.builder().id(1L).build()));
+        when(businessAreaRepository.findById(2L)).thenReturn(Optional.of(BusinessAreas.builder().id(2L).build()));
+        when(contractsRepository.findById(99L)).thenReturn(Optional.empty());
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> financialValueMapper.updateEntity(existing, dto));
+        assertEquals("Contract not found", ex.getMessage());
+    }
+
+    /**
      * Tests that toDTO returns null when entity is null.
      */
     @Test

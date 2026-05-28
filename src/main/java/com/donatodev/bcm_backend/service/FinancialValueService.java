@@ -115,14 +115,7 @@ public class FinancialValueService {
 
         checkAccessToFinancialValue(value);
 
-        value.setMonth(dto.month());
-        value.setYear(dto.year());
-        value.setFinancialAmount(dto.financialAmount());
-
-        // Keep original relations unchanged
-        value.setFinancialType(value.getFinancialType());
-        value.setBusinessArea(value.getBusinessArea());
-        value.setContract(value.getContract());
+        financialValueMapper.updateEntity(value, dto);
 
         value = financialValuesRepository.save(value);
         return financialValueMapper.toDTO(value);

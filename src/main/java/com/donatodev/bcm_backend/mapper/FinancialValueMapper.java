@@ -57,6 +57,26 @@ public class FinancialValueMapper {
     }
 
     /**
+     * Updates an existing {@link FinancialValues} entity in-place from a
+     * {@link FinancialValueDTO}, resolving all relation changes via repositories.
+     *
+     * @param existing the entity to update
+     * @param dto      the DTO with the new values
+     * @throws RuntimeException if any referenced entity is not found
+     */
+    public void updateEntity(FinancialValues existing, FinancialValueDTO dto) {
+        existing.setMonth(dto.month());
+        existing.setYear(dto.year());
+        existing.setFinancialAmount(dto.financialAmount());
+        existing.setFinancialType(financialTypesRepository.findById(dto.financialTypeId())
+                .orElseThrow(() -> new RuntimeException("Financial type not found")));
+        existing.setBusinessArea(businessAreaRepository.findById(dto.businessAreaId())
+                .orElseThrow(() -> new RuntimeException("Business area not found")));
+        existing.setContract(contractsRepository.findById(dto.contractId())
+                .orElseThrow(() -> new RuntimeException("Contract not found")));
+    }
+
+    /**
      * Converts a {@link FinancialValueDTO} to a {@link FinancialValues} entity.
      * <p>
      * This method also retrieves related entities (type, area, contract) from
