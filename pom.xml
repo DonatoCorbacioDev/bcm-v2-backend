@@ -76,6 +76,17 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
 	
+    <dependencyManagement>
+        <dependencies>
+            <!-- Override transitive commons-compress to fix CVE-2024-25710 and CVE-2024-26308 -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>1.27.1</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- Spring Boot Starters -->
         <dependency>
