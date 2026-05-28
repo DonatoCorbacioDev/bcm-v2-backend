@@ -2,7 +2,6 @@ package com.donatodev.bcm_backend.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
@@ -44,28 +43,7 @@ public class SecurityConfig {
             JwtAuthenticationFilter jwtAuthenticationFilter,
             JwtAuthEntryPoint jwtAuthEntryPoint,
             CustomUserDetailsService userDetailsService,
-            Environment env,
             AuthenticationManager authenticationManager) throws Exception {
-
-        if (env.acceptsProfiles(org.springframework.core.env.Profiles.of("test"))) {
-            http
-                    .cors(Customizer.withDefaults())
-                    // CSRF disabled: Stateless REST API using JWT (Authorization header).
-                    // No session cookies = no CSRF risk. Safe for this architecture.
-                    .csrf(csrf -> csrf.disable())
-                    .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                    .authorizeHttpRequests(auth -> auth
-                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                    .requestMatchers(AUTH_WHITELIST, "/actuator/health").permitAll()
-                    .requestMatchers(SWAGGER_WHITELIST).permitAll()
-                    .requestMatchers(HttpMethod.POST, "/users/invite").hasRole("ADMIN")
-                    .anyRequest().authenticated()
-                    )
-                    .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthEntryPoint))
-                    .authenticationManager(authenticationManager)
-                    .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-            return http.build();
-        }
 
         http
                 .cors(Customizer.withDefaults())

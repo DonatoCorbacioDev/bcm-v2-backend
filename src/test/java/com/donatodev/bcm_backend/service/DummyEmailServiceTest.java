@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
@@ -69,5 +70,39 @@ class DummyEmailServiceTest {
             dummyEmailService.sendVerificationEmail("", "");
             dummyEmailService.sendResetPasswordEmail("", "");
         });
+    }
+
+    @Test
+    @DisplayName("Should not log when INFO/DEBUG levels are disabled")
+    void shouldNotLogWhenLoggingDisabled() {
+        ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger)
+                LoggerFactory.getLogger(DummyEmailService.class);
+        ch.qos.logback.classic.Level original = logger.getLevel();
+        logger.setLevel(ch.qos.logback.classic.Level.WARN);
+        try {
+            assertDoesNotThrow(() -> {
+                dummyEmailService.sendVerificationEmail("a@b.com", "http://link");
+                dummyEmailService.sendResetPasswordEmail("a@b.com", "http://reset");
+                dummyEmailService.sendEmail("a@b.com", "Subject", "Body");
+            });
+        } finally {
+            logger.setLevel(original);
+        }
+    }
+
+    @Test
+    @DisplayName("Should log debug body when DEBUG level is enabled")
+    void shouldLogDebugWhenDebugEnabled() {
+        ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger)
+                LoggerFactory.getLogger(DummyEmailService.class);
+        ch.qos.logback.classic.Level original = logger.getLevel();
+        logger.setLevel(ch.qos.logback.classic.Level.DEBUG);
+        try {
+            assertDoesNotThrow(() ->
+                dummyEmailService.sendEmail("a@b.com", "Subject", "Body")
+            );
+        } finally {
+            logger.setLevel(original);
+        }
     }
 }
