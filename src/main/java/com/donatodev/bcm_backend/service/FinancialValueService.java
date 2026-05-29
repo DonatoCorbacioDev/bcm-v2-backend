@@ -7,8 +7,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.FinancialValueDTO;
 import com.donatodev.bcm_backend.entity.FinancialValues;
+import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.FinancialValueNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
@@ -55,11 +57,13 @@ public class FinancialValueService {
         Users user = usersRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User" + NOT_FOUND_SUFFIX));
 
+        Long orgId = TenantContext.get();
+
         if ("ADMIN".equals(user.getRole().getRole())) {
-            return financialValuesRepository.findAll()
-                    .stream()
-                    .map(financialValueMapper::toDTO)
-                    .toList();
+            List<FinancialValues> values = (orgId != null)
+                    ? financialValuesRepository.findAllByOrganizationId(orgId)
+                    : financialValuesRepository.findAll();
+            return values.stream().map(financialValueMapper::toDTO).toList();
         } else {
             Long managerId = user.getManager().getId();
             return financialValuesRepository.findByContract_Manager_Id(managerId)
@@ -95,6 +99,12 @@ public class FinancialValueService {
      */
     public FinancialValueDTO createValue(FinancialValueDTO dto) {
         FinancialValues value = financialValueMapper.toEntity(dto);
+        Long orgId = TenantContext.get();
+        if (orgId != null) {
+            Organization org = new Organization();
+            org.setId(orgId);
+            value.setOrganization(org);
+        }
         value = financialValuesRepository.save(value);
         return financialValueMapper.toDTO(value);
     }
@@ -188,9 +198,10 @@ public class FinancialValueService {
      * @return a list of {@link FinancialValueDTO}
      */
     public List<FinancialValueDTO> getValuesByContractId(Long contractId) {
-        List<FinancialValues> values = financialValuesRepository.findByContractId(contractId);
-        return values.stream()
-                .map(financialValueMapper::toDTO)
-                .toList();
+        Long orgId = TenantContext.get();
+        List<FinancialValues> values = (orgId != null)
+                ? financialValuesRepository.findByContractIdAndOrganizationId(contractId, orgId)
+                : financialValuesRepository.findByContractId(contractId);
+        return values.stream().map(financialValueMapper::toDTO).toList();
     }
 }

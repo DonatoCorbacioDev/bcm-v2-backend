@@ -4,8 +4,10 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.BusinessAreaDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
+import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
 import com.donatodev.bcm_backend.mapper.BusinessAreaMapper;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
@@ -32,10 +34,11 @@ public class BusinessAreaService {
      * @return a list of all {@link BusinessAreaDTO}
      */
     public List<BusinessAreaDTO> getAllAreas() {
-        return businessAreasRepository.findAll()
-                .stream()
-                .map(businessAreaMapper::toDTO)
-                .toList();
+        Long orgId = TenantContext.get();
+        List<BusinessAreas> areas = (orgId != null)
+                ? businessAreasRepository.findAllByOrganizationId(orgId)
+                : businessAreasRepository.findAll();
+        return areas.stream().map(businessAreaMapper::toDTO).toList();
     }
 
     /**
@@ -59,6 +62,12 @@ public class BusinessAreaService {
      */
     public BusinessAreaDTO createArea(BusinessAreaDTO dto) {
         BusinessAreas area = businessAreaMapper.toEntity(dto);
+        Long orgId = TenantContext.get();
+        if (orgId != null) {
+            Organization org = new Organization();
+            org.setId(orgId);
+            area.setOrganization(org);
+        }
         area = businessAreasRepository.save(area);
         return businessAreaMapper.toDTO(area);
     }

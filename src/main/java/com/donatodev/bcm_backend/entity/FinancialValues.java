@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -85,4 +86,8 @@ public class FinancialValues {
     @ManyToOne
     @JoinColumn(name = "contract_id", nullable = false)
     private Contracts contract;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
 }

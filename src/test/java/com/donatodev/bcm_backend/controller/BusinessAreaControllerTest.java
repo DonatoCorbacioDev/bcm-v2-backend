@@ -193,13 +193,36 @@ class BusinessAreaControllerTest {
 
         @Test
         @Order(7)
-        @DisplayName("Access denied for non-admin user")
+        @DisplayName("MANAGER can read business areas (GET allowed)")
         @WithMockUser(roles = "MANAGER")
-        void shouldReturnForbiddenForManagerRole() throws Exception {
+        void shouldAllowManagerToReadBusinessAreas() throws Exception {
             mockMvc.perform(get("/business-areas"))
-                    .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.status").value(403))
-                    .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Forbidden")));
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @Order(8)
+        @DisplayName("MANAGER cannot create business areas (POST forbidden)")
+        @WithMockUser(roles = "MANAGER")
+        void shouldReturnForbiddenForManagerOnPost() throws Exception {
+            BusinessAreaDTO dto = new BusinessAreaDTO(null, "NewArea", "Desc");
+            mockMvc.perform(post("/business-areas")
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(dto)))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @Order(9)
+        @DisplayName("MANAGER cannot delete business areas (DELETE forbidden)")
+        @WithMockUser(roles = "MANAGER")
+        void shouldReturnForbiddenForManagerOnDelete() throws Exception {
+            BusinessAreas area = repository.save(BusinessAreas.builder()
+                    .name("ManagerCannotDelete")
+                    .description("Desc")
+                    .build());
+            mockMvc.perform(delete("/business-areas/{id}", area.getId()))
+                    .andExpect(status().isForbidden());
         }
     }
 }

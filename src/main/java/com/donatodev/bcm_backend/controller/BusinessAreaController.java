@@ -31,7 +31,7 @@ public class BusinessAreaController {
      *
      * @return a list of {@link BusinessAreaDTO}
      */
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping
     public ResponseEntity<List<BusinessAreaDTO>> getAllAreas() {
         List<BusinessAreaDTO> areas = businessAreaService.getAllAreas();
@@ -44,7 +44,7 @@ public class BusinessAreaController {
      * @param id the ID of the business area
      * @return the {@link BusinessAreaDTO} with the specified ID
      */
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/{id}")
     public ResponseEntity<BusinessAreaDTO> getAreaById(@PathVariable Long id) {
         BusinessAreaDTO area = businessAreaService.getAreaById(id);

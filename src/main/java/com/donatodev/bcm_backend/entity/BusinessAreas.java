@@ -3,6 +3,8 @@ package com.donatodev.bcm_backend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import com.donatodev.bcm_backend.entity.Organization;
+
 /**
  * Entity that maps the "business_areas" table in the database.
  * <p>
@@ -36,4 +38,8 @@ public class BusinessAreas {
      */
     @Column(name = "description")
     private String description;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
 }

@@ -4,8 +4,10 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.FinancialTypeDTO;
 import com.donatodev.bcm_backend.entity.FinancialTypes;
+import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.exception.FinancialTypeNotFoundException;
 import com.donatodev.bcm_backend.mapper.FinancialTypeMapper;
 import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
@@ -33,10 +35,11 @@ public class FinancialTypeService {
      * @return list of {@link FinancialTypeDTO}
      */
     public List<FinancialTypeDTO> getAllTypes() {
-        return financialTypesRepository.findAll()
-                .stream()
-                .map(financialTypeMapper::toDTO)
-                .toList();
+        Long orgId = TenantContext.get();
+        List<FinancialTypes> types = (orgId != null)
+                ? financialTypesRepository.findAllByOrganizationId(orgId)
+                : financialTypesRepository.findAll();
+        return types.stream().map(financialTypeMapper::toDTO).toList();
     }
 
     /**
@@ -60,6 +63,12 @@ public class FinancialTypeService {
      */
     public FinancialTypeDTO createType(FinancialTypeDTO dto) {
         FinancialTypes type = financialTypeMapper.toEntity(dto);
+        Long orgId = TenantContext.get();
+        if (orgId != null) {
+            Organization org = new Organization();
+            org.setId(orgId);
+            type.setOrganization(org);
+        }
         type = financialTypesRepository.save(type);
         return financialTypeMapper.toDTO(type);
     }

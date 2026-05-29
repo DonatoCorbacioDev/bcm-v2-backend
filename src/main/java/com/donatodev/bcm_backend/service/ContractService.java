@@ -17,6 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ContractStatsResponse;
 import com.donatodev.bcm_backend.dto.ContractsByAreaDTO;
@@ -26,6 +27,7 @@ import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
@@ -130,6 +132,12 @@ public class ContractService {
      */
     public ContractDTO createContract(ContractDTO contractDTO) {
         Contracts contract = contractMapper.toEntity(contractDTO);
+        Long orgId = TenantContext.get();
+        if (orgId != null) {
+            Organization org = new Organization();
+            org.setId(orgId);
+            contract.setOrganization(org);
+        }
         contract = contractsRepository.save(contract);
         return contractMapper.toDTO(contract);
     }
@@ -185,11 +193,20 @@ public class ContractService {
      * Dashboard KPIs.
      */
     public ContractStatsResponse getContractStats() {
-        int total = contractsRepository.countAllContracts();
-        int active = contractsRepository.countActiveContracts();
+        Long orgId = TenantContext.get();
         LocalDate thirtyDaysFromNow = LocalDate.now().plusDays(30);
-        int expiring = contractsRepository.countExpiringContracts(thirtyDaysFromNow);
-        int expired = contractsRepository.countExpiredContracts();
+        int total, active, expiring, expired;
+        if (orgId != null) {
+            total    = contractsRepository.countAllContractsByOrg(orgId);
+            active   = contractsRepository.countActiveContractsByOrg(orgId);
+            expiring = contractsRepository.countExpiringContractsByOrg(thirtyDaysFromNow, orgId);
+            expired  = contractsRepository.countExpiredContractsByOrg(orgId);
+        } else {
+            total    = contractsRepository.countAllContracts();
+            active   = contractsRepository.countActiveContracts();
+            expiring = contractsRepository.countExpiringContracts(thirtyDaysFromNow);
+            expired  = contractsRepository.countExpiredContracts();
+        }
         return new ContractStatsResponse(total, active, expiring, expired);
     }
 
@@ -205,12 +222,13 @@ public class ContractService {
     public List<ContractDTO> getExpiringContracts(int days) {
         LocalDate today = LocalDate.now();
         LocalDate futureDate = today.plusDays(days);
+        Long orgId = TenantContext.get();
 
-        List<Contracts> expiring = contractsRepository.findExpiringContracts(today, futureDate);
+        List<Contracts> expiring = (orgId != null)
+                ? contractsRepository.findExpiringContractsByOrg(today, futureDate, orgId)
+                : contractsRepository.findExpiringContracts(today, futureDate);
 
-        return expiring.stream()
-                .map(contractMapper::toDTO)
-                .toList();
+        return expiring.stream().map(contractMapper::toDTO).toList();
     }
 
     /**
@@ -313,7 +331,10 @@ public class ContractService {
      * @return list of business areas with contract counts
      */
     public List<ContractsByAreaDTO> getContractsByArea() {
-        return contractsRepository.countContractsByArea();
+        Long orgId = TenantContext.get();
+        return (orgId != null)
+                ? contractsRepository.countContractsByAreaAndOrg(orgId)
+                : contractsRepository.countContractsByArea();
     }
 
     /**
@@ -324,7 +345,10 @@ public class ContractService {
      */
     public List<ContractsTimelineDTO> getContractsTimeline() {
         LocalDateTime sixMonthsAgo = LocalDateTime.now().minusMonths(6);
-        List<Object[]> results = contractsRepository.countContractsByMonth(sixMonthsAgo);
+        Long orgId = TenantContext.get();
+        List<Object[]> results = (orgId != null)
+                ? contractsRepository.countContractsByMonthAndOrg(sixMonthsAgo, orgId)
+                : contractsRepository.countContractsByMonth(sixMonthsAgo);
 
         return results.stream()
                 .map(row -> {
@@ -346,7 +370,10 @@ public class ContractService {
      */
     public List<TopManagerDTO> getTopManagers() {
         Pageable topFive = PageRequest.of(0, 5);
-        return contractsRepository.findTopManagers(topFive);
+        Long orgId = TenantContext.get();
+        return (orgId != null)
+                ? contractsRepository.findTopManagersByOrg(topFive, orgId)
+                : contractsRepository.findTopManagers(topFive);
     }
 
     // -----------------------

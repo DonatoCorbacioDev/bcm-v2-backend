@@ -11,6 +11,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.service.CustomUserDetailsService;
 
 import jakarta.servlet.FilterChain;
@@ -65,6 +66,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authToken);
                         MDC.put("username", username);
+
+                        Long orgId = jwtUtils.getOrganizationIdFromToken(token);
+                        TenantContext.set(orgId);
                     }
                 } catch (RuntimeException e) {
                     // skip auth on runtime errors
@@ -73,6 +77,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             filterChain.doFilter(request, response);
         } finally {
+            TenantContext.clear();
             MDC.clear();
         }
     }

@@ -101,11 +101,14 @@ public class JwtUtils {
     public String generateTokenFromUser(Users user) {
         Instant now = clock.instant();
         Instant expiration = now.plusMillis(jwtExpirationMs);
-        
+
+        Long orgId = (user.getOrganization() != null) ? user.getOrganization().getId() : null;
+
         return Jwts.builder()
                 .subject(user.getUsername())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiration))
+                .claim("orgId", orgId)
                 .signWith(getSigningKey())
                 .compact();
     }
@@ -152,6 +155,18 @@ public class JwtUtils {
      */
     public Date getExpirationDateFromToken(String token) {
         return getClaimFromToken(token, Claims::getExpiration);
+    }
+
+    /**
+     * Extracts the organizationId from the JWT token's custom claim.
+     *
+     * @param token the JWT token
+     * @return the organizationId, or null if the claim is absent
+     */
+    public Long getOrganizationIdFromToken(String token) {
+        Object orgId = getClaimFromToken(token, claims -> claims.get("orgId"));
+        if (orgId == null) return null;
+        return ((Number) orgId).longValue();
     }
 
     /**

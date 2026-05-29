@@ -54,18 +54,35 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
     @Query("SELECT COUNT(c) FROM Contracts c")
     int countAllContracts();
 
+    @Query("SELECT COUNT(c) FROM Contracts c WHERE c.organization.id = :orgId")
+    int countAllContractsByOrg(@Param("orgId") Long orgId);
+
     @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE")
     int countActiveContracts();
+
+    @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE AND c.organization.id = :orgId")
+    int countActiveContractsByOrg(@Param("orgId") Long orgId);
 
     @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.EXPIRED")
     int countExpiredContracts();
 
+    @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.EXPIRED AND c.organization.id = :orgId")
+    int countExpiredContractsByOrg(@Param("orgId") Long orgId);
+
     @Query("""
-          SELECT COUNT(c) FROM Contracts c 
-          WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE 
+          SELECT COUNT(c) FROM Contracts c
+          WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE
             AND c.endDate BETWEEN CURRENT_DATE AND :endDate
         """)
     int countExpiringContracts(@Param("endDate") LocalDate endDate);
+
+    @Query("""
+          SELECT COUNT(c) FROM Contracts c
+          WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE
+            AND c.endDate BETWEEN CURRENT_DATE AND :endDate
+            AND c.organization.id = :orgId
+        """)
+    int countExpiringContractsByOrg(@Param("endDate") LocalDate endDate, @Param("orgId") Long orgId);
 
     /**
      * Finds all ACTIVE contracts that will expire between today and a future
@@ -76,12 +93,24 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
      * @return a list of expiring {@link Contracts}
      */
     @Query("""
-        SELECT c FROM Contracts c 
-        WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE 
+        SELECT c FROM Contracts c
+        WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE
           AND c.endDate BETWEEN :today AND :futureDate
         ORDER BY c.endDate ASC
       """)
     List<Contracts> findExpiringContracts(@Param("today") LocalDate today, @Param("futureDate") LocalDate futureDate);
+
+    @Query("""
+        SELECT c FROM Contracts c
+        WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE
+          AND c.endDate BETWEEN :today AND :futureDate
+          AND c.organization.id = :orgId
+        ORDER BY c.endDate ASC
+      """)
+    List<Contracts> findExpiringContractsByOrg(
+            @Param("today") LocalDate today,
+            @Param("futureDate") LocalDate futureDate,
+            @Param("orgId") Long orgId);
 
     @EntityGraph("contracts.withManagerAndArea")
     Page<Contracts> findAllBy(Pageable pageable);
@@ -124,7 +153,7 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
      */
     @Query("""
         SELECT new com.donatodev.bcm_backend.dto.ContractsByAreaDTO(
-            ba.name, 
+            ba.name,
             COUNT(c.id)
         )
         FROM Contracts c
@@ -134,6 +163,19 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
     """)
     List<ContractsByAreaDTO> countContractsByArea();
 
+    @Query("""
+        SELECT new com.donatodev.bcm_backend.dto.ContractsByAreaDTO(
+            ba.name,
+            COUNT(c.id)
+        )
+        FROM Contracts c
+        JOIN c.businessArea ba
+        WHERE c.organization.id = :orgId
+        GROUP BY ba.id, ba.name
+        ORDER BY COUNT(c.id) DESC
+    """)
+    List<ContractsByAreaDTO> countContractsByAreaAndOrg(@Param("orgId") Long orgId);
+
     /**
      * Count contracts created per month for the last 6 months. Uses HQL with
      * EXTRACT functions for cross-database compatibility.
@@ -142,7 +184,7 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
      * @return list of Object arrays containing [year, month, count]
      */
     @Query("""
-    SELECT 
+    SELECT
         EXTRACT(YEAR FROM c.createdAt),
         EXTRACT(MONTH FROM c.createdAt),
         COUNT(c)
@@ -152,6 +194,21 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
     ORDER BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
 """)
     List<Object[]> countContractsByMonth(@Param("sixMonthsAgo") LocalDateTime sixMonthsAgo);
+
+    @Query("""
+    SELECT
+        EXTRACT(YEAR FROM c.createdAt),
+        EXTRACT(MONTH FROM c.createdAt),
+        COUNT(c)
+    FROM Contracts c
+    WHERE c.createdAt >= :sixMonthsAgo
+      AND c.organization.id = :orgId
+    GROUP BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
+    ORDER BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
+""")
+    List<Object[]> countContractsByMonthAndOrg(
+            @Param("sixMonthsAgo") LocalDateTime sixMonthsAgo,
+            @Param("orgId") Long orgId);
 
     /**
      * Get top managers by number of assigned contracts.
@@ -172,6 +229,21 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
         ORDER BY COUNT(c.id) DESC
     """)
     List<TopManagerDTO> findTopManagers(Pageable pageable);
+
+    @Query("""
+        SELECT new com.donatodev.bcm_backend.dto.TopManagerDTO(
+            m.id,
+            CONCAT(m.firstName, ' ', m.lastName),
+            COUNT(c.id)
+        )
+        FROM Contracts c
+        JOIN c.manager m
+        WHERE m IS NOT NULL
+          AND c.organization.id = :orgId
+        GROUP BY m.id, m.firstName, m.lastName
+        ORDER BY COUNT(c.id) DESC
+    """)
+    List<TopManagerDTO> findTopManagersByOrg(Pageable pageable, @Param("orgId") Long orgId);
 
     /**
      * Find contracts by status and end date within a date range.

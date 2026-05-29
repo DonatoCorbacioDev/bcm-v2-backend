@@ -8,8 +8,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ManagerDTO;
 import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.mapper.ManagerMapper;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
@@ -40,10 +42,12 @@ public class ManagerService {
      * @return a list of {@link ManagerDTO}
      */
     public List<ManagerDTO> getAllManagers() {
-        return managersRepository.findAll()
-                .stream()
-                .map(managerMapper::toDTO)
-                .toList();
+        Long orgId = TenantContext.get();
+        if (orgId != null) {
+            return managersRepository.findByOrganizationId(orgId, Pageable.unpaged())
+                    .stream().map(managerMapper::toDTO).toList();
+        }
+        return managersRepository.findAll().stream().map(managerMapper::toDTO).toList();
     }
 
     /**
@@ -67,6 +71,12 @@ public class ManagerService {
      */
     public ManagerDTO createManager(ManagerDTO managerDTO) {
         Managers manager = managerMapper.toEntity(managerDTO);
+        Long orgId = TenantContext.get();
+        if (orgId != null) {
+            Organization org = new Organization();
+            org.setId(orgId);
+            manager.setOrganization(org);
+        }
         manager = managersRepository.save(manager);
         return managerMapper.toDTO(manager);
     }
@@ -104,15 +114,21 @@ public class ManagerService {
     
     public Page<ManagerDTO> searchManagers(String q, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
+        Long orgId = TenantContext.get();
         Page<Managers> result;
         if (q == null || q.isBlank()) {
-            result = managersRepository.findAll(pageable);
+            result = (orgId != null)
+                    ? managersRepository.findByOrganizationId(orgId, pageable)
+                    : managersRepository.findAll(pageable);
         } else {
             String term = q.trim();
-            result = managersRepository
-                .findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
-                    term, term, term, pageable
-                );
+            result = (orgId != null)
+                    ? managersRepository
+                        .findByOrganizationIdAndFirstNameContainingIgnoreCaseOrOrganizationIdAndLastNameContainingIgnoreCaseOrOrganizationIdAndEmailContainingIgnoreCase(
+                            orgId, term, orgId, term, orgId, term, pageable)
+                    : managersRepository
+                        .findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
+                            term, term, term, pageable);
         }
         return result.map(managerMapper::toDTO);
    }
