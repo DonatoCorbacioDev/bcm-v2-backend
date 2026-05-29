@@ -15,12 +15,12 @@ COPY src ./src
 RUN mvn clean package -DskipTests -B
 
 # Stage 2: Runtime with JRE
-FROM amazoncorretto:21-alpine3.21-jdk
+FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
 # Create non-root user for security
-RUN addgroup -S spring && adduser -S spring -G spring 2>/dev/null || true
+RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
 
 # Copy the built JAR from builder stage
