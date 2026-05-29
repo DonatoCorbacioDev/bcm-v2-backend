@@ -77,7 +77,7 @@ public class UserMapper {
                 .passwordHash(dto.password())
                 .manager(manager)
                 .role(role)
-                .verified(false)
+                .verified(Boolean.TRUE.equals(dto.verified()))
                 .build();
     }
 }
