@@ -21,9 +21,11 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.donatodev.bcm_backend.entity.RefreshToken;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+import com.donatodev.bcm_backend.service.RefreshTokenService;
 
 /**
  * Unit tests for {@link AuthService}.
@@ -44,6 +46,9 @@ class AuthServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private RefreshTokenService refreshTokenService;
+
     @InjectMocks
     private AuthService authService;
 
@@ -61,7 +66,7 @@ class AuthServiceTest {
          */
         @Test
         @Order(1)
-        @DisplayName("Authenticate success returns token")
+        @DisplayName("Authenticate success returns both tokens")
         void shouldAuthenticateAndReturnToken() {
             Users user = Users.builder()
                     .username("admin")
@@ -69,13 +74,17 @@ class AuthServiceTest {
                     .verified(true)
                     .build();
 
+            RefreshToken fakeRefreshToken = RefreshToken.builder().token("fake-refresh-token").build();
+
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(user));
             when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
             when(jwtUtils.generateToken(user)).thenReturn("fake-jwt-token");
+            when(refreshTokenService.createRefreshToken(user)).thenReturn(fakeRefreshToken);
 
-            String token = authService.authenticate("admin", "password");
+            AuthResponseDTO response = authService.authenticate("admin", "password");
 
-            assertEquals("fake-jwt-token", token);
+            assertEquals("fake-jwt-token", response.token());
+            assertEquals("fake-refresh-token", response.refreshToken());
         }
 
         /**

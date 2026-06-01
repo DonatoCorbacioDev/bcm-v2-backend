@@ -8,5 +8,6 @@ package com.donatodev.bcm_backend.auth;
  * @param token the JWT token used for authenticated requests
  */
 public record AuthResponseDTO(
-        String token
+        String token,
+        String refreshToken
 ) {}

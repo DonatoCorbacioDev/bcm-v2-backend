@@ -206,6 +206,19 @@
             <scope>provided</scope>
         </dependency>
 		
+        <!-- AOP Support -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
+        <!-- Rate Limiting -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j-core</artifactId>
+            <version>8.10.1</version>
+        </dependency>
+
         <!-- Bean Validation Enhancement -->
         <dependency>
             <groupId>org.hibernate.validator</groupId>

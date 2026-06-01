@@ -9,6 +9,7 @@ import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.AccountNotVerifiedException;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+import com.donatodev.bcm_backend.service.RefreshTokenService;
 
 /**
  * Service class responsible for handling authentication logic.
@@ -21,24 +22,27 @@ public class AuthService {
     private final JwtUtils jwtUtils;
     private final UsersRepository usersRepository;
     private final PasswordEncoder passwordEncoder;
-    
-    public AuthService(JwtUtils jwtUtils, UsersRepository usersRepository, PasswordEncoder passwordEncoder) {
+    private final RefreshTokenService refreshTokenService;
+
+    public AuthService(JwtUtils jwtUtils, UsersRepository usersRepository,
+                       PasswordEncoder passwordEncoder, RefreshTokenService refreshTokenService) {
         this.jwtUtils = jwtUtils;
         this.usersRepository = usersRepository;
         this.passwordEncoder = passwordEncoder;
+        this.refreshTokenService = refreshTokenService;
     }
 
     /**
-     * Authenticates a user by username and password, and returns a JWT token if valid.
+     * Authenticates a user by username and password.
      *
-     * @param username the user's username (typically an email)
+     * @param username the user's username
      * @param password the raw password to verify
-     * @return a JWT token if authentication is successful
+     * @return an {@link AuthResponseDTO} containing the access token and refresh token
      * @throws UsernameNotFoundException if the username is not found
      * @throws BadCredentialsException if the password is incorrect
-     * @throws RuntimeException if the account is not verified
+     * @throws AccountNotVerifiedException if the account is not yet verified
      */
-    public String authenticate(String username, String password) {
+    public AuthResponseDTO authenticate(String username, String password) {
         Users user = usersRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Invalid username or password"));
 
@@ -47,10 +51,11 @@ public class AuthService {
         }
 
         if (!user.isVerified()) {
-        	throw new AccountNotVerifiedException("Account not verified. Please check your email");
+            throw new AccountNotVerifiedException("Account not verified. Please check your email");
         }
 
-        // Generate JWT token for the authenticated user
-        return jwtUtils.generateToken(user);
+        String accessToken = jwtUtils.generateToken(user);
+        String refreshToken = refreshTokenService.createRefreshToken(user).getToken();
+        return new AuthResponseDTO(accessToken, refreshToken);
     }
 }

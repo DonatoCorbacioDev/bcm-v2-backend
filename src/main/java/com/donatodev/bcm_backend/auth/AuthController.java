@@ -17,6 +17,7 @@ import com.donatodev.bcm_backend.dto.*;
 import com.donatodev.bcm_backend.entity.*;
 import com.donatodev.bcm_backend.exception.RegistrationException;
 import com.donatodev.bcm_backend.service.*;
+import com.donatodev.bcm_backend.service.RefreshTokenService;
 
 import jakarta.validation.Valid;
 
@@ -33,6 +34,7 @@ public class AuthController {
     private final VerificationTokenService verificationTokenService;
     private final IEmailService emailService;
     private final PasswordResetTokenService passwordResetTokenService;
+    private final RefreshTokenService refreshTokenService;
     private final AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
 
     @Value("${app.backend-base-url}")
@@ -40,7 +42,7 @@ public class AuthController {
 
     @Value("${app.frontend-base-url}")
     private String frontendBaseUrl;
-    
+
 
     @Autowired
     public AuthController(
@@ -48,16 +50,18 @@ public class AuthController {
             UserService userService,
             VerificationTokenService verificationTokenService,
             IEmailService emailService,
-            PasswordResetTokenService passwordResetTokenService) {
+            PasswordResetTokenService passwordResetTokenService,
+            RefreshTokenService refreshTokenService) {
         this.authService = authService;
         this.userService = userService;
         this.verificationTokenService = verificationTokenService;
         this.emailService = emailService;
         this.passwordResetTokenService = passwordResetTokenService;
+        this.refreshTokenService = refreshTokenService;
     }
-    
+
     public AuthController() {
-        this(null, null, null, null, null);
+        this(null, null, null, null, null, null);
     }
 
     /**
@@ -116,8 +120,19 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody AuthRequestDTO request) {
-        String token = authService.authenticate(request.username(), request.password());
-        return ResponseEntity.ok(new AuthResponseDTO(token));
+        return ResponseEntity.ok(authService.authenticate(request.username(), request.password()));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponseDTO> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        String newAccessToken = refreshTokenService.refreshAccessToken(request.refreshToken());
+        return ResponseEntity.ok(new AuthResponseDTO(newAccessToken, request.refreshToken()));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest request) {
+        refreshTokenService.revokeToken(request.refreshToken());
+        return ResponseEntity.noContent().build();
     }
 
     /**

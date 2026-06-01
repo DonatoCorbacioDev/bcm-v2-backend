@@ -39,6 +39,7 @@ import com.donatodev.bcm_backend.entity.VerificationToken;
 import com.donatodev.bcm_backend.repository.InviteTokenRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.PasswordResetTokenRepository;
+import com.donatodev.bcm_backend.repository.RefreshTokenRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.donatodev.bcm_backend.repository.VerificationTokenRepository;
@@ -81,6 +82,9 @@ class AuthControllerTest {
     @Autowired
     private InviteTokenRepository inviteTokenRepository;
 
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
     private Long roleId;
     private Long managerId;
 
@@ -91,6 +95,7 @@ class AuthControllerTest {
     @BeforeEach
     @SuppressWarnings("unused")
     void setup() {
+        refreshTokenRepository.deleteAll();
         verificationTokenRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
         inviteTokenRepository.deleteAll();
@@ -166,7 +171,8 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(loginDto)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").exists());
+                .andExpect(jsonPath("$.token").exists())
+                .andExpect(jsonPath("$.refreshToken").exists());
     }
 
     /**
@@ -479,10 +485,102 @@ class AuthControllerTest {
     }
 
     /**
-     * Test successful completion of invite.
+     * Test successful token refresh returns a new access token.
      */
     @Test
     @Order(22)
+    void shouldRefreshTokenSuccessfully() throws Exception {
+        UserDTO dto = new UserDTO(null, "refreshuser", "pass123", managerId, roleId, false, null);
+        mockMvc.perform(post("/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isCreated());
+
+        Users user = usersRepository.findByUsername("refreshuser").orElseThrow();
+        user.setVerified(true);
+        usersRepository.save(user);
+
+        String loginBody = mockMvc.perform(post("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new AuthRequestDTO("refreshuser", "pass123"))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        String refreshToken = objectMapper.readTree(loginBody).get("refreshToken").asText();
+
+        mockMvc.perform(post("/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").exists())
+                .andExpect(jsonPath("$.refreshToken").value(refreshToken));
+    }
+
+    /**
+     * Test refresh fails with an invalid token.
+     */
+    @Test
+    @Order(23)
+    void shouldReturnUnauthorizedWhenRefreshTokenInvalid() throws Exception {
+        mockMvc.perform(post("/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"nonexistent-token\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value(containsString("Refresh token not found")));
+    }
+
+    /**
+     * Test logout revokes the refresh token (subsequent refresh should fail).
+     */
+    @Test
+    @Order(24)
+    void shouldLogoutAndRevokeRefreshToken() throws Exception {
+        UserDTO dto = new UserDTO(null, "logoutuser", "pass123", managerId, roleId, false, null);
+        mockMvc.perform(post("/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isCreated());
+
+        Users user = usersRepository.findByUsername("logoutuser").orElseThrow();
+        user.setVerified(true);
+        usersRepository.save(user);
+
+        String loginBody = mockMvc.perform(post("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new AuthRequestDTO("logoutuser", "pass123"))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        String refreshToken = objectMapper.readTree(loginBody).get("refreshToken").asText();
+
+        mockMvc.perform(post("/auth/logout")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    /**
+     * Test refresh fails with blank token (validation error).
+     */
+    @Test
+    @Order(25)
+    void shouldReturnBadRequestWhenRefreshTokenBlank() throws Exception {
+        mockMvc.perform(post("/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * Test successful completion of invite.
+     */
+    @Test
+    @Order(26)
     void shouldCompleteInviteSuccessfully() throws Exception {
         // Create an invite token in the database
         InviteToken inviteToken = new InviteToken();
