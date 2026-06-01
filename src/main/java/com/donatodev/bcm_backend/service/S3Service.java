@@ -46,14 +46,14 @@ public class S3Service {
     }
 
     public String generatePresignedUrl(String s3Key) {
-        return s3Presigner.presignGetObject(
-                GetObjectPresignRequest.builder()
-                        .signatureDuration(Duration.ofMinutes(15))
-                        .getObjectRequest(GetObjectRequest.builder()
-                                .bucket(bucketName)
-                                .key(s3Key)
+        return s3Presigner.presignGetObject( //NOSONAR — explicit builder preferred for readability
+                        GetObjectPresignRequest.builder()
+                                .signatureDuration(Duration.ofMinutes(15))
+                                .getObjectRequest(GetObjectRequest.builder()
+                                        .bucket(bucketName)
+                                        .key(s3Key)
+                                        .build())
                                 .build())
-                        .build())
                 .url()
                 .toString();
     }

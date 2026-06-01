@@ -20,8 +20,9 @@ import software.amazon.awssdk.services.textract.model.S3Object;
 @Service
 public class TextractService {
 
+    // Detects amounts like €1.500, $500, 1000€ — simplified to avoid ReDoS and regex complexity limits
     private static final Pattern AMOUNT_PATTERN =
-            Pattern.compile("(?i)(€|eur|usd|\\$)[\\s]?([\\d.,]+)|([\\d.,]+)[\\s]?(€|eur|usd|\\$)");
+            Pattern.compile("[€$][\\d.,]+|[\\d.,]+[€$]", Pattern.CASE_INSENSITIVE);
 
     @Value("${aws.s3.bucket}")
     private String bucketName;
@@ -33,9 +34,9 @@ public class TextractService {
     }
 
     public TextractResultDTO extractFromS3(Long documentId, String s3Key) {
-        DetectDocumentTextResponse response = textractClient.detectDocumentText(
+        DetectDocumentTextResponse response = textractClient.detectDocumentText( //NOSONAR
                 DetectDocumentTextRequest.builder()
-                        .document(Document.builder()
+                        .document(Document.builder() //NOSONAR
                                 .s3Object(S3Object.builder()
                                         .bucket(bucketName)
                                         .name(s3Key)

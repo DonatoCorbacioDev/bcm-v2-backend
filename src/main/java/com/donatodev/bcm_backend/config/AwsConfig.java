@@ -30,7 +30,7 @@ public class AwsConfig {
     public S3Client s3Client() {
         return S3Client.builder()
                 .region(Region.of(awsRegion))
-                .credentialsProvider(DefaultCredentialsProvider.create())
+                .credentialsProvider(DefaultCredentialsProvider.builder().build())
                 .build();
     }
 
@@ -38,7 +38,7 @@ public class AwsConfig {
     public S3Presigner s3Presigner() {
         return S3Presigner.builder()
                 .region(Region.of(awsRegion))
-                .credentialsProvider(DefaultCredentialsProvider.create())
+                .credentialsProvider(DefaultCredentialsProvider.builder().build())
                 .build();
     }
 
@@ -46,7 +46,7 @@ public class AwsConfig {
     public TextractClient textractClient() {
         return TextractClient.builder()
                 .region(Region.of(textractRegion))
-                .credentialsProvider(DefaultCredentialsProvider.create())
+                .credentialsProvider(DefaultCredentialsProvider.builder().build())
                 .build();
     }
 }

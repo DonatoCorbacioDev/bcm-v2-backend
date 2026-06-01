@@ -1,6 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
-import java.net.URL;
+import java.net.URI;
 import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -51,7 +50,6 @@ import software.amazon.awssdk.services.textract.model.DetectDocumentTextRequest;
 import software.amazon.awssdk.services.textract.model.DetectDocumentTextResponse;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
@@ -112,7 +110,7 @@ class ContractDocumentControllerTest {
                 .thenReturn(software.amazon.awssdk.services.s3.model.PutObjectResponse.builder().build());
 
         PresignedGetObjectRequest presigned = org.mockito.Mockito.mock(PresignedGetObjectRequest.class);
-        when(presigned.url()).thenReturn(new URL("https://s3.example.com/signed-url"));
+        when(presigned.url()).thenReturn(URI.create("https://s3.example.com/signed-url").toURL());
         when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class))).thenReturn(presigned);
     }
 

@@ -1,6 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
-import java.net.URL;
+import java.net.URI;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -68,7 +68,7 @@ class S3ServiceTest {
         void shouldGeneratePresignedUrl() throws Exception {
             when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
                     .thenReturn(presignedRequest);
-            when(presignedRequest.url()).thenReturn(new URL("https://s3.amazonaws.com/test-bucket/key"));
+            when(presignedRequest.url()).thenReturn(URI.create("https://s3.amazonaws.com/test-bucket/key").toURL());
 
             String url = s3Service.generatePresignedUrl("contracts/1/42/uuid-contract.pdf");
 

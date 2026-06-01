@@ -101,8 +101,9 @@ class OrganizationServiceTest {
         @DisplayName("registerOrganization throws when username already exists")
         void shouldThrowWhenUsernameExists() {
             when(usersRepository.existsByUsername("acme-admin")).thenReturn(true);
+            var request = validRequest();
             assertThrows(IllegalArgumentException.class,
-                    () -> organizationService.registerOrganization(validRequest()));
+                    () -> organizationService.registerOrganization(request));
         }
 
         @Test
@@ -111,8 +112,9 @@ class OrganizationServiceTest {
         void shouldThrowWhenEmailExists() {
             when(usersRepository.existsByUsername("acme-admin")).thenReturn(false);
             when(managersRepository.existsByEmail("admin@acme.com")).thenReturn(true);
+            var request = validRequest();
             assertThrows(IllegalArgumentException.class,
-                    () -> organizationService.registerOrganization(validRequest()));
+                    () -> organizationService.registerOrganization(request));
         }
 
         @Test
