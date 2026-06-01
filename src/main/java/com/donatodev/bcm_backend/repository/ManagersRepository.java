@@ -12,6 +12,8 @@ public interface ManagersRepository extends JpaRepository<Managers, Long> {
 
     Managers findByEmail(String email);
 
+    boolean existsByEmail(String email);
+
     Page<Managers> findByOrganizationId(Long organizationId, Pageable pageable);
 
     Page<Managers> findByOrganizationIdAndFirstNameContainingIgnoreCaseOrOrganizationIdAndLastNameContainingIgnoreCaseOrOrganizationIdAndEmailContainingIgnoreCase(

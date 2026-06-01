@@ -54,6 +54,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(AUTH_WHITELIST, "/actuator/health").permitAll()
+                .requestMatchers(HttpMethod.POST, "/organizations/register").permitAll()
                 .requestMatchers(SWAGGER_WHITELIST).permitAll()
                 .requestMatchers(HttpMethod.POST, "/users/invite").hasRole("ADMIN")
                 .anyRequest().authenticated()
