@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -14,11 +15,14 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.context.ActiveProfiles;
+
+import com.donatodev.bcm_backend.config.TenantContext;
 
 import com.donatodev.bcm_backend.dto.FinancialTypeDTO;
 import com.donatodev.bcm_backend.entity.FinancialTypes;
@@ -175,6 +179,52 @@ class FinancialTypeServiceTest {
                 assertThrows(FinancialTypeNotFoundException.class,
                     () -> financialTypeService.updateType(999L, updateDTO));
             assertEquals("Financial type ID 999 not found", ex.getMessage());
+        }
+
+        @Test
+        @Order(8)
+        @DisplayName("getAllTypes with TenantContext uses org-filtered repository")
+        void shouldGetAllTypesWithTenantContext() {
+            FinancialTypes type = FinancialTypes.builder().id(1L).name("SALES").build();
+            FinancialTypeDTO dto = new FinancialTypeDTO(1L, "SALES", "Revenue");
+
+            TenantContext.set(2L);
+            try {
+                when(financialTypesRepository.findAllByOrganizationId(2L)).thenReturn(List.of(type));
+                when(financialTypeMapper.toDTO(type)).thenReturn(dto);
+
+                List<FinancialTypeDTO> result = financialTypeService.getAllTypes();
+
+                assertEquals(1, result.size());
+                verify(financialTypesRepository).findAllByOrganizationId(2L);
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(9)
+        @DisplayName("createType with TenantContext sets organization on entity")
+        void shouldCreateTypeWithTenantContext() {
+            FinancialTypeDTO dto = new FinancialTypeDTO(null, "COSTS", "Expenses");
+            FinancialTypes entity = FinancialTypes.builder().name("COSTS").build();
+            FinancialTypes saved = FinancialTypes.builder().id(3L).name("COSTS").build();
+            FinancialTypeDTO savedDTO = new FinancialTypeDTO(3L, "COSTS", "Expenses");
+
+            TenantContext.set(7L);
+            try {
+                when(financialTypeMapper.toEntity(dto)).thenReturn(entity);
+                when(financialTypesRepository.save(any())).thenReturn(saved);
+                when(financialTypeMapper.toDTO(saved)).thenReturn(savedDTO);
+
+                FinancialTypeDTO result = financialTypeService.createType(dto);
+
+                assertEquals(3L, result.id());
+                assertNotNull(entity.getOrganization());
+                assertEquals(7L, entity.getOrganization().getId());
+            } finally {
+                TenantContext.clear();
+            }
         }
     }
 }

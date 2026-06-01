@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -27,6 +28,7 @@ import com.donatodev.bcm_backend.dto.BusinessAreaDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
 import com.donatodev.bcm_backend.mapper.BusinessAreaMapper;
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 
 /**
@@ -201,8 +203,53 @@ class BusinessAreaServiceTest {
         @Order(8)
         @DisplayName("Delete area throws no exception if area doesn't exist")
         void shouldNotThrowWhenDeletingNonExistentArea() {
-            // Nessun comportamento specifico, perché deleteById non lancia eccezioni se l'ID non esiste
             assertDoesNotThrow(() -> service.deleteArea(999L));
+        }
+
+        @Test
+        @Order(9)
+        @DisplayName("getAllAreas with TenantContext uses org-filtered repository")
+        void shouldGetAllAreasWithTenantContext() {
+            BusinessAreas area = BusinessAreas.builder().id(1L).name("IT").build();
+            BusinessAreaDTO dto = new BusinessAreaDTO(1L, "IT", "desc");
+
+            TenantContext.set(1L);
+            try {
+                when(repository.findAllByOrganizationId(1L)).thenReturn(List.of(area));
+                when(mapper.toDTO(area)).thenReturn(dto);
+
+                List<BusinessAreaDTO> result = service.getAllAreas();
+
+                assertEquals(1, result.size());
+                verify(repository).findAllByOrganizationId(1L);
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(10)
+        @DisplayName("createArea with TenantContext sets organization on entity")
+        void shouldCreateAreaWithTenantContext() {
+            BusinessAreaDTO dto = new BusinessAreaDTO(null, "Finance", "Finance dept");
+            BusinessAreas entity = BusinessAreas.builder().name("Finance").build();
+            BusinessAreas saved = BusinessAreas.builder().id(2L).name("Finance").build();
+            BusinessAreaDTO savedDTO = new BusinessAreaDTO(2L, "Finance", "Finance dept");
+
+            TenantContext.set(5L);
+            try {
+                when(mapper.toEntity(dto)).thenReturn(entity);
+                when(repository.save(any())).thenReturn(saved);
+                when(mapper.toDTO(saved)).thenReturn(savedDTO);
+
+                BusinessAreaDTO result = service.createArea(dto);
+
+                assertEquals(2L, result.id());
+                assertNotNull(entity.getOrganization());
+                assertEquals(5L, entity.getOrganization().getId());
+            } finally {
+                TenantContext.clear();
+            }
         }
     }
 }

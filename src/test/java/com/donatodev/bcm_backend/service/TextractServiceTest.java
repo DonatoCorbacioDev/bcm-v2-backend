@@ -99,6 +99,45 @@ class TextractServiceTest {
 
         @Test
         @Order(3)
+        @DisplayName("Keyword found but no colon separator — field returns null")
+        void shouldReturnNullWhenKeywordHasNoColon() {
+            DetectDocumentTextResponse response = DetectDocumentTextResponse.builder()
+                    .blocks(List.of(
+                            Block.builder().blockType(BlockType.LINE).text("customer without colon here").build()
+                    ))
+                    .build();
+
+            when(textractClient.detectDocumentText(
+                    ArgumentMatchers.<Consumer<DetectDocumentTextRequest.Builder>>any()))
+                    .thenReturn(response);
+
+            TextractResultDTO result = textractService.extractFromS3(4L, "contracts/1/4/doc.pdf");
+
+            // "customer" is found but there is no colon → should return null
+            assertNull(result.detectedCustomerName());
+        }
+
+        @Test
+        @Order(4)
+        @DisplayName("Keyword found, colon present but empty value — field returns null")
+        void shouldReturnNullWhenValueAfterColonIsEmpty() {
+            DetectDocumentTextResponse response = DetectDocumentTextResponse.builder()
+                    .blocks(List.of(
+                            Block.builder().blockType(BlockType.LINE).text("customer:").build()
+                    ))
+                    .build();
+
+            when(textractClient.detectDocumentText(
+                    ArgumentMatchers.<Consumer<DetectDocumentTextRequest.Builder>>any()))
+                    .thenReturn(response);
+
+            TextractResultDTO result = textractService.extractFromS3(5L, "contracts/1/5/doc.pdf");
+
+            assertNull(result.detectedCustomerName());
+        }
+
+        @Test
+        @Order(5)
         @DisplayName("extractFromS3 detects Italian keywords")
         void shouldDetectItalianKeywords() {
             DetectDocumentTextResponse response = DetectDocumentTextResponse.builder()

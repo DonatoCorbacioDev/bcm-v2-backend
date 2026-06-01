@@ -86,5 +86,20 @@ class S3ServiceTest {
             s3Service.deleteDocument("contracts/1/42/uuid-contract.pdf");
             verify(s3Client).deleteObject(any(DeleteObjectRequest.class));
         }
+
+        @Test
+        @Order(4)
+        @DisplayName("uploadDocument with null orgId falls back to 0 in S3 key")
+        void shouldUploadWithNullOrgId() {
+            when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                    .thenReturn(PutObjectResponse.builder().build());
+
+            byte[] content = "%PDF-test".getBytes();
+            String key = s3Service.uploadDocument(null, 42L, "file.pdf", "application/pdf", content);
+
+            assertNotNull(key);
+            // key should contain "contracts/0/42/" prefix (0 for null orgId)
+            org.junit.jupiter.api.Assertions.assertTrue(key.startsWith("contracts/0/42/"));
+        }
     }
 }
