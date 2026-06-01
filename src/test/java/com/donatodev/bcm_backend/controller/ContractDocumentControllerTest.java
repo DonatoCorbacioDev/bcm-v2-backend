@@ -1,6 +1,5 @@
 package com.donatodev.bcm_backend.controller;
 
-import java.net.URI;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -44,7 +43,6 @@ import com.donatodev.bcm_backend.service.ContractDocumentService;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
@@ -78,7 +76,7 @@ class ContractDocumentControllerTest {
     }
 
     @BeforeEach
-    void setup() throws Exception {
+    void setup() {
         refreshTokenRepository.deleteAll();
         documentRepository.deleteAll();
         contractsRepository.deleteAll();
