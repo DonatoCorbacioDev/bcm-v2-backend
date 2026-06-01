@@ -61,6 +61,12 @@ class AuditAspectTest {
         public String id() { return "not-a-number"; }
     }
 
+    // Both id() and getId() exist but return non-Number values
+    static class EntityWithBothStringIds {
+        public String id() { return "not-a-number"; }
+        public String getId() { return "also-not-a-number"; }
+    }
+
     @Nested
     @DisplayName("Unit Test: AuditAspect")
     @org.junit.jupiter.api.TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -106,6 +112,20 @@ class AuditAspectTest {
 
         @Test
         @Order(4)
+        @DisplayName("getId() exists but returns non-Number — covers second try false branch")
+        void shouldHandleGetIdReturningNonNumber() throws Throwable {
+            when(joinPoint.proceed()).thenReturn(new EntityWithBothStringIds());
+            when(joinPoint.getArgs()).thenReturn(new Object[]{77L});
+            when(signature.getName()).thenReturn("updateItem");
+
+            auditAspect.auditServiceMethod(joinPoint);
+
+            // Falls through both id() and getId() non-Number checks → Long arg fallback
+            verify(auditLogService).save(eq("UPDATE"), any(), eq(77L), any(), any(), any());
+        }
+
+        @Test
+        @Order(6)
         @DisplayName("Uses unknown method name as UPPERCASE action — covers inferAction fallback")
         void shouldUseUppercaseForUnknownMethodName() throws Throwable {
             when(joinPoint.proceed()).thenReturn(null);
@@ -117,7 +137,7 @@ class AuditAspectTest {
         }
 
         @Test
-        @Order(5)
+        @Order(7)
         @DisplayName("Returns null entityId when result null and no Long in args")
         void shouldReturnNullEntityIdWithNoLongArg() throws Throwable {
             when(joinPoint.proceed()).thenReturn(null);

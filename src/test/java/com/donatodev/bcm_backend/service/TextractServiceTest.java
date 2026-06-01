@@ -132,6 +132,26 @@ class TextractServiceTest {
 
         @Test
         @Order(5)
+        @DisplayName("Non-LINE blocks are filtered out — covers blockType == LINE false branch")
+        void shouldFilterNonLineBlocks() {
+            DetectDocumentTextResponse response = DetectDocumentTextResponse.builder()
+                    .blocks(List.of(
+                            Block.builder().blockType(BlockType.PAGE).text("page header").build(),
+                            Block.builder().blockType(BlockType.LINE).text("Customer: Filtered Corp").build(),
+                            Block.builder().blockType(BlockType.WORD).text("ignored word").build()
+                    ))
+                    .build();
+            stubTextract(response);
+
+            TextractResultDTO result = textractService.extractFromS3(6L, "contracts/1/6/doc.pdf");
+
+            // Only LINE block is included in raw text
+            assertEquals("Customer: Filtered Corp", result.rawText());
+            assertEquals("Filtered Corp", result.detectedCustomerName());
+        }
+
+        @Test
+        @Order(6)
         @DisplayName("extractFromS3 detects Italian keywords")
         void shouldDetectItalianKeywords() {
             DetectDocumentTextResponse response = DetectDocumentTextResponse.builder()

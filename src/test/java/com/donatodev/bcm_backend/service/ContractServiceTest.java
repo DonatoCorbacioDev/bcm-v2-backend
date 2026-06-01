@@ -1393,6 +1393,30 @@ class ContractServiceTest {
         }
 
         @Test
+        @Order(57)
+        @DisplayName("createContract with TenantContext sets organization on entity")
+        void shouldCreateContractWithOrgFilter() {
+            Contracts entity = Contracts.builder().id(1L).customerName("OrgClient").build();
+            ContractDTO dto = new ContractDTO(1L, "OrgClient", "CTR-ORG", null, null,
+                    ContractStatus.ACTIVE, LocalDate.now(), null, 1L, null, null, null, null, 0);
+
+            TenantContext.set(10L);
+            try {
+                when(contractMapper.toEntity(any(ContractDTO.class))).thenReturn(entity);
+                when(contractsRepository.save(entity)).thenReturn(entity);
+                when(contractMapper.toDTO(entity)).thenReturn(dto);
+
+                ContractDTO result = contractService.createContract(dto);
+
+                assertEquals("OrgClient", result.customerName());
+                org.junit.jupiter.api.Assertions.assertNotNull(entity.getOrganization());
+                assertEquals(10L, entity.getOrganization().getId());
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
         @Order(52)
         @DisplayName("getContractStats with TenantContext uses org-filtered repository methods")
         void shouldGetContractStatsWithOrgFilter() {

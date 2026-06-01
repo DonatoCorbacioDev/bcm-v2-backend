@@ -186,6 +186,81 @@ class OrganizationServiceTest {
 
         @Test
         @Order(7)
+        @DisplayName("registerOrganization with special-char-only name uses 'org' as slug base")
+        void shouldUseOrgSlugWhenNameProducesEmptyBase() {
+            Organization org = savedOrg();
+            Managers manager = Managers.builder().id(1L).build();
+            Users admin = Users.builder().id(1L).username("acme-admin").organization(org).build();
+            RefreshToken rt = RefreshToken.builder().token("rt").build();
+
+            OrganizationRegistrationRequest req = new OrganizationRegistrationRequest(
+                    "!!!###", "spec-admin", "secret123", "spec@test.com", "Spec", "Admin");
+
+            when(usersRepository.existsByUsername("spec-admin")).thenReturn(false);
+            when(managersRepository.existsByEmail("spec@test.com")).thenReturn(false);
+            when(organizationRepository.findBySlug(anyString())).thenReturn(Optional.empty());
+            when(organizationRepository.save(any())).thenReturn(org);
+            when(managersRepository.save(any())).thenReturn(manager);
+            when(rolesRepository.findByRole("ADMIN"))
+                    .thenReturn(Optional.of(com.donatodev.bcm_backend.entity.Roles.builder().role("ADMIN").build()));
+            when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+            when(usersRepository.save(any())).thenReturn(admin);
+            when(jwtUtils.generateToken(any())).thenReturn("token");
+            when(refreshTokenService.createRefreshToken(any())).thenReturn(rt);
+
+            var response = organizationService.registerOrganization(req);
+
+            assertNotNull(response.token());
+        }
+
+        @Test
+        @Order(8)
+        @DisplayName("updateMyOrganization with null name does not update name")
+        void shouldNotUpdateNameWhenNull() {
+            Organization org = Organization.builder().id(1L).name("Original").slug("original")
+                    .subscriptionTier(SubscriptionTier.FREE).build();
+
+            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            try {
+                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+                when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+                // name = null → should NOT update name
+                UpdateOrganizationRequest req = new UpdateOrganizationRequest(null, SubscriptionTier.PRO);
+                OrganizationDTO result = organizationService.updateMyOrganization(req);
+
+                assertEquals("Original", result.name()); // name unchanged
+                assertEquals(SubscriptionTier.PRO, result.subscriptionTier());
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(9)
+        @DisplayName("updateMyOrganization with blank name does not update name")
+        void shouldNotUpdateNameWhenBlank() {
+            Organization org = Organization.builder().id(1L).name("Original").slug("original")
+                    .subscriptionTier(SubscriptionTier.FREE).build();
+
+            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            try {
+                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+                when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+                // name = "  " (blank) → should NOT update name
+                UpdateOrganizationRequest req = new UpdateOrganizationRequest("   ", null);
+                OrganizationDTO result = organizationService.updateMyOrganization(req);
+
+                assertEquals("Original", result.name()); // name unchanged
+                assertEquals(SubscriptionTier.FREE, result.subscriptionTier()); // tier unchanged
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(11)
         @DisplayName("getMyOrganization via SecurityContext fallback returns org")
         void shouldGetMyOrganizationViaSecurityContextFallback() {
             // TenantContext is null → fallback to SecurityContextHolder
@@ -207,7 +282,7 @@ class OrganizationServiceTest {
         }
 
         @Test
-        @Order(8)
+        @Order(12)
         @DisplayName("getMyOrganization via SecurityContext throws when user has no org")
         void shouldThrowWhenUserHasNoOrganizationInFallback() {
             Users userWithoutOrg = Users.builder().username("noorg").build();
@@ -225,7 +300,7 @@ class OrganizationServiceTest {
         }
 
         @Test
-        @Order(9)
+        @Order(13)
         @DisplayName("getMyOrganization via SecurityContext throws when user not found")
         void shouldThrowWhenAuthenticatedUserNotFoundInFallback() {
             SecurityContextHolder.getContext().setAuthentication(

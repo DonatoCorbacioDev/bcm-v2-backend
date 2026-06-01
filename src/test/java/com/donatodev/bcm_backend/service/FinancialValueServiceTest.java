@@ -648,6 +648,46 @@ class FinancialValueServiceTest {
         }
 
         @Test
+        @Order(26)
+        @DisplayName("createValue with TenantContext sets organization on entity")
+        void shouldCreateValueWithOrgFilter() {
+            FinancialValues entity = FinancialValues.builder().id(1L).build();
+            FinancialValues saved = FinancialValues.builder().id(1L).build();
+            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 100.0, 1L, 1L, 1L, "T", "A", "C");
+            FinancialValueDTO savedDto = new FinancialValueDTO(1L, 1, 2024, 100.0, 1L, 1L, 1L, "T", "A", "C");
+
+            com.donatodev.bcm_backend.config.TenantContext.set(8L);
+            try {
+                when(mapper.toEntity(dto)).thenReturn(entity);
+                when(valuesRepository.save(entity)).thenReturn(saved);
+                when(mapper.toDTO(saved)).thenReturn(savedDto);
+
+                FinancialValueDTO result = service.createValue(dto);
+
+                assertEquals(1L, result.id());
+                org.junit.jupiter.api.Assertions.assertNotNull(entity.getOrganization());
+                assertEquals(8L, entity.getOrganization().getId());
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(27)
+        @DisplayName("getAuthenticatedUsername returns null when authentication is not authenticated")
+        void shouldReturnNullWhenNotAuthenticated() {
+            // Auth exists but isAuthenticated() returns false
+            UsernamePasswordAuthenticationToken unauth =
+                    new UsernamePasswordAuthenticationToken("user", "pass");
+            // unauth.isAuthenticated() == false (no authorities)
+            SecurityContextHolder.getContext().setAuthentication(unauth);
+
+            String result = invokePrivateGetAuthenticatedUsername(service);
+
+            org.junit.jupiter.api.Assertions.assertNull(result);
+        }
+
+        @Test
         @Order(22)
         @DisplayName("getAuthenticatedUsername returns null when SecurityContext has no authentication")
         void shouldReturnNullWhenNoAuthentication() {
