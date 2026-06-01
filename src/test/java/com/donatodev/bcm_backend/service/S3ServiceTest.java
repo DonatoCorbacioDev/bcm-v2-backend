@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.net.URI;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -66,7 +68,8 @@ class S3ServiceTest {
         @Order(2)
         @DisplayName("generatePresignedUrl returns a URL string")
         void shouldGeneratePresignedUrl() throws Exception {
-            when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
+            when(s3Presigner.presignGetObject(
+                    ArgumentMatchers.<Consumer<GetObjectPresignRequest.Builder>>any()))
                     .thenReturn(presignedRequest);
             when(presignedRequest.url()).thenReturn(URI.create("https://s3.amazonaws.com/test-bucket/key").toURL());
 

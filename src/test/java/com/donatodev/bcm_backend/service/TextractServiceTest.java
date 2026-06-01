@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -12,8 +13,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -63,7 +64,8 @@ class TextractServiceTest {
                     ))
                     .build();
 
-            when(textractClient.detectDocumentText(any(DetectDocumentTextRequest.class)))
+            when(textractClient.detectDocumentText(
+                    ArgumentMatchers.<Consumer<DetectDocumentTextRequest.Builder>>any()))
                     .thenReturn(response);
 
             TextractResultDTO result = textractService.extractFromS3(1L, "contracts/1/1/doc.pdf");
@@ -84,7 +86,8 @@ class TextractServiceTest {
                     .blocks(List.of(lineBlock("This is a generic document with no structured fields.")))
                     .build();
 
-            when(textractClient.detectDocumentText(any(DetectDocumentTextRequest.class)))
+            when(textractClient.detectDocumentText(
+                    ArgumentMatchers.<Consumer<DetectDocumentTextRequest.Builder>>any()))
                     .thenReturn(response);
 
             TextractResultDTO result = textractService.extractFromS3(2L, "contracts/1/2/doc.pdf");
@@ -106,7 +109,8 @@ class TextractServiceTest {
                     ))
                     .build();
 
-            when(textractClient.detectDocumentText(any(DetectDocumentTextRequest.class)))
+            when(textractClient.detectDocumentText(
+                    ArgumentMatchers.<Consumer<DetectDocumentTextRequest.Builder>>any()))
                     .thenReturn(response);
 
             TextractResultDTO result = textractService.extractFromS3(3L, "contracts/1/3/doc.pdf");

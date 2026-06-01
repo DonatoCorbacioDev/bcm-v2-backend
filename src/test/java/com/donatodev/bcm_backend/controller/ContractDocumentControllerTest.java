@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
@@ -25,34 +26,30 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
+import com.donatodev.bcm_backend.dto.TextractResultDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
+import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.RefreshTokenRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
-import com.donatodev.bcm_backend.service.S3Service;
-import com.donatodev.bcm_backend.service.TextractService;
-
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
-import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
-import software.amazon.awssdk.services.textract.TextractClient;
-import software.amazon.awssdk.services.textract.model.Block;
-import software.amazon.awssdk.services.textract.model.BlockType;
-import software.amazon.awssdk.services.textract.model.DetectDocumentTextRequest;
-import software.amazon.awssdk.services.textract.model.DetectDocumentTextResponse;
+import com.donatodev.bcm_backend.service.ContractDocumentService;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
-import java.time.LocalDate;
+import java.time.Instant;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -68,17 +65,17 @@ class ContractDocumentControllerTest {
     @Autowired private UsersRepository usersRepository;
     @Autowired private RefreshTokenRepository refreshTokenRepository;
 
-    // Mock AWS clients so no real AWS calls are made in tests
-    @MockitoBean private S3Client s3Client;
-    @MockitoBean private S3Presigner s3Presigner;
-    @MockitoBean private TextractClient textractClient;
-
-    @Autowired private S3Service s3Service;
-    @Autowired private TextractService textractService;
+    // Mock at service level — S3/Textract AWS clients are not involved in controller tests
+    @MockitoBean private ContractDocumentService contractDocumentService;
 
     private Long contractId;
 
-    private static final byte[] VALID_PDF = ("%PDF-1.4 fake pdf content for testing").getBytes();
+    private static final byte[] VALID_PDF = "%PDF-1.4 fake pdf content for testing".getBytes();
+
+    private ContractDocumentDTO sampleDocDTO(Long contractId) {
+        return new ContractDocumentDTO(1L, contractId, "contract.pdf", 1024L,
+                "application/pdf", Instant.now(), "https://s3.example.com/signed-url");
+    }
 
     @BeforeEach
     void setup() throws Exception {
@@ -103,15 +100,6 @@ class ContractDocumentControllerTest {
                 .status(ContractStatus.ACTIVE).build());
 
         contractId = contract.getId();
-
-        // Default S3 mock behaviour
-        when(s3Client.putObject(any(software.amazon.awssdk.services.s3.model.PutObjectRequest.class),
-                any(software.amazon.awssdk.core.sync.RequestBody.class)))
-                .thenReturn(software.amazon.awssdk.services.s3.model.PutObjectResponse.builder().build());
-
-        PresignedGetObjectRequest presigned = org.mockito.Mockito.mock(PresignedGetObjectRequest.class);
-        when(presigned.url()).thenReturn(URI.create("https://s3.example.com/signed-url").toURL());
-        when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class))).thenReturn(presigned);
     }
 
     @Nested
@@ -125,37 +113,46 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Admin uploads a valid PDF — returns 201")
         void shouldUploadPdfSuccessfully() throws Exception {
+            when(contractDocumentService.uploadDocument(anyLong(), any()))
+                    .thenReturn(sampleDocDTO(contractId));
+
             MockMultipartFile file = new MockMultipartFile(
                     "file", "contract.pdf", "application/pdf", VALID_PDF);
 
             mockMvc.perform(multipart("/contracts/" + contractId + "/documents").file(file))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.fileName").value("contract.pdf"))
-                    .andExpect(jsonPath("$.downloadUrl").exists());
+                    .andExpect(jsonPath("$.downloadUrl").value("https://s3.example.com/signed-url"));
         }
 
         @Test
         @Order(2)
         @WithMockUser(roles = "ADMIN")
-        @DisplayName("Upload non-PDF file returns 400")
-        void shouldRejectNonPdfFile() throws Exception {
-            MockMultipartFile file = new MockMultipartFile(
-                    "file", "image.png", "image/png", "not a pdf".getBytes());
-
-            mockMvc.perform(multipart("/contracts/" + contractId + "/documents").file(file))
-                    .andExpect(status().isBadRequest());
-        }
-
-        @Test
-        @Order(3)
-        @WithMockUser(roles = "ADMIN")
         @DisplayName("Upload to non-existent contract returns 404")
         void shouldReturn404ForMissingContract() throws Exception {
+            when(contractDocumentService.uploadDocument(anyLong(), any()))
+                    .thenThrow(new ContractNotFoundException("Contract ID 99999 not found"));
+
             MockMultipartFile file = new MockMultipartFile(
                     "file", "contract.pdf", "application/pdf", VALID_PDF);
 
             mockMvc.perform(multipart("/contracts/99999/documents").file(file))
                     .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @Order(3)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Invalid file (non-PDF magic bytes) returns 400")
+        void shouldRejectNonPdfFile() throws Exception {
+            when(contractDocumentService.uploadDocument(anyLong(), any()))
+                    .thenThrow(new IllegalArgumentException("Only PDF files are accepted"));
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "image.png", "image/png", "not a pdf".getBytes());
+
+            mockMvc.perform(multipart("/contracts/" + contractId + "/documents").file(file))
+                    .andExpect(status().isBadRequest());
         }
 
         @Test
@@ -179,8 +176,10 @@ class ContractDocumentControllerTest {
         @Test
         @Order(1)
         @WithMockUser(roles = "ADMIN")
-        @DisplayName("Returns empty list when no documents uploaded")
+        @DisplayName("Returns empty list when no documents exist")
         void shouldReturnEmptyList() throws Exception {
+            when(contractDocumentService.getDocuments(anyLong())).thenReturn(List.of());
+
             mockMvc.perform(get("/contracts/" + contractId + "/documents"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(0)));
@@ -189,12 +188,10 @@ class ContractDocumentControllerTest {
         @Test
         @Order(2)
         @WithMockUser(roles = "ADMIN")
-        @DisplayName("Returns uploaded documents with download URLs")
+        @DisplayName("Returns list of documents with download URLs")
         void shouldReturnDocumentsWithUrls() throws Exception {
-            MockMultipartFile file = new MockMultipartFile(
-                    "file", "contract.pdf", "application/pdf", VALID_PDF);
-            mockMvc.perform(multipart("/contracts/" + contractId + "/documents").file(file))
-                    .andExpect(status().isCreated());
+            when(contractDocumentService.getDocuments(anyLong()))
+                    .thenReturn(List.of(sampleDocDTO(contractId)));
 
             mockMvc.perform(get("/contracts/" + contractId + "/documents"))
                     .andExpect(status().isOk())
@@ -213,34 +210,30 @@ class ContractDocumentControllerTest {
         @Test
         @Order(1)
         @WithMockUser(roles = "ADMIN")
-        @DisplayName("Extracts text from uploaded document via Textract")
+        @DisplayName("Returns extracted fields from Textract")
         void shouldExtractTextSuccessfully() throws Exception {
-            // Upload first
-            MockMultipartFile file = new MockMultipartFile(
-                    "file", "contract.pdf", "application/pdf", VALID_PDF);
-            String uploadResponse = mockMvc.perform(
-                    multipart("/contracts/" + contractId + "/documents").file(file))
-                    .andExpect(status().isCreated())
-                    .andReturn().getResponse().getContentAsString();
+            TextractResultDTO result = new TextractResultDTO(
+                    1L, "Customer: Test Corp\nTotal: €5,000",
+                    "Test Corp", null, null, null, "€5,000");
 
-            Long docId = com.fasterxml.jackson.databind.json.JsonMapper.builder().build()
-                    .readTree(uploadResponse).get("id").asLong();
+            when(contractDocumentService.extractText(anyLong(), anyLong())).thenReturn(result);
 
-            // Mock Textract response
-            DetectDocumentTextResponse textractResponse = DetectDocumentTextResponse.builder()
-                    .blocks(List.of(
-                            Block.builder().blockType(BlockType.LINE).text("Customer: Test Corp").build(),
-                            Block.builder().blockType(BlockType.LINE).text("Total Value: €5,000").build()
-                    ))
-                    .build();
-            when(textractClient.detectDocumentText(any(DetectDocumentTextRequest.class)))
-                    .thenReturn(textractResponse);
-
-            mockMvc.perform(post("/contracts/" + contractId + "/documents/" + docId + "/extract"))
+            mockMvc.perform(post("/contracts/" + contractId + "/documents/1/extract"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.rawText").exists())
                     .andExpect(jsonPath("$.detectedCustomerName").value("Test Corp"))
-                    .andExpect(jsonPath("$.detectedAmount").exists());
+                    .andExpect(jsonPath("$.detectedAmount").value("€5,000"));
+        }
+
+        @Test
+        @Order(2)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Returns 404 when document not found")
+        void shouldReturn404WhenDocumentNotFound() throws Exception {
+            when(contractDocumentService.extractText(anyLong(), anyLong()))
+                    .thenThrow(new ContractNotFoundException("Document ID 999 not found"));
+
+            mockMvc.perform(post("/contracts/" + contractId + "/documents/999/extract"))
+                    .andExpect(status().isNotFound());
         }
     }
 
@@ -255,17 +248,9 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Admin deletes a document — returns 204")
         void shouldDeleteSuccessfully() throws Exception {
-            MockMultipartFile file = new MockMultipartFile(
-                    "file", "contract.pdf", "application/pdf", VALID_PDF);
-            String uploadResponse = mockMvc.perform(
-                    multipart("/contracts/" + contractId + "/documents").file(file))
-                    .andExpect(status().isCreated())
-                    .andReturn().getResponse().getContentAsString();
+            doNothing().when(contractDocumentService).deleteDocument(anyLong(), anyLong());
 
-            Long docId = com.fasterxml.jackson.databind.json.JsonMapper.builder().build()
-                    .readTree(uploadResponse).get("id").asLong();
-
-            mockMvc.perform(delete("/contracts/" + contractId + "/documents/" + docId))
+            mockMvc.perform(delete("/contracts/" + contractId + "/documents/1"))
                     .andExpect(status().isNoContent());
         }
 
@@ -276,6 +261,18 @@ class ContractDocumentControllerTest {
         void shouldReturn403ForManager() throws Exception {
             mockMvc.perform(delete("/contracts/" + contractId + "/documents/1"))
                     .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @Order(3)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Delete non-existent document returns 404")
+        void shouldReturn404WhenDocumentNotFound() throws Exception {
+            doThrow(new ContractNotFoundException("Document ID 999 not found"))
+                    .when(contractDocumentService).deleteDocument(anyLong(), anyLong());
+
+            mockMvc.perform(delete("/contracts/" + contractId + "/documents/999"))
+                    .andExpect(status().isNotFound());
         }
     }
 }

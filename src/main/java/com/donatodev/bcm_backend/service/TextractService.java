@@ -12,10 +12,7 @@ import com.donatodev.bcm_backend.dto.TextractResultDTO;
 
 import software.amazon.awssdk.services.textract.TextractClient;
 import software.amazon.awssdk.services.textract.model.BlockType;
-import software.amazon.awssdk.services.textract.model.DetectDocumentTextRequest;
 import software.amazon.awssdk.services.textract.model.DetectDocumentTextResponse;
-import software.amazon.awssdk.services.textract.model.Document;
-import software.amazon.awssdk.services.textract.model.S3Object;
 
 @Service
 public class TextractService {
@@ -34,15 +31,8 @@ public class TextractService {
     }
 
     public TextractResultDTO extractFromS3(Long documentId, String s3Key) {
-        DetectDocumentTextResponse response = textractClient.detectDocumentText( //NOSONAR
-                DetectDocumentTextRequest.builder()
-                        .document(Document.builder() //NOSONAR
-                                .s3Object(S3Object.builder()
-                                        .bucket(bucketName)
-                                        .name(s3Key)
-                                        .build())
-                                .build())
-                        .build());
+        DetectDocumentTextResponse response = textractClient.detectDocumentText(r -> r
+                .document(d -> d.s3Object(s -> s.bucket(bucketName).name(s3Key))));
 
         String rawText = response.blocks().stream()
                 .filter(b -> b.blockType() == BlockType.LINE)

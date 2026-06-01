@@ -9,10 +9,8 @@ import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 @Service
 public class S3Service {
@@ -46,14 +44,9 @@ public class S3Service {
     }
 
     public String generatePresignedUrl(String s3Key) {
-        return s3Presigner.presignGetObject( //NOSONAR — explicit builder preferred for readability
-                        GetObjectPresignRequest.builder()
-                                .signatureDuration(Duration.ofMinutes(15))
-                                .getObjectRequest(GetObjectRequest.builder()
-                                        .bucket(bucketName)
-                                        .key(s3Key)
-                                        .build())
-                                .build())
+        return s3Presigner.presignGetObject(r -> r
+                        .signatureDuration(Duration.ofMinutes(15))
+                        .getObjectRequest(gr -> gr.bucket(bucketName).key(s3Key)))
                 .url()
                 .toString();
     }
