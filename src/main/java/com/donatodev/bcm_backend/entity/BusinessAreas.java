@@ -3,7 +3,6 @@ package com.donatodev.bcm_backend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import com.donatodev.bcm_backend.entity.Organization;
 
 /**
  * Entity that maps the "business_areas" table in the database.

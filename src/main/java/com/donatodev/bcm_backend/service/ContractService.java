@@ -195,7 +195,10 @@ public class ContractService {
     public ContractStatsResponse getContractStats() {
         Long orgId = TenantContext.get();
         LocalDate thirtyDaysFromNow = LocalDate.now().plusDays(30);
-        int total, active, expiring, expired;
+        int total;
+        int active;
+        int expiring;
+        int expired;
         if (orgId != null) {
             total    = contractsRepository.countAllContractsByOrg(orgId);
             active   = contractsRepository.countActiveContractsByOrg(orgId);

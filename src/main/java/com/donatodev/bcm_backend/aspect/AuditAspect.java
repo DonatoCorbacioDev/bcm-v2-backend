@@ -66,12 +66,16 @@ public class AuditAspect {
                 Method idMethod = result.getClass().getMethod("id");
                 Object value = idMethod.invoke(result);
                 if (value instanceof Number n) return n.longValue();
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                // DTO does not expose id() — try getId() below
+            }
             try {
                 Method getIdMethod = result.getClass().getMethod("getId");
                 Object value = getIdMethod.invoke(result);
                 if (value instanceof Number n) return n.longValue();
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                // entity does not expose getId() — id will be null in audit log
+            }
         }
         // Fallback: first Long argument (typical for delete/update by id)
         for (Object arg : args) {
