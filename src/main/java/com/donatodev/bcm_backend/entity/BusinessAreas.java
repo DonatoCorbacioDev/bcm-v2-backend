@@ -1,44 +1,17 @@
 package com.donatodev.bcm_backend.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
-
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Entity that maps the "business_areas" table in the database.
- * <p>
  * Represents the business domains in which contracts operate.
  */
 @Entity
 @Table(name = "business_areas")
-@Getter
-@Setter
+@SuperBuilder
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class BusinessAreas {
-
-    /**
-     * Primary key. Auto-incremented.
-     */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    /**
-     * Unique name of the business area.
-     * Cannot be null.
-     */
-    @Column(name = "name", nullable = false, unique = true)
-    private String name;
-
-    /**
-     * Optional description of the business area.
-     */
-    @Column(name = "description")
-    private String description;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "organization_id")
-    private Organization organization;
+public class BusinessAreas extends OrgNamedEntity {
 }
