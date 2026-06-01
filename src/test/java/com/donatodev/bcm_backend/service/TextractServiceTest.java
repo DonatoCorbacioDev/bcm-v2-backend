@@ -44,6 +44,17 @@ class TextractServiceTest {
         return Block.builder().blockType(BlockType.LINE).text(text).build();
     }
 
+    /** Stubs Textract to execute the consumer lambda (covers lambda body) and return the given response. */
+    private void stubTextract(DetectDocumentTextResponse response) {
+        when(textractClient.detectDocumentText(
+                ArgumentMatchers.<Consumer<DetectDocumentTextRequest.Builder>>any()))
+                .thenAnswer(inv -> {
+                    Consumer<DetectDocumentTextRequest.Builder> c = inv.getArgument(0);
+                    c.accept(DetectDocumentTextRequest.builder());
+                    return response;
+                });
+    }
+
     @Nested
     @DisplayName("Unit Test: TextractService")
     @org.junit.jupiter.api.TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -63,10 +74,7 @@ class TextractServiceTest {
                             lineBlock("Total Value: €15,000")
                     ))
                     .build();
-
-            when(textractClient.detectDocumentText(
-                    ArgumentMatchers.<Consumer<DetectDocumentTextRequest.Builder>>any()))
-                    .thenReturn(response);
+            stubTextract(response);
 
             TextractResultDTO result = textractService.extractFromS3(1L, "contracts/1/1/doc.pdf");
 
@@ -85,10 +93,7 @@ class TextractServiceTest {
             DetectDocumentTextResponse response = DetectDocumentTextResponse.builder()
                     .blocks(List.of(lineBlock("This is a generic document with no structured fields.")))
                     .build();
-
-            when(textractClient.detectDocumentText(
-                    ArgumentMatchers.<Consumer<DetectDocumentTextRequest.Builder>>any()))
-                    .thenReturn(response);
+            stubTextract(response);
 
             TextractResultDTO result = textractService.extractFromS3(2L, "contracts/1/2/doc.pdf");
 
@@ -102,18 +107,12 @@ class TextractServiceTest {
         @DisplayName("Keyword found but no colon separator — field returns null")
         void shouldReturnNullWhenKeywordHasNoColon() {
             DetectDocumentTextResponse response = DetectDocumentTextResponse.builder()
-                    .blocks(List.of(
-                            Block.builder().blockType(BlockType.LINE).text("customer without colon here").build()
-                    ))
+                    .blocks(List.of(lineBlock("customer without colon here")))
                     .build();
-
-            when(textractClient.detectDocumentText(
-                    ArgumentMatchers.<Consumer<DetectDocumentTextRequest.Builder>>any()))
-                    .thenReturn(response);
+            stubTextract(response);
 
             TextractResultDTO result = textractService.extractFromS3(4L, "contracts/1/4/doc.pdf");
 
-            // "customer" is found but there is no colon → should return null
             assertNull(result.detectedCustomerName());
         }
 
@@ -122,14 +121,9 @@ class TextractServiceTest {
         @DisplayName("Keyword found, colon present but empty value — field returns null")
         void shouldReturnNullWhenValueAfterColonIsEmpty() {
             DetectDocumentTextResponse response = DetectDocumentTextResponse.builder()
-                    .blocks(List.of(
-                            Block.builder().blockType(BlockType.LINE).text("customer:").build()
-                    ))
+                    .blocks(List.of(lineBlock("customer:")))
                     .build();
-
-            when(textractClient.detectDocumentText(
-                    ArgumentMatchers.<Consumer<DetectDocumentTextRequest.Builder>>any()))
-                    .thenReturn(response);
+            stubTextract(response);
 
             TextractResultDTO result = textractService.extractFromS3(5L, "contracts/1/5/doc.pdf");
 
@@ -147,10 +141,7 @@ class TextractServiceTest {
                             lineBlock("Scadenza: 28/02/2026")
                     ))
                     .build();
-
-            when(textractClient.detectDocumentText(
-                    ArgumentMatchers.<Consumer<DetectDocumentTextRequest.Builder>>any()))
-                    .thenReturn(response);
+            stubTextract(response);
 
             TextractResultDTO result = textractService.extractFromS3(3L, "contracts/1/3/doc.pdf");
 

@@ -167,6 +167,45 @@ class ContractDocumentServiceTest {
                     () -> contractDocumentService.uploadDocument(CONTRACT_ID, file));
         }
 
+        @Test
+        @Order(6)
+        @DisplayName("uploadDocument: throws when byte[1] is wrong (not 'P')")
+        void shouldThrowWhenSecondByteMismatch() {
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "file.pdf", "application/pdf", "%XDF test".getBytes());
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> contractDocumentService.uploadDocument(CONTRACT_ID, file));
+        }
+
+        @Test
+        @Order(7)
+        @DisplayName("uploadDocument: throws when byte[2] is wrong (not 'D')")
+        void shouldThrowWhenThirdByteMismatch() {
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "file.pdf", "application/pdf", "%PXF test".getBytes());
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> contractDocumentService.uploadDocument(CONTRACT_ID, file));
+        }
+
+        @Test
+        @Order(8)
+        @DisplayName("uploadDocument: throws when byte[3] is wrong (not 'F')")
+        void shouldThrowWhenFourthByteMismatch() {
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "file.pdf", "application/pdf", "%PDX test".getBytes());
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> contractDocumentService.uploadDocument(CONTRACT_ID, file));
+        }
+
         // ---- getDocuments ----
 
         @Test

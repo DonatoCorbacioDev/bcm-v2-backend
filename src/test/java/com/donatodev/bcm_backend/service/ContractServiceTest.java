@@ -57,6 +57,7 @@ import com.donatodev.bcm_backend.mapper.ContractMapper;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 
 /**
@@ -1389,6 +1390,102 @@ class ContractServiceTest {
             List<ContractDTO> result = contractService.getAllContracts();
 
             assertTrue(result.isEmpty());
+        }
+
+        @Test
+        @Order(52)
+        @DisplayName("getContractStats with TenantContext uses org-filtered repository methods")
+        void shouldGetContractStatsWithOrgFilter() {
+            TenantContext.set(1L);
+            try {
+                when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(10);
+                when(contractsRepository.countActiveContractsByOrg(1L)).thenReturn(5);
+                when(contractsRepository.countExpiringContractsByOrg(any(LocalDate.class), eq(1L))).thenReturn(2);
+                when(contractsRepository.countExpiredContractsByOrg(1L)).thenReturn(3);
+
+                ContractStatsResponse result = contractService.getContractStats();
+
+                assertEquals(10, result.getTotal());
+                assertEquals(5, result.getActive());
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(53)
+        @DisplayName("getExpiringContracts with TenantContext uses org-filtered query")
+        void shouldGetExpiringContractsWithOrgFilter() {
+            TenantContext.set(2L);
+            try {
+                Contracts c = Contracts.builder().id(1L).customerName("Org Client").build();
+                ContractDTO dto = new ContractDTO(1L, "Org Client", "C001", null, null,
+                        ContractStatus.ACTIVE, LocalDate.now(), null, 1L, null, null, null, null, 5);
+                when(contractsRepository.findExpiringContractsByOrg(any(LocalDate.class), any(LocalDate.class), eq(2L)))
+                        .thenReturn(List.of(c));
+                when(contractMapper.toDTO(c)).thenReturn(dto);
+
+                List<ContractDTO> result = contractService.getExpiringContracts(30);
+
+                assertEquals(1, result.size());
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(54)
+        @DisplayName("getContractsByArea with TenantContext uses org-filtered query")
+        void shouldGetContractsByAreaWithOrgFilter() {
+            TenantContext.set(3L);
+            try {
+                when(contractsRepository.countContractsByAreaAndOrg(3L))
+                        .thenReturn(List.of(new ContractsByAreaDTO("IT", 5L)));
+
+                List<ContractsByAreaDTO> result = contractService.getContractsByArea();
+
+                assertEquals(1, result.size());
+                verify(contractsRepository).countContractsByAreaAndOrg(3L);
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(55)
+        @DisplayName("getContractsTimeline with TenantContext uses org-filtered query")
+        void shouldGetContractsTimelineWithOrgFilter() {
+            TenantContext.set(4L);
+            try {
+                java.util.ArrayList<Object[]> rows = new java.util.ArrayList<>();
+                rows.add(new Object[]{2025, 6, 3L});
+                when(contractsRepository.countContractsByMonthAndOrg(any(LocalDateTime.class), eq(4L)))
+                        .thenReturn(rows);
+
+                List<ContractsTimelineDTO> result = contractService.getContractsTimeline();
+
+                assertNotNull(result);
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(56)
+        @DisplayName("getTopManagers with TenantContext uses org-filtered query")
+        void shouldGetTopManagersWithOrgFilter() {
+            TenantContext.set(5L);
+            try {
+                when(contractsRepository.findTopManagersByOrg(any(Pageable.class), eq(5L)))
+                        .thenReturn(List.of(new TopManagerDTO(1L, "Mario", 10L)));
+
+                List<TopManagerDTO> result = contractService.getTopManagers();
+
+                assertEquals(1, result.size());
+                verify(contractsRepository).findTopManagersByOrg(any(Pageable.class), eq(5L));
+            } finally {
+                TenantContext.clear();
+            }
         }
 
         @Test

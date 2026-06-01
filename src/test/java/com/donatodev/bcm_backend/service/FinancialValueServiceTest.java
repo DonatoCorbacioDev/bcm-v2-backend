@@ -643,9 +643,82 @@ class FinancialValueServiceTest {
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(null, null, List.of());
             SecurityContextHolder.getContext().setAuthentication(auth);
 
-            // This will cause getAllValues to throw UserNotFoundException because username will be null
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> service.getAllValues());
             assertEquals("User not found", ex.getMessage());
+        }
+
+        @Test
+        @Order(22)
+        @DisplayName("getAuthenticatedUsername returns null when SecurityContext has no authentication")
+        void shouldReturnNullWhenNoAuthentication() {
+            SecurityContextHolder.clearContext(); // no auth set at all
+
+            String result = invokePrivateGetAuthenticatedUsername(service);
+
+            org.junit.jupiter.api.Assertions.assertNull(result);
+        }
+
+        @Test
+        @Order(23)
+        @DisplayName("getAuthenticatedUsername returns toString when principal is a non-UserDetails String")
+        void shouldReturnToStringWhenPrincipalIsString() {
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken("plain_username", null, List.of());
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            String result = invokePrivateGetAuthenticatedUsername(service);
+
+            assertEquals("plain_username", result);
+        }
+
+        @Test
+        @Order(24)
+        @DisplayName("getAllValues with TenantContext uses org-filtered repository for ADMIN")
+        void shouldGetAllValuesWithOrgFilter() {
+            UserDetails userDetails = org.springframework.security.core.userdetails.User
+                    .withUsername("admin").password("pwd").roles("ADMIN").build();
+            Users admin = Users.builder().username("admin")
+                    .role(Roles.builder().role("ADMIN").build()).build();
+            FinancialValues entity = FinancialValues.builder().id(1L).build();
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 500.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities()));
+            com.donatodev.bcm_backend.config.TenantContext.set(3L);
+            try {
+                when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+                when(valuesRepository.findAllByOrganizationId(3L)).thenReturn(List.of(entity));
+                when(mapper.toDTO(entity)).thenReturn(dto);
+
+                List<FinancialValueDTO> result = service.getAllValues();
+
+                assertEquals(1, result.size());
+                verify(valuesRepository).findAllByOrganizationId(3L);
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(25)
+        @DisplayName("getValuesByContractId with TenantContext uses org-filtered query")
+        void shouldGetValuesByContractIdWithOrgFilter() {
+            FinancialValues entity = FinancialValues.builder().id(1L).build();
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 100.0, 1L, 1L, 1L, "T", "A", "C");
+
+            com.donatodev.bcm_backend.config.TenantContext.set(5L);
+            try {
+                when(valuesRepository.findByContractIdAndOrganizationId(42L, 5L))
+                        .thenReturn(List.of(entity));
+                when(mapper.toDTO(entity)).thenReturn(dto);
+
+                List<FinancialValueDTO> result = service.getValuesByContractId(42L);
+
+                assertEquals(1, result.size());
+                verify(valuesRepository).findByContractIdAndOrganizationId(42L, 5L);
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
         }
     }
 }

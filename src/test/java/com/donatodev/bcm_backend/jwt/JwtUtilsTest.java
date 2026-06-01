@@ -22,7 +22,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.userdetails.User;
 import org.springframework.test.context.TestPropertySource;
 
+import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Roles;
+import com.donatodev.bcm_backend.entity.SubscriptionTier;
 import com.donatodev.bcm_backend.entity.Users;
 
 import io.jsonwebtoken.security.SignatureException;
@@ -353,5 +355,36 @@ class JwtUtilsTest {
         // Validate the token with a different username
         // Should return false because username doesn't match
         assertFalse(jwtUtils.validateToken(token, differentUser));
+    }
+
+    @Test
+    @Order(18)
+    @DisplayName("generateTokenFromUser with organization embeds orgId claim")
+    void shouldGenerateTokenWithOrgIdAndExtractIt() {
+        Organization org = Organization.builder()
+                .id(7L).name("Acme").slug("acme")
+                .subscriptionTier(SubscriptionTier.FREE).build();
+
+        Users userWithOrg = Users.builder()
+                .id(2L).username("orguser").passwordHash("hash")
+                .role(testRole).verified(true).organization(org).build();
+
+        String token = jwtUtils.generateTokenFromUser(userWithOrg);
+
+        assertNotNull(token);
+        Long orgId = jwtUtils.getOrganizationIdFromToken(token);
+        assertEquals(7L, orgId);
+    }
+
+    @Test
+    @Order(19)
+    @DisplayName("getOrganizationIdFromToken returns null when no orgId claim")
+    void shouldReturnNullOrgIdWhenClaimAbsent() {
+        // testUser has no organization → orgId claim is null
+        String token = jwtUtils.generateTokenFromUser(testUser);
+
+        Long orgId = jwtUtils.getOrganizationIdFromToken(token);
+
+        org.junit.jupiter.api.Assertions.assertNull(orgId);
     }
 }

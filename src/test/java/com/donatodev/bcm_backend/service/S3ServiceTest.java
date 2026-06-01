@@ -70,7 +70,12 @@ class S3ServiceTest {
         void shouldGeneratePresignedUrl() throws Exception {
             when(s3Presigner.presignGetObject(
                     ArgumentMatchers.<Consumer<GetObjectPresignRequest.Builder>>any()))
-                    .thenReturn(presignedRequest);
+                    .thenAnswer(inv -> {
+                        // execute the consumer so lambda body lines are covered
+                        Consumer<GetObjectPresignRequest.Builder> consumer = inv.getArgument(0);
+                        consumer.accept(GetObjectPresignRequest.builder());
+                        return presignedRequest;
+                    });
             when(presignedRequest.url()).thenReturn(URI.create("https://s3.amazonaws.com/test-bucket/key").toURL());
 
             String url = s3Service.generatePresignedUrl("contracts/1/42/uuid-contract.pdf");
