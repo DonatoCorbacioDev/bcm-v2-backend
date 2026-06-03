@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -22,11 +23,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
-import com.donatodev.bcm_backend.dto.TextractResultDTO;
+import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
@@ -40,14 +42,13 @@ import com.donatodev.bcm_backend.repository.RefreshTokenRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.donatodev.bcm_backend.service.ContractDocumentService;
+import com.donatodev.bcm_backend.service.ContractDocumentService.DocumentDownload;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
-
-import java.time.Instant;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -63,7 +64,6 @@ class ContractDocumentControllerTest {
     @Autowired private UsersRepository usersRepository;
     @Autowired private RefreshTokenRepository refreshTokenRepository;
 
-    // Mock at service level — S3/Textract AWS clients are not involved in controller tests
     @MockitoBean private ContractDocumentService contractDocumentService;
 
     private Long contractId;
@@ -72,7 +72,8 @@ class ContractDocumentControllerTest {
 
     private ContractDocumentDTO sampleDocDTO(Long contractId) {
         return new ContractDocumentDTO(1L, contractId, "contract.pdf", 1024L,
-                "application/pdf", Instant.now(), "https://s3.example.com/signed-url");
+                "application/pdf", Instant.now(),
+                "http://localhost:8090/api/v1/contracts/" + contractId + "/documents/1/download");
     }
 
     @BeforeEach
@@ -120,7 +121,7 @@ class ContractDocumentControllerTest {
             mockMvc.perform(multipart("/contracts/" + contractId + "/documents").file(file))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.fileName").value("contract.pdf"))
-                    .andExpect(jsonPath("$.downloadUrl").value("https://s3.example.com/signed-url"));
+                    .andExpect(jsonPath("$.downloadUrl").exists());
         }
 
         @Test
@@ -200,7 +201,49 @@ class ContractDocumentControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /contracts/{id}/documents/{docId}/extract — Textract")
+    @DisplayName("GET /contracts/{id}/documents/{docId}/download — download")
+    @org.junit.jupiter.api.TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @SuppressWarnings("unused")
+    class Download {
+
+        @Test
+        @Order(1)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Returns PDF bytes with correct headers")
+        void shouldDownloadDocumentSuccessfully() throws Exception {
+            DocumentDownload download = new DocumentDownload(
+                    VALID_PDF, "contract.pdf", "application/pdf");
+            when(contractDocumentService.downloadDocument(anyLong(), anyLong())).thenReturn(download);
+
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/1/download"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType("application/pdf"))
+                    .andExpect(content().bytes(VALID_PDF));
+        }
+
+        @Test
+        @Order(2)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Returns 404 when document not found")
+        void shouldReturn404WhenDocumentNotFound() throws Exception {
+            when(contractDocumentService.downloadDocument(anyLong(), anyLong()))
+                    .thenThrow(new ContractNotFoundException("Document ID 999 not found"));
+
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/999/download"))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("Unauthenticated download returns 401")
+        void shouldReturn401WhenNotAuthenticated() throws Exception {
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/1/download"))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /contracts/{id}/documents/{docId}/extract — PDF analysis")
     @org.junit.jupiter.api.TestMethodOrder(MethodOrderer.OrderAnnotation.class)
     @SuppressWarnings("unused")
     class Extract {
@@ -208,18 +251,18 @@ class ContractDocumentControllerTest {
         @Test
         @Order(1)
         @WithMockUser(roles = "ADMIN")
-        @DisplayName("Returns extracted fields from Textract")
+        @DisplayName("Returns extracted fields from PDF")
         void shouldExtractTextSuccessfully() throws Exception {
-            TextractResultDTO result = new TextractResultDTO(
-                    1L, "Customer: Test Corp\nTotal: €5,000",
-                    "Test Corp", null, null, null, "€5,000");
+            DocumentAnalysisDTO result = new DocumentAnalysisDTO(
+                    1L, "Customer: Test Corp\nTotal: EUR5000",
+                    "Test Corp", null, null, null, "EUR5000");
 
             when(contractDocumentService.extractText(anyLong(), anyLong())).thenReturn(result);
 
             mockMvc.perform(post("/contracts/" + contractId + "/documents/1/extract"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.detectedCustomerName").value("Test Corp"))
-                    .andExpect(jsonPath("$.detectedAmount").value("€5,000"));
+                    .andExpect(jsonPath("$.detectedAmount").value("EUR5000"));
         }
 
         @Test

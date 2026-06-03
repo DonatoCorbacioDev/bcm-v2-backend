@@ -1,45 +1,33 @@
 package com.donatodev.bcm_backend.service;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.stereotype.Service;
 
-import com.donatodev.bcm_backend.dto.TextractResultDTO;
-
-import software.amazon.awssdk.services.textract.TextractClient;
-import software.amazon.awssdk.services.textract.model.BlockType;
-import software.amazon.awssdk.services.textract.model.DetectDocumentTextResponse;
+import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 
 @Service
-public class TextractService {
+public class PdfBoxService {
 
-    // Detects amounts like €1.500, $500, 1000€ — simplified to avoid ReDoS and regex complexity limits
+    // Detects amounts like €1.500, $500, 1000€ — simplified to avoid ReDoS
     private static final Pattern AMOUNT_PATTERN =
             Pattern.compile("[€$][\\d.,]+|[\\d.,]+[€$]", Pattern.CASE_INSENSITIVE);
 
-    @Value("${aws.s3.bucket}")
-    private String bucketName;
+    public DocumentAnalysisDTO analyzeDocument(Long documentId, byte[] pdfBytes) {
+        String rawText;
+        try (PDDocument doc = PDDocument.load(pdfBytes)) {
+            rawText = new PDFTextStripper().getText(doc);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to extract text from PDF", e);
+        }
 
-    private final TextractClient textractClient;
-
-    public TextractService(TextractClient textractClient) {
-        this.textractClient = textractClient;
-    }
-
-    public TextractResultDTO extractFromS3(Long documentId, String s3Key) {
-        DetectDocumentTextResponse response = textractClient.detectDocumentText(r -> r
-                .document(d -> d.s3Object(s -> s.bucket(bucketName).name(s3Key))));
-
-        String rawText = response.blocks().stream()
-                .filter(b -> b.blockType() == BlockType.LINE)
-                .map(software.amazon.awssdk.services.textract.model.Block::text)
-                .collect(Collectors.joining("\n"));
-
-        return new TextractResultDTO(
+        return new DocumentAnalysisDTO(
                 documentId,
                 rawText,
                 extractField(rawText, "customer", "client", "counterparty", "cliente", "controparte"),

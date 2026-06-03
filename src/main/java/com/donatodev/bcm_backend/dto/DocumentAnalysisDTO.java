@@ -1,6 +1,6 @@
 package com.donatodev.bcm_backend.dto;
 
-public record TextractResultDTO(
+public record DocumentAnalysisDTO(
         Long documentId,
         String rawText,
         String detectedCustomerName,

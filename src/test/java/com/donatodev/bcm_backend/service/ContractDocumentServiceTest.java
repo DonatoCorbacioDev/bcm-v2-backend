@@ -8,6 +8,8 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
@@ -25,14 +27,16 @@ import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
-import com.donatodev.bcm_backend.dto.TextractResultDTO;
+import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 import com.donatodev.bcm_backend.entity.ContractDocument;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.service.ContractDocumentService.DocumentDownload;
 
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
@@ -40,8 +44,8 @@ class ContractDocumentServiceTest {
 
     @Mock private ContractDocumentRepository documentRepository;
     @Mock private ContractsRepository contractsRepository;
-    @Mock private S3Service s3Service;
-    @Mock private TextractService textractService;
+    @Mock private LocalStorageService localStorageService;
+    @Mock private PdfBoxService pdfBoxService;
 
     @InjectMocks
     private ContractDocumentService contractDocumentService;
@@ -49,6 +53,12 @@ class ContractDocumentServiceTest {
     private static final byte[] VALID_PDF = "%PDF-1.4 test".getBytes();
     private static final long CONTRACT_ID = 1L;
     private static final long DOC_ID = 10L;
+    private static final String BACKEND_URL = "http://localhost:8090/api/v1";
+
+    @BeforeEach
+    void setup() {
+        ReflectionTestUtils.setField(contractDocumentService, "backendBaseUrl", BACKEND_URL);
+    }
 
     private Contracts fakeContract() {
         Contracts c = new Contracts();
@@ -60,7 +70,7 @@ class ContractDocumentServiceTest {
         ContractDocument doc = new ContractDocument();
         doc.setId(DOC_ID);
         doc.setContract(contract);
-        doc.setS3Key("contracts/0/1/uuid-contract.pdf");
+        doc.setStoragePath("contracts/0/1/uuid-contract.pdf");
         doc.setFileName("contract.pdf");
         doc.setFileSize((long) VALID_PDF.length);
         doc.setContentType("application/pdf");
@@ -84,10 +94,9 @@ class ContractDocumentServiceTest {
             ContractDocument saved = fakeDoc(contract);
 
             when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
-            when(s3Service.uploadDocument(any(), eq(CONTRACT_ID), anyString(), anyString(), any()))
+            when(localStorageService.storeDocument(any(), eq(CONTRACT_ID), anyString(), any()))
                     .thenReturn("contracts/0/1/uuid-contract.pdf");
             when(documentRepository.save(any(ContractDocument.class))).thenReturn(saved);
-            when(s3Service.generatePresignedUrl(anyString())).thenReturn("https://s3.example.com/url");
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "contract.pdf", "application/pdf", VALID_PDF);
@@ -96,7 +105,7 @@ class ContractDocumentServiceTest {
 
             assertNotNull(result);
             assertEquals("contract.pdf", result.fileName());
-            assertEquals("https://s3.example.com/url", result.downloadUrl());
+            assertTrue(result.downloadUrl().contains("/contracts/" + CONTRACT_ID + "/documents/" + DOC_ID + "/download"));
         }
 
         @Test
@@ -131,7 +140,6 @@ class ContractDocumentServiceTest {
         void shouldThrowWhenFileTooLarge() {
             when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
 
-            // > 10 MB
             byte[] huge = new byte[11 * 1024 * 1024];
             huge[0] = '%'; huge[1] = 'P'; huge[2] = 'D'; huge[3] = 'F';
             MockMultipartFile file = new MockMultipartFile(
@@ -209,26 +217,24 @@ class ContractDocumentServiceTest {
         // ---- getDocuments ----
 
         @Test
-        @Order(7)
-        @DisplayName("getDocuments: returns mapped DTOs with presigned URLs")
+        @Order(9)
+        @DisplayName("getDocuments: returns mapped DTOs with download URLs")
         void shouldReturnDocumentList() {
             Contracts contract = fakeContract();
             ContractDocument doc = fakeDoc(contract);
 
             when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
                     .thenReturn(List.of(doc));
-            when(s3Service.generatePresignedUrl(anyString()))
-                    .thenReturn("https://s3.example.com/url");
 
             List<ContractDocumentDTO> result = contractDocumentService.getDocuments(CONTRACT_ID);
 
             assertEquals(1, result.size());
             assertEquals(DOC_ID, result.get(0).id());
-            assertEquals("https://s3.example.com/url", result.get(0).downloadUrl());
+            assertTrue(result.get(0).downloadUrl().contains("/download"));
         }
 
         @Test
-        @Order(8)
+        @Order(10)
         @DisplayName("getDocuments: returns empty list when no documents")
         void shouldReturnEmptyList() {
             when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
@@ -242,25 +248,26 @@ class ContractDocumentServiceTest {
         // ---- extractText ----
 
         @Test
-        @Order(9)
-        @DisplayName("extractText: delegates to TextractService and returns result")
+        @Order(11)
+        @DisplayName("extractText: delegates to PdfBoxService and returns result")
         void shouldExtractText() {
             Contracts contract = fakeContract();
             ContractDocument doc = fakeDoc(contract);
-            TextractResultDTO expected = new TextractResultDTO(
+            DocumentAnalysisDTO expected = new DocumentAnalysisDTO(
                     DOC_ID, "raw text", "Acme", null, null, null, null);
 
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
                     .thenReturn(Optional.of(doc));
-            when(textractService.extractFromS3(DOC_ID, doc.getS3Key())).thenReturn(expected);
+            when(localStorageService.readDocument(doc.getStoragePath())).thenReturn(VALID_PDF);
+            when(pdfBoxService.analyzeDocument(DOC_ID, VALID_PDF)).thenReturn(expected);
 
-            TextractResultDTO result = contractDocumentService.extractText(CONTRACT_ID, DOC_ID);
+            DocumentAnalysisDTO result = contractDocumentService.extractText(CONTRACT_ID, DOC_ID);
 
             assertEquals("Acme", result.detectedCustomerName());
         }
 
         @Test
-        @Order(10)
+        @Order(12)
         @DisplayName("extractText: throws ContractNotFoundException when document missing")
         void shouldThrowWhenDocumentNotFoundOnExtract() {
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
@@ -270,11 +277,42 @@ class ContractDocumentServiceTest {
                     () -> contractDocumentService.extractText(CONTRACT_ID, DOC_ID));
         }
 
+        // ---- downloadDocument ----
+
+        @Test
+        @Order(13)
+        @DisplayName("downloadDocument: returns bytes and metadata")
+        void shouldDownloadDocument() {
+            Contracts contract = fakeContract();
+            ContractDocument doc = fakeDoc(contract);
+
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(doc));
+            when(localStorageService.readDocument(doc.getStoragePath())).thenReturn(VALID_PDF);
+
+            DocumentDownload result = contractDocumentService.downloadDocument(CONTRACT_ID, DOC_ID);
+
+            assertNotNull(result.bytes());
+            assertEquals("contract.pdf", result.fileName());
+            assertEquals("application/pdf", result.contentType());
+        }
+
+        @Test
+        @Order(14)
+        @DisplayName("downloadDocument: throws ContractNotFoundException when document missing")
+        void shouldThrowWhenDocumentNotFoundOnDownload() {
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
+                    .thenReturn(Optional.empty());
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> contractDocumentService.downloadDocument(CONTRACT_ID, DOC_ID));
+        }
+
         // ---- deleteDocument ----
 
         @Test
-        @Order(11)
-        @DisplayName("deleteDocument: deletes from S3 and repository")
+        @Order(15)
+        @DisplayName("deleteDocument: deletes from local storage and repository")
         void shouldDeleteDocument() {
             Contracts contract = fakeContract();
             ContractDocument doc = fakeDoc(contract);
@@ -284,12 +322,12 @@ class ContractDocumentServiceTest {
 
             contractDocumentService.deleteDocument(CONTRACT_ID, DOC_ID);
 
-            verify(s3Service).deleteDocument(doc.getS3Key());
+            verify(localStorageService).deleteDocument(doc.getStoragePath());
             verify(documentRepository).delete(doc);
         }
 
         @Test
-        @Order(12)
+        @Order(16)
         @DisplayName("deleteDocument: throws ContractNotFoundException when document missing")
         void shouldThrowWhenDocumentNotFoundOnDelete() {
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))

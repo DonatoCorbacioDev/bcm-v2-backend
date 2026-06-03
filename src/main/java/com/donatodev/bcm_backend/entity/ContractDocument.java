@@ -36,8 +36,8 @@ public class ContractDocument {
     @JoinColumn(name = "contract_id", nullable = false)
     private Contracts contract;
 
-    @Column(name = "s3_key", nullable = false, unique = true, length = 512)
-    private String s3Key;
+    @Column(name = "storage_path", nullable = false, unique = true, length = 512)
+    private String storagePath;
 
     @Column(name = "file_name", nullable = false)
     private String fileName;

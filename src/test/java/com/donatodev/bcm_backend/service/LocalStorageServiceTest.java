@@ -1,0 +1,113 @@
+package com.donatodev.bcm_backend.service;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+
+@ExtendWith(MockitoExtension.class)
+class LocalStorageServiceTest {
+
+    @TempDir
+    Path tempDir;
+
+    private LocalStorageService localStorageService;
+
+    private static final byte[] CONTENT = "%PDF-test content".getBytes();
+
+    @BeforeEach
+    void setup() {
+        localStorageService = new LocalStorageService();
+        ReflectionTestUtils.setField(localStorageService, "uploadDir", tempDir.toString());
+    }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @DisplayName("Unit Test: LocalStorageService")
+    @SuppressWarnings("unused")
+    class VerifyLocalStorageService {
+
+        @Test
+        @Order(1)
+        @DisplayName("storeDocument: creates file and returns relative path")
+        void shouldStoreDocumentAndReturnPath() {
+            String path = localStorageService.storeDocument(1L, 42L, "contract.pdf", CONTENT);
+
+            assertNotNull(path);
+            assertTrue(path.startsWith("contracts/1/42/"));
+            assertTrue(path.endsWith("contract.pdf"));
+            assertTrue(Files.exists(tempDir.resolve(path)));
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("storeDocument: null orgId defaults to 0 in path")
+        void shouldUseZeroOrgIdWhenNull() {
+            String path = localStorageService.storeDocument(null, 42L, "doc.pdf", CONTENT);
+
+            assertTrue(path.startsWith("contracts/0/42/"));
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("storeDocument: creates nested directories automatically")
+        void shouldCreateDirectories() {
+            String path = localStorageService.storeDocument(5L, 99L, "test.pdf", CONTENT);
+
+            assertTrue(Files.isDirectory(tempDir.resolve("contracts/5/99")));
+        }
+
+        @Test
+        @Order(4)
+        @DisplayName("readDocument: returns stored file bytes")
+        void shouldReadStoredDocument() throws IOException {
+            String path = localStorageService.storeDocument(1L, 1L, "read.pdf", CONTENT);
+
+            byte[] result = localStorageService.readDocument(path);
+
+            assertArrayEquals(CONTENT, result);
+        }
+
+        @Test
+        @Order(5)
+        @DisplayName("readDocument: throws UncheckedIOException when file not found")
+        void shouldThrowWhenFileNotFound() {
+            assertThrows(java.io.UncheckedIOException.class,
+                    () -> localStorageService.readDocument("contracts/0/0/nonexistent.pdf"));
+        }
+
+        @Test
+        @Order(6)
+        @DisplayName("deleteDocument: removes file from disk")
+        void shouldDeleteDocument() {
+            String path = localStorageService.storeDocument(1L, 1L, "delete.pdf", CONTENT);
+            assertTrue(Files.exists(tempDir.resolve(path)));
+
+            localStorageService.deleteDocument(path);
+
+            assertTrue(Files.notExists(tempDir.resolve(path)));
+        }
+
+        @Test
+        @Order(7)
+        @DisplayName("deleteDocument: does not throw when file does not exist")
+        void shouldNotThrowWhenDeletingNonExistentFile() {
+            localStorageService.deleteDocument("contracts/0/0/ghost.pdf");
+        }
+    }
+}

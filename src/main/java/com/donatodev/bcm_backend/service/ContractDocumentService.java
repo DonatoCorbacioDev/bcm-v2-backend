@@ -3,13 +3,14 @@ package com.donatodev.bcm_backend.service;
 import java.io.IOException;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
-import com.donatodev.bcm_backend.dto.TextractResultDTO;
+import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 import com.donatodev.bcm_backend.entity.ContractDocument;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
@@ -19,22 +20,25 @@ import com.donatodev.bcm_backend.repository.ContractsRepository;
 @Service
 public class ContractDocumentService {
 
-    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024L; // 10 MB
+    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024L;
     private static final byte[] PDF_MAGIC = new byte[]{'%', 'P', 'D', 'F'};
+
+    @Value("${app.backend-base-url:http://localhost:8090/api/v1}")
+    private String backendBaseUrl;
 
     private final ContractDocumentRepository documentRepository;
     private final ContractsRepository contractsRepository;
-    private final S3Service s3Service;
-    private final TextractService textractService;
+    private final LocalStorageService localStorageService;
+    private final PdfBoxService pdfBoxService;
 
     public ContractDocumentService(ContractDocumentRepository documentRepository,
                                    ContractsRepository contractsRepository,
-                                   S3Service s3Service,
-                                   TextractService textractService) {
+                                   LocalStorageService localStorageService,
+                                   PdfBoxService pdfBoxService) {
         this.documentRepository = documentRepository;
         this.contractsRepository = contractsRepository;
-        this.s3Service = s3Service;
-        this.textractService = textractService;
+        this.localStorageService = localStorageService;
+        this.pdfBoxService = pdfBoxService;
     }
 
     @Transactional
@@ -46,35 +50,46 @@ public class ContractDocumentService {
 
         Long orgId = TenantContext.get();
         byte[] bytes = file.getBytes();
-        String s3Key = s3Service.uploadDocument(orgId, contractId,
-                file.getOriginalFilename(), file.getContentType(), bytes);
+        String storagePath = localStorageService.storeDocument(orgId, contractId,
+                file.getOriginalFilename(), bytes);
 
         ContractDocument doc = documentRepository.save(ContractDocument.builder()
                 .contract(contract)
-                .s3Key(s3Key)
+                .storagePath(storagePath)
                 .fileName(file.getOriginalFilename())
                 .fileSize(file.getSize())
                 .contentType(file.getContentType())
                 .orgId(orgId)
                 .build());
 
-        return toDTO(doc, s3Service.generatePresignedUrl(s3Key));
+        return toDTO(doc);
     }
 
     @Transactional(readOnly = true)
     public List<ContractDocumentDTO> getDocuments(Long contractId) {
         return documentRepository.findByContractIdOrderByUploadedAtDesc(contractId)
                 .stream()
-                .map(doc -> toDTO(doc, s3Service.generatePresignedUrl(doc.getS3Key())))
+                .map(this::toDTO)
                 .toList();
     }
 
-    public TextractResultDTO extractText(Long contractId, Long documentId) {
+    public DocumentAnalysisDTO extractText(Long contractId, Long documentId) {
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         "Document ID " + documentId + " not found for contract " + contractId));
 
-        return textractService.extractFromS3(doc.getId(), doc.getS3Key());
+        byte[] bytes = localStorageService.readDocument(doc.getStoragePath());
+        return pdfBoxService.analyzeDocument(doc.getId(), bytes);
+    }
+
+    @Transactional(readOnly = true)
+    public DocumentDownload downloadDocument(Long contractId, Long documentId) {
+        ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
+                .orElseThrow(() -> new ContractNotFoundException(
+                        "Document ID " + documentId + " not found for contract " + contractId));
+
+        byte[] bytes = localStorageService.readDocument(doc.getStoragePath());
+        return new DocumentDownload(bytes, doc.getFileName(), doc.getContentType());
     }
 
     @Transactional
@@ -83,7 +98,7 @@ public class ContractDocumentService {
                 .orElseThrow(() -> new ContractNotFoundException(
                         "Document ID " + documentId + " not found for contract " + contractId));
 
-        s3Service.deleteDocument(doc.getS3Key());
+        localStorageService.deleteDocument(doc.getStoragePath());
         documentRepository.delete(doc);
     }
 
@@ -102,7 +117,9 @@ public class ContractDocumentService {
         }
     }
 
-    private ContractDocumentDTO toDTO(ContractDocument doc, String downloadUrl) {
+    private ContractDocumentDTO toDTO(ContractDocument doc) {
+        String downloadUrl = String.format("%s/contracts/%d/documents/%d/download",
+                backendBaseUrl, doc.getContract().getId(), doc.getId());
         return new ContractDocumentDTO(
                 doc.getId(),
                 doc.getContract().getId(),
@@ -112,4 +129,6 @@ public class ContractDocumentService {
                 doc.getUploadedAt(),
                 downloadUrl);
     }
+
+    public record DocumentDownload(byte[] bytes, String fileName, String contentType) {}
 }
