@@ -16,9 +16,11 @@ public class LocalStorageService {
     @Value("${storage.upload-dir:uploads}")
     private String uploadDir;
 
-    public String storeDocument(Long orgId, Long contractId, String fileName, byte[] content) {
-        String relativePath = String.format("contracts/%d/%d/%s-%s",
-                orgId != null ? orgId : 0L, contractId, UUID.randomUUID(), fileName);
+    // fileName is intentionally excluded from the path to prevent path traversal attacks.
+    // The original filename is stored separately in the ContractDocument entity.
+    public String storeDocument(Long orgId, Long contractId, byte[] content) {
+        String relativePath = String.format("contracts/%d/%d/%s.pdf",
+                orgId != null ? orgId : 0L, contractId, UUID.randomUUID());
         Path target = Paths.get(uploadDir).resolve(relativePath);
         try {
             Files.createDirectories(target.getParent());

@@ -32,7 +32,6 @@ class PdfBoxServiceTest {
     private static byte[] pdfWithFields;
     private static byte[] pdfNoFields;
     private static byte[] pdfItalianFields;
-    private static byte[] pdfWithAmount;
     private static byte[] pdfKeywordNoColon;
     private static byte[] pdfKeywordEmptyColon;
 
@@ -51,8 +50,6 @@ class PdfBoxServiceTest {
                 "Cliente: Mario Rossi S.r.l.",
                 "Data inizio: 01/03/2025",
                 "Scadenza: 28/02/2026");
-
-        pdfWithAmount = buildPdf("Invoice total: EUR5000");
 
         pdfKeywordNoColon = buildPdf("customer without colon here");
 

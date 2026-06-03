@@ -1,7 +1,9 @@
 package com.donatodev.bcm_backend.service;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,7 @@ public class ContractDocumentService {
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024L;
     private static final byte[] PDF_MAGIC = new byte[]{'%', 'P', 'D', 'F'};
+    private static final String DOC_NOT_FOUND = "Document ID %d not found for contract %d";
 
     @Value("${app.backend-base-url:http://localhost:8090/api/v1}")
     private String backendBaseUrl;
@@ -50,8 +53,7 @@ public class ContractDocumentService {
 
         Long orgId = TenantContext.get();
         byte[] bytes = file.getBytes();
-        String storagePath = localStorageService.storeDocument(orgId, contractId,
-                file.getOriginalFilename(), bytes);
+        String storagePath = localStorageService.storeDocument(orgId, contractId, bytes);
 
         ContractDocument doc = documentRepository.save(ContractDocument.builder()
                 .contract(contract)
@@ -76,7 +78,7 @@ public class ContractDocumentService {
     public DocumentAnalysisDTO extractText(Long contractId, Long documentId) {
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
-                        "Document ID " + documentId + " not found for contract " + contractId));
+                        String.format(DOC_NOT_FOUND, documentId, contractId)));
 
         byte[] bytes = localStorageService.readDocument(doc.getStoragePath());
         return pdfBoxService.analyzeDocument(doc.getId(), bytes);
@@ -86,7 +88,7 @@ public class ContractDocumentService {
     public DocumentDownload downloadDocument(Long contractId, Long documentId) {
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
-                        "Document ID " + documentId + " not found for contract " + contractId));
+                        String.format(DOC_NOT_FOUND, documentId, contractId)));
 
         byte[] bytes = localStorageService.readDocument(doc.getStoragePath());
         return new DocumentDownload(bytes, doc.getFileName(), doc.getContentType());
@@ -96,7 +98,7 @@ public class ContractDocumentService {
     public void deleteDocument(Long contractId, Long documentId) {
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
-                        "Document ID " + documentId + " not found for contract " + contractId));
+                        String.format(DOC_NOT_FOUND, documentId, contractId)));
 
         localStorageService.deleteDocument(doc.getStoragePath());
         documentRepository.delete(doc);
@@ -130,5 +132,30 @@ public class ContractDocumentService {
                 downloadUrl);
     }
 
-    public record DocumentDownload(byte[] bytes, String fileName, String contentType) {}
+    public record DocumentDownload(byte[] bytes, String fileName, String contentType) {
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof DocumentDownload other)) return false;
+            return Arrays.equals(bytes, other.bytes)
+                    && Objects.equals(fileName, other.fileName)
+                    && Objects.equals(contentType, other.contentType);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Arrays.hashCode(bytes);
+            result = 31 * result + Objects.hashCode(fileName);
+            result = 31 * result + Objects.hashCode(contentType);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "DocumentDownload[bytes=" + Arrays.toString(bytes)
+                    + ", fileName=" + fileName
+                    + ", contentType=" + contentType + "]";
+        }
+    }
 }

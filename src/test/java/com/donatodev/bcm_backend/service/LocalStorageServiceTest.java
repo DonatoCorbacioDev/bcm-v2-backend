@@ -1,10 +1,10 @@
 package com.donatodev.bcm_backend.service;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,13 +44,13 @@ class LocalStorageServiceTest {
 
         @Test
         @Order(1)
-        @DisplayName("storeDocument: creates file and returns relative path")
+        @DisplayName("storeDocument: creates file and returns relative path ending in .pdf")
         void shouldStoreDocumentAndReturnPath() {
-            String path = localStorageService.storeDocument(1L, 42L, "contract.pdf", CONTENT);
+            String path = localStorageService.storeDocument(1L, 42L, CONTENT);
 
             assertNotNull(path);
             assertTrue(path.startsWith("contracts/1/42/"));
-            assertTrue(path.endsWith("contract.pdf"));
+            assertTrue(path.endsWith(".pdf"));
             assertTrue(Files.exists(tempDir.resolve(path)));
         }
 
@@ -58,7 +58,7 @@ class LocalStorageServiceTest {
         @Order(2)
         @DisplayName("storeDocument: null orgId defaults to 0 in path")
         void shouldUseZeroOrgIdWhenNull() {
-            String path = localStorageService.storeDocument(null, 42L, "doc.pdf", CONTENT);
+            String path = localStorageService.storeDocument(null, 42L, CONTENT);
 
             assertTrue(path.startsWith("contracts/0/42/"));
         }
@@ -67,7 +67,7 @@ class LocalStorageServiceTest {
         @Order(3)
         @DisplayName("storeDocument: creates nested directories automatically")
         void shouldCreateDirectories() {
-            String path = localStorageService.storeDocument(5L, 99L, "test.pdf", CONTENT);
+            localStorageService.storeDocument(5L, 99L, CONTENT);
 
             assertTrue(Files.isDirectory(tempDir.resolve("contracts/5/99")));
         }
@@ -75,8 +75,8 @@ class LocalStorageServiceTest {
         @Test
         @Order(4)
         @DisplayName("readDocument: returns stored file bytes")
-        void shouldReadStoredDocument() throws IOException {
-            String path = localStorageService.storeDocument(1L, 1L, "read.pdf", CONTENT);
+        void shouldReadStoredDocument() {
+            String path = localStorageService.storeDocument(1L, 1L, CONTENT);
 
             byte[] result = localStorageService.readDocument(path);
 
@@ -95,7 +95,7 @@ class LocalStorageServiceTest {
         @Order(6)
         @DisplayName("deleteDocument: removes file from disk")
         void shouldDeleteDocument() {
-            String path = localStorageService.storeDocument(1L, 1L, "delete.pdf", CONTENT);
+            String path = localStorageService.storeDocument(1L, 1L, CONTENT);
             assertTrue(Files.exists(tempDir.resolve(path)));
 
             localStorageService.deleteDocument(path);
@@ -107,7 +107,7 @@ class LocalStorageServiceTest {
         @Order(7)
         @DisplayName("deleteDocument: does not throw when file does not exist")
         void shouldNotThrowWhenDeletingNonExistentFile() {
-            localStorageService.deleteDocument("contracts/0/0/ghost.pdf");
+            assertDoesNotThrow(() -> localStorageService.deleteDocument("contracts/0/0/ghost.pdf"));
         }
     }
 }

@@ -20,7 +20,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -94,7 +93,7 @@ class ContractDocumentServiceTest {
             ContractDocument saved = fakeDoc(contract);
 
             when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
-            when(localStorageService.storeDocument(any(), eq(CONTRACT_ID), anyString(), any()))
+            when(localStorageService.storeDocument(any(), eq(CONTRACT_ID), any()))
                     .thenReturn("contracts/0/1/uuid-contract.pdf");
             when(documentRepository.save(any(ContractDocument.class))).thenReturn(saved);
 
