@@ -135,7 +135,7 @@ public class ContractDocumentService {
     public record DocumentDownload(byte[] bytes, String fileName, String contentType) {
 
         @Override
-        @SuppressWarnings("java:S6880") // record pattern deconstruction breaks JaCoCo branch coverage
+        @SuppressWarnings({"java:S6880", "java:S6878"}) // record pattern deconstruction breaks JaCoCo branch coverage
         public boolean equals(Object o) {
             if (this == o) return true;
             if (!(o instanceof DocumentDownload other)) return false;
