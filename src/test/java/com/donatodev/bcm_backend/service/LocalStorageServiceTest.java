@@ -109,5 +109,16 @@ class LocalStorageServiceTest {
         void shouldNotThrowWhenDeletingNonExistentFile() {
             assertDoesNotThrow(() -> localStorageService.deleteDocument("contracts/0/0/ghost.pdf"));
         }
+
+        @Test
+        @Order(8)
+        @DisplayName("storeDocument: throws UncheckedIOException when upload dir is blocked by a file")
+        void shouldThrowWhenDirectoryCannotBeCreated() throws Exception {
+            // Place a regular file where storeDocument expects to create a directory
+            java.nio.file.Files.write(tempDir.resolve("contracts"), new byte[0]);
+
+            assertThrows(java.io.UncheckedIOException.class,
+                    () -> localStorageService.storeDocument(1L, 42L, CONTENT));
+        }
     }
 }

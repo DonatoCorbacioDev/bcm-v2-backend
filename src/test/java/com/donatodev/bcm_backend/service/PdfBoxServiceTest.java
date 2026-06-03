@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -32,6 +33,8 @@ class PdfBoxServiceTest {
     private static byte[] pdfWithFields;
     private static byte[] pdfNoFields;
     private static byte[] pdfItalianFields;
+    private static byte[] pdfWithAmount;
+    private static byte[] pdfKeywordLastLine;
     private static byte[] pdfKeywordNoColon;
     private static byte[] pdfKeywordEmptyColon;
 
@@ -50,6 +53,10 @@ class PdfBoxServiceTest {
                 "Cliente: Mario Rossi S.r.l.",
                 "Data inizio: 01/03/2025",
                 "Scadenza: 28/02/2026");
+
+        pdfWithAmount = buildPdf("Invoice total: $5,000");
+
+        pdfKeywordLastLine = buildPdf("customer: Last Line Corp");
 
         pdfKeywordNoColon = buildPdf("customer without colon here");
 
@@ -138,6 +145,25 @@ class PdfBoxServiceTest {
 
         @Test
         @Order(6)
+        @DisplayName("analyzeDocument: detects amount with $ symbol")
+        void shouldDetectAmount() {
+            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(6L, pdfWithAmount);
+
+            assertNotNull(result.detectedAmount());
+            assertTrue(result.detectedAmount().startsWith("$"));
+        }
+
+        @Test
+        @Order(7)
+        @DisplayName("analyzeDocument: extracts field when keyword is on last line (no trailing newline)")
+        void shouldExtractFieldOnLastLine() {
+            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(7L, pdfKeywordLastLine);
+
+            assertEquals("Last Line Corp", result.detectedCustomerName());
+        }
+
+        @Test
+        @Order(8)
         @DisplayName("analyzeDocument: throws UncheckedIOException on invalid PDF bytes")
         void shouldThrowOnInvalidPdfBytes() {
             byte[] invalid = "not a pdf".getBytes();

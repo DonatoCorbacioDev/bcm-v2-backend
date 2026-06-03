@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -334,6 +335,50 @@ class ContractDocumentServiceTest {
 
             assertThrows(ContractNotFoundException.class,
                     () -> contractDocumentService.deleteDocument(CONTRACT_ID, DOC_ID));
+        }
+
+        // ---- DocumentDownload record ----
+
+        @Test
+        @Order(17)
+        @DisplayName("DocumentDownload: equals same reference returns true")
+        void documentDownloadEqualsSameReference() {
+            DocumentDownload dd = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
+            assertEquals(dd, dd);
+        }
+
+        @Test
+        @Order(18)
+        @DisplayName("DocumentDownload: equals null returns false")
+        void documentDownloadEqualsNull() {
+            DocumentDownload dd = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
+            assertNotEquals(dd, null);
+        }
+
+        @Test
+        @Order(19)
+        @DisplayName("DocumentDownload: equals different type returns false")
+        void documentDownloadEqualsDifferentType() {
+            DocumentDownload dd = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
+            assertNotEquals(dd, "string");
+        }
+
+        @Test
+        @Order(20)
+        @DisplayName("DocumentDownload: equals same content returns true, hashCode matches")
+        void documentDownloadEqualsAndHashCode() {
+            DocumentDownload dd1 = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
+            DocumentDownload dd2 = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
+            assertEquals(dd1, dd2);
+            assertEquals(dd1.hashCode(), dd2.hashCode());
+        }
+
+        @Test
+        @Order(21)
+        @DisplayName("DocumentDownload: toString contains fileName")
+        void documentDownloadToString() {
+            DocumentDownload dd = new DocumentDownload(VALID_PDF, "contract.pdf", "application/pdf");
+            assertTrue(dd.toString().contains("contract.pdf"));
         }
     }
 }
