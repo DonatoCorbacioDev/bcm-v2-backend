@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -352,7 +353,8 @@ class ContractDocumentServiceTest {
         @DisplayName("DocumentDownload: equals null returns false")
         void documentDownloadEqualsNull() {
             DocumentDownload dd = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
-            assertNotEquals(dd, null);
+            boolean result = dd.equals(null);
+            assertFalse(result);
         }
 
         @Test
@@ -360,7 +362,8 @@ class ContractDocumentServiceTest {
         @DisplayName("DocumentDownload: equals different type returns false")
         void documentDownloadEqualsDifferentType() {
             DocumentDownload dd = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
-            assertNotEquals(dd, "string");
+            boolean result = dd.equals("string");
+            assertFalse(result);
         }
 
         @Test
