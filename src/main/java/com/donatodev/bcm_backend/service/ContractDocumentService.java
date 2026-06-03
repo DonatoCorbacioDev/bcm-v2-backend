@@ -137,10 +137,10 @@ public class ContractDocumentService {
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (!(o instanceof DocumentDownload other)) return false;
-            return Arrays.equals(bytes, other.bytes)
-                    && Objects.equals(fileName, other.fileName)
-                    && Objects.equals(contentType, other.contentType);
+            if (!(o instanceof DocumentDownload(byte[] otherBytes, String otherFileName, String otherContentType))) return false;
+            return Arrays.equals(bytes, otherBytes)
+                    && Objects.equals(fileName, otherFileName)
+                    && Objects.equals(contentType, otherContentType);
         }
 
         @Override

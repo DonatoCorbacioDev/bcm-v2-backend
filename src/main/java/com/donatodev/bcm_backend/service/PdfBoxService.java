@@ -15,9 +15,9 @@ import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 @Service
 public class PdfBoxService {
 
-    // Detects amounts like €1.500, $500, 1000€ — simplified to avoid ReDoS
+    // Possessive quantifier ++ prevents backtracking, eliminating ReDoS risk
     private static final Pattern AMOUNT_PATTERN =
-            Pattern.compile("[€$][\\d.,]+|[\\d.,]+[€$]", Pattern.CASE_INSENSITIVE);
+            Pattern.compile("[€$][\\d.,]++|[\\d.,]++[€$]", Pattern.CASE_INSENSITIVE);
 
     public DocumentAnalysisDTO analyzeDocument(Long documentId, byte[] pdfBytes) {
         String rawText;
