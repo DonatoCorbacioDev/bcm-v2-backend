@@ -120,5 +120,18 @@ class LocalStorageServiceTest {
             assertThrows(java.io.UncheckedIOException.class,
                     () -> localStorageService.storeDocument(1L, 42L, CONTENT));
         }
+
+        @Test
+        @Order(9)
+        @DisplayName("deleteDocument: throws UncheckedIOException when path is a non-empty directory")
+        void shouldThrowWhenDeleteTargetIsNonEmptyDirectory() throws Exception {
+            String fakePath = "contracts/1/1/doc.pdf";
+            Path target = tempDir.resolve(fakePath);
+            Files.createDirectories(target);
+            Files.createFile(target.resolve("child.txt"));
+
+            assertThrows(java.io.UncheckedIOException.class,
+                    () -> localStorageService.deleteDocument(fakePath));
+        }
     }
 }

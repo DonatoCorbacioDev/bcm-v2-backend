@@ -352,7 +352,7 @@ class ContractDocumentServiceTest {
         @DisplayName("DocumentDownload: equals null returns false")
         void documentDownloadEqualsNull() {
             DocumentDownload dd = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
-            assertNotEquals(dd, null);
+            assertNotEquals(null, dd);
         }
 
         @Test
@@ -360,7 +360,7 @@ class ContractDocumentServiceTest {
         @DisplayName("DocumentDownload: equals different type returns false")
         void documentDownloadEqualsDifferentType() {
             DocumentDownload dd = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
-            assertNotEquals(dd, "string");
+            assertNotEquals("string", dd);
         }
 
         @Test
@@ -370,7 +370,34 @@ class ContractDocumentServiceTest {
             DocumentDownload dd1 = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
             DocumentDownload dd2 = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
             assertEquals(dd1, dd2);
-            assertEquals(dd1.hashCode(), dd2.hashCode());
+            assertEquals(dd2.hashCode(), dd1.hashCode());
+        }
+
+        @Test
+        @Order(22)
+        @DisplayName("DocumentDownload: equals returns false when bytes differ")
+        void documentDownloadNotEqualsDifferentBytes() {
+            DocumentDownload dd1 = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
+            DocumentDownload dd2 = new DocumentDownload(new byte[]{1, 2, 3}, "f.pdf", "application/pdf");
+            assertNotEquals(dd1, dd2);
+        }
+
+        @Test
+        @Order(23)
+        @DisplayName("DocumentDownload: equals returns false when fileName differs")
+        void documentDownloadNotEqualsDifferentFileName() {
+            DocumentDownload dd1 = new DocumentDownload(VALID_PDF, "a.pdf", "application/pdf");
+            DocumentDownload dd2 = new DocumentDownload(VALID_PDF, "b.pdf", "application/pdf");
+            assertNotEquals(dd1, dd2);
+        }
+
+        @Test
+        @Order(24)
+        @DisplayName("DocumentDownload: equals returns false when contentType differs")
+        void documentDownloadNotEqualsDifferentContentType() {
+            DocumentDownload dd1 = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
+            DocumentDownload dd2 = new DocumentDownload(VALID_PDF, "f.pdf", "text/plain");
+            assertNotEquals(dd1, dd2);
         }
 
         @Test
