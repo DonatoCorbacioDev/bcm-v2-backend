@@ -164,6 +164,14 @@ class PdfBoxServiceTest {
 
         @Test
         @Order(8)
+        @DisplayName("extractField: returns value when text has no trailing newline (lineEnd == -1 branch)")
+        void shouldExtractFieldWithNoNewline() {
+            String result = pdfBoxService.extractField("customer: Acme Corp", "customer");
+            assertEquals("Acme Corp", result);
+        }
+
+        @Test
+        @Order(9)
         @DisplayName("analyzeDocument: throws UncheckedIOException on invalid PDF bytes")
         void shouldThrowOnInvalidPdfBytes() {
             byte[] invalid = "not a pdf".getBytes();

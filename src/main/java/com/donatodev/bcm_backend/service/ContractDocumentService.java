@@ -132,15 +132,28 @@ public class ContractDocumentService {
                 downloadUrl);
     }
 
-    public record DocumentDownload(byte[] bytes, String fileName, String contentType) {
+    public static final class DocumentDownload {
+        private final byte[] bytes;
+        private final String fileName;
+        private final String contentType;
+
+        public DocumentDownload(byte[] bytes, String fileName, String contentType) {
+            this.bytes = bytes;
+            this.fileName = fileName;
+            this.contentType = contentType;
+        }
+
+        public byte[] bytes() { return bytes; }
+        public String fileName() { return fileName; }
+        public String contentType() { return contentType; }
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (!(o instanceof DocumentDownload(byte[] otherBytes, String otherFileName, String otherContentType))) return false;
-            return Arrays.equals(bytes, otherBytes)
-                    && Objects.equals(fileName, otherFileName)
-                    && Objects.equals(contentType, otherContentType);
+            if (!(o instanceof DocumentDownload other)) return false;
+            return Arrays.equals(bytes, other.bytes)
+                    && Objects.equals(fileName, other.fileName)
+                    && Objects.equals(contentType, other.contentType);
         }
 
         @Override

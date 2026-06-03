@@ -37,7 +37,7 @@ public class PdfBoxService {
                 extractAmount(rawText));
     }
 
-    private String extractField(String text, String... keywords) {
+    String extractField(String text, String... keywords) {
         String lower = text.toLowerCase(Locale.ROOT);
         for (String keyword : keywords) {
             int idx = lower.indexOf(keyword);
@@ -55,7 +55,7 @@ public class PdfBoxService {
         return null;
     }
 
-    private String extractAmount(String text) {
+    String extractAmount(String text) {
         Matcher matcher = AMOUNT_PATTERN.matcher(text);
         return matcher.find() ? matcher.group().trim() : null;
     }
