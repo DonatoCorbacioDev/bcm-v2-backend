@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -56,4 +57,6 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
      * @return an {@link Optional} containing the first matching user, or empty if none found
      */
     Optional<Users> findFirstByRoleRole(String roleName);
+
+    List<Users> findByOrganizationIdAndRoleRole(Long orgId, String roleName);
 }

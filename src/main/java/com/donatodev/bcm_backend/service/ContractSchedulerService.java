@@ -38,16 +38,19 @@ public class ContractSchedulerService {
     private final ContractHistoryRepository contractHistoryRepository;
     private final UsersRepository usersRepository;
     private final IEmailService emailService;
+    private final AgentNotificationService agentNotificationService;
 
     public ContractSchedulerService(
             ContractsRepository contractsRepository,
             ContractHistoryRepository contractHistoryRepository,
             UsersRepository usersRepository,
-            IEmailService emailService) {
+            IEmailService emailService,
+            AgentNotificationService agentNotificationService) {
         this.contractsRepository = contractsRepository;
         this.contractHistoryRepository = contractHistoryRepository;
         this.usersRepository = usersRepository;
         this.emailService = emailService;
+        this.agentNotificationService = agentNotificationService;
     }
 
     /**
@@ -93,6 +96,12 @@ public class ContractSchedulerService {
                             safeContractNumber, safeEmail);
                 } catch (Exception e) {
                     logger.error("Failed to send expiration notification for contract: {}",
+                            safeContractNumber, e);
+                }
+                try {
+                    agentNotificationService.notifyExpiringContract(contract);
+                } catch (Exception e) {
+                    logger.error("Failed to create in-app notification for contract: {}",
                             safeContractNumber, e);
                 }
             } else {

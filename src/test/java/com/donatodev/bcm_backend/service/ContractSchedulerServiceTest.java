@@ -61,6 +61,9 @@ class ContractSchedulerServiceTest {
     @Mock
     private IEmailService emailService;
 
+    @Mock
+    private AgentNotificationService agentNotificationService;
+
     @InjectMocks
     private ContractSchedulerService schedulerService;
 

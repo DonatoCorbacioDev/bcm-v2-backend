@@ -114,6 +114,11 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(NotificationNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNotificationNotFound(NotificationNotFoundException ex) {
+        return buildErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiErrorResponse> handleAuthenticationException(AuthenticationException ex) {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Unauthorized: " + ex.getMessage());

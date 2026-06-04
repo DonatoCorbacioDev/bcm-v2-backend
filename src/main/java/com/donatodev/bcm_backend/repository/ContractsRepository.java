@@ -268,4 +268,15 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
      * @return list of matching contracts
      */
     List<Contracts> findByStatusAndEndDateBefore(ContractStatus status, LocalDate endDate);
+
+    @Query("""
+            SELECT COUNT(c) FROM Contracts c
+            WHERE c.organization.id = :orgId
+              AND EXTRACT(YEAR FROM c.createdAt) = :year
+              AND EXTRACT(MONTH FROM c.createdAt) = :month
+            """)
+    long countNewContractsByOrgAndYearMonth(
+            @Param("orgId") Long orgId,
+            @Param("year") int year,
+            @Param("month") int month);
 }
