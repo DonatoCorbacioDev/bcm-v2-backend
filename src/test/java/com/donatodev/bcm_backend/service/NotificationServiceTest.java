@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.never;
@@ -212,7 +211,7 @@ class NotificationServiceTest {
             long count = notificationService.getUnreadCount();
 
             assertEquals(3L, count);
-            verify(notificationRepository).countByUserIdAndOrgIdAndReadFalse(eq(USER_ID), eq(ORG_ID));
+            verify(notificationRepository).countByUserIdAndOrgIdAndReadFalse(USER_ID, ORG_ID);
         }
 
         @Test

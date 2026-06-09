@@ -17,6 +17,7 @@ public class AgentNotificationService {
 
     private static final Logger logger = LoggerFactory.getLogger(AgentNotificationService.class);
     private static final String CRLF_REGEX = "[\r\n]";
+    private static final String CONTRACT_PREFIX = "Contract ";
 
     private final NotificationService notificationService;
     private final UsersRepository usersRepository;
@@ -37,7 +38,7 @@ public class AgentNotificationService {
                     user.getId(),
                     user.getOrganization().getId(),
                     "Contract Expiring Soon",
-                    "Contract " + contract.getContractNumber() + " expires in " + daysLeft
+                    CONTRACT_PREFIX + contract.getContractNumber() + " expires in " + daysLeft
                             + " days (" + contract.getCustomerName() + ")",
                     NotificationType.WARNING
             );
@@ -56,7 +57,7 @@ public class AgentNotificationService {
                     user.getId(),
                     user.getOrganization().getId(),
                     "High Risk Contract Detected",
-                    "Contract " + contract.getContractNumber() + " has a risk score of "
+                    CONTRACT_PREFIX + contract.getContractNumber() + " has a risk score of "
                             + String.format("%.0f%%", riskScore * 100),
                     NotificationType.ERROR
             );
@@ -73,7 +74,7 @@ public class AgentNotificationService {
                     user.getId(),
                     user.getOrganization().getId(),
                     "Anomaly Detected",
-                    "Contract " + contract.getContractNumber() + ": " + anomalyMessage,
+                    CONTRACT_PREFIX + contract.getContractNumber() + ": " + anomalyMessage,
                     NotificationType.WARNING
             );
         });

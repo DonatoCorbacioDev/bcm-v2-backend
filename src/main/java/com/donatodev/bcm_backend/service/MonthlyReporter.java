@@ -84,14 +84,17 @@ public class MonthlyReporter {
 
         String monthLabel = LocalDate.of(year, month, 1).getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH);
         String subject = String.format("[BCM] Monthly Report — %s %d", monthLabel, year);
-        String body = buildReportEmail(org.getName(), monthLabel, year, total, active, expired, newContracts, totalValue);
+        ReportStats stats = new ReportStats(total, active, expired, newContracts, totalValue);
+        String body = buildReportEmail(org.getName(), monthLabel, year, stats);
 
         for (Users admin : admins) {
             if (admin.getManager() != null && admin.getManager().getEmail() != null) {
                 try {
                     emailService.sendEmail(admin.getManager().getEmail(), subject, body);
-                    logger.info("Monthly report sent to {} for org {}",
-                            admin.getUsername().replaceAll(CRLF_REGEX, "_"), org.getId());
+                    if (logger.isInfoEnabled()) {
+                        logger.info("Monthly report sent to {} for org {}",
+                                admin.getUsername().replaceAll(CRLF_REGEX, "_"), org.getId());
+                    }
                 } catch (Exception e) {
                     logger.error("Failed to send report email to {}: {}",
                             admin.getUsername().replaceAll(CRLF_REGEX, "_"), e.getMessage());
@@ -100,8 +103,14 @@ public class MonthlyReporter {
         }
     }
 
-    private String buildReportEmail(String orgName, String monthLabel, int year,
-            int total, int active, int expired, long newContracts, double totalValue) {
+    private record ReportStats(int total, int active, int expired, long newContracts, double totalValue) {}
+
+    private String buildReportEmail(String orgName, String monthLabel, int year, ReportStats stats) {
+        int total = stats.total();
+        int active = stats.active();
+        int expired = stats.expired();
+        long newContracts = stats.newContracts();
+        double totalValue = stats.totalValue();
         String escapedOrg = HtmlUtils.htmlEscape(orgName);
         String escapedPeriod = HtmlUtils.htmlEscape(monthLabel + " " + year);
 

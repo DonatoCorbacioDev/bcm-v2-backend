@@ -40,20 +40,25 @@ public class RiskScoreRefresher {
 
             int notified = 0;
             for (RiskScoreEntry entry : scores) {
-                if (entry.riskScore() > 0.7) {
-                    try {
-                        contractsRepository.findById(entry.contractId()).ifPresent(contract ->
-                                agentNotificationService.notifyHighRisk(contract, entry.riskScore()));
-                        notified++;
-                    } catch (Exception e) {
-                        logger.error("Failed to process risk score for contract {}: {}", entry.contractId(), e.getMessage());
-                    }
+                if (entry.riskScore() > 0.7 && processHighRiskEntry(entry)) {
+                    notified++;
                 }
             }
 
             logger.info("Risk score refresh completed. {} high-risk notifications created.", notified);
         } catch (Exception e) {
             logger.warn("FastAPI risk score service unavailable, skipping refresh: {}", e.getMessage());
+        }
+    }
+
+    private boolean processHighRiskEntry(RiskScoreEntry entry) {
+        try {
+            contractsRepository.findById(entry.contractId()).ifPresent(contract ->
+                    agentNotificationService.notifyHighRisk(contract, entry.riskScore()));
+            return true;
+        } catch (Exception e) {
+            logger.error("Failed to process risk score for contract {}: {}", entry.contractId(), e.getMessage());
+            return false;
         }
     }
 
