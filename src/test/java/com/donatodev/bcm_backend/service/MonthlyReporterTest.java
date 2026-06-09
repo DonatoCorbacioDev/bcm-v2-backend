@@ -17,6 +17,7 @@ import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -196,6 +197,62 @@ class MonthlyReporterTest {
             assertDoesNotThrow(() -> monthlyReporter.sendMonthlyReports());
 
             verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+        }
+
+        @Test
+        @Order(7)
+        @DisplayName("Should skip admin when manager is not null but email is null")
+        void shouldSkipAdminWhenManagerEmailIsNull() {
+            Organization org = Organization.builder().id(1L).name("TestOrg")
+                    .subscriptionTier(SubscriptionTier.FREE).build();
+
+            Managers managerNoEmail = new Managers();
+            managerNoEmail.setId(1L);
+            managerNoEmail.setEmail(null);
+
+            Users admin = Users.builder().id(1L).username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .manager(managerNoEmail).organization(org).build();
+
+            when(organizationRepository.findAll()).thenReturn(List.of(org));
+            when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(5);
+            when(contractsRepository.countActiveContractsByOrg(1L)).thenReturn(3);
+            when(contractsRepository.countExpiredContractsByOrg(1L)).thenReturn(1);
+            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(1L);
+            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(0.0);
+            when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN")).thenReturn(List.of(admin));
+
+            assertDoesNotThrow(() -> monthlyReporter.sendMonthlyReports());
+
+            verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+        }
+
+        @Test
+        @Order(8)
+        @DisplayName("Should handle email send failure gracefully")
+        void shouldHandleEmailSendFailure() {
+            Organization org = Organization.builder().id(1L).name("TestOrg")
+                    .subscriptionTier(SubscriptionTier.FREE).build();
+
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setEmail("admin@testorg.com");
+            Users admin = Users.builder().id(1L).username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .manager(manager).organization(org).build();
+
+            when(organizationRepository.findAll()).thenReturn(List.of(org));
+            when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(10);
+            when(contractsRepository.countActiveContractsByOrg(1L)).thenReturn(7);
+            when(contractsRepository.countExpiredContractsByOrg(1L)).thenReturn(2);
+            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(3L);
+            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(50000.0);
+            when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN")).thenReturn(List.of(admin));
+            doThrow(new RuntimeException("SMTP error")).when(emailService).sendEmail(anyString(), anyString(), anyString());
+
+            assertDoesNotThrow(() -> monthlyReporter.sendMonthlyReports());
+
+            verify(emailService).sendEmail(eq("admin@testorg.com"), anyString(), anyString());
         }
     }
 }

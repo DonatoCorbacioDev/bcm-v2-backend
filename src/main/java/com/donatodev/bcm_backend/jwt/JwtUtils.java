@@ -153,7 +153,7 @@ public class JwtUtils {
      * @param token the JWT token
      * @return the expiration date
      */
-    public Date getExpirationDateFromToken(String token) {
+    public Date getExpirationDateFromToken(String token) { //NOSONAR S6885 — return type required by JJWT Claims API
         return getClaimFromToken(token, Claims::getExpiration);
     }
 

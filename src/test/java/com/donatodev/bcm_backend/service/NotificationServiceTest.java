@@ -224,5 +224,21 @@ class NotificationServiceTest {
             assertThrows(UserNotFoundException.class,
                     () -> notificationService.getForCurrentUser());
         }
+
+        @Test
+        @Order(11)
+        @DisplayName("Should throw AccessDeniedException when user matches but org does not")
+        void shouldThrowWhenOrgDoesNotMatch() {
+            Users owner = Users.builder().id(USER_ID).username(USERNAME).build();
+            Notification n = Notification.builder()
+                    .id(1L).user(owner).orgId(99L)
+                    .title("T").message("M").type(NotificationType.INFO).read(false).build();
+
+            when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(owner));
+            when(notificationRepository.findById(1L)).thenReturn(Optional.of(n));
+
+            assertThrows(AccessDeniedException.class,
+                    () -> notificationService.markAsRead(1L));
+        }
     }
 }

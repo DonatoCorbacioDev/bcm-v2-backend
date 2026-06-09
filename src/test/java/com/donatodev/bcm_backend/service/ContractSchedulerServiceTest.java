@@ -418,6 +418,36 @@ class ContractSchedulerServiceTest {
             verify(emailService).sendEmail(eq("john.doe@example.com"), anyString(), anyString());
         }
 
+        @Test
+        @Order(15)
+        @DisplayName("Should handle notifyExpiringContract exception gracefully")
+        void shouldHandleInAppNotificationException() {
+            LocalDate today = TODAY;
+
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setFirstName("Error");
+            manager.setLastName("Test");
+            manager.setEmail("error@test.com");
+
+            Contracts contract = new Contracts();
+            contract.setId(1L);
+            contract.setContractNumber("CNT-INAPP-ERROR");
+            contract.setCustomerName("Test Customer");
+            contract.setProjectName("Test Project");
+            contract.setStatus(ContractStatus.ACTIVE);
+            contract.setEndDate(today.plusDays(10));
+            contract.setManager(manager);
+
+            when(contractsRepository.findByStatusAndEndDateBetween(
+                    any(ContractStatus.class), any(LocalDate.class), any(LocalDate.class)
+            )).thenReturn(List.of(contract));
+            doThrow(new RuntimeException("In-app notification failed"))
+                    .when(agentNotificationService).notifyExpiringContract(any(Contracts.class));
+
+            assertDoesNotThrow(() -> schedulerService.sendExpirationNotifications());
+        }
+
         // Helper method
         private Contracts createContract(Long id, String contractNumber, LocalDate endDate, Managers manager) {
             Contracts contract = new Contracts();

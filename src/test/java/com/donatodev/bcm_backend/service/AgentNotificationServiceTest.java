@@ -187,5 +187,91 @@ class AgentNotificationServiceTest {
             verify(notificationService).createForUser(eq(5L), eq(10L), anyString(), anyString(),
                     eq(NotificationType.WARNING));
         }
+
+        @Test
+        @Order(8)
+        @DisplayName("Should skip high-risk notification when manager email is null")
+        void shouldSkipHighRiskWhenManagerEmailIsNull() {
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setEmail(null);
+
+            Contracts contract = Contracts.builder()
+                    .id(1L).contractNumber("CNT-RISK-003").manager(manager).build();
+
+            agentNotificationService.notifyHighRisk(contract, 0.9);
+
+            verify(notificationService, never()).createForUser(anyLong(), anyLong(), anyString(), anyString(), any());
+        }
+
+        @Test
+        @Order(9)
+        @DisplayName("Should skip high-risk notification when user has no organization")
+        void shouldSkipHighRiskWhenUserHasNoOrganization() {
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setEmail("noorg@risk.com");
+
+            Contracts contract = Contracts.builder()
+                    .id(1L).contractNumber("CNT-RISK-004")
+                    .endDate(LocalDate.of(2027, Month.SEPTEMBER, 15))
+                    .manager(manager).build();
+
+            Users user = Users.builder().id(5L).username("orphan").organization(null).build();
+            when(usersRepository.findByManagerEmailIgnoreCase("noorg@risk.com"))
+                    .thenReturn(Optional.of(user));
+
+            agentNotificationService.notifyHighRisk(contract, 0.85);
+
+            verify(notificationService, never()).createForUser(anyLong(), anyLong(), anyString(), anyString(), any());
+        }
+
+        @Test
+        @Order(10)
+        @DisplayName("Should skip anomaly notification when contract has no manager")
+        void shouldSkipAnomalyWhenContractHasNoManager() {
+            Contracts contract = Contracts.builder()
+                    .id(1L).contractNumber("CNT-ANOM-002").manager(null).build();
+
+            agentNotificationService.notifyAnomalyDetected(contract, "Anomaly");
+
+            verify(notificationService, never()).createForUser(anyLong(), anyLong(), anyString(), anyString(), any());
+        }
+
+        @Test
+        @Order(11)
+        @DisplayName("Should skip anomaly notification when manager email is null")
+        void shouldSkipAnomalyWhenManagerEmailIsNull() {
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setEmail(null);
+
+            Contracts contract = Contracts.builder()
+                    .id(1L).contractNumber("CNT-ANOM-003").manager(manager).build();
+
+            agentNotificationService.notifyAnomalyDetected(contract, "Anomaly");
+
+            verify(notificationService, never()).createForUser(anyLong(), anyLong(), anyString(), anyString(), any());
+        }
+
+        @Test
+        @Order(12)
+        @DisplayName("Should skip anomaly notification when user has no organization")
+        void shouldSkipAnomalyWhenUserHasNoOrganization() {
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setEmail("noorg@anom.com");
+
+            Contracts contract = Contracts.builder()
+                    .id(1L).contractNumber("CNT-ANOM-004").manager(manager).build();
+
+            Users user = Users.builder().id(5L).username("orphan").organization(null).build();
+            when(usersRepository.findByManagerEmailIgnoreCase("noorg@anom.com"))
+                    .thenReturn(Optional.of(user));
+
+            agentNotificationService.notifyAnomalyDetected(contract, "Anomaly");
+
+            verify(notificationService, never()).createForUser(anyLong(), anyLong(), anyString(), anyString(), any());
+        }
     }
 }
