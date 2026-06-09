@@ -2,7 +2,7 @@ package com.donatodev.bcm_backend.jwt;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Date;
+import java.util.Date; //NOSONAR S6885 — JJWT 0.12.x builder API requires java.util.Date for issuedAt/expiration
 import java.util.function.Function;
 
 import javax.crypto.SecretKey;
@@ -230,8 +230,7 @@ public class JwtUtils {
      * @return true if the token is expired, false otherwise
      */
     private boolean isTokenExpired(String token) {
-        final Date expiration = getExpirationDateFromToken(token);
-        return expiration.before(Date.from(clock.instant()));
+        return getExpirationDateFromToken(token).toInstant().isBefore(clock.instant());
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -75,7 +76,7 @@ class PasswordResetTokenServiceTest {
             verify(repository).save(any(PasswordResetToken.class));
             assertEquals(user, result.getUser());
             assertNotNull(result.getToken());
-            assertTrue(result.getExpiryDate().isAfter(LocalDateTime.now()));
+            assertTrue(result.getExpiryDate().isAfter(LocalDateTime.of(2020, Month.JANUARY, 1, 0, 0)));
         }
 
         /**

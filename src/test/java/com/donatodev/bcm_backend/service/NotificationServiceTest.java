@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -104,7 +105,7 @@ class NotificationServiceTest {
             Notification n = Notification.builder()
                     .id(1L).user(user).orgId(ORG_ID)
                     .title("T").message("M").type(NotificationType.WARNING)
-                    .read(false).createdAt(LocalDateTime.now()).build();
+                    .read(false).createdAt(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0)).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(notificationRepository.findByUserIdAndOrgIdOrderByCreatedAtDesc(USER_ID, ORG_ID))

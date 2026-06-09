@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 
 import org.slf4j.Logger;
@@ -33,7 +34,7 @@ public class AgentNotificationService {
 
         usersRepository.findByManagerEmailIgnoreCase(manager.getEmail()).ifPresent(user -> {
             if (user.getOrganization() == null) return;
-            long daysLeft = ChronoUnit.DAYS.between(LocalDate.now(), contract.getEndDate());
+            long daysLeft = ChronoUnit.DAYS.between(LocalDate.now(ZoneId.systemDefault()), contract.getEndDate());
             notificationService.createForUser(
                     user.getId(),
                     user.getOrganization().getId(),

@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.repository;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -72,7 +73,7 @@ class VerificationTokenRepositoryTest {
         void shouldFindTokenByString() {
             verificationTokenRepository.save(VerificationToken.builder()
                     .token("verify-abc123")
-                    .expiryDate(LocalDateTime.now().plusHours(24))
+                    .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .user(user)
                     .build());
 

@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.mapper;
 
 import java.time.LocalDate;
+import java.time.Month;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -90,8 +91,8 @@ class ContractMapperTest {
                 .wbsCode("WBS-001")
                 .projectName("Progetto")
                 .status(ContractStatus.ACTIVE)
-                .startDate(LocalDate.of(2024, 1, 1))
-                .endDate(LocalDate.of(2024, 12, 31))
+                .startDate(LocalDate.of(2024, Month.JANUARY, 1))
+                .endDate(LocalDate.of(2024, Month.DECEMBER, 31))
                 .build();
 
         ContractDTO dto = contractMapper.toDTO(contract);
@@ -114,8 +115,8 @@ class ContractMapperTest {
                 .wbsCode("WBS-002")
                 .projectName("Project")
                 .status(ContractStatus.EXPIRED)
-                .startDate(LocalDate.of(2023, 3, 1))
-                .endDate(LocalDate.of(2023, 9, 1))
+                .startDate(LocalDate.of(2023, Month.MARCH, 1))
+                .endDate(LocalDate.of(2023, Month.SEPTEMBER, 1))
                 .businessArea(savedArea)
                 .manager(savedManager)
                 .build();
@@ -133,7 +134,7 @@ class ContractMapperTest {
     void shouldMapToEntityWithManager() {
         ContractDTO dto = new ContractDTO(
                 3L, "Client", "CN-003", "WBS-003", "TestProject", ContractStatus.ACTIVE,
-                LocalDate.now(), LocalDate.now().plusMonths(6),
+                LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(6),
                 savedArea.getId(), savedManager.getId(), null, null, null, null);
 
         Contracts contract = contractMapper.toEntity(dto);
@@ -151,7 +152,7 @@ class ContractMapperTest {
     void shouldMapToEntityWithoutManager() {
         ContractDTO dto = new ContractDTO(
                 4L, "Client2", "CN-004", "WBS-004", "SoloArea", ContractStatus.CANCELLED,
-                LocalDate.now(), LocalDate.now().plusMonths(3),
+                LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(3),
                 savedArea.getId(), null, null, null, null, null);
 
         Contracts contract = contractMapper.toEntity(dto);
@@ -169,7 +170,7 @@ class ContractMapperTest {
     void shouldThrowIfAreaNotFound() {
         ContractDTO dto = new ContractDTO(
                 5L, "Missing", "CN-005", "WBS-005", "Error", ContractStatus.CANCELLED,
-                LocalDate.now(), LocalDate.now(), 999L, null, null, null, null, null);
+                LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15), 999L, null, null, null, null, null);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
         assertEquals("Business area not found: 999", ex.getMessage());
@@ -182,7 +183,7 @@ class ContractMapperTest {
     void shouldThrowIfManagerNotFound() {
         ContractDTO dto = new ContractDTO(
                 6L, "Missing", "CN-006", "WBS-006", "Errore", ContractStatus.EXPIRED,
-                LocalDate.now(), LocalDate.now(), savedArea.getId(), 888L, null, null, null, null);
+                LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15), savedArea.getId(), 888L, null, null, null, null);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
         assertEquals("Manager not found: 888", ex.getMessage());
@@ -214,7 +215,7 @@ class ContractMapperTest {
         ContractDTO dto = new ContractDTO(
                 7L, "ClientNoArea", "CN-007", "WBS-007", "NoAreaProject",
                 ContractStatus.ACTIVE,
-                LocalDate.now(), LocalDate.now().plusMonths(2),
+                LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(2),
                 null, // No area ID
                 null, // No manager ID
                 null, // No manager nested
@@ -241,7 +242,7 @@ class ContractMapperTest {
                 .wbsCode("WBS-NULL")
                 .projectName("Null Date Project")
                 .status(ContractStatus.ACTIVE)
-                .startDate(LocalDate.now())
+                .startDate(LocalDate.of(2027, Month.JUNE, 15))
                 .endDate(null) // NULL end date
                 .build();
 
@@ -258,7 +259,7 @@ class ContractMapperTest {
     @DisplayName("toDTO should set daysUntilExpiry to null for non-ACTIVE contracts")
     void shouldSetDaysUntilExpiryToNullForNonActiveContracts() {
         // Arrange
-        LocalDate futureDate = LocalDate.now().plusDays(15);
+        LocalDate futureDate = LocalDate.of(2027, Month.JUNE, 15).plusDays(15);
 
         Contracts expiredContract = Contracts.builder()
                 .id(11L)
@@ -267,7 +268,7 @@ class ContractMapperTest {
                 .wbsCode("WBS-EXP")
                 .projectName("Expired Project")
                 .status(ContractStatus.EXPIRED)
-                .startDate(LocalDate.now().minusMonths(6))
+                .startDate(LocalDate.of(2026, Month.DECEMBER, 15))
                 .endDate(futureDate) // Has endDate but is EXPIRED
                 .build();
 
@@ -278,7 +279,7 @@ class ContractMapperTest {
                 .wbsCode("WBS-CAN")
                 .projectName("Cancelled Project")
                 .status(ContractStatus.CANCELLED)
-                .startDate(LocalDate.now().minusMonths(3))
+                .startDate(LocalDate.of(2027, Month.MARCH, 15))
                 .endDate(futureDate) // Has endDate but is CANCELLED
                 .build();
 

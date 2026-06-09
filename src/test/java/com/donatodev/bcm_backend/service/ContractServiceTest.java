@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -130,7 +131,7 @@ class ContractServiceTest {
                     .build();
 
             ContractDTO dto = new ContractDTO(1L, "Cliente", "CONTR123", "WBS001", "Progetto A",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 2L, 3L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 2L, 3L, null, null, null, null);
             Contracts entity = Contracts.builder().id(1L).customerName("Cliente").build();
 
             mockAuthentication("admin", "ADMIN");
@@ -154,7 +155,7 @@ class ContractServiceTest {
         void shouldGetContractById() {
             Contracts contract = Contracts.builder().id(1L).contractNumber("ABC123").customerName("Mario").build();
             ContractDTO dto = new ContractDTO(1L, "Mario", "ABC123", "WBS001", "Progetto",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(10), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
             when(contractMapper.toDTO(contract)).thenReturn(dto);
@@ -187,12 +188,12 @@ class ContractServiceTest {
         @DisplayName("Create contract returns saved DTO")
         void shouldCreateContract() {
             ContractDTO dto = new ContractDTO(null, "NewClient", "ABC123", "WBS001", "NewProject",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(10), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
             Contracts entity = Contracts.builder().customerName("NewClient").build();
             Contracts saved = Contracts.builder().id(1L).customerName("NewClient").build();
             ContractDTO savedDTO = new ContractDTO(1L, "NewClient", "ABC123", "WBS001", "NewProject",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(10), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
             when(contractMapper.toEntity(dto)).thenReturn(entity);
             when(contractsRepository.save(entity)).thenReturn(saved);
@@ -229,12 +230,12 @@ class ContractServiceTest {
                     .wbsCode("OLDWBS")
                     .projectName("OldProject")
                     .status(ContractStatus.ACTIVE)
-                    .startDate(LocalDate.now())
-                    .endDate(LocalDate.now().plusDays(10))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                     .build();
 
             ContractDTO updateDTO = new ContractDTO(1L, "UpdatedClient", "NEW123", "WBSNEW", "NewProject",
-                    ContractStatus.EXPIRED, LocalDate.now(), LocalDate.now().plusDays(5), 1L, 1L, null, null, null, null);
+                    ContractStatus.EXPIRED, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(5), 1L, 1L, null, null, null, null);
 
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
@@ -297,7 +298,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("ClientA").build();
             ContractDTO dto = new ContractDTO(1L, "ClientA", "CON123", "WBS", "Proj", ContractStatus.ACTIVE,
-                    LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L, null, null, null, null);
+                    LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 5L, 1L, null, null, null, null);
 
             mockAuthentication("manager1", "MANAGER");
 
@@ -329,7 +330,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(2L).status(ContractStatus.ACTIVE).customerName("ClientB").build();
             ContractDTO dto = new ContractDTO(2L, "ClientB", "CON456", "WBS2", "Proj2", ContractStatus.ACTIVE,
-                    LocalDate.now(), LocalDate.now().plusDays(20), 7L, 1L, null, null, null, null);
+                    LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(20), 7L, 1L, null, null, null, null);
 
             mockAuthentication("manager2", "MANAGER");
 
@@ -463,7 +464,7 @@ class ContractServiceTest {
         void shouldThrowIfContractToUpdateNotFound() {
             Long contractId = 999L;
             ContractDTO dto = new ContractDTO(contractId, "x", "x", "x", "x",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(5), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(5), 1L, 1L, null, null, null, null);
 
             when(contractsRepository.findById(contractId)).thenReturn(Optional.empty());
 
@@ -488,7 +489,7 @@ class ContractServiceTest {
                     .customerName("ClientA")
                     .build();
             ContractDTO dto = new ContractDTO(1L, "ClientA", "CON123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             mockAuthentication("admin", "ADMIN");
 
@@ -661,7 +662,7 @@ class ContractServiceTest {
                     .status(ContractStatus.ACTIVE)
                     .build();
             ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -713,7 +714,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).status(ContractStatus.ACTIVE).build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -740,7 +741,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
             ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -766,7 +767,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
             ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -800,7 +801,7 @@ class ContractServiceTest {
                     .status(ContractStatus.ACTIVE)
                     .build();
             ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 5L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -855,7 +856,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).status(ContractStatus.ACTIVE).build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 5L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -883,7 +884,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
             ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 5L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -911,7 +912,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
             ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 5L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 5L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -961,7 +962,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -988,7 +989,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -1015,7 +1016,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -1043,7 +1044,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -1087,7 +1088,7 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
             ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -1157,14 +1158,14 @@ class ContractServiceTest {
                     .wbsCode("OLDWBS")
                     .projectName("OldProject")
                     .status(ContractStatus.ACTIVE) // ← ACTIVE
-                    .startDate(LocalDate.now())
-                    .endDate(LocalDate.now().plusDays(10))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                     .build();
 
             // Update DTO with SAME status 
             ContractDTO updateDTO = new ContractDTO(1L, "UpdatedClient", "NEW123", "WBSNEW", "NewProject",
                     ContractStatus.ACTIVE,
-                    LocalDate.now(), LocalDate.now().plusDays(5), 1L, 1L, null, null, null, null);
+                    LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(5), 1L, 1L, null, null, null, null);
 
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
@@ -1194,14 +1195,14 @@ class ContractServiceTest {
                     .wbsCode("WBS")
                     .projectName("Project")
                     .status(ContractStatus.ACTIVE)
-                    .startDate(LocalDate.now())
-                    .endDate(LocalDate.now().plusDays(10))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                     .build();
 
             // Update DTO with DIFFERENT status
             ContractDTO updateDTO = new ContractDTO(1L, "Client", "C123", "WBS", "Project",
                     ContractStatus.EXPIRED,
-                    LocalDate.now(), LocalDate.now().plusDays(10), 1L, 1L, null, null, null, null);
+                    LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
@@ -1221,7 +1222,7 @@ class ContractServiceTest {
         @DisplayName("Get expiring contracts within 30 days")
         void shouldGetExpiringContracts() {
 
-            LocalDate today = LocalDate.now();
+            LocalDate today = LocalDate.now(); //NOSONAR S6543 — must match service internal clock
             LocalDate futureDate = today.plusDays(30);
 
             Contracts expiring1 = Contracts.builder()
@@ -1269,7 +1270,7 @@ class ContractServiceTest {
         @DisplayName("Get expiring contracts returns empty list when none expiring")
         void shouldReturnEmptyListWhenNoExpiringContracts() {
 
-            LocalDate today = LocalDate.now();
+            LocalDate today = LocalDate.now(); //NOSONAR S6543 — must match service internal clock
             LocalDate futureDate = today.plusDays(30);
 
             when(contractsRepository.findExpiringContracts(today, futureDate))
@@ -1285,7 +1286,7 @@ class ContractServiceTest {
         @Order(46)
         @DisplayName("Should get contracts timeline")
         void shouldGetContractsTimeline() {
-            LocalDateTime sixMonthsAgo = LocalDateTime.now().minusMonths(6);
+            LocalDateTime sixMonthsAgo = LocalDateTime.of(2026, Month.DECEMBER, 15, 12, 0);
 
             List<Object[]> mockResults = List.of(
                     new Object[]{2025, 8, 5L},
@@ -1398,7 +1399,7 @@ class ContractServiceTest {
         void shouldCreateContractWithOrgFilter() {
             Contracts entity = Contracts.builder().id(1L).customerName("OrgClient").build();
             ContractDTO dto = new ContractDTO(1L, "OrgClient", "CTR-ORG", null, null,
-                    ContractStatus.ACTIVE, LocalDate.now(), null, 1L, null, null, null, null, 0);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), null, 1L, null, null, null, null, 0);
 
             TenantContext.set(10L);
             try {
@@ -1444,7 +1445,7 @@ class ContractServiceTest {
             try {
                 Contracts c = Contracts.builder().id(1L).customerName("Org Client").build();
                 ContractDTO dto = new ContractDTO(1L, "Org Client", "C001", null, null,
-                        ContractStatus.ACTIVE, LocalDate.now(), null, 1L, null, null, null, null, 5);
+                        ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), null, 1L, null, null, null, null, 5);
                 when(contractsRepository.findExpiringContractsByOrg(any(LocalDate.class), any(LocalDate.class), eq(2L)))
                         .thenReturn(List.of(c));
                 when(contractMapper.toDTO(c)).thenReturn(dto);

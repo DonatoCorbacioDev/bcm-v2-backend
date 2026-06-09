@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 
@@ -84,11 +85,11 @@ class ContractHistoryServiceTest {
             ContractHistory entity = ContractHistory.builder().id(1L)
                     .contract(Contracts.builder().id(1L).build())
                     .modifiedBy(Users.builder().id(2L).build())
-                    .modificationDate(LocalDateTime.now())
+                    .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.EXPIRED)
                     .build();
-            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.now(), ContractStatus.ACTIVE, ContractStatus.EXPIRED);
+            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.EXPIRED);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(
@@ -116,11 +117,11 @@ class ContractHistoryServiceTest {
                     .id(1L)
                     .contract(Contracts.builder().id(1L).manager(Managers.builder().id(1L).build()).build())
                     .modifiedBy(Users.builder().id(2L).build())
-                    .modificationDate(LocalDateTime.now())
+                    .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.CANCELLED)
                     .build();
-            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.now(), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
+            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
 
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
 
@@ -149,7 +150,7 @@ class ContractHistoryServiceTest {
                     .id(1L)
                     .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
                     .modifiedBy(Users.builder().id(2L).build())
-                    .modificationDate(LocalDateTime.now())
+                    .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.CANCELLED)
                     .build();
@@ -178,11 +179,11 @@ class ContractHistoryServiceTest {
         @Order(4)
         @DisplayName("Create history returns saved DTO")
         void shouldCreateHistory() {
-            ContractHistoryDTO dto = new ContractHistoryDTO(null, 1L, 2L, LocalDateTime.now(), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
+            ContractHistoryDTO dto = new ContractHistoryDTO(null, 1L, 2L, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
             ContractHistory entity = ContractHistory.builder()
                     .contract(Contracts.builder().id(1L).build())
                     .modifiedBy(Users.builder().id(2L).build())
-                    .modificationDate(LocalDateTime.now())
+                    .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.CANCELLED)
                     .build();
@@ -190,11 +191,11 @@ class ContractHistoryServiceTest {
                     .id(1L)
                     .contract(Contracts.builder().id(1L).build())
                     .modifiedBy(Users.builder().id(2L).build())
-                    .modificationDate(LocalDateTime.now())
+                    .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.CANCELLED)
                     .build();
-            ContractHistoryDTO savedDTO = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.now(), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
+            ContractHistoryDTO savedDTO = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
 
             when(historyMapper.toEntity(dto)).thenReturn(entity);
             when(historyRepository.save(entity)).thenReturn(saved);
@@ -244,12 +245,12 @@ class ContractHistoryServiceTest {
                     .id(1L)
                     .contract(Contracts.builder().id(1L).build())
                     .modifiedBy(Users.builder().id(2L).build())
-                    .modificationDate(LocalDateTime.now())
+                    .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.EXPIRED)
                     .build();
 
-            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.now(), ContractStatus.ACTIVE, ContractStatus.EXPIRED);
+            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.EXPIRED);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(
@@ -287,7 +288,7 @@ class ContractHistoryServiceTest {
                             .manager(Managers.builder().id(999L).build())
                             .build())
                     .modifiedBy(Users.builder().id(2L).build())
-                    .modificationDate(LocalDateTime.now())
+                    .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.CANCELLED)
                     .build();
@@ -322,12 +323,12 @@ class ContractHistoryServiceTest {
                     .id(1L)
                     .contract(Contracts.builder().id(1L).manager(manager).build())
                     .modifiedBy(Users.builder().id(2L).build())
-                    .modificationDate(LocalDateTime.now())
+                    .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.CANCELLED)
                     .build();
 
-            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.now(), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
+            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("manager1", null, List.of(() -> "ROLE_MANAGER"))

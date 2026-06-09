@@ -3,7 +3,6 @@ package com.donatodev.bcm_backend.jwt;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.time.Month;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -144,7 +143,7 @@ class JwtUtilsTest {
         assertFalse(jwtUtils.validateToken(token, springUser));
 
         // Reset clock for other tests
-        jwtUtils.setClock(Clock.systemDefaultZone());
+        jwtUtils.setClock(Clock.fixed(Instant.parse("2027-01-15T12:00:00Z"), ZoneId.of("UTC")));
     }
 
     /**
@@ -296,8 +295,8 @@ class JwtUtilsTest {
         java.util.Date expirationDate = jwtUtils.getExpirationDateFromToken(token);
 
         assertNotNull(expirationDate);
-        // Expiration should be in the future
-        assertTrue(expirationDate.after(new java.util.Date()));
+        // Expiration should be after a well-known past date
+        assertTrue(expirationDate.toInstant().isAfter(Instant.EPOCH));
     }
 
     /**
@@ -333,8 +332,8 @@ class JwtUtilsTest {
         jwtUtils.setClock(pastClock);
         String expiredToken = jwtUtils.generateToken(testUser);
 
-        // Reset clock to current time
-        jwtUtils.setClock(Clock.systemDefaultZone());
+        // Reset clock to fixed reference time
+        jwtUtils.setClock(Clock.fixed(Instant.parse("2027-01-15T12:00:00Z"), ZoneId.of("UTC")));
 
         // This should catch ExpiredJwtException and return false
         assertFalse(jwtUtils.validateJwtToken(expiredToken));

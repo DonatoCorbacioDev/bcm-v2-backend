@@ -73,7 +73,7 @@ class AuditLogServiceTest {
         void shouldReturnPageOfAuditLogs() {
             AuditLog log = AuditLog.builder()
                     .id(1L).action("UPDATE").entityType("Manager").entityId(5L)
-                    .username("admin").orgId(1L).timestamp(Instant.now())
+                    .username("admin").orgId(1L).timestamp(Instant.parse("2027-01-15T12:00:00Z"))
                     .details("ManagerService.updateManager").build();
 
             Pageable pageable = PageRequest.of(0, 20);

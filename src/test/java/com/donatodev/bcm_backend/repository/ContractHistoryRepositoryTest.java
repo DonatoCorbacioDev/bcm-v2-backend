@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.repository;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -87,8 +88,8 @@ class ContractHistoryRepositoryTest {
                 .projectName("Project")
                 .businessArea(area)
                 .manager(manager)
-                .startDate(LocalDate.now().minusMonths(1))
-                .endDate(LocalDate.now().plusMonths(6))
+                .startDate(LocalDate.of(2027, Month.MAY, 15))
+                .endDate(LocalDate.of(2027, Month.DECEMBER, 15))
                 .status(ContractStatus.ACTIVE)
                 .build());
     }

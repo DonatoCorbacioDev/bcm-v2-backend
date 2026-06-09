@@ -52,7 +52,7 @@ class RefreshTokenServiceTest {
         void shouldCreateRefreshToken() {
             Users user = Users.builder().username("testuser").build();
             RefreshToken saved = RefreshToken.builder().token("uuid-token").user(user)
-                    .expiryDate(Instant.now().plusSeconds(600)).build();
+                    .expiryDate(Instant.parse("2030-01-01T00:00:00Z")).build();
 
             when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(saved);
 
@@ -72,7 +72,7 @@ class RefreshTokenServiceTest {
             RefreshToken token = RefreshToken.builder()
                     .token("valid-token")
                     .user(user)
-                    .expiryDate(Instant.now().plusSeconds(600))
+                    .expiryDate(Instant.parse("2030-01-01T00:00:00Z"))
                     .revoked(false)
                     .build();
 
@@ -101,7 +101,7 @@ class RefreshTokenServiceTest {
             RefreshToken token = RefreshToken.builder()
                     .token("revoked-token")
                     .user(Users.builder().build())
-                    .expiryDate(Instant.now().plusSeconds(600))
+                    .expiryDate(Instant.parse("2030-01-01T00:00:00Z"))
                     .revoked(true)
                     .build();
 
@@ -118,7 +118,7 @@ class RefreshTokenServiceTest {
             RefreshToken token = RefreshToken.builder()
                     .token("expired-token")
                     .user(Users.builder().build())
-                    .expiryDate(Instant.now().minusSeconds(60))
+                    .expiryDate(Instant.parse("2020-01-01T00:00:00Z"))
                     .revoked(false)
                     .build();
 
@@ -138,7 +138,7 @@ class RefreshTokenServiceTest {
             RefreshToken token = RefreshToken.builder()
                     .token("to-revoke")
                     .user(Users.builder().build())
-                    .expiryDate(Instant.now().plusSeconds(600))
+                    .expiryDate(Instant.parse("2030-01-01T00:00:00Z"))
                     .revoked(false)
                     .build();
 

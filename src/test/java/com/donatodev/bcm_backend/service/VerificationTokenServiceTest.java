@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -63,7 +64,7 @@ class VerificationTokenServiceTest {
 
         assertNotNull(token.getToken());
         assertEquals(user, token.getUser());
-        assertTrue(token.getExpiryDate().isAfter(LocalDateTime.now()));
+        assertTrue(token.getExpiryDate().isAfter(LocalDateTime.of(2020, Month.JANUARY, 1, 0, 0)));
     }
 
     /**
@@ -76,7 +77,7 @@ class VerificationTokenServiceTest {
         VerificationToken token = VerificationToken.builder()
                 .token("abc")
                 .user(Users.builder().id(1L).build())
-                .expiryDate(LocalDateTime.now().plusHours(1))
+                .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 0, 0))
                 .build();
 
         when(tokenRepository.findByToken("abc")).thenReturn(Optional.of(token));

@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.repository;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -73,7 +74,7 @@ class PasswordResetTokenRepositoryTest {
         void shouldFindTokenByString() {
             PasswordResetToken token = passwordResetTokenRepository.save(PasswordResetToken.builder()
                     .token("reset-token-abc123")
-                    .expiryDate(LocalDateTime.now().plusHours(1))
+                    .expiryDate(LocalDateTime.of(2027, Month.JUNE, 15, 13, 0))
                     .user(user)
                     .build());
 
@@ -102,7 +103,7 @@ class PasswordResetTokenRepositoryTest {
         void shouldFindTokenByUser() {
             passwordResetTokenRepository.save(PasswordResetToken.builder()
                     .token("reset-token-xyz789")
-                    .expiryDate(LocalDateTime.now().plusHours(2))
+                    .expiryDate(LocalDateTime.of(2027, Month.JUNE, 15, 14, 0))
                     .user(user)
                     .build());
 

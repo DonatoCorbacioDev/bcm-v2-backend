@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -58,8 +59,8 @@ class AgentNotificationServiceTest {
             Contracts contract = Contracts.builder()
                     .id(1L).contractNumber("CNT-001").customerName("Client A")
                     .status(ContractStatus.ACTIVE)
-                    .startDate(LocalDate.now().minusMonths(6))
-                    .endDate(LocalDate.now().plusDays(20))
+                    .startDate(LocalDate.of(2026, Month.DECEMBER, 15))
+                    .endDate(LocalDate.of(2027, Month.JULY, 5))
                     .manager(manager).build();
 
             Users user = Users.builder().id(5L).username("mgr").organization(org).build();
@@ -78,7 +79,7 @@ class AgentNotificationServiceTest {
         void shouldSkipWhenContractHasNoManager() {
             Contracts contract = Contracts.builder()
                     .id(1L).contractNumber("CNT-002")
-                    .endDate(LocalDate.now().plusDays(15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 30))
                     .manager(null).build();
 
             agentNotificationService.notifyExpiringContract(contract);
@@ -96,7 +97,7 @@ class AgentNotificationServiceTest {
 
             Contracts contract = Contracts.builder()
                     .id(1L).contractNumber("CNT-003")
-                    .endDate(LocalDate.now().plusDays(10))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 25))
                     .manager(manager).build();
 
             agentNotificationService.notifyExpiringContract(contract);
@@ -114,7 +115,7 @@ class AgentNotificationServiceTest {
 
             Contracts contract = Contracts.builder()
                     .id(1L).contractNumber("CNT-004")
-                    .endDate(LocalDate.now().plusDays(10))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 25))
                     .manager(manager).build();
 
             Users user = Users.builder().id(5L).username("orphan").organization(null).build();
@@ -138,7 +139,7 @@ class AgentNotificationServiceTest {
             Contracts contract = Contracts.builder()
                     .id(1L).contractNumber("CNT-RISK-001")
                     .customerName("Risky Client")
-                    .endDate(LocalDate.now().plusMonths(3))
+                    .endDate(LocalDate.of(2027, Month.SEPTEMBER, 15))
                     .manager(manager).build();
 
             Users user = Users.builder().id(5L).username("mgr").organization(org).build();

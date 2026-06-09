@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -73,11 +74,13 @@ class ContractSchedulerServiceTest {
     @SuppressWarnings("unused")
     class VerifyContractScheduler {
 
+        private static final LocalDate TODAY = LocalDate.of(2027, Month.JUNE, 15);
+
         @Test
         @Order(1)
         @DisplayName("Should expire overdue contracts")
         void shouldExpireOverdueContracts() {
-            LocalDate today = LocalDate.now();
+            LocalDate today = TODAY;
 
             Contracts overdueContract1 = Contracts.builder()
                     .id(1L).contractNumber("CNT-001").customerName("Client A")
@@ -131,7 +134,7 @@ class ContractSchedulerServiceTest {
         @Order(4)
         @DisplayName("Should create history record with correct data")
         void shouldCreateHistoryRecordWithCorrectData() {
-            LocalDate today = LocalDate.now();
+            LocalDate today = TODAY;
 
             Contracts overdueContract = Contracts.builder()
                     .id(1L).contractNumber("CNT-004").customerName("Client D")
@@ -163,7 +166,7 @@ class ContractSchedulerServiceTest {
         @Order(5)
         @DisplayName("Should handle missing admin user gracefully")
         void shouldHandleMissingSystemUser() {
-            LocalDate today = LocalDate.now();
+            LocalDate today = TODAY;
 
             Contracts overdueContract = Contracts.builder()
                     .id(1L).contractNumber("CNT-005").customerName("Client E")
@@ -187,7 +190,7 @@ class ContractSchedulerServiceTest {
         @Order(6)
         @DisplayName("Should expire only the overdue contract returned by the DB query")
         void shouldHandleMixedContractDates() {
-            LocalDate today = LocalDate.now();
+            LocalDate today = TODAY;
 
             Contracts overdueContract = Contracts.builder()
                     .id(1L).contractNumber("CNT-008")
@@ -217,7 +220,7 @@ class ContractSchedulerServiceTest {
         @DisplayName("Should send expiration notifications for contracts expiring in 20 days")
         void shouldSendExpirationNotifications() {
             // Given: Contract expiring in 20 days with manager
-            LocalDate today = LocalDate.now();
+            LocalDate today = TODAY;
             LocalDate expiringDate = today.plusDays(20);
 
             Managers manager = new Managers();
@@ -261,7 +264,7 @@ class ContractSchedulerServiceTest {
         @DisplayName("Should not send notification when contract has no manager")
         void shouldNotSendNotificationWhenContractHasNoManager() {
             // Given: Contract without manager
-            LocalDate today = LocalDate.now();
+            LocalDate today = TODAY;
 
             Contracts contractWithoutManager = new Contracts();
             contractWithoutManager.setId(1L);
@@ -286,7 +289,7 @@ class ContractSchedulerServiceTest {
         @DisplayName("Should not send notification when manager has no email")
         void shouldNotSendNotificationWhenManagerHasNoEmail() {
             // Given: Contract with manager but no email
-            LocalDate today = LocalDate.now();
+            LocalDate today = TODAY;
 
             Managers managerWithoutEmail = new Managers();
             managerWithoutEmail.setId(1L);
@@ -317,7 +320,7 @@ class ContractSchedulerServiceTest {
         @DisplayName("Should not send notification when email sending fails")
         void shouldHandleEmailSendingException() {
             // Given: Email service throws exception
-            LocalDate today = LocalDate.now();
+            LocalDate today = TODAY;
 
             Managers manager = new Managers();
             manager.setId(1L);
@@ -354,7 +357,7 @@ class ContractSchedulerServiceTest {
         @DisplayName("Should send multiple notifications for multiple contracts")
         void shouldSendMultipleNotificationsForMultipleContracts() {
             // Given: Multiple contracts expiring
-            LocalDate today = LocalDate.now();
+            LocalDate today = TODAY;
 
             Managers manager1 = new Managers();
             manager1.setId(1L);
@@ -388,7 +391,7 @@ class ContractSchedulerServiceTest {
         @Order(14)
         @DisplayName("Should send notification for contract with null project name")
         void shouldSendNotificationWhenProjectNameIsNull() {
-            LocalDate today = LocalDate.now();
+            LocalDate today = TODAY;
 
             Managers manager = new Managers();
             manager.setId(1L);
@@ -423,7 +426,7 @@ class ContractSchedulerServiceTest {
             contract.setCustomerName("Customer " + id);
             contract.setProjectName("Project " + id);
             contract.setStatus(ContractStatus.ACTIVE);
-            contract.setStartDate(LocalDate.now().minusMonths(6));
+            contract.setStartDate(LocalDate.of(2026, Month.DECEMBER, 15));
             contract.setEndDate(endDate);
             contract.setManager(manager);
             return contract;

@@ -75,7 +75,7 @@ class ContractDocumentServiceTest {
         doc.setFileName("contract.pdf");
         doc.setFileSize((long) VALID_PDF.length);
         doc.setContentType("application/pdf");
-        doc.setUploadedAt(Instant.now());
+        doc.setUploadedAt(Instant.parse("2027-01-15T12:00:00Z"));
         return doc;
     }
 

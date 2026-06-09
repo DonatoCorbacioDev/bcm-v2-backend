@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.repository;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -21,6 +22,8 @@ import com.donatodev.bcm_backend.entity.Managers;
 @DataJpaTest
 @ActiveProfiles("test")
 class ContractsRepositoryTest {
+
+    private static final LocalDate TODAY = LocalDate.of(2027, Month.JUNE, 15);
 
     @Autowired
     private ContractsRepository contractsRepository;
@@ -77,9 +80,9 @@ class ContractsRepositoryTest {
         @DisplayName("Should return contracts matching the given status")
         void shouldReturnContractsByStatus() {
             contractsRepository.save(buildContract("CN-001", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusMonths(6)));
+                    TODAY.minusMonths(1), TODAY.plusMonths(6)));
             contractsRepository.save(buildContract("CN-002", ContractStatus.EXPIRED, manager,
-                    LocalDate.now().minusMonths(6), LocalDate.now().minusDays(1)));
+                    TODAY.minusMonths(6), TODAY.minusDays(1)));
 
             List<Contracts> active = contractsRepository.findByStatus(ContractStatus.ACTIVE);
 
@@ -91,7 +94,7 @@ class ContractsRepositoryTest {
         @DisplayName("Should return empty list when no contracts match status")
         void shouldReturnEmptyListWhenNoMatch() {
             contractsRepository.save(buildContract("CN-003", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusMonths(6)));
+                    TODAY.minusMonths(1), TODAY.plusMonths(6)));
 
             List<Contracts> cancelled = contractsRepository.findByStatus(ContractStatus.CANCELLED);
 
@@ -115,9 +118,9 @@ class ContractsRepositoryTest {
                     .build());
 
             contractsRepository.save(buildContract("CN-004", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusMonths(6)));
+                    TODAY.minusMonths(1), TODAY.plusMonths(6)));
             contractsRepository.save(buildContract("CN-005", ContractStatus.ACTIVE, anotherManager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusMonths(6)));
+                    TODAY.minusMonths(1), TODAY.plusMonths(6)));
 
             List<Contracts> result = contractsRepository.findByManagerId(manager.getId());
 
@@ -134,9 +137,9 @@ class ContractsRepositoryTest {
         @DisplayName("Should return contracts matching both managerId and status")
         void shouldReturnContractsByManagerIdAndStatus() {
             contractsRepository.save(buildContract("CN-006", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusMonths(6)));
+                    TODAY.minusMonths(1), TODAY.plusMonths(6)));
             contractsRepository.save(buildContract("CN-007", ContractStatus.EXPIRED, manager,
-                    LocalDate.now().minusMonths(6), LocalDate.now().minusDays(1)));
+                    TODAY.minusMonths(6), TODAY.minusDays(1)));
 
             List<Contracts> result = contractsRepository.findByManagerIdAndStatus(manager.getId(), ContractStatus.ACTIVE);
 
@@ -153,9 +156,9 @@ class ContractsRepositoryTest {
         @DisplayName("Should count all contracts")
         void shouldCountAllContracts() {
             contractsRepository.save(buildContract("CN-010", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusMonths(6)));
+                    TODAY.minusMonths(1), TODAY.plusMonths(6)));
             contractsRepository.save(buildContract("CN-011", ContractStatus.EXPIRED, manager,
-                    LocalDate.now().minusMonths(6), LocalDate.now().minusDays(1)));
+                    TODAY.minusMonths(6), TODAY.minusDays(1)));
 
             int count = contractsRepository.countAllContracts();
 
@@ -166,9 +169,9 @@ class ContractsRepositoryTest {
         @DisplayName("Should count only ACTIVE contracts")
         void shouldCountActiveContracts() {
             contractsRepository.save(buildContract("CN-012", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusMonths(6)));
+                    TODAY.minusMonths(1), TODAY.plusMonths(6)));
             contractsRepository.save(buildContract("CN-013", ContractStatus.EXPIRED, manager,
-                    LocalDate.now().minusMonths(6), LocalDate.now().minusDays(1)));
+                    TODAY.minusMonths(6), TODAY.minusDays(1)));
 
             int count = contractsRepository.countActiveContracts();
 
@@ -179,11 +182,11 @@ class ContractsRepositoryTest {
         @DisplayName("Should count only EXPIRED contracts")
         void shouldCountExpiredContracts() {
             contractsRepository.save(buildContract("CN-014", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusMonths(6)));
+                    TODAY.minusMonths(1), TODAY.plusMonths(6)));
             contractsRepository.save(buildContract("CN-015", ContractStatus.EXPIRED, manager,
-                    LocalDate.now().minusMonths(6), LocalDate.now().minusDays(1)));
+                    TODAY.minusMonths(6), TODAY.minusDays(1)));
             contractsRepository.save(buildContract("CN-016", ContractStatus.EXPIRED, manager,
-                    LocalDate.now().minusMonths(3), LocalDate.now().minusDays(5)));
+                    TODAY.minusMonths(3), TODAY.minusDays(5)));
 
             int count = contractsRepository.countExpiredContracts();
 
@@ -194,11 +197,11 @@ class ContractsRepositoryTest {
         @DisplayName("Should count ACTIVE contracts expiring within window")
         void shouldCountExpiringContracts() {
             contractsRepository.save(buildContract("CN-017", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusDays(10)));
+                    TODAY.minusMonths(1), TODAY.plusDays(10)));
             contractsRepository.save(buildContract("CN-018", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusDays(60)));
+                    TODAY.minusMonths(1), TODAY.plusDays(60)));
 
-            int count = contractsRepository.countExpiringContracts(LocalDate.now().plusDays(30));
+            int count = contractsRepository.countExpiringContracts(TODAY.plusDays(30));
 
             assertEquals(1, count);
         }
@@ -211,7 +214,7 @@ class ContractsRepositoryTest {
         @Test
         @DisplayName("Should return ACTIVE contracts expiring within the given date range")
         void shouldReturnExpiringContracts() {
-            LocalDate today = LocalDate.now();
+            LocalDate today = TODAY;
             contractsRepository.save(buildContract("CN-020", ContractStatus.ACTIVE, manager,
                     today.minusMonths(1), today.plusDays(15)));
             contractsRepository.save(buildContract("CN-021", ContractStatus.ACTIVE, manager,
@@ -229,10 +232,10 @@ class ContractsRepositoryTest {
         @DisplayName("Should return empty list when no contracts are expiring soon")
         void shouldReturnEmptyWhenNoExpiringContracts() {
             contractsRepository.save(buildContract("CN-023", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusDays(90)));
+                    TODAY.minusMonths(1), TODAY.plusDays(90)));
 
             List<Contracts> expiring = contractsRepository.findExpiringContracts(
-                    LocalDate.now(), LocalDate.now().plusDays(30));
+                    TODAY, TODAY.plusDays(30));
 
             assertTrue(expiring.isEmpty());
         }
@@ -245,13 +248,13 @@ class ContractsRepositoryTest {
         @Test
         @DisplayName("Should return contracts matching status and date range")
         void shouldReturnContractsByStatusAndDateRange() {
-            LocalDate start = LocalDate.now().minusDays(5);
-            LocalDate end = LocalDate.now().plusDays(5);
+            LocalDate start = TODAY.minusDays(5);
+            LocalDate end = TODAY.plusDays(5);
 
             contractsRepository.save(buildContract("CN-030", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now()));
+                    TODAY.minusMonths(1), TODAY));
             contractsRepository.save(buildContract("CN-031", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusDays(60)));
+                    TODAY.minusMonths(1), TODAY.plusDays(60)));
 
             List<Contracts> result = contractsRepository.findByStatusAndEndDateBetween(
                     ContractStatus.ACTIVE, start, end);
@@ -269,12 +272,12 @@ class ContractsRepositoryTest {
         @DisplayName("Should return ACTIVE contracts with end date before the given date")
         void shouldReturnContractsEndingBeforeDate() {
             contractsRepository.save(buildContract("CN-040", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(3), LocalDate.now().minusDays(1)));
+                    TODAY.minusMonths(3), TODAY.minusDays(1)));
             contractsRepository.save(buildContract("CN-041", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusDays(30)));
+                    TODAY.minusMonths(1), TODAY.plusDays(30)));
 
             List<Contracts> result = contractsRepository.findByStatusAndEndDateBefore(
-                    ContractStatus.ACTIVE, LocalDate.now());
+                    ContractStatus.ACTIVE, TODAY);
 
             assertEquals(1, result.size());
             assertEquals("CN-040", result.get(0).getContractNumber());
@@ -284,10 +287,10 @@ class ContractsRepositoryTest {
         @DisplayName("Should return empty list when no contracts match")
         void shouldReturnEmptyWhenNoMatch() {
             contractsRepository.save(buildContract("CN-042", ContractStatus.ACTIVE, manager,
-                    LocalDate.now().minusMonths(1), LocalDate.now().plusDays(30)));
+                    TODAY.minusMonths(1), TODAY.plusDays(30)));
 
             List<Contracts> result = contractsRepository.findByStatusAndEndDateBefore(
-                    ContractStatus.ACTIVE, LocalDate.now());
+                    ContractStatus.ACTIVE, TODAY);
 
             assertTrue(result.isEmpty());
         }

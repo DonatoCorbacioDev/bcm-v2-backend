@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 
@@ -574,7 +575,7 @@ class UserServiceTest {
                     .username("inviteduser")
                     .role("MANAGER")
                     .managerId(1L)
-                    .expiryDate(LocalDateTime.now().plusHours(24))
+                    .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .used(false)
                     .build();
 
@@ -617,7 +618,7 @@ class UserServiceTest {
                     .token("used-token")
                     .username("user")
                     .used(true)
-                    .expiryDate(LocalDateTime.now().plusHours(24))
+                    .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .build();
 
             when(inviteTokenRepository.findByToken("used-token")).thenReturn(Optional.of(usedToken));
@@ -639,7 +640,7 @@ class UserServiceTest {
                     .token("expired-token")
                     .username("user")
                     .used(false)
-                    .expiryDate(LocalDateTime.now().minusHours(1))
+                    .expiryDate(LocalDateTime.of(2020, Month.JANUARY, 1, 12, 0))
                     .build();
 
             when(inviteTokenRepository.findByToken("expired-token")).thenReturn(Optional.of(expiredToken));
@@ -662,7 +663,7 @@ class UserServiceTest {
                     .token("token")
                     .username("existinguser")
                     .used(false)
-                    .expiryDate(LocalDateTime.now().plusHours(24))
+                    .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .build();
 
             when(inviteTokenRepository.findByToken("token")).thenReturn(Optional.of(inviteToken));
@@ -687,7 +688,7 @@ class UserServiceTest {
                     .username("newuser")
                     .managerId(1L)
                     .used(false)
-                    .expiryDate(LocalDateTime.now().plusHours(24))
+                    .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .build();
 
             when(inviteTokenRepository.findByToken("token")).thenReturn(Optional.of(inviteToken));
@@ -1222,7 +1223,7 @@ class UserServiceTest {
                     .username("newuser")
                     .role("MANAGER")
                     .managerId(999L)
-                    .expiryDate(LocalDateTime.now().plusHours(24))
+                    .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .used(false)
                     .build();
 
@@ -1254,7 +1255,7 @@ class UserServiceTest {
                     .username("newuser")
                     .role("INVALIDROLE")
                     .managerId(1L)
-                    .expiryDate(LocalDateTime.now().plusHours(24))
+                    .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .used(false)
                     .build();
 
