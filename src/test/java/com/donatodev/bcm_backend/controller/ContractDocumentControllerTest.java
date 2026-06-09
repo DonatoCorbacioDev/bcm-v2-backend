@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.controller;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
@@ -72,7 +73,7 @@ class ContractDocumentControllerTest {
 
     private ContractDocumentDTO sampleDocDTO(Long contractId) {
         return new ContractDocumentDTO(1L, contractId, "contract.pdf", 1024L,
-                "application/pdf", Instant.now(),
+                "application/pdf", Instant.parse("2027-01-15T12:00:00Z"),
                 "http://localhost:8090/api/v1/contracts/" + contractId + "/documents/1/download");
     }
 
@@ -95,7 +96,7 @@ class ContractDocumentControllerTest {
 
         Contracts contract = contractsRepository.save(Contracts.builder()
                 .customerName("Acme").contractNumber("CTR-001")
-                .businessArea(area).startDate(LocalDate.now())
+                .businessArea(area).startDate(LocalDate.of(2027, Month.JUNE, 15))
                 .status(ContractStatus.ACTIVE).build());
 
         contractId = contract.getId();

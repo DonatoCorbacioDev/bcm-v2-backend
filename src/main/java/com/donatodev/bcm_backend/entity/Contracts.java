@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.entity;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -109,7 +110,7 @@ public class Contracts {
      */
     @Column(name = "created_at", updatable = false)
     @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt = LocalDateTime.now(ZoneId.systemDefault());
 
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "organization_id")

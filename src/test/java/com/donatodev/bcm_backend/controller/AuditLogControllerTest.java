@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
 import java.time.Instant;
+import java.time.Month;
 
 import static org.hamcrest.Matchers.hasSize;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,7 +54,7 @@ class AuditLogControllerTest {
         void shouldReturnAuditLogsForAdmin() throws Exception {
             auditLogRepository.save(AuditLog.builder()
                     .action("CREATE").entityType("Contract").entityId(1L)
-                    .username("admin").orgId(1L).timestamp(Instant.now())
+                    .username("admin").orgId(1L).timestamp(Instant.parse("2027-01-15T12:00:00Z"))
                     .details("ContractService.createContract").build());
 
             mockMvc.perform(get("/audit-logs"))
@@ -99,7 +100,7 @@ class AuditLogControllerTest {
             for (int i = 1; i <= 5; i++) {
                 auditLogRepository.save(AuditLog.builder()
                         .action("DELETE").entityType("Manager").entityId((long) i)
-                        .username("admin").orgId(1L).timestamp(Instant.now())
+                        .username("admin").orgId(1L).timestamp(Instant.parse("2027-01-15T12:00:00Z"))
                         .details("ManagerService.deleteManager").build());
             }
 

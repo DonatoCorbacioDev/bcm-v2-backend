@@ -3,6 +3,7 @@ package com.donatodev.bcm_backend.service;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 
@@ -172,7 +173,7 @@ public class ContractService {
             ContractHistory history = new ContractHistory();
             history.setContract(contract);
             history.setModifiedBy(user);
-            history.setModificationDate(LocalDateTime.now());
+            history.setModificationDate(LocalDateTime.now(ZoneId.systemDefault()));
             history.setPreviousStatus(previousStatus);
             history.setNewStatus(contract.getStatus());
 
@@ -194,7 +195,7 @@ public class ContractService {
      */
     public ContractStatsResponse getContractStats() {
         Long orgId = TenantContext.get();
-        LocalDate thirtyDaysFromNow = LocalDate.now().plusDays(30);
+        LocalDate thirtyDaysFromNow = LocalDate.now(ZoneId.systemDefault()).plusDays(30);
         int total;
         int active;
         int expiring;
@@ -223,7 +224,7 @@ public class ContractService {
      * ordered by end date
      */
     public List<ContractDTO> getExpiringContracts(int days) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
         LocalDate futureDate = today.plusDays(days);
         Long orgId = TenantContext.get();
 
@@ -347,7 +348,7 @@ public class ContractService {
      * @return list of months with contract counts
      */
     public List<ContractsTimelineDTO> getContractsTimeline() {
-        LocalDateTime sixMonthsAgo = LocalDateTime.now().minusMonths(6);
+        LocalDateTime sixMonthsAgo = LocalDateTime.now(ZoneId.systemDefault()).minusMonths(6);
         Long orgId = TenantContext.get();
         List<Object[]> results = (orgId != null)
                 ? contractsRepository.countContractsByMonthAndOrg(sixMonthsAgo, orgId)

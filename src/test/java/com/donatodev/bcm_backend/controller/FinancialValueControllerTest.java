@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
 import java.time.LocalDate;
+import java.time.Month;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -146,7 +147,7 @@ class FinancialValueControllerTest {
                 .contractNumber("CONTRACT-" + System.currentTimeMillis())
                 .businessArea(area)
                 .manager(manager)
-                .startDate(LocalDate.now())
+                .startDate(LocalDate.of(2027, Month.JUNE, 15))
                 .status(ContractStatus.ACTIVE)
                 .build());
     }
@@ -365,8 +366,8 @@ class FinancialValueControllerTest {
                     .wbsCode("WBS")
                     .projectName("Project")
                     .status(ContractStatus.ACTIVE)
-                    .startDate(LocalDate.now())
-                    .endDate(LocalDate.now().plusDays(30))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .businessArea(area)
                     .manager(manager)
                     .build());

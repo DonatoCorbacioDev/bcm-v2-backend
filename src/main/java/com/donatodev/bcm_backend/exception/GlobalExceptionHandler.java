@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.exception;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -155,7 +156,7 @@ public class GlobalExceptionHandler {
         ApiErrorResponse response = new ApiErrorResponse(
                 status.value(),
                 message,
-                LocalDateTime.now()
+                LocalDateTime.now(ZoneId.systemDefault())
         );
         return ResponseEntity.status(status).body(response);
     }

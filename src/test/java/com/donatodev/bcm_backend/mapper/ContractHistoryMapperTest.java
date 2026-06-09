@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.mapper;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,7 +51,7 @@ class ContractHistoryMapperTest {
                 .id(100L)
                 .contract(contract)
                 .modifiedBy(user)
-                .modificationDate(LocalDateTime.of(2024, 5, 5, 12, 0))
+                .modificationDate(LocalDateTime.of(2024, Month.MAY, 5, 12, 0))
                 .previousStatus(ContractStatus.ACTIVE)
                 .newStatus(ContractStatus.CANCELLED)
                 .build();
@@ -60,7 +61,7 @@ class ContractHistoryMapperTest {
         assertEquals(100L, dto.id());
         assertEquals(1L, dto.contractId());
         assertEquals(2L, dto.modifiedById());
-        assertEquals(LocalDateTime.of(2024, 5, 5, 12, 0), dto.modificationDate());
+        assertEquals(LocalDateTime.of(2024, Month.MAY, 5, 12, 0), dto.modificationDate());
         assertEquals(ContractStatus.ACTIVE, dto.previousStatus());
         assertEquals(ContractStatus.CANCELLED, dto.newStatus());
     }
@@ -69,7 +70,7 @@ class ContractHistoryMapperTest {
     void shouldConvertToEntity() {
         ContractHistoryDTO dto = new ContractHistoryDTO(
                 100L, 1L, 2L,
-                LocalDateTime.of(2024, 5, 5, 12, 0),
+                LocalDateTime.of(2024, Month.MAY, 5, 12, 0),
                 ContractStatus.EXPIRED,
                 ContractStatus.ACTIVE
         );
@@ -82,7 +83,7 @@ class ContractHistoryMapperTest {
         assertEquals(100L, entity.getId());
         assertEquals(contract, entity.getContract());
         assertEquals(user, entity.getModifiedBy());
-        assertEquals(LocalDateTime.of(2024, 5, 5, 12, 0), entity.getModificationDate());
+        assertEquals(LocalDateTime.of(2024, Month.MAY, 5, 12, 0), entity.getModificationDate());
         assertEquals(ContractStatus.EXPIRED, entity.getPreviousStatus());
         assertEquals(ContractStatus.ACTIVE, entity.getNewStatus());
     }
@@ -108,7 +109,7 @@ class ContractHistoryMapperTest {
     void shouldThrowIfContractNotFound() {
         ContractHistoryDTO dto = new ContractHistoryDTO(
                 100L, 99L, 2L,
-                LocalDateTime.now(),
+                LocalDateTime.of(2027, Month.JUNE, 15, 12, 0),
                 ContractStatus.CANCELLED,
                 ContractStatus.ACTIVE
         );
@@ -123,7 +124,7 @@ class ContractHistoryMapperTest {
     void shouldThrowIfUserNotFound() {
         ContractHistoryDTO dto = new ContractHistoryDTO(
                 100L, 1L, 99L,
-                LocalDateTime.now(),
+                LocalDateTime.of(2027, Month.JUNE, 15, 12, 0),
                 ContractStatus.CANCELLED,
                 ContractStatus.ACTIVE
         );

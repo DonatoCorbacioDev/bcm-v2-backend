@@ -3,6 +3,7 @@ package com.donatodev.bcm_backend.jwt;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.Month;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -132,7 +133,7 @@ class JwtUtilsTest {
 
         // Move clock forward beyond expiration (default is usually 86400000ms = 24h)
         Clock futureClock = Clock.fixed(
-                Instant.now().plusMillis(86400001), // More than 24 hours
+                Instant.parse("2030-01-01T00:00:00Z"), // Far future — beyond any token's expiry
                 ZoneId.systemDefault()
         );
 
@@ -324,7 +325,7 @@ class JwtUtilsTest {
     void shouldHandleExpiredTokenInValidateJwtTokenString() {
         // Create a clock set in the past to generate an already-expired token
         Clock pastClock = Clock.fixed(
-                Instant.now().minusSeconds(86500), // More than 24 hours ago
+                Instant.parse("2020-01-15T12:00:00Z").minusSeconds(86500), // More than 24 hours ago
                 ZoneId.systemDefault()
         );
 

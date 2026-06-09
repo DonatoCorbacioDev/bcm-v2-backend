@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -72,7 +73,7 @@ public class ContractSchedulerService {
     public void sendExpirationNotifications() {
         logger.info("Starting contract expiration notifications check...");
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
         LocalDate thirtyDaysFromNow = today.plusDays(30);
 
         // Find active contracts expiring in the next 30 days
@@ -129,7 +130,7 @@ public class ContractSchedulerService {
     private void performExpirationCheck() {
         logger.info("Starting automatic contract expiration check...");
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
         List<Contracts> overdueContracts = contractsRepository.findByStatusAndEndDateBefore(
                 ContractStatus.ACTIVE, today);
 
@@ -157,7 +158,7 @@ public class ContractSchedulerService {
      * Sends expiration notification email to manager.
      */
     private void sendExpirationEmail(Contracts contract, Managers manager) {
-        long daysUntilExpiration = ChronoUnit.DAYS.between(LocalDate.now(), contract.getEndDate());
+        long daysUntilExpiration = ChronoUnit.DAYS.between(LocalDate.now(ZoneId.systemDefault()), contract.getEndDate());
 
         String subject = String.format("⚠️ Contract Expiring Soon: %s", contract.getContractNumber());
 
@@ -215,7 +216,7 @@ public class ContractSchedulerService {
             ContractHistory history = new ContractHistory();
             history.setContract(contract);
             history.setModifiedBy(systemUser);
-            history.setModificationDate(LocalDateTime.now());
+            history.setModificationDate(LocalDateTime.now(ZoneId.systemDefault()));
             history.setPreviousStatus(previousStatus);
             history.setNewStatus(ContractStatus.EXPIRED);
 

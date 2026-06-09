@@ -60,7 +60,7 @@ public class ContractHistoryMapper {
                         .orElseThrow(() -> new ContractNotFoundException("Contract not found")))
                 .modifiedBy(usersRepository.findById(dto.modifiedById())
                         .orElseThrow(() -> new UserNotFoundException("User not found")))
-                .modificationDate(dto.modificationDate() != null ? dto.modificationDate() : java.time.LocalDateTime.now())
+                .modificationDate(dto.modificationDate() != null ? dto.modificationDate() : java.time.LocalDateTime.now(java.time.ZoneId.systemDefault()))
                 .previousStatus(dto.previousStatus())
                 .newStatus(dto.newStatus())
                 .build();

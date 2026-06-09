@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Collections;
 import java.util.List;
 
@@ -65,7 +66,7 @@ class NotificationControllerTest {
         void shouldReturn200WithNotifications() throws Exception {
             NotificationDTO dto = new NotificationDTO(
                     1L, "Test Title", "Test Message",
-                    NotificationType.WARNING, false, LocalDateTime.now());
+                    NotificationType.WARNING, false, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0));
 
             when(notificationService.getForCurrentUser()).thenReturn(List.of(dto));
 

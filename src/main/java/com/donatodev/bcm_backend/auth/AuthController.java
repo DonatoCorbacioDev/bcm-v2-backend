@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.auth;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -75,7 +76,7 @@ public class AuthController {
         try {
             VerificationToken verificationToken = verificationTokenService.getByToken(token);
 
-            if (verificationToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            if (verificationToken.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.systemDefault()))) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body("Verification token expired. Please register again.");
             }
@@ -165,7 +166,7 @@ public class AuthController {
         try {
             PasswordResetToken token = passwordResetTokenService.getByToken(request.token());
 
-            if (token.getExpiryDate().isBefore(LocalDateTime.now())) {
+            if (token.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.systemDefault()))) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token expired.");
             }
 

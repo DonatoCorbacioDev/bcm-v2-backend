@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.auth;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Collections;
 
 import static org.hamcrest.Matchers.containsString;
@@ -140,7 +141,7 @@ class AuthControllerTest {
 
         verificationTokenRepository.save(VerificationToken.builder()
                 .token("verify-token").user(user)
-                .expiryDate(LocalDateTime.now().plusHours(1)).build());
+                .expiryDate(LocalDateTime.of(2030, Month.JANUARY, 1, 12, 0)).build());
 
         mockMvc.perform(get("/auth/verify?token=verify-token"))
                 .andExpect(status().isOk())
@@ -208,7 +209,7 @@ class AuthControllerTest {
 
         passwordResetTokenRepository.save(PasswordResetToken.builder()
                 .token("reset-token").user(user)
-                .expiryDate(LocalDateTime.now().plusHours(1)).build());
+                .expiryDate(LocalDateTime.of(2030, Month.JANUARY, 1, 12, 0)).build());
 
         ResetPasswordRequestDTO req = new ResetPasswordRequestDTO("reset-token", "newpwd");
 
@@ -250,7 +251,7 @@ class AuthControllerTest {
 
         verificationTokenRepository.save(VerificationToken.builder()
                 .token("expired-verify-token").user(user)
-                .expiryDate(LocalDateTime.now().minusMinutes(1)).build());
+                .expiryDate(LocalDateTime.of(2020, Month.JANUARY, 1, 12, 0)).build());
 
         mockMvc.perform(get("/auth/verify?token=expired-verify-token"))
                 .andExpect(status().isBadRequest())
@@ -270,7 +271,7 @@ class AuthControllerTest {
 
         passwordResetTokenRepository.save(PasswordResetToken.builder()
                 .token("expired-reset-token").user(user)
-                .expiryDate(LocalDateTime.now().minusMinutes(1)).build());
+                .expiryDate(LocalDateTime.of(2020, Month.JANUARY, 1, 12, 0)).build());
 
         ResetPasswordRequestDTO req = new ResetPasswordRequestDTO("expired-reset-token", "newpwd");
 
@@ -588,7 +589,7 @@ class AuthControllerTest {
         inviteToken.setUsername("inviteduser");
         inviteToken.setRole("MANAGER");
         inviteToken.setManagerId(managerId);
-        inviteToken.setExpiryDate(LocalDateTime.now().plusHours(24));
+        inviteToken.setExpiryDate(LocalDateTime.of(2030, Month.JANUARY, 1, 12, 0));
         inviteToken.setUsed(false);
         inviteTokenRepository.save(inviteToken);
 

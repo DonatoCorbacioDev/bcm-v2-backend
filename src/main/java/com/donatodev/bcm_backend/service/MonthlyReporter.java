@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDate;
 import java.time.format.TextStyle;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 
@@ -47,7 +48,7 @@ public class MonthlyReporter {
     @Scheduled(cron = "0 0 8 1 * *")
     @Transactional(readOnly = true)
     public void sendMonthlyReports() {
-        LocalDate lastMonth = LocalDate.now().minusMonths(1);
+        LocalDate lastMonth = LocalDate.now(ZoneId.systemDefault()).minusMonths(1);
         int year = lastMonth.getYear();
         int month = lastMonth.getMonthValue();
 

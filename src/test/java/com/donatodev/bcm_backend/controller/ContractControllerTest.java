@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.controller;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.Month;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -150,7 +151,7 @@ class ContractControllerTest {
                     .name("Operations").description("Ops").build());
 
             ContractDTO dto = new ContractDTO(null, "Client 1", "CNTR-TEST-1", "WBS-001", "Project X",
-                    ContractStatus.ACTIVE, LocalDate.of(2025, 5, 1), LocalDate.of(2026, 5, 1),
+                    ContractStatus.ACTIVE, LocalDate.of(2025, Month.MAY, 1), LocalDate.of(2026, Month.MAY, 1),
                     area.getId(), manager.getId(), null, null, null, null);
 
             mockMvc.perform(post("/contracts")
@@ -191,7 +192,7 @@ class ContractControllerTest {
 
             ContractDTO dto = new ContractDTO(null, "Client A", "CNTR-GET-ALL", "WBS-GET",
                     "Project Get", ContractStatus.ACTIVE,
-                    LocalDate.of(2025, 6, 1), LocalDate.of(2026, 6, 1),
+                    LocalDate.of(2025, Month.JUNE, 1), LocalDate.of(2026, Month.JUNE, 1),
                     area.getId(), manager.getId(), null, null, null, null);
 
             mockMvc.perform(post("/contracts")
@@ -222,7 +223,7 @@ class ContractControllerTest {
             Contracts contract = contractsRepository.save(Contracts.builder()
                     .customerName("Client B").contractNumber("CNTR-TEST-3").wbsCode("WBS-003")
                     .projectName("Project B").businessArea(area).manager(manager)
-                    .startDate(LocalDate.of(2025, 7, 1)).endDate(LocalDate.of(2026, 7, 1))
+                    .startDate(LocalDate.of(2025, Month.JULY, 1)).endDate(LocalDate.of(2026, Month.JULY, 1))
                     .status(ContractStatus.ACTIVE).build());
 
             mockMvc.perform(get("/contracts/{id}", contract.getId()))
@@ -257,12 +258,12 @@ class ContractControllerTest {
             Contracts original = contractsRepository.save(Contracts.builder()
                     .customerName("Client Old").contractNumber("CNTR-TEST-4").wbsCode("WBS-OLD")
                     .projectName("Old Project").businessArea(area).manager(manager)
-                    .startDate(LocalDate.of(2025, 1, 1)).endDate(LocalDate.of(2025, 12, 31))
+                    .startDate(LocalDate.of(2025, Month.JANUARY, 1)).endDate(LocalDate.of(2025, Month.DECEMBER, 31))
                     .status(ContractStatus.ACTIVE).build());
 
             ContractDTO updated = new ContractDTO(original.getId(), "Client Updated", "CNTR-TEST-4", "WBS-NEW",
                     "Updated Project", ContractStatus.EXPIRED,
-                    LocalDate.of(2025, 2, 1), LocalDate.of(2025, 11, 30),
+                    LocalDate.of(2025, Month.FEBRUARY, 1), LocalDate.of(2025, Month.NOVEMBER, 30),
                     area.getId(), manager.getId(), null, null, null, null);
 
             mockMvc.perform(put("/contracts/{id}", original.getId())
@@ -291,7 +292,7 @@ class ContractControllerTest {
             Contracts contract = contractsRepository.save(Contracts.builder()
                     .customerName("To Delete").contractNumber("CNTR-TEST-5").wbsCode("WBS-DEL")
                     .projectName("To be deleted").businessArea(area).manager(manager)
-                    .startDate(LocalDate.of(2025, 3, 1)).endDate(LocalDate.of(2025, 9, 30))
+                    .startDate(LocalDate.of(2025, Month.MARCH, 1)).endDate(LocalDate.of(2025, Month.SEPTEMBER, 30))
                     .status(ContractStatus.CANCELLED).build());
 
             mockMvc.perform(delete("/contracts/{id}", contract.getId()))
@@ -334,7 +335,7 @@ class ContractControllerTest {
             contractsRepository.save(Contracts.builder()
                     .customerName("Client Z").contractNumber("CNTR-STATUS").wbsCode("WBS-STATUS")
                     .projectName("Status Test").businessArea(area).manager(manager)
-                    .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(30))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
 
             mockMvc.perform(get("/contracts/filter")
@@ -376,7 +377,7 @@ class ContractControllerTest {
             contractsRepository.save(Contracts.builder()
                     .customerName("Client 1").contractNumber("STATS-1").wbsCode("WBS-S1")
                     .projectName("Stats Test 1").businessArea(area).manager(manager)
-                    .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(60))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(60))
                     .status(ContractStatus.ACTIVE).build());
 
             mockMvc.perform(get("/contracts/stats"))
@@ -407,7 +408,7 @@ class ContractControllerTest {
             contractsRepository.save(Contracts.builder()
                     .customerName("SearchClient").contractNumber("SEARCH-1").wbsCode("WBS-SEARCH")
                     .projectName("Search Project").businessArea(area).manager(manager)
-                    .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(30))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
 
             mockMvc.perform(get("/contracts/search")
@@ -440,7 +441,7 @@ class ContractControllerTest {
             contractsRepository.save(Contracts.builder()
                     .customerName("FilterClient").contractNumber("FILTER-1").wbsCode("WBS-FILTER")
                     .projectName("Filter Project").businessArea(area).manager(manager)
-                    .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(30))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.EXPIRED).build());
 
             mockMvc.perform(get("/contracts/search")
@@ -473,7 +474,7 @@ class ContractControllerTest {
             Contracts contract = contractsRepository.save(Contracts.builder()
                     .customerName("Assign Client").contractNumber("ASSIGN-1").wbsCode("WBS-ASSIGN")
                     .projectName("Assign Project").businessArea(area).manager(manager1)
-                    .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(30))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
 
             String requestBody = String.format("{\"managerId\": %d}", manager2.getId());
@@ -503,7 +504,7 @@ class ContractControllerTest {
             Contracts contract = contractsRepository.save(Contracts.builder()
                     .customerName("Collab Client").contractNumber("COLLAB-1").wbsCode("WBS-COLLAB")
                     .projectName("Collab Project").businessArea(area).manager(manager)
-                    .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(30))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
 
             mockMvc.perform(get("/contracts/{id}/collaborators", contract.getId()))
@@ -533,7 +534,7 @@ class ContractControllerTest {
             Contracts contract = contractsRepository.save(Contracts.builder()
                     .customerName("Set Client").contractNumber("SET-1").wbsCode("WBS-SET")
                     .projectName("Set Project").businessArea(area).manager(manager1)
-                    .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(30))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
 
             String requestBody = String.format("{\"managerIds\": [%d, %d]}",
@@ -555,7 +556,7 @@ class ContractControllerTest {
         @WithMockUser(roles = "MANAGER")
         void shouldForbidCreateForManager() throws Exception {
             ContractDTO dto = new ContractDTO(null, "Test", "TEST", "WBS", "Test",
-                    ContractStatus.ACTIVE, LocalDate.now(), LocalDate.now().plusDays(30), 1L, 1L, null, null, null, null);
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             mockMvc.perform(post("/contracts")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -609,7 +610,7 @@ class ContractControllerTest {
             contractsRepository.save(Contracts.builder()
                     .customerName("TestClient").contractNumber("TEST-1").wbsCode("WBS-TEST")
                     .projectName("Test Project").businessArea(area).manager(manager)
-                    .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(30))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
 
             // Pass an invalid status that will be caught and ignored
@@ -643,7 +644,7 @@ class ContractControllerTest {
             contractsRepository.save(Contracts.builder()
                     .customerName("BlankClient").contractNumber("BLANK-1").wbsCode("WBS-BLANK")
                     .projectName("Blank Project").businessArea(area).manager(manager)
-                    .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(30))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
 
             // Pass a blank status (only spaces)
@@ -678,7 +679,7 @@ class ContractControllerTest {
             contractsRepository.save(Contracts.builder()
                     .customerName("AllClient").contractNumber("ALL-1").wbsCode("WBS-ALL")
                     .projectName("All Project").businessArea(area).manager(manager)
-                    .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(30))
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
 
             // Pass status = "ALL"
@@ -711,7 +712,7 @@ class ContractControllerTest {
             );
 
             // Create ACTIVE contract expiring in 10 days
-            LocalDate today = LocalDate.now();
+            LocalDate today = LocalDate.now(); //NOSONAR S6543 - must match service's real clock
             Contracts expiringContract = contractsRepository.save(
                     Contracts.builder()
                             .contractNumber("CNT-EXP-001")
@@ -805,7 +806,7 @@ class ContractControllerTest {
                             .build()
             );
 
-            LocalDate today = LocalDate.now();
+            LocalDate today = LocalDate.now(); //NOSONAR S6543 - must match service's real clock
             contractsRepository.save(
                     Contracts.builder()
                             .contractNumber("CNT-DEFAULT-001")
@@ -1047,7 +1048,7 @@ class ContractControllerTest {
                     .name("Area-Dup").description("Dup").build());
 
             ContractDTO dto = new ContractDTO(null, "Client Dup", "CNTR-DUP-001", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.of(2025, 1, 1), LocalDate.of(2026, 1, 1),
+                    ContractStatus.ACTIVE, LocalDate.of(2025, Month.JANUARY, 1), LocalDate.of(2026, Month.JANUARY, 1),
                     area.getId(), null, null, null, null, null);
 
             mockMvc.perform(post("/contracts")

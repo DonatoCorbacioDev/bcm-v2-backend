@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.entity;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -46,7 +47,7 @@ public class ContractHistory {
      */
     @Column(name = "modification_date", nullable = false, updatable = false)
     @Builder.Default
-    private LocalDateTime modificationDate = LocalDateTime.now();
+    private LocalDateTime modificationDate = LocalDateTime.now(ZoneId.systemDefault());
 
     /**
      * Previous status of the contract.

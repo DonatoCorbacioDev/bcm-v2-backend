@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.mapper;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.time.ZoneId;
 
 import org.springframework.stereotype.Component;
 
@@ -70,7 +71,7 @@ public class ContractMapper {
         // Calculate days until expiry (only for ACTIVE contracts)
         Integer daysUntilExpiry = null;
         if (contract.getStatus() == ContractStatus.ACTIVE && contract.getEndDate() != null) {
-            long days = ChronoUnit.DAYS.between(LocalDate.now(), contract.getEndDate());
+            long days = ChronoUnit.DAYS.between(LocalDate.now(ZoneId.systemDefault()), contract.getEndDate());
             daysUntilExpiry = (int) days;
         }
 

@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.service;
 
 import java.text.Normalizer;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -229,7 +230,7 @@ public class UserService {
 				.username(username)
 				.role("MANAGER")
 				.managerId(manager.getId())
-				.expiryDate(LocalDateTime.now().plusHours(24))
+				.expiryDate(LocalDateTime.now(ZoneId.systemDefault()).plusHours(24))
 				.used(false)
 				.build();
 		inviteTokenRepository.save(it);
@@ -240,7 +241,7 @@ public class UserService {
 		InviteToken it = inviteTokenRepository.findByToken(token)
 			.orElseThrow(() -> new IllegalArgumentException("Invalid invite token"));
 
-		if (it.isUsed() || it.getExpiryDate().isBefore(LocalDateTime.now())) {
+		if (it.isUsed() || it.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.systemDefault()))) {
 			throw new IllegalArgumentException("Invite token used or expired");
 		}
 

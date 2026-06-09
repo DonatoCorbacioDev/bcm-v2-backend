@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -130,7 +131,7 @@ public class ExportService {
         document.add(subtitle);
 
         // Generation date
-        String dateStr = LocalDateTime.now()
+        String dateStr = LocalDateTime.now(ZoneId.systemDefault())
                 .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
         Paragraph date = new Paragraph("Generated: " + dateStr,
                 new Font(Font.FontFamily.HELVETICA, 9, Font.ITALIC, BaseColor.GRAY));

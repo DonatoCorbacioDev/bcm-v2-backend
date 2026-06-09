@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -36,7 +37,7 @@ public class PasswordResetTokenService {
         String token = UUID.randomUUID().toString();
         PasswordResetToken resetToken = PasswordResetToken.builder()
                 .token(token)
-                .expiryDate(LocalDateTime.now().plusMinutes(30))
+                .expiryDate(LocalDateTime.now(ZoneId.systemDefault()).plusMinutes(30))
                 .user(user)
                 .build();
         return repository.save(resetToken);

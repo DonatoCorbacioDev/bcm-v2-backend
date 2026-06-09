@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.entity;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -80,7 +81,7 @@ public class Managers {
      */
     @Column(name = "created_at", updatable = false)
     @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt = LocalDateTime.now(ZoneId.systemDefault());
 
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "organization_id")

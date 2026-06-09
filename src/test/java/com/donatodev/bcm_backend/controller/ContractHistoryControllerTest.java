@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.controller;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -108,7 +109,7 @@ class ContractHistoryControllerTest {
             Contracts contract = contractsRepository.save(Contracts.builder()
                     .customerName("Cliente Uno").contractNumber("CH001").wbsCode("WBS001").projectName("Legal Project")
                     .businessArea(area).manager(manager)
-                    .startDate(LocalDateTime.now().toLocalDate()).endDate(LocalDateTime.now().plusDays(365).toLocalDate())
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(365))
                     .status(ContractStatus.ACTIVE).build());
 
             Roles savedRole = rolesRepository.save(Roles.builder().role("ADMIN").build());
@@ -117,7 +118,7 @@ class ContractHistoryControllerTest {
                     .username("admin").passwordHash("hashedpassword").manager(manager).role(savedRole).build());
 
             ContractHistoryDTO dto = new ContractHistoryDTO(null, contract.getId(), user.getId(),
-                    LocalDateTime.now(), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
+                    LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
 
             mockMvc.perform(post("/contract-history")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -144,7 +145,7 @@ class ContractHistoryControllerTest {
             Contracts contract = contractsRepository.save(Contracts.builder()
                     .customerName("Client Beta").contractNumber("CH002").wbsCode("WBS002").projectName("HR Project")
                     .businessArea(area).manager(manager)
-                    .startDate(LocalDateTime.now().toLocalDate()).endDate(LocalDateTime.now().plusMonths(6).toLocalDate())
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusMonths(6))
                     .status(ContractStatus.ACTIVE).build());
 
             Roles savedRole = rolesRepository.findByRole("ADMIN")
@@ -154,7 +155,7 @@ class ContractHistoryControllerTest {
                     .username("elena.hr").passwordHash("passwordhr").manager(manager).role(savedRole).build());
 
             ContractHistoryDTO dto = new ContractHistoryDTO(null, contract.getId(), user.getId(),
-                    LocalDateTime.now(), ContractStatus.ACTIVE, ContractStatus.EXPIRED);
+                    LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.EXPIRED);
 
             String response = mockMvc.perform(post("/contract-history")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -188,7 +189,7 @@ class ContractHistoryControllerTest {
             Contracts contract = contractsRepository.save(Contracts.builder()
                     .customerName("Big Client").contractNumber("CH003").wbsCode("WBS003").projectName("Operations Project")
                     .businessArea(area).manager(manager)
-                    .startDate(LocalDateTime.now().toLocalDate()).endDate(LocalDateTime.now().plusMonths(6).toLocalDate())
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusMonths(6))
                     .status(ContractStatus.ACTIVE).build());
 
             Roles savedRole = rolesRepository.findByRole("ADMIN")
@@ -198,9 +199,9 @@ class ContractHistoryControllerTest {
                     .username("anna.verdi").passwordHash("securepass").manager(manager).role(savedRole).build());
 
             ContractHistoryDTO history1 = new ContractHistoryDTO(null, contract.getId(), user.getId(),
-                    LocalDateTime.now().minusDays(2), ContractStatus.ACTIVE, ContractStatus.EXPIRED);
+                    LocalDateTime.of(2020, Month.JANUARY, 1, 12, 0), ContractStatus.ACTIVE, ContractStatus.EXPIRED);
             ContractHistoryDTO history2 = new ContractHistoryDTO(null, contract.getId(), user.getId(),
-                    LocalDateTime.now(), ContractStatus.EXPIRED, ContractStatus.CANCELLED);
+                    LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.EXPIRED, ContractStatus.CANCELLED);
 
             mockMvc.perform(post("/contract-history")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -234,7 +235,7 @@ class ContractHistoryControllerTest {
             Contracts contract = contractsRepository.save(Contracts.builder()
                     .customerName("Finance Corp").contractNumber("CH004").projectName("Finance Project")
                     .businessArea(area).manager(manager)
-                    .startDate(LocalDateTime.now().toLocalDate()).endDate(LocalDateTime.now().plusMonths(12).toLocalDate())
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusMonths(12))
                     .status(ContractStatus.ACTIVE).build());
 
             Roles savedRole = rolesRepository.findByRole("ADMIN")
@@ -244,7 +245,7 @@ class ContractHistoryControllerTest {
                     .username("giorgio.neri").passwordHash("passwordfinance").manager(manager).role(savedRole).build());
 
             ContractHistoryDTO history = new ContractHistoryDTO(null, contract.getId(), user.getId(),
-                    LocalDateTime.now(), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
+                    LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
 
             String response = mockMvc.perform(post("/contract-history")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -278,7 +279,7 @@ class ContractHistoryControllerTest {
             Contracts contract = contractsRepository.save(Contracts.builder()
                 .customerName("Test Client").contractNumber("CH999").wbsCode("WBS999")
                 .projectName("Test Project").businessArea(area).manager(manager)
-                .startDate(LocalDate.now()).endDate(LocalDate.now().plusDays(10))
+                .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                 .status(ContractStatus.ACTIVE).build());
 
             Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
@@ -287,7 +288,7 @@ class ContractHistoryControllerTest {
                 .username("admin").passwordHash("pwd").manager(manager).role(role).build());
 
             ContractHistoryDTO dto = new ContractHistoryDTO(null, contract.getId(), user.getId(),
-                LocalDateTime.now(), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
+                LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
 
             mockMvc.perform(post("/contract-history")
                     .contentType(MediaType.APPLICATION_JSON)

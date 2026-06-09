@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.jwt;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
@@ -42,7 +43,7 @@ public class JwtAuthEntryPoint implements AuthenticationEntryPoint {
         ApiErrorResponse errorResponse = new ApiErrorResponse(
                 HttpServletResponse.SC_UNAUTHORIZED,
                 "Unauthorized: " + authException.getMessage(),
-                LocalDateTime.now()
+                LocalDateTime.now(ZoneId.systemDefault())
         );
 
         objectMapper.writeValue(response.getWriter(), errorResponse);
