@@ -3,6 +3,7 @@ package com.donatodev.bcm_backend.service;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -71,8 +72,8 @@ class ExportServiceTest {
                 "WBS-001", // wbsCode
                 "Project Alpha", // projectName
                 ContractStatus.ACTIVE, // status
-                LocalDate.of(2025, 1, 1), // startDate
-                LocalDate.of(2025, 12, 31), // endDate
+                LocalDate.of(2025, Month.JANUARY, 1), // startDate
+                LocalDate.of(2025, Month.DECEMBER, 31), // endDate
                 1L, // areaId
                 1L, // managerId
                 "Mario Rossi", // managerName
@@ -88,8 +89,8 @@ class ExportServiceTest {
                 "WBS-002",
                 "Project Beta",
                 ContractStatus.ACTIVE,
-                LocalDate.of(2025, 2, 1),
-                LocalDate.of(2025, 11, 30),
+                LocalDate.of(2025, Month.FEBRUARY, 1),
+                LocalDate.of(2025, Month.NOVEMBER, 30),
                 2L,
                 2L,
                 "Luigi Bianchi", // managerName
@@ -112,8 +113,8 @@ class ExportServiceTest {
                 "WBS-003",
                 "Project Gamma",
                 ContractStatus.EXPIRED,
-                LocalDate.of(2025, 3, 1),
-                LocalDate.of(2025, 9, 30),
+                LocalDate.of(2025, Month.MARCH, 1),
+                LocalDate.of(2025, Month.SEPTEMBER, 30),
                 null, // areaId
                 null, // managerId
                 null, // managerName
@@ -235,8 +236,8 @@ class ExportServiceTest {
                         "WBS-" + i,
                         "Project" + i,
                         ContractStatus.ACTIVE,
-                        LocalDate.of(2025, 1, 1),
-                        LocalDate.of(2025, 12, 31),
+                        LocalDate.of(2025, Month.JANUARY, 1),
+                        LocalDate.of(2025, Month.DECEMBER, 31),
                         (long) i,
                         (long) i,
                         "Manager" + i + " Test" + i,
@@ -371,8 +372,8 @@ class ExportServiceTest {
                         "WBS-" + i,
                         "Project" + i,
                         ContractStatus.ACTIVE,
-                        LocalDate.of(2025, 1, 1),
-                        LocalDate.of(2025, 12, 31),
+                        LocalDate.of(2025, Month.JANUARY, 1),
+                        LocalDate.of(2025, Month.DECEMBER, 31),
                         (long) i,
                         (long) i,
                         "Manager" + i + " Test" + i,

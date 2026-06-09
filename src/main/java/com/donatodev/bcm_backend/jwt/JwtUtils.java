@@ -84,8 +84,8 @@ public class JwtUtils {
         
         return Jwts.builder()
                 .subject(userPrincipal.getUsername())
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(expiration))
+                .issuedAt(Date.from(now)) //NOSONAR S6885 — JJWT 0.12.x requires java.util.Date
+                .expiration(Date.from(expiration)) //NOSONAR S6885
                 .signWith(getSigningKey())
                 .compact();
     }
@@ -106,8 +106,8 @@ public class JwtUtils {
 
         return Jwts.builder()
                 .subject(user.getUsername())
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(expiration))
+                .issuedAt(Date.from(now)) //NOSONAR S6885 — JJWT 0.12.x requires java.util.Date
+                .expiration(Date.from(expiration)) //NOSONAR S6885
                 .claim("orgId", orgId)
                 .signWith(getSigningKey())
                 .compact();
