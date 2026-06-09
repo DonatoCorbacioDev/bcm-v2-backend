@@ -34,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
  * @version 2.0
  * @since 1.0.0
  */
+@SuppressWarnings("java:S2143") // JJWT 0.12.x builder requires java.util.Date for issuedAt/expiration — no java.time alternative
 @Component
 @Slf4j
 public class JwtUtils {
