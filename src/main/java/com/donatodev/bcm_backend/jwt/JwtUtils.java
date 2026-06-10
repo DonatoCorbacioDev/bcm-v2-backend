@@ -2,7 +2,7 @@ package com.donatodev.bcm_backend.jwt;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Date; //NOSONAR java:S2143 — JJWT 0.12.x builder API requires java.util.Date for issuedAt/expiration
+import java.util.Date; //NOSONAR - JJWT 0.12.x builder API requires java.util.Date for issuedAt/expiration
 import java.util.function.Function;
 
 import javax.crypto.SecretKey;
