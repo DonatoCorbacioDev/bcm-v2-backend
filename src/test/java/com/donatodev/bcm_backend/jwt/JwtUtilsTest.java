@@ -284,19 +284,19 @@ class JwtUtilsTest {
     }
 
     /**
-     * Test: getExpirationDateFromToken should return expiration date.
+     * Test: getExpirationInstantFromToken should return expiration instant.
      */
     @Test
     @Order(14)
-    @DisplayName("Should extract expiration date from token")
+    @DisplayName("Should extract expiration instant from token")
     void shouldExtractExpirationDate() {
         String token = jwtUtils.generateToken(testUser);
 
-        java.util.Date expirationDate = jwtUtils.getExpirationDateFromToken(token);
+        Instant expirationInstant = jwtUtils.getExpirationInstantFromToken(token);
 
-        assertNotNull(expirationDate);
+        assertNotNull(expirationInstant);
         // Expiration should be after a well-known past date
-        assertTrue(expirationDate.toInstant().isAfter(Instant.EPOCH));
+        assertTrue(expirationInstant.isAfter(Instant.EPOCH));
     }
 
     /**

@@ -2,7 +2,6 @@ package com.donatodev.bcm_backend.jwt;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Date; //NOSONAR - JJWT 0.12.x builder API requires java.util.Date for issuedAt/expiration
 import java.util.function.Function;
 
 import javax.crypto.SecretKey;
@@ -25,31 +24,13 @@ import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Utility class for generating, validating, and extracting information from JWT tokens.
- * <p>
- * Updated for JJWT 0.12.6 API compatibility with enhanced security features.
- * 
- * @author Donato Corbacio
- * @version 2.0
- * @since 1.0.0
- */
-@SuppressWarnings("java:S2143") // JJWT 0.12.x builder requires java.util.Date for issuedAt/expiration — no java.time alternative
 @Component
 @Slf4j
 public class JwtUtils {
 
     private static final String CRLF_REGEX = "[\r\n]";
 
-	private Clock clock = Clock.systemDefaultZone();
-	
-	public Clock getClock() {
-	    return this.clock;
-	}
-
-	public void setClock(Clock clock) {
-	    this.clock = clock;
-	}
+    private Clock clock = Clock.systemDefaultZone();
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -57,210 +38,130 @@ public class JwtUtils {
     @Value("${jwt.expirationMs}")
     private int jwtExpirationMs;
 
-    /**
-     * Converts the secret key into a {@link SecretKey} object used for signing JWTs.
-     * <p>
-     * Uses HMAC-SHA256 algorithm for enhanced security.
-     *
-     * @return the signing key for JWT operations
-     */
+    public Clock getClock() {
+        return this.clock;
+    }
+
+    public void setClock(Clock clock) {
+        this.clock = clock;
+    }
+
     private SecretKey getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    /**
-     * Generates a JWT token based on the authenticated user's details.
-     * <p>
-     * The token includes the username as subject and has a configurable expiration time.
-     *
-     * @param authentication the current authentication object containing user details
-     * @return a signed JWT token string
-     */
     public String generateJwtToken(Authentication authentication) {
         UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
-        
+
         Instant now = clock.instant();
         Instant expiration = now.plusMillis(jwtExpirationMs);
-        
+
         return Jwts.builder()
                 .subject(userPrincipal.getUsername())
-                .issuedAt(Date.from(now)) //NOSONAR S6885 — JJWT 0.12.x requires java.util.Date
-                .expiration(Date.from(expiration)) //NOSONAR S6885
+                .issuedAt(toLegacyDate(now))
+                .expiration(toLegacyDate(expiration))
                 .signWith(getSigningKey())
                 .compact();
     }
 
-    /**
-     * Alternative method to generate JWT token from a User entity.
-     * <p>
-     * Useful when you have direct access to the User entity without Authentication object.
-     *
-     * @param user the user entity
-     * @return a signed JWT token string
-     */
     public String generateTokenFromUser(Users user) {
         Instant now = clock.instant();
         Instant expiration = now.plusMillis(jwtExpirationMs);
-
-        Long orgId = (user.getOrganization() != null) ? user.getOrganization().getId() : null;
+        Long orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
 
         return Jwts.builder()
                 .subject(user.getUsername())
-                .issuedAt(Date.from(now)) //NOSONAR S6885 — JJWT 0.12.x requires java.util.Date
-                .expiration(Date.from(expiration)) //NOSONAR S6885
+                .issuedAt(toLegacyDate(now))
+                .expiration(toLegacyDate(expiration))
                 .claim("orgId", orgId)
                 .signWith(getSigningKey())
                 .compact();
     }
 
-    /**
-     * Generates a JWT token from a User entity.
-     * <p>
-     * Alias method for compatibility with existing code.
-     *
-     * @param user the user entity
-     * @return a signed JWT token string
-     */
     public String generateToken(Users user) {
         return generateTokenFromUser(user);
     }
 
-    /**
-     * Extracts the username from a JWT token.
-     *
-     * @param token the JWT token
-     * @return the username (subject) from the token
-     */
     public String getUsernameFromJwtToken(String token) {
         return getClaimFromToken(token, Claims::getSubject);
     }
 
-    /**
-     * Extracts the username from a JWT token.
-     * <p>
-     * Alias method for compatibility with existing code.
-     *
-     * @param token the JWT token
-     * @return the username (subject) from the token
-     */
     public String getUsernameFromToken(String token) {
         return getUsernameFromJwtToken(token);
     }
 
-    /**
-     * Gets the expiration date from a JWT token.
-     *
-     * @param token the JWT token
-     * @return the expiration date
-     */
-    public Date getExpirationDateFromToken(String token) { //NOSONAR S6885 — return type required by JJWT Claims API
-        return getClaimFromToken(token, Claims::getExpiration);
+    public Instant getExpirationInstantFromToken(String token) {
+        return getClaimFromToken(token, Claims::getExpiration).toInstant();
     }
 
-    /**
-     * Extracts the organizationId from the JWT token's custom claim.
-     *
-     * @param token the JWT token
-     * @return the organizationId, or null if the claim is absent
-     */
     public Long getOrganizationIdFromToken(String token) {
         Object orgId = getClaimFromToken(token, claims -> claims.get("orgId"));
-        if (orgId == null) return null;
+
+        if (orgId == null) {
+            return null;
+        }
+
         return ((Number) orgId).longValue();
     }
 
-    /**
-     * Validates a JWT token against the provided user details.
-     * <p>
-     * Checks both username match and token expiration.
-     *
-     * @param token       the JWT token to validate
-     * @param userDetails the user details to validate against
-     * @return true if the token is valid for the user, false otherwise
-     */
     public boolean validateJwtToken(String token, UserDetails userDetails) {
         try {
             final String username = getUsernameFromJwtToken(token);
-            return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+            return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
         } catch (ExpiredJwtException | MalformedJwtException | UnsupportedJwtException
                  | IllegalArgumentException | SignatureException e) {
             return false;
         }
     }
 
-    /**
-     * Validates a JWT token against the provided user details.
-     * <p>
-     * Alias method for compatibility with existing code.
-     *
-     * @param token       the JWT token to validate
-     * @param userDetails the user details to validate against
-     * @return true if the token is valid for the user, false otherwise
-     */
     public boolean validateToken(String token, UserDetails userDetails) {
         return validateJwtToken(token, userDetails);
     }
 
-    /**
-     * Validates a JWT token and returns true if it's valid.
-     * <p>
-     * This method only checks the token structure and expiration, not against specific user details.
-     *
-     * @param authToken the JWT token to validate
-     * @return true if the token is structurally valid and not expired
-     */
     public boolean validateJwtToken(String authToken) {
         try {
             getJwtParser().parseSignedClaims(authToken);
             return true;
         } catch (ExpiredJwtException e) {
-            log.warn("JWT token is expired: {}", e.getMessage().replaceAll(CRLF_REGEX, "_"));
+            log.warn("JWT token is expired: {}", sanitizeLogMessage(e));
         } catch (MalformedJwtException | UnsupportedJwtException | IllegalArgumentException e) {
-            log.error("Invalid JWT token: {}", e.getMessage().replaceAll(CRLF_REGEX, "_"));
+            log.error("Invalid JWT token: {}", sanitizeLogMessage(e));
         } catch (SignatureException e) {
-            log.error("JWT signature validation failed: {}", e.getMessage().replaceAll(CRLF_REGEX, "_"));
+            log.error("JWT signature validation failed: {}", sanitizeLogMessage(e));
         }
+
         return false;
     }
 
-    /**
-     * Checks if a JWT token is expired.
-     *
-     * @param token the JWT token
-     * @return true if the token is expired, false otherwise
-     */
     private boolean isTokenExpired(String token) {
-        return getExpirationDateFromToken(token).toInstant().isBefore(clock.instant());
+        return getExpirationInstantFromToken(token).isBefore(clock.instant());
     }
 
-    /**
-     * Creates and configures a JWT parser with the signing key.
-     * <p>
-     * Updated for JJWT 0.12.6 API - uses parser() instead of deprecated parserBuilder().
-     *
-     * @return configured JWT parser
-     */
     private JwtParser getJwtParser() {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build();
     }
 
-    /**
-     * Extracts a specific claim from the JWT token.
-     * <p>
-     * Updated for JJWT 0.12.6 API compatibility.
-     *
-     * @param token           the JWT token
-     * @param claimsResolver  function to resolve the desired claim
-     * @param <T>             the claim type
-     * @return the extracted claim
-     */
     private <T> T getClaimFromToken(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = getJwtParser()
                 .parseSignedClaims(token)
                 .getPayload();
+
         return claimsResolver.apply(claims);
+    }
+
+    private String sanitizeLogMessage(Exception e) {
+        return e.getMessage().replaceAll(CRLF_REGEX, "_");
+    }
+
+    /**
+     * JJWT 0.12.x requires java.util.Date for standard JWT date claims.
+     * The application uses java.time.Instant internally and converts only at the library boundary.
+     */
+    @SuppressWarnings("java:S2143")
+    private java.util.Date toLegacyDate(Instant instant) {
+        return java.util.Date.from(instant);
     }
 }
