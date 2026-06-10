@@ -24,6 +24,10 @@ import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Utility component for generating, validating, and extracting claims from
+ * JWT access tokens (JJWT 0.12.x).
+ */
 @Component
 @Slf4j
 public class JwtUtils {
@@ -51,6 +55,10 @@ public class JwtUtils {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
+    /**
+     * Generates a signed JWT for the authenticated principal, with subject set
+     * to the username.
+     */
     public String generateJwtToken(Authentication authentication) {
         UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
 
@@ -65,6 +73,10 @@ public class JwtUtils {
                 .compact();
     }
 
+    /**
+     * Generates a signed JWT directly from a user entity, including the orgId
+     * claim used for multi-tenancy.
+     */
     public String generateTokenFromUser(Users user) {
         Instant now = clock.instant();
         Instant expiration = now.plusMillis(jwtExpirationMs);
@@ -79,6 +91,9 @@ public class JwtUtils {
                 .compact();
     }
 
+    /**
+     * Alias for generateTokenFromUser, kept for backward compatibility.
+     */
     public String generateToken(Users user) {
         return generateTokenFromUser(user);
     }
@@ -87,6 +102,9 @@ public class JwtUtils {
         return getClaimFromToken(token, Claims::getSubject);
     }
 
+    /**
+     * Alias for getUsernameFromJwtToken, kept for backward compatibility.
+     */
     public String getUsernameFromToken(String token) {
         return getUsernameFromJwtToken(token);
     }
@@ -95,6 +113,10 @@ public class JwtUtils {
         return getClaimFromToken(token, Claims::getExpiration).toInstant();
     }
 
+    /**
+     * Extracts the orgId custom claim, or null if the token doesn't carry one
+     * (e.g. tokens issued before multi-tenancy was introduced).
+     */
     public Long getOrganizationIdFromToken(String token) {
         Object orgId = getClaimFromToken(token, claims -> claims.get("orgId"));
 
@@ -105,6 +127,11 @@ public class JwtUtils {
         return ((Number) orgId).longValue();
     }
 
+    /**
+     * Validates the token's signature and expiration, and that its subject
+     * matches the given user details. Returns false instead of throwing for
+     * any malformed, expired, or invalid token.
+     */
     public boolean validateJwtToken(String token, UserDetails userDetails) {
         try {
             final String username = getUsernameFromJwtToken(token);
@@ -115,10 +142,19 @@ public class JwtUtils {
         }
     }
 
+    /**
+     * Alias for validateJwtToken(String, UserDetails), kept for backward
+     * compatibility.
+     */
     public boolean validateToken(String token, UserDetails userDetails) {
         return validateJwtToken(token, userDetails);
     }
 
+    /**
+     * Structural validation only (signature and expiration, no username
+     * comparison). Logs and returns false on any parsing failure instead of
+     * throwing.
+     */
     public boolean validateJwtToken(String authToken) {
         try {
             getJwtParser().parseSignedClaims(authToken);
@@ -158,7 +194,8 @@ public class JwtUtils {
 
     /**
      * JJWT 0.12.x requires java.util.Date for standard JWT date claims.
-     * The application uses java.time.Instant internally and converts only at the library boundary.
+     * The application uses java.time.Instant internally and converts only at
+     * the library boundary.
      */
     @SuppressWarnings("java:S2143")
     private java.util.Date toLegacyDate(Instant instant) {
