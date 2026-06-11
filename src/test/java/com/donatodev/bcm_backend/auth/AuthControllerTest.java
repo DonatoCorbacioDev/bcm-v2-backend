@@ -193,7 +193,23 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Password reset link sent")));
+                .andExpect(content().string(containsString("password reset link has been sent")));
+    }
+
+    /**
+     * Test that an unknown email returns the same generic response, to avoid
+     * leaking whether an account exists.
+     */
+    @Test
+    @Order(27)
+    void shouldReturnGenericResponseForUnknownEmail() throws Exception {
+        ForgotPasswordRequestDTO req = new ForgotPasswordRequestDTO("doesnotexist@test.com");
+
+        mockMvc.perform(post("/auth/forgot-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("password reset link has been sent")));
     }
 
     /**

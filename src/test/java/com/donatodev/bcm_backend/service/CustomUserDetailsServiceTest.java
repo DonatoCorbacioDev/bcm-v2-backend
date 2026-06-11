@@ -79,4 +79,43 @@ class CustomUserDetailsServiceTest {
                 assertThrows(UsernameNotFoundException.class, () -> userDetailsService.loadUserByUsername("ghost"));
         assertEquals("User not found: ghost", ex.getMessage());
     }
+
+    /**
+     * Test successful loading of a user by username scoped to an organization ID.
+     */
+    @Test
+    @Order(3)
+    @DisplayName("Valid user lookup scoped to organization")
+    void shouldLoadUserByUsernameAndOrganizationId() {
+        Users user = Users.builder()
+                .username("user1")
+                .passwordHash("password123")
+                .role(Roles.builder().role("ADMIN").build())
+                .build();
+
+        when(usersRepository.findByUsernameAndOrganizationId("user1", 1L)).thenReturn(Optional.of(user));
+
+        UserDetails result = userDetailsService.loadUserByUsername("user1", 1L);
+
+        assertNotNull(result);
+        assertEquals("user1", result.getUsername());
+        assertEquals("password123", result.getPassword());
+        assertTrue(result.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")));
+    }
+
+    /**
+     * Test should throw UsernameNotFoundException if no user matches the username
+     * within the given organization.
+     */
+    @Test
+    @Order(4)
+    @DisplayName("Exception when user does not exist in organization")
+    void shouldThrowIfUserNotFoundInOrganization() {
+        when(usersRepository.findByUsernameAndOrganizationId("ghost", 1L)).thenReturn(Optional.empty());
+
+        UsernameNotFoundException ex = assertThrows(UsernameNotFoundException.class,
+                () -> userDetailsService.loadUserByUsername("ghost", 1L));
+        assertEquals("User not found: ghost", ex.getMessage());
+    }
 }

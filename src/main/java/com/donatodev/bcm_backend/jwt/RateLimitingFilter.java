@@ -24,7 +24,10 @@ import jakarta.servlet.http.HttpServletResponse;
 @Order(1)
 public class RateLimitingFilter extends OncePerRequestFilter {
 
-    private static final Set<String> RATE_LIMITED_PATHS = Set.of("/auth/login", "/auth/register");
+    private static final Set<String> RATE_LIMITED_PATHS = Set.of(
+            "/auth/login", "/auth/register",
+            "/auth/forgot-password", "/auth/reset-password",
+            "/auth/refresh", "/auth/complete-invite");
 
     @Value("${rate-limit.requests-per-minute:5}")
     private int requestsPerMinute;

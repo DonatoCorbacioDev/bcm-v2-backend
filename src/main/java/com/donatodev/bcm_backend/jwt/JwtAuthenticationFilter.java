@@ -55,7 +55,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 try {
-                    UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                    Long orgId = jwtUtils.getOrganizationIdFromToken(token);
+                    UserDetails userDetails = userDetailsService.loadUserByUsername(username, orgId);
                     if (jwtUtils.validateToken(token, userDetails)) {
                         UsernamePasswordAuthenticationToken authToken =
                                 new UsernamePasswordAuthenticationToken(
@@ -67,7 +68,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         SecurityContextHolder.getContext().setAuthentication(authToken);
                         MDC.put("username", username);
 
-                        Long orgId = jwtUtils.getOrganizationIdFromToken(token);
                         TenantContext.set(orgId);
                     }
                 } catch (RuntimeException e) {

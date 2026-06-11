@@ -9,8 +9,15 @@ import jakarta.validation.constraints.NotBlank;
  *
  * @param username the user's email or username
  * @param password the user's password
+ * @param organizationSlug optional slug identifying the organization the user belongs to,
+ *                          used to disambiguate usernames shared across organizations
  */
 public record AuthRequestDTO(
         @NotBlank(message = "Username is required") String username,
-        @NotBlank(message = "Password is required") String password
-) {}
+        @NotBlank(message = "Password is required") String password,
+        String organizationSlug
+) {
+    public AuthRequestDTO(String username, String password) {
+        this(username, password, null);
+    }
+}

@@ -84,7 +84,7 @@ class JwtAuthenticationFilterTest {
         token = "validToken";
         Mockito.reset(jwtUtils, userDetailsService);
         Mockito.when(jwtUtils.generateToken(user)).thenReturn(token);
-        Mockito.when(userDetailsService.loadUserByUsername(user.getUsername()))
+        Mockito.when(userDetailsService.loadUserByUsername(Mockito.eq(user.getUsername()), Mockito.nullable(Long.class)))
         .thenReturn(org.springframework.security.core.userdetails.User
             .withUsername(user.getUsername()).password(DUMMY_PASSWORD_ENCODED).roles("MANAGER").build());
         Mockito.when(jwtUtils.validateToken(Mockito.eq(token), Mockito.any())).thenReturn(true);
@@ -176,7 +176,7 @@ class JwtAuthenticationFilterTest {
         String testToken = "validToken";
 
         Mockito.when(jwtUtils.getUsernameFromToken(testToken)).thenReturn(user.getUsername());
-        Mockito.when(userDetailsService.loadUserByUsername(user.getUsername()))
+        Mockito.when(userDetailsService.loadUserByUsername(Mockito.eq(user.getUsername()), Mockito.nullable(Long.class)))
                .thenReturn(org.springframework.security.core.userdetails.User
                        .withUsername(user.getUsername()).password(DUMMY_PASSWORD_PLAIN).roles("MANAGER").build());
         Mockito.when(jwtUtils.validateToken(Mockito.eq(testToken), Mockito.any())).thenReturn(false);
@@ -193,7 +193,7 @@ class JwtAuthenticationFilterTest {
         String testToken = "validToken";
 
         Mockito.when(jwtUtils.getUsernameFromToken(testToken)).thenReturn(user.getUsername());
-        Mockito.when(userDetailsService.loadUserByUsername(user.getUsername()))
+        Mockito.when(userDetailsService.loadUserByUsername(Mockito.eq(user.getUsername()), Mockito.nullable(Long.class)))
                .thenThrow(new RuntimeException("DB error"));
 
         mockMvc.perform(get("/auth/me")

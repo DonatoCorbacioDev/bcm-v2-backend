@@ -121,7 +121,7 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody AuthRequestDTO request) {
-        return ResponseEntity.ok(authService.authenticate(request.username(), request.password()));
+        return ResponseEntity.ok(authService.authenticate(request.username(), request.password(), request.organizationSlug()));
     }
 
     @PostMapping("/refresh")
@@ -138,21 +138,21 @@ public class AuthController {
 
     /**
      * Handles password reset requests by sending a reset link.
+     * <p>
+     * Always returns the same generic response regardless of whether the
+     * email is registered, to avoid leaking which addresses have an account.
      *
      * @param request contains the user's email
-     * @return 200 OK if email sent, otherwise 404 NOT FOUND
+     * @return 200 OK with a generic confirmation message
      */
     @PostMapping("/forgot-password")
     public ResponseEntity<String> forgotPassword(@RequestBody ForgotPasswordRequestDTO request) {
-        return userService.findByEmail(request.email())
-                .map(user -> {
-                    PasswordResetToken token = passwordResetTokenService.createToken(user);
-                    String resetLink = frontendBaseUrl + "/reset-password?token=" + token.getToken();
-                    emailService.sendResetPasswordEmail(request.email(), resetLink);
-                    return ResponseEntity.ok("Password reset link sent to your email.");
-                })
-                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("User not found with that email."));
+        userService.findByEmail(request.email()).ifPresent(user -> {
+            PasswordResetToken token = passwordResetTokenService.createToken(user);
+            String resetLink = frontendBaseUrl + "/reset-password?token=" + token.getToken();
+            emailService.sendResetPasswordEmail(request.email(), resetLink);
+        });
+        return ResponseEntity.ok("If an account with that email exists, a password reset link has been sent.");
     }
 
     /**

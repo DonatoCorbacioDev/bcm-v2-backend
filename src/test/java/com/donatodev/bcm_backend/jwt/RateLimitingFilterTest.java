@@ -49,8 +49,15 @@ class RateLimitingFilterTest {
     }
 
     private MockHttpServletRequest otherRequest() {
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/auth/forgot-password");
-        request.setServletPath("/auth/forgot-password");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/auth/me");
+        request.setServletPath("/auth/me");
+        request.setRemoteAddr("192.168.1.1");
+        return request;
+    }
+
+    private MockHttpServletRequest pathRequest(String path) {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", path);
+        request.setServletPath(path);
         request.setRemoteAddr("192.168.1.1");
         return request;
     }
@@ -124,6 +131,26 @@ class RateLimitingFilterTest {
             }
 
             verify(chain, times(10)).doFilter(any(), any());
+        }
+
+        @Test
+        @Order(6)
+        @DisplayName("/auth/forgot-password, /auth/reset-password, /auth/refresh and /auth/complete-invite are rate-limited")
+        void shouldRateLimitOtherSensitiveAuthEndpoints() throws Exception {
+            FilterChain chain = mock(FilterChain.class);
+
+            for (String path : new String[]{
+                    "/auth/forgot-password", "/auth/reset-password",
+                    "/auth/refresh", "/auth/complete-invite"}) {
+                for (int i = 0; i < 2; i++) {
+                    filter.doFilter(pathRequest(path), new MockHttpServletResponse(), chain);
+                }
+
+                MockHttpServletResponse blocked = new MockHttpServletResponse();
+                filter.doFilter(pathRequest(path), blocked, chain);
+
+                assertEquals(429, blocked.getStatus(), path + " should be rate-limited");
+            }
         }
 
         @Test
