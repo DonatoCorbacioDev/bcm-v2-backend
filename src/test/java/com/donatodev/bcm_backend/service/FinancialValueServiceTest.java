@@ -760,5 +760,92 @@ class FinancialValueServiceTest {
                 com.donatodev.bcm_backend.config.TenantContext.clear();
             }
         }
+
+        @Test
+        @Order(28)
+        @DisplayName("getValueById with TenantContext uses org-filtered repository")
+        void shouldGetValueByIdWithTenantContext() {
+            UserDetails userDetails = org.springframework.security.core.userdetails.User
+                    .withUsername("admin")
+                    .password(TEST_PASSWORD)
+                    .roles("ADMIN")
+                    .build();
+
+            FinancialValues entity = FinancialValues.builder()
+                    .id(1L)
+                    .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
+                    .build();
+
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 1000.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
+
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
+            );
+
+            com.donatodev.bcm_backend.config.TenantContext.set(8L);
+            try {
+                when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+                when(valuesRepository.findByIdAndOrganizationId(1L, 8L)).thenReturn(Optional.of(entity));
+                when(mapper.toDTO(entity)).thenReturn(dto);
+
+                FinancialValueDTO result = service.getValueById(1L);
+
+                assertEquals(1000.0, result.financialAmount());
+                verify(valuesRepository).findByIdAndOrganizationId(1L, 8L);
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(29)
+        @DisplayName("getValueById with TenantContext throws if not found in organization")
+        void shouldThrowGetValueByIdWithTenantContextWhenNotFound() {
+            com.donatodev.bcm_backend.config.TenantContext.set(8L);
+            try {
+                when(valuesRepository.findByIdAndOrganizationId(999L, 8L)).thenReturn(Optional.empty());
+
+                FinancialValueNotFoundException ex = assertThrows(FinancialValueNotFoundException.class,
+                        () -> service.getValueById(999L));
+                assertEquals("Financial value ID 999 not found", ex.getMessage());
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(30)
+        @DisplayName("deleteValue with TenantContext uses org-filtered repository")
+        void shouldDeleteValueWithTenantContext() {
+            UserDetails userDetails = org.springframework.security.core.userdetails.User
+                    .withUsername("admin")
+                    .password(TEST_PASSWORD)
+                    .roles("ADMIN")
+                    .build();
+
+            FinancialValues entity = FinancialValues.builder()
+                    .id(1L)
+                    .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
+                    .build();
+
+            Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
+
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
+            );
+
+            com.donatodev.bcm_backend.config.TenantContext.set(8L);
+            try {
+                when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+                when(valuesRepository.findByIdAndOrganizationId(1L, 8L)).thenReturn(Optional.of(entity));
+
+                service.deleteValue(1L);
+
+                verify(valuesRepository).delete(entity);
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
     }
 }

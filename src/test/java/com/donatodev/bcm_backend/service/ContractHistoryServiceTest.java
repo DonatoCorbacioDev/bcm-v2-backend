@@ -26,6 +26,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractHistoryDTO;
 import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.entity.ContractStatus;
@@ -212,9 +213,10 @@ class ContractHistoryServiceTest {
         @Order(5)
         @DisplayName("Delete history removes record")
         void shouldDeleteHistory() {
-            when(historyRepository.existsById(1L)).thenReturn(true);
+            ContractHistory entity = ContractHistory.builder().id(1L).build();
+            when(historyRepository.findById(1L)).thenReturn(Optional.of(entity));
             historyService.delete(1L);
-            verify(historyRepository).deleteById(1L);
+            verify(historyRepository).delete(entity);
         }
 
         /**
@@ -224,7 +226,7 @@ class ContractHistoryServiceTest {
         @Order(6)
         @DisplayName("Delete history throws if not found")
         void shouldThrowWhenDeletingNonExistent() {
-            when(historyRepository.existsById(999L)).thenReturn(false);
+            when(historyRepository.findById(999L)).thenReturn(Optional.empty());
             ContractHistoryNotFoundException ex = assertThrows(ContractHistoryNotFoundException.class, () -> historyService.delete(999L));
             assertNotNull(ex);
         }
@@ -567,6 +569,135 @@ class ContractHistoryServiceTest {
             // This should trigger UserNotFoundException when calling getAll()
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getAll());
             assertNotNull(ex);
+        }
+
+        @Test
+        @Order(19)
+        @DisplayName("getAll with TenantContext uses org-filtered repository for ADMIN")
+        void shouldGetAllWithTenantContext() {
+            Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
+            ContractHistory entity = ContractHistory.builder().id(1L)
+                    .contract(Contracts.builder().id(1L).build())
+                    .build();
+            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, null, null, null, null);
+
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(
+                            new User("admin", "pwd", List.of(() -> "ROLE_ADMIN")), null, List.of(() -> "ROLE_ADMIN")
+                    )
+            );
+
+            TenantContext.set(2L);
+            try {
+                when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+                when(historyRepository.findByContract_Organization_Id(2L)).thenReturn(List.of(entity));
+                when(historyMapper.toDTO(entity)).thenReturn(dto);
+
+                List<ContractHistoryDTO> result = historyService.getAll();
+
+                assertEquals(1, result.size());
+                verify(historyRepository).findByContract_Organization_Id(2L);
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(20)
+        @DisplayName("getById with TenantContext uses org-filtered repository")
+        void shouldGetByIdWithTenantContext() {
+            Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
+            ContractHistory entity = ContractHistory.builder()
+                    .id(1L)
+                    .contract(Contracts.builder().id(1L).manager(Managers.builder().id(1L).build()).build())
+                    .build();
+            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, null, null, null, null);
+
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(
+                            new User("admin", "pwd", List.of(() -> "ROLE_ADMIN")), null, List.of(() -> "ROLE_ADMIN")
+                    )
+            );
+
+            TenantContext.set(2L);
+            try {
+                when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+                when(historyRepository.findByIdAndContract_Organization_Id(1L, 2L)).thenReturn(Optional.of(entity));
+                when(historyMapper.toDTO(entity)).thenReturn(dto);
+
+                ContractHistoryDTO result = historyService.getById(1L);
+
+                assertEquals(1L, result.id());
+                verify(historyRepository).findByIdAndContract_Organization_Id(1L, 2L);
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(21)
+        @DisplayName("getById with TenantContext throws if not found in organization")
+        void shouldThrowGetByIdWithTenantContextWhenNotFound() {
+            TenantContext.set(2L);
+            try {
+                when(historyRepository.findByIdAndContract_Organization_Id(999L, 2L)).thenReturn(Optional.empty());
+
+                ContractHistoryNotFoundException ex = assertThrows(ContractHistoryNotFoundException.class,
+                        () -> historyService.getById(999L));
+                assertEquals("History ID 999 not found", ex.getMessage());
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(22)
+        @DisplayName("getByContractId with TenantContext uses org-filtered repository")
+        void shouldGetByContractIdWithTenantContext() {
+            Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
+            ContractHistory entity = ContractHistory.builder()
+                    .id(1L)
+                    .contract(Contracts.builder().id(1L).build())
+                    .build();
+            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, null, null, null, null);
+
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(
+                            new User("admin", "pwd", List.of(() -> "ROLE_ADMIN")), null, List.of(() -> "ROLE_ADMIN")
+                    )
+            );
+
+            TenantContext.set(2L);
+            try {
+                when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+                when(historyRepository.findByContractIdAndContract_Organization_Id(1L, 2L)).thenReturn(List.of(entity));
+                when(historyMapper.toDTO(entity)).thenReturn(dto);
+
+                List<ContractHistoryDTO> result = historyService.getByContractId(1L);
+
+                assertEquals(1, result.size());
+                verify(historyRepository).findByContractIdAndContract_Organization_Id(1L, 2L);
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(23)
+        @DisplayName("delete with TenantContext uses org-filtered repository")
+        void shouldDeleteWithTenantContext() {
+            ContractHistory entity = ContractHistory.builder().id(1L).build();
+
+            TenantContext.set(2L);
+            try {
+                when(historyRepository.findByIdAndContract_Organization_Id(1L, 2L)).thenReturn(Optional.of(entity));
+
+                historyService.delete(1L);
+
+                verify(historyRepository).delete(entity);
+            } finally {
+                TenantContext.clear();
+            }
         }
     }
 }

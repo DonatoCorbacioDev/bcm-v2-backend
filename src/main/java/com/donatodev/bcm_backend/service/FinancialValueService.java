@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -83,12 +84,23 @@ public class FinancialValueService {
      * @throws SecurityException if access is denied
      */
     public FinancialValueDTO getValueById(Long id) {
-        FinancialValues value = financialValuesRepository.findById(id)
+        FinancialValues value = findValueInScope(id)
                 .orElseThrow(() -> new FinancialValueNotFoundException(FINANCIAL_VALUE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
         checkAccessToFinancialValue(value);
 
         return financialValueMapper.toDTO(value);
+    }
+
+    /**
+     * Finds a financial value by ID, scoped to the current tenant when
+     * {@link TenantContext} carries an organization ID.
+     */
+    private Optional<FinancialValues> findValueInScope(Long id) {
+        Long orgId = TenantContext.get();
+        return (orgId != null)
+                ? financialValuesRepository.findByIdAndOrganizationId(id, orgId)
+                : financialValuesRepository.findById(id);
     }
 
     /**
@@ -120,7 +132,7 @@ public class FinancialValueService {
      * @throws SecurityException if access is denied
      */
     public FinancialValueDTO updateValue(Long id, FinancialValueDTO dto) {
-        FinancialValues value = financialValuesRepository.findById(id)
+        FinancialValues value = findValueInScope(id)
                 .orElseThrow(() -> new FinancialValueNotFoundException(FINANCIAL_VALUE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
         checkAccessToFinancialValue(value);
@@ -140,7 +152,7 @@ public class FinancialValueService {
      * @throws SecurityException if access is denied
      */
     public void deleteValue(Long id) {
-        FinancialValues value = financialValuesRepository.findById(id)
+        FinancialValues value = findValueInScope(id)
                 .orElseThrow(() -> new FinancialValueNotFoundException(FINANCIAL_VALUE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
         checkAccessToFinancialValue(value);

@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -19,6 +20,8 @@ public interface FinancialValuesRepository extends JpaRepository<FinancialValues
     List<FinancialValues> findAllByOrganizationId(Long organizationId);
 
     List<FinancialValues> findByContractIdAndOrganizationId(Long contractId, Long organizationId);
+
+    Optional<FinancialValues> findByIdAndOrganizationId(Long id, Long organizationId);
 
     @Query("""
             SELECT COALESCE(SUM(fv.financialAmount), 0.0)

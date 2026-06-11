@@ -1,12 +1,14 @@
 package com.donatodev.bcm_backend.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractHistoryDTO;
 import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.entity.Users;
@@ -57,8 +59,11 @@ public class ContractHistoryService {
 				.orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG));
 
 		if (user.getRole().getRole().equals(ADMIN_ROLE)) {
-			return historyRepository.findAll()
-					.stream()
+			Long orgId = TenantContext.get();
+			List<ContractHistory> all = (orgId != null)
+					? historyRepository.findByContract_Organization_Id(orgId)
+					: historyRepository.findAll();
+			return all.stream()
 					.map(historyMapper::toDTO)
 					.toList();
 		} else {
@@ -80,7 +85,7 @@ public class ContractHistoryService {
 	 * @throws RuntimeException if access is denied
 	 */
 	public ContractHistoryDTO getById(Long id) {
-		ContractHistory history = historyRepository.findById(id)
+		ContractHistory history = findHistoryInScope(id)
 				.orElseThrow(() -> new ContractHistoryNotFoundException("History ID " + id + " not found"));
 
 		String username = getAuthenticatedUsername();
@@ -111,7 +116,10 @@ public class ContractHistoryService {
 		Users user = usersRepository.findByUsername(username)
 				.orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG));
 
-		List<ContractHistory> all = historyRepository.findByContractId(contractId);
+		Long orgId = TenantContext.get();
+		List<ContractHistory> all = (orgId != null)
+				? historyRepository.findByContractIdAndContract_Organization_Id(contractId, orgId)
+				: historyRepository.findByContractId(contractId);
 
 		if (user.getRole().getRole().equals(ADMIN_ROLE)) {
 			return all.stream()
@@ -151,10 +159,20 @@ public class ContractHistoryService {
 	 * @throws ContractHistoryNotFoundException if the entry does not exist
 	 */
 	public void delete(Long id) {
-		if (!historyRepository.existsById(id)) {
-			throw new ContractHistoryNotFoundException("History ID " + id + " not found");
-		}
-		historyRepository.deleteById(id);
+		ContractHistory history = findHistoryInScope(id)
+				.orElseThrow(() -> new ContractHistoryNotFoundException("History ID " + id + " not found"));
+		historyRepository.delete(history);
+	}
+
+	/**
+	 * Finds a contract history entry by ID, scoped to the current tenant when
+	 * {@link TenantContext} carries an organization ID.
+	 */
+	private Optional<ContractHistory> findHistoryInScope(Long id) {
+		Long orgId = TenantContext.get();
+		return (orgId != null)
+				? historyRepository.findByIdAndContract_Organization_Id(id, orgId)
+				: historyRepository.findById(id);
 	}
 
 	/**
