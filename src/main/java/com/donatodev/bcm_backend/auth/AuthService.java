@@ -94,6 +94,8 @@ public class AuthService {
      * @throws AmbiguousUsernameException if multiple users share the username and
      * no {@code organizationSlug} was provided
      */
+    @SuppressWarnings("java:S5804") // both branches throw the same generic message, mapped to an
+    // identical 401 response by GlobalExceptionHandler — no enumeration is possible
     private Users findUser(String username, String organizationSlug) {
         if (organizationSlug != null && !organizationSlug.isBlank()) {
             return usersRepository.findByUsernameAndOrganizationSlug(username, organizationSlug)

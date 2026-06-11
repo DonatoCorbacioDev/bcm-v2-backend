@@ -21,6 +21,9 @@ import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 @Service
 public class BusinessAreaService {
 
+	private static final String BUSINESS_AREA_ID_PREFIX = "Business area ID ";
+	private static final String NOT_FOUND_SUFFIX = " not found";
+
 	private final BusinessAreasRepository businessAreasRepository;
     private final BusinessAreaMapper businessAreaMapper;
 
@@ -52,7 +55,7 @@ public class BusinessAreaService {
     public BusinessAreaDTO getAreaById(Long id) {
         return findAreaInScope(id)
                 .map(businessAreaMapper::toDTO)
-                .orElseThrow(() -> new BusinessAreaNotFoundException("Business area ID " + id + " not found"));
+                .orElseThrow(() -> new BusinessAreaNotFoundException(BUSINESS_AREA_ID_PREFIX + id + NOT_FOUND_SUFFIX));
     }
 
     /**
@@ -94,7 +97,7 @@ public class BusinessAreaService {
      */
     public BusinessAreaDTO updateArea(Long id, BusinessAreaDTO dto) {
         BusinessAreas area = findAreaInScope(id)
-                .orElseThrow(() -> new BusinessAreaNotFoundException("Business area ID " + id + " not found"));
+                .orElseThrow(() -> new BusinessAreaNotFoundException(BUSINESS_AREA_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
         area.setName(dto.name());
         area.setDescription(dto.description());
@@ -111,7 +114,7 @@ public class BusinessAreaService {
      */
     public void deleteArea(Long id) {
         BusinessAreas area = findAreaInScope(id)
-                .orElseThrow(() -> new BusinessAreaNotFoundException("Business area ID " + id + " not found"));
+                .orElseThrow(() -> new BusinessAreaNotFoundException(BUSINESS_AREA_ID_PREFIX + id + NOT_FOUND_SUFFIX));
         businessAreasRepository.delete(area);
     }
 }

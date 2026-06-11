@@ -21,6 +21,9 @@ import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 @Service
 public class FinancialTypeService {
 
+	private static final String FINANCIAL_TYPE_ID_PREFIX = "Financial type ID ";
+	private static final String NOT_FOUND_SUFFIX = " not found";
+
 	private final FinancialTypesRepository financialTypesRepository;
     private final FinancialTypeMapper financialTypeMapper;
 
@@ -53,7 +56,7 @@ public class FinancialTypeService {
     public FinancialTypeDTO getTypeById(Long id) {
         return findTypeInScope(id)
                 .map(financialTypeMapper::toDTO)
-                .orElseThrow(() -> new FinancialTypeNotFoundException("Financial type ID " + id + " not found"));
+                .orElseThrow(() -> new FinancialTypeNotFoundException(FINANCIAL_TYPE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
     }
 
     /**
@@ -95,7 +98,7 @@ public class FinancialTypeService {
      */
     public FinancialTypeDTO updateType(Long id, FinancialTypeDTO dto) {
         FinancialTypes type = findTypeInScope(id)
-                .orElseThrow(() -> new FinancialTypeNotFoundException("Financial type ID " + id + " not found"));
+                .orElseThrow(() -> new FinancialTypeNotFoundException(FINANCIAL_TYPE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
         type.setName(dto.name());
         type.setDescription(dto.description());
@@ -112,7 +115,7 @@ public class FinancialTypeService {
      */
     public void deleteType(Long id) {
         FinancialTypes type = findTypeInScope(id)
-                .orElseThrow(() -> new FinancialTypeNotFoundException("Financial type ID " + id + " not found"));
+                .orElseThrow(() -> new FinancialTypeNotFoundException(FINANCIAL_TYPE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
         financialTypesRepository.delete(type);
     }
 }
