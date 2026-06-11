@@ -160,8 +160,28 @@ class FinancialTypeServiceTest {
         @Order(6)
         @DisplayName("Delete type calls repository")
         void shouldDeleteType() {
+            FinancialTypes type = FinancialTypes.builder().id(1L).build();
+            when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(type));
+
             financialTypeService.deleteType(1L);
-            verify(financialTypesRepository, times(1)).deleteById(1L);
+
+            verify(financialTypesRepository, times(1)).delete(type);
+        }
+
+        /**
+         * Should throw FinancialTypeNotFoundException if trying to delete a non-existent type.
+         */
+        @Test
+        @Order(60)
+        @DisplayName("Delete type throws if not found")
+        void shouldThrowWhenDeletingMissingType() {
+            when(financialTypesRepository.findById(999L)).thenReturn(Optional.empty());
+
+            FinancialTypeNotFoundException ex = assertThrows(FinancialTypeNotFoundException.class,
+                    () -> financialTypeService.deleteType(999L));
+
+            assertEquals("Financial type ID 999 not found", ex.getMessage());
+            verify(financialTypesRepository, org.mockito.Mockito.never()).delete(any(FinancialTypes.class));
         }
         
         /**

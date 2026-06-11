@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -185,25 +184,34 @@ class BusinessAreaServiceTest {
 
 
         /**
-         * Test: deleteArea() should call deleteById on the repository.
+         * Test: deleteArea() should call delete on the repository.
          */
         @Test
         @Order(7)
         @DisplayName("Delete area calls repository")
         void shouldDeleteArea() {
             Long id = 1L;
+            BusinessAreas area = BusinessAreas.builder().id(id).build();
+            when(repository.findById(id)).thenReturn(Optional.of(area));
+
             service.deleteArea(id);
-            verify(repository, times(1)).deleteById(id);
+
+            verify(repository, times(1)).delete(area);
         }
-        
+
         /**
-         * Test: deleteArea() should not throw if the area does not exist.
+         * Test: deleteArea() should throw if the area does not exist.
          */
         @Test
         @Order(8)
-        @DisplayName("Delete area throws no exception if area doesn't exist")
-        void shouldNotThrowWhenDeletingNonExistentArea() {
-            assertDoesNotThrow(() -> service.deleteArea(999L));
+        @DisplayName("Delete area throws if area doesn't exist")
+        void shouldThrowWhenDeletingNonExistentArea() {
+            when(repository.findById(999L)).thenReturn(Optional.empty());
+
+            BusinessAreaNotFoundException ex = assertThrows(BusinessAreaNotFoundException.class,
+                    () -> service.deleteArea(999L));
+            assertEquals("Business area ID 999 not found", ex.getMessage());
+            verify(repository, org.mockito.Mockito.never()).delete(any(BusinessAreas.class));
         }
 
         @Test

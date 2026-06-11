@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -58,9 +59,20 @@ public class ManagerService {
      * @throws ManagerNotFoundException if manager not found
      */
     public ManagerDTO getManagerById(Long id) {
-        return managersRepository.findById(id)
+        return findManagerInScope(id)
                 .map(managerMapper::toDTO)
                 .orElseThrow(() -> new ManagerNotFoundException(MANAGER_ID_PREFIX + id + NOT_FOUND_SUFFIX));
+    }
+
+    /**
+     * Finds a manager by ID, scoped to the current tenant when
+     * {@link TenantContext} carries an organization ID.
+     */
+    private Optional<Managers> findManagerInScope(Long id) {
+        Long orgId = TenantContext.get();
+        return (orgId != null)
+                ? managersRepository.findByIdAndOrganizationId(id, orgId)
+                : managersRepository.findById(id);
     }
 
     /**
@@ -90,7 +102,7 @@ public class ManagerService {
      * @throws ManagerNotFoundException if manager not found
      */
     public ManagerDTO updateManager(Long id, ManagerDTO managerDTO) {
-        Managers manager = managersRepository.findById(id)
+        Managers manager = findManagerInScope(id)
                 .orElseThrow(() -> new ManagerNotFoundException(MANAGER_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
         manager.setFirstName(managerDTO.firstName());
@@ -107,9 +119,12 @@ public class ManagerService {
      * Deletes a manager by their ID.
      *
      * @param id the ID of the manager to delete
+     * @throws ManagerNotFoundException if manager not found
      */
     public void deleteManager(Long id) {
-        managersRepository.deleteById(id);
+        Managers manager = findManagerInScope(id)
+                .orElseThrow(() -> new ManagerNotFoundException(MANAGER_ID_PREFIX + id + NOT_FOUND_SUFFIX));
+        managersRepository.delete(manager);
     }
     
     public Page<ManagerDTO> searchManagers(String q, int page, int size) {
@@ -134,7 +149,7 @@ public class ManagerService {
    }
     
     public Managers getManagerEntity(Long id) {
-        return managersRepository.findById(id)
+        return findManagerInScope(id)
             .orElseThrow(() -> new ManagerNotFoundException(MANAGER_ID_PREFIX + id + NOT_FOUND_SUFFIX));
     }
 }

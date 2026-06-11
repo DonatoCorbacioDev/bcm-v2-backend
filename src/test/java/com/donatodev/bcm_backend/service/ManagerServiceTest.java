@@ -192,8 +192,25 @@ class ManagerServiceTest {
         @Order(7)
         @DisplayName("Delete manager calls repository")
         void shouldDeleteManager() {
+            Managers manager = Managers.builder().id(1L).build();
+            when(managersRepository.findById(1L)).thenReturn(Optional.of(manager));
+
             managerService.deleteManager(1L);
-            verify(managersRepository, times(1)).deleteById(1L);
+
+            verify(managersRepository, times(1)).delete(manager);
+        }
+
+        @Test
+        @Order(70)
+        @DisplayName("Delete manager throws if not found")
+        void shouldThrowWhenDeletingMissingManager() {
+            when(managersRepository.findById(999L)).thenReturn(Optional.empty());
+
+            ManagerNotFoundException ex = assertThrows(ManagerNotFoundException.class,
+                    () -> managerService.deleteManager(999L));
+
+            assertEquals("Manager ID 999 not found", ex.getMessage());
+            verify(managersRepository, org.mockito.Mockito.never()).delete(any(Managers.class));
         }
 
         @Test

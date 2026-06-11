@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
@@ -49,9 +50,20 @@ public class BusinessAreaService {
      * @throws BusinessAreaNotFoundException if the area is not found
      */
     public BusinessAreaDTO getAreaById(Long id) {
-        return businessAreasRepository.findById(id)
+        return findAreaInScope(id)
                 .map(businessAreaMapper::toDTO)
                 .orElseThrow(() -> new BusinessAreaNotFoundException("Business area ID " + id + " not found"));
+    }
+
+    /**
+     * Finds a business area by ID, scoped to the current tenant when
+     * {@link TenantContext} carries an organization ID.
+     */
+    private Optional<BusinessAreas> findAreaInScope(Long id) {
+        Long orgId = TenantContext.get();
+        return (orgId != null)
+                ? businessAreasRepository.findByIdAndOrganizationId(id, orgId)
+                : businessAreasRepository.findById(id);
     }
 
     /**
@@ -81,7 +93,7 @@ public class BusinessAreaService {
      * @throws BusinessAreaNotFoundException if the area is not found
      */
     public BusinessAreaDTO updateArea(Long id, BusinessAreaDTO dto) {
-        BusinessAreas area = businessAreasRepository.findById(id)
+        BusinessAreas area = findAreaInScope(id)
                 .orElseThrow(() -> new BusinessAreaNotFoundException("Business area ID " + id + " not found"));
 
         area.setName(dto.name());
@@ -95,8 +107,11 @@ public class BusinessAreaService {
      * Deletes a business area by its ID.
      *
      * @param id the ID of the business area to delete
+     * @throws BusinessAreaNotFoundException if the area is not found
      */
     public void deleteArea(Long id) {
-        businessAreasRepository.deleteById(id);
+        BusinessAreas area = findAreaInScope(id)
+                .orElseThrow(() -> new BusinessAreaNotFoundException("Business area ID " + id + " not found"));
+        businessAreasRepository.delete(area);
     }
 }
