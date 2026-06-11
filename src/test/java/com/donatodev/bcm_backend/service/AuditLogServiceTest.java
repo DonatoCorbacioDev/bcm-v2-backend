@@ -25,6 +25,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.AuditLogDTO;
 import com.donatodev.bcm_backend.entity.AuditLog;
 import com.donatodev.bcm_backend.repository.AuditLogRepository;
@@ -87,6 +88,35 @@ class AuditLogServiceTest {
             assertEquals("UPDATE", dto.action());
             assertEquals("Manager", dto.entityType());
             assertEquals("admin", dto.username());
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("findAll with TenantContext uses org-filtered repository")
+        void shouldReturnPageOfAuditLogsScopedToOrganization() {
+            AuditLog log = AuditLog.builder()
+                    .id(2L).action("DELETE").entityType("Contract").entityId(7L)
+                    .username("manager").orgId(3L).timestamp(Instant.parse("2027-02-01T08:30:00Z"))
+                    .details("ContractService.deleteContract").build();
+
+            Pageable pageable = PageRequest.of(0, 20);
+
+            TenantContext.set(3L);
+            try {
+                when(auditLogRepository.findAllByOrgIdOrderByTimestampDesc(3L, pageable))
+                        .thenReturn(new PageImpl<>(List.of(log)));
+
+                Page<AuditLogDTO> result = auditLogService.findAll(pageable);
+
+                assertEquals(1, result.getTotalElements());
+                AuditLogDTO dto = result.getContent().get(0);
+                assertEquals("DELETE", dto.action());
+                assertEquals("Contract", dto.entityType());
+                assertEquals(3L, dto.orgId());
+                verify(auditLogRepository).findAllByOrgIdOrderByTimestampDesc(3L, pageable);
+            } finally {
+                TenantContext.clear();
+            }
         }
     }
 }

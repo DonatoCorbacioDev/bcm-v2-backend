@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.AuditLogDTO;
 import com.donatodev.bcm_backend.entity.AuditLog;
 import com.donatodev.bcm_backend.repository.AuditLogRepository;
@@ -35,7 +36,11 @@ public class AuditLogService {
     }
 
     public Page<AuditLogDTO> findAll(Pageable pageable) {
-        return auditLogRepository.findAllByOrderByTimestampDesc(pageable)
+        Long orgId = TenantContext.get();
+        Page<AuditLog> logs = (orgId != null)
+                ? auditLogRepository.findAllByOrgIdOrderByTimestampDesc(orgId, pageable)
+                : auditLogRepository.findAllByOrderByTimestampDesc(pageable);
+        return logs
                 .map(log -> new AuditLogDTO(
                         log.getId(),
                         log.getAction(),
