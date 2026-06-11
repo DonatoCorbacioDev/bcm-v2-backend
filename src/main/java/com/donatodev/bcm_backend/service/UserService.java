@@ -18,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.UserDTO;
 import com.donatodev.bcm_backend.dto.UserProfileDTO;
 import com.donatodev.bcm_backend.entity.InviteToken;
@@ -71,13 +72,17 @@ public class UserService {
 	}
 
 	/**
-	 * Retrieves all users.
+	 * Retrieves all users accessible to the current tenant. Falls back to all
+	 * users when no {@link TenantContext} is set.
 	 *
 	 * @return list of {@link UserDTO}
 	 */
 	public List<UserDTO> getAllUsers() {
-		return usersRepository.findAll()
-				.stream()
+		Long orgId = TenantContext.get();
+		List<Users> users = (orgId != null)
+				? usersRepository.findAllByOrganizationId(orgId)
+				: usersRepository.findAll();
+		return users.stream()
 				.map(userMapper::toDTO)
 				.toList();
 	}
@@ -90,9 +95,31 @@ public class UserService {
 	 * @throws UserNotFoundException if the user is not found
 	 */
 	public UserDTO getUserById(Long id) {
-		return usersRepository.findById(id)
+		return findUserInScope(id)
 				.map(userMapper::toDTO)
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
+	}
+
+	/**
+	 * Finds a user by ID, scoped to the current tenant when
+	 * {@link TenantContext} carries an organization ID.
+	 */
+	private Optional<Users> findUserInScope(Long id) {
+		Long orgId = TenantContext.get();
+		return (orgId != null)
+				? usersRepository.findByIdAndOrganizationId(id, orgId)
+				: usersRepository.findById(id);
+	}
+
+	/**
+	 * Finds a manager by ID, scoped to the current tenant when
+	 * {@link TenantContext} carries an organization ID.
+	 */
+	private Optional<Managers> findManagerInScope(Long managerId) {
+		Long orgId = TenantContext.get();
+		return (orgId != null)
+				? managersRepository.findByIdAndOrganizationId(managerId, orgId)
+				: managersRepository.findById(managerId);
 	}
 
 	/**
@@ -137,13 +164,13 @@ public class UserService {
 	 * @throws IllegalArgumentException if referenced manager or role is not found
 	 */
 	public UserDTO updateUser(Long id, UserDTO dto) {
-		Users user = usersRepository.findById(id)
+		Users user = findUserInScope(id)
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
 
 		user.setUsername(dto.username());
 		user.setPasswordHash(passwordEncoder.encode(dto.password()));
 
-		user.setManager(managersRepository.findById(dto.managerId())
+		user.setManager(findManagerInScope(dto.managerId())
 				.orElseThrow(() -> new IllegalArgumentException("Manager ID not found")));
 
 		user.setRole(rolesRepository.findById(dto.roleId())
@@ -157,9 +184,12 @@ public class UserService {
 	 * Deletes a user by their ID.
 	 *
 	 * @param id the ID of the user to delete
+	 * @throws UserNotFoundException if the user is not found
 	 */
 	public void deleteUser(Long id) {
-		usersRepository.deleteById(id);
+		Users user = findUserInScope(id)
+				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
+		usersRepository.delete(user);
 	}
 
 	/**
@@ -272,7 +302,7 @@ public class UserService {
 
 	@Transactional
 	public Users updateUserPartial(Long id, String username, String role, Long managerId, String rawPassword) {
-		Users user = usersRepository.findById(id)
+		Users user = findUserInScope(id)
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
 
 		if (username != null && !username.isBlank()) {
@@ -289,7 +319,7 @@ public class UserService {
 		}
 
 		if (managerId != null) {
-			Managers m = managersRepository.findById(managerId)
+			Managers m = findManagerInScope(managerId)
 					.orElseThrow(() -> new IllegalArgumentException("Manager ID not found"));
 			user.setManager(m);
 		}
@@ -302,7 +332,7 @@ public class UserService {
 	}
 
 	public Users getEntityById(Long id) {
-		return usersRepository.findById(id)
+		return findUserInScope(id)
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
 	}
 
@@ -321,6 +351,13 @@ public class UserService {
 
 	public Page<Users> searchUsers(String q, String role, Boolean verified, Pageable pageable) {
 		Specification<Users> spec = Specification.allOf();
+
+		Long orgId = TenantContext.get();
+		if (orgId != null) {
+			spec = spec.and((root, query, cb) ->
+				cb.equal(root.get("organization").get("id"), orgId)
+			);
+		}
 
 		if (q != null && !q.isBlank()) {
 			spec = spec.and((root, query, cb) ->

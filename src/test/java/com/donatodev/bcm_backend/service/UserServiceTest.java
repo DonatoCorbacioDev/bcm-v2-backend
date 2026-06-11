@@ -224,8 +224,28 @@ class UserServiceTest {
         @Order(6)
         @DisplayName("Delete user by ID")
         void shouldDeleteUser() {
+            Users user = Users.builder().id(1L).username("admin").build();
+            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+
             userService.deleteUser(1L);
-            verify(usersRepository).deleteById(1L);
+
+            verify(usersRepository).delete(user);
+        }
+
+        /**
+         * Test: Throw UserNotFoundException when deleting a missing user.
+         */
+        @Test
+        @Order(60)
+        @DisplayName("Delete user throws if not found")
+        void shouldThrowWhenDeletingMissingUser() {
+            when(usersRepository.findById(999L)).thenReturn(Optional.empty());
+
+            UserNotFoundException ex = assertThrows(UserNotFoundException.class,
+                    () -> userService.deleteUser(999L));
+
+            assertEquals("User ID 999 not found", ex.getMessage());
+            verify(usersRepository, never()).delete(any(Users.class));
         }
 
         /**
