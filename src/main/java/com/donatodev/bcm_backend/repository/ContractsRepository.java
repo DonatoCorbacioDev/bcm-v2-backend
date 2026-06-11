@@ -3,6 +3,7 @@ package com.donatodev.bcm_backend.repository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +41,17 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
      * @return a list of matching {@link Contracts}
      */
     List<Contracts> findByManagerId(Long managerId);
+
+    /**
+     * Finds a contract by ID, scoped to the given organization. Used to
+     * prevent cross-tenant access to contracts by ID.
+     *
+     * @param id the contract ID
+     * @param orgId the organization ID
+     * @return an {@link Optional} containing the contract if it exists and
+     * belongs to the given organization
+     */
+    Optional<Contracts> findByIdAndOrganization_Id(Long id, Long orgId);
 
     /**
      * Finds all contracts assigned to a specific manager and having the

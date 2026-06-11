@@ -259,8 +259,25 @@ class ContractServiceTest {
         @Order(6)
         @DisplayName("Delete contract calls repository")
         void shouldDeleteContract() {
+            Contracts contract = Contracts.builder().id(1L).build();
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+
             contractService.deleteContract(1L);
-            verify(contractsRepository, times(1)).deleteById(1L);
+
+            verify(contractsRepository, times(1)).delete(contract);
+        }
+
+        /**
+         * Tests that deleting a non-existent contract throws
+         * ContractNotFoundException.
+         */
+        @Test
+        @Order(30)
+        @DisplayName("Delete contract throws when contract not found")
+        void shouldThrowWhenDeletingMissingContract() {
+            when(contractsRepository.findById(1L)).thenReturn(Optional.empty());
+
+            assertThrows(ContractNotFoundException.class, () -> contractService.deleteContract(1L));
         }
 
         /**

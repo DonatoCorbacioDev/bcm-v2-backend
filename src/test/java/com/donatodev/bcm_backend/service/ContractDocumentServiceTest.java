@@ -224,6 +224,7 @@ class ContractDocumentServiceTest {
             Contracts contract = fakeContract();
             ContractDocument doc = fakeDoc(contract);
 
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
             when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
                     .thenReturn(List.of(doc));
 
@@ -238,6 +239,7 @@ class ContractDocumentServiceTest {
         @Order(10)
         @DisplayName("getDocuments: returns empty list when no documents")
         void shouldReturnEmptyList() {
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
             when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
                     .thenReturn(List.of());
 
@@ -257,6 +259,7 @@ class ContractDocumentServiceTest {
             DocumentAnalysisDTO expected = new DocumentAnalysisDTO(
                     DOC_ID, "raw text", "Acme", null, null, null, null);
 
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
                     .thenReturn(Optional.of(doc));
             when(localStorageService.readDocument(doc.getStoragePath())).thenReturn(VALID_PDF);
@@ -271,6 +274,7 @@ class ContractDocumentServiceTest {
         @Order(12)
         @DisplayName("extractText: throws ContractNotFoundException when document missing")
         void shouldThrowWhenDocumentNotFoundOnExtract() {
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
                     .thenReturn(Optional.empty());
 
@@ -287,6 +291,7 @@ class ContractDocumentServiceTest {
             Contracts contract = fakeContract();
             ContractDocument doc = fakeDoc(contract);
 
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
                     .thenReturn(Optional.of(doc));
             when(localStorageService.readDocument(doc.getStoragePath())).thenReturn(VALID_PDF);
@@ -302,6 +307,7 @@ class ContractDocumentServiceTest {
         @Order(14)
         @DisplayName("downloadDocument: throws ContractNotFoundException when document missing")
         void shouldThrowWhenDocumentNotFoundOnDownload() {
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
                     .thenReturn(Optional.empty());
 
@@ -318,6 +324,7 @@ class ContractDocumentServiceTest {
             Contracts contract = fakeContract();
             ContractDocument doc = fakeDoc(contract);
 
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
                     .thenReturn(Optional.of(doc));
 
@@ -331,6 +338,7 @@ class ContractDocumentServiceTest {
         @Order(16)
         @DisplayName("deleteDocument: throws ContractNotFoundException when document missing")
         void shouldThrowWhenDocumentNotFoundOnDelete() {
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
                     .thenReturn(Optional.empty());
 

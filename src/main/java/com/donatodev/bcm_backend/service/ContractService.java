@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -104,9 +105,20 @@ public class ContractService {
      * Retrieves a contract by its ID.
      */
     public ContractDTO getContractById(Long id) {
-        return contractsRepository.findById(id)
+        return findContractInScope(id)
                 .map(contractMapper::toDTO)
                 .orElseThrow(() -> new ContractNotFoundException("Contract ID " + id + " not found"));
+    }
+
+    /**
+     * Finds a contract by ID, scoped to the current tenant when
+     * {@link TenantContext} carries an organization ID.
+     */
+    private Optional<Contracts> findContractInScope(Long id) {
+        Long orgId = TenantContext.get();
+        return (orgId != null)
+                ? contractsRepository.findByIdAndOrganization_Id(id, orgId)
+                : contractsRepository.findById(id);
     }
 
     /**
@@ -148,7 +160,7 @@ public class ContractService {
      * automatically created.
      */
     public ContractDTO updateContract(Long id, ContractDTO contractDTO) {
-        Contracts contract = contractsRepository.findById(id)
+        Contracts contract = findContractInScope(id)
                 .orElseThrow(() -> new ContractNotFoundException("Contract not found"));
 
         // Save previous status for history tracking
@@ -187,7 +199,9 @@ public class ContractService {
      * Deletes a contract by its ID.
      */
     public void deleteContract(Long id) {
-        contractsRepository.deleteById(id);
+        Contracts contract = findContractInScope(id)
+                .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + id));
+        contractsRepository.delete(contract);
     }
 
     /**
@@ -292,7 +306,7 @@ public class ContractService {
      * Assigns a manager to a contract.
      */
     public void assignManager(Long contractId, Long managerId) {
-        Contracts c = contractsRepository.findById(contractId)
+        Contracts c = findContractInScope(contractId)
                 .orElseThrow(() -> new IllegalArgumentException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
 
         Managers m = managerService.getManagerEntity(managerId);
@@ -308,7 +322,7 @@ public class ContractService {
      * Gets collaborator manager IDs for a contract.
      */
     public List<Long> getCollaboratorIds(Long contractId) {
-        contractsRepository.findById(contractId)
+        findContractInScope(contractId)
                 .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
         return contractManagerRepository.findManagerIdsByContractId(contractId);
     }
@@ -317,7 +331,7 @@ public class ContractService {
      * Sets collaborators for a contract.
      */
     public void setCollaborators(Long contractId, List<Long> managerIds) {
-        contractsRepository.findById(contractId)
+        findContractInScope(contractId)
                 .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
 
         contractManagerRepository.deleteAllByContractId(contractId);

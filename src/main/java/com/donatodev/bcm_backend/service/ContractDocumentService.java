@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -46,8 +47,7 @@ public class ContractDocumentService {
 
     @Transactional
     public ContractDocumentDTO uploadDocument(Long contractId, MultipartFile file) throws IOException {
-        Contracts contract = contractsRepository.findById(contractId)
-                .orElseThrow(() -> new ContractNotFoundException("Contract ID " + contractId + " not found"));
+        Contracts contract = getContractInScope(contractId);
 
         validateFile(file);
 
@@ -69,6 +69,7 @@ public class ContractDocumentService {
 
     @Transactional(readOnly = true)
     public List<ContractDocumentDTO> getDocuments(Long contractId) {
+        getContractInScope(contractId);
         return documentRepository.findByContractIdOrderByUploadedAtDesc(contractId)
                 .stream()
                 .map(this::toDTO)
@@ -76,6 +77,7 @@ public class ContractDocumentService {
     }
 
     public DocumentAnalysisDTO extractText(Long contractId, Long documentId) {
+        getContractInScope(contractId);
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(DOC_NOT_FOUND, documentId, contractId)));
@@ -86,6 +88,7 @@ public class ContractDocumentService {
 
     @Transactional(readOnly = true)
     public DocumentDownload downloadDocument(Long contractId, Long documentId) {
+        getContractInScope(contractId);
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(DOC_NOT_FOUND, documentId, contractId)));
@@ -96,12 +99,26 @@ public class ContractDocumentService {
 
     @Transactional
     public void deleteDocument(Long contractId, Long documentId) {
+        getContractInScope(contractId);
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(DOC_NOT_FOUND, documentId, contractId)));
 
         localStorageService.deleteDocument(doc.getStoragePath());
         documentRepository.delete(doc);
+    }
+
+    /**
+     * Finds the contract by ID, scoped to the current tenant when
+     * {@link TenantContext} carries an organization ID. Used to prevent
+     * cross-tenant access to a contract's documents by ID.
+     */
+    private Contracts getContractInScope(Long contractId) {
+        Long orgId = TenantContext.get();
+        Optional<Contracts> contract = (orgId != null)
+                ? contractsRepository.findByIdAndOrganization_Id(contractId, orgId)
+                : contractsRepository.findById(contractId);
+        return contract.orElseThrow(() -> new ContractNotFoundException("Contract ID " + contractId + " not found"));
     }
 
     private void validateFile(MultipartFile file) throws IOException {
