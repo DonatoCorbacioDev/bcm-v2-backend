@@ -202,5 +202,32 @@ class AuthServiceTest {
                     () -> authService.authenticate("admin", "password", "unknown-org"));
             assertEquals("Invalid username or password", ex.getMessage());
         }
+
+        /**
+         * Test authentication treats a blank (non-null) organizationSlug the same
+         * as no organizationSlug, falling back to lookup by username alone.
+         */
+        @Test
+        @Order(8)
+        @DisplayName("Authenticate with blank organizationSlug falls back to username lookup")
+        void shouldAuthenticateWithBlankOrganizationSlug() {
+            Users user = Users.builder()
+                    .username("admin")
+                    .passwordHash("hashedpwd")
+                    .verified(true)
+                    .build();
+
+            RefreshToken fakeRefreshToken = RefreshToken.builder().token("fake-refresh-token").build();
+
+            when(usersRepository.findAllByUsername("admin")).thenReturn(List.of(user));
+            when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
+            when(jwtUtils.generateToken(user)).thenReturn("fake-jwt-token");
+            when(refreshTokenService.createRefreshToken(user)).thenReturn(fakeRefreshToken);
+
+            AuthResponseDTO response = authService.authenticate("admin", "password", "");
+
+            assertEquals("fake-jwt-token", response.token());
+            assertEquals("fake-refresh-token", response.refreshToken());
+        }
     }
 }

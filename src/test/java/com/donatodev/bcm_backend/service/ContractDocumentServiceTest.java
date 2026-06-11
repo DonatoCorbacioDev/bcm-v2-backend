@@ -30,6 +30,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
 import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 import com.donatodev.bcm_backend.entity.ContractDocument;
@@ -417,6 +418,28 @@ class ContractDocumentServiceTest {
         void documentDownloadToString() {
             DocumentDownload dd = new DocumentDownload(VALID_PDF, "contract.pdf", "application/pdf");
             assertTrue(dd.toString().contains("contract.pdf"));
+        }
+
+        @Test
+        @Order(25)
+        @DisplayName("getDocuments: with TenantContext uses org-scoped contract lookup")
+        void shouldGetDocumentsWithTenantContext() {
+            Contracts contract = fakeContract();
+            ContractDocument doc = fakeDoc(contract);
+
+            TenantContext.set(12L);
+            try {
+                when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, 12L)).thenReturn(Optional.of(contract));
+                when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
+                        .thenReturn(List.of(doc));
+
+                List<ContractDocumentDTO> result = contractDocumentService.getDocuments(CONTRACT_ID);
+
+                assertEquals(1, result.size());
+                verify(contractsRepository).findByIdAndOrganization_Id(CONTRACT_ID, 12L);
+            } finally {
+                TenantContext.clear();
+            }
         }
     }
 }

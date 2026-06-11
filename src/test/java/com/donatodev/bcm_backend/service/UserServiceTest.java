@@ -21,11 +21,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +42,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.UserDTO;
 import com.donatodev.bcm_backend.dto.UserProfileDTO;
 import com.donatodev.bcm_backend.entity.InviteToken;
@@ -53,6 +56,12 @@ import com.donatodev.bcm_backend.repository.InviteTokenRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 
 /**
  * Unit tests for {@link UserService}.
@@ -1290,6 +1299,144 @@ class UserServiceTest {
 
             assertEquals("Role not found: INVALIDROLE", ex.getMessage());
             verify(usersRepository, never()).save(any(Users.class));
+        }
+
+        /**
+         * Test: getAllUsers with TenantContext uses org-filtered repository.
+         */
+        @Test
+        @Order(61)
+        @DisplayName("Get all users with TenantContext uses org-filtered repository")
+        void shouldGetAllUsersWithTenantContext() {
+            Users user = Users.builder().id(1L).username("orguser").build();
+            UserDTO dto = new UserDTO(1L, "orguser", "pass", 1L, 1L, null, null);
+
+            TenantContext.set(2L);
+            try {
+                when(usersRepository.findAllByOrganizationId(2L)).thenReturn(List.of(user));
+                when(userMapper.toDTO(user)).thenReturn(dto);
+
+                List<UserDTO> result = userService.getAllUsers();
+
+                assertEquals(1, result.size());
+                verify(usersRepository).findAllByOrganizationId(2L);
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        /**
+         * Test: getUserById with TenantContext uses org-scoped repository.
+         */
+        @Test
+        @Order(62)
+        @DisplayName("Get user by ID with TenantContext uses org-scoped repository")
+        void shouldGetUserByIdWithTenantContext() {
+            Users user = Users.builder().id(1L).username("orguser").build();
+            UserDTO dto = new UserDTO(1L, "orguser", "pass", 1L, 1L, null, null);
+
+            TenantContext.set(9L);
+            try {
+                when(usersRepository.findByIdAndOrganizationId(1L, 9L)).thenReturn(Optional.of(user));
+                when(userMapper.toDTO(user)).thenReturn(dto);
+
+                UserDTO result = userService.getUserById(1L);
+
+                assertEquals("orguser", result.username());
+                verify(usersRepository).findByIdAndOrganizationId(1L, 9L);
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        /**
+         * Test: updateUserPartial with TenantContext resolves manager via org-scoped repository.
+         */
+        @Test
+        @Order(63)
+        @DisplayName("Update user partial with TenantContext resolves manager via org-scoped repository")
+        void shouldUpdateManagerWithTenantContext() {
+            Users user = Users.builder().id(1L).username("user").build();
+            Managers manager = Managers.builder().id(5L).build();
+
+            TenantContext.set(3L);
+            try {
+                when(usersRepository.findByIdAndOrganizationId(1L, 3L)).thenReturn(Optional.of(user));
+                when(managersRepository.findByIdAndOrganizationId(5L, 3L)).thenReturn(Optional.of(manager));
+                when(usersRepository.save(user)).thenReturn(user);
+
+                Users result = userService.updateUserPartial(1L, null, null, 5L, null);
+
+                assertEquals(manager, result.getManager());
+                verify(managersRepository).findByIdAndOrganizationId(5L, 3L);
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        /**
+         * Test: searchUsers with TenantContext applies organization filter.
+         */
+        @Test
+        @Order(64)
+        @DisplayName("Search users with TenantContext applies organization filter")
+        @SuppressWarnings("unchecked")
+        void shouldSearchUsersWithTenantContext() {
+            Pageable pageable = Pageable.unpaged();
+            Users user = Users.builder().id(1L).username("orguser").build();
+            Page<Users> page = new PageImpl<>(List.of(user));
+
+            TenantContext.set(4L);
+            try {
+                when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+
+                Page<Users> result = userService.searchUsers(null, null, null, pageable);
+
+                assertEquals(1, result.getContent().size());
+                verify(usersRepository).findAll(any(Specification.class), eq(pageable));
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        /**
+         * Test: searchUsers with TenantContext builds an organization-id predicate
+         * that matches the tenant's organization.
+         */
+        @Test
+        @Order(65)
+        @DisplayName("Search users with TenantContext applies organization filter predicate")
+        @SuppressWarnings("unchecked")
+        void shouldApplyOrganizationFilterPredicateWithTenantContext() {
+            Pageable pageable = Pageable.unpaged();
+            Page<Users> page = new PageImpl<>(List.of());
+
+            Root<Users> root = mock(Root.class);
+            CriteriaQuery<?> query = mock(CriteriaQuery.class);
+            CriteriaBuilder cb = mock(CriteriaBuilder.class);
+            Path<Object> orgPath = mock(Path.class);
+            Path<Object> idPath = mock(Path.class);
+            Predicate orgPredicate = mock(Predicate.class);
+
+            when(root.<Object>get("organization")).thenReturn(orgPath);
+            when(orgPath.<Object>get("id")).thenReturn(idPath);
+            when(cb.equal(idPath, 4L)).thenReturn(orgPredicate);
+
+            ArgumentCaptor<Specification> captor = ArgumentCaptor.forClass(Specification.class);
+            when(usersRepository.findAll(captor.capture(), eq(pageable))).thenReturn(page);
+
+            TenantContext.set(4L);
+            try {
+                userService.searchUsers(null, null, null, pageable);
+            } finally {
+                TenantContext.clear();
+            }
+
+            @SuppressWarnings("unchecked")
+            Specification<Users> captured = captor.getValue();
+            Predicate result = captured.toPredicate(root, query, cb);
+
+            assertEquals(orgPredicate, result);
         }
     }
 }

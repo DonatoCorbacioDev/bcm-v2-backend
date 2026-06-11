@@ -246,5 +246,26 @@ class FinancialTypeServiceTest {
                 TenantContext.clear();
             }
         }
+
+        @Test
+        @Order(10)
+        @DisplayName("getTypeById with TenantContext uses org-scoped repository")
+        void shouldGetTypeByIdWithTenantContext() {
+            FinancialTypes type = FinancialTypes.builder().id(1L).name("SALES").build();
+            FinancialTypeDTO dto = new FinancialTypeDTO(1L, "SALES", "Revenue");
+
+            TenantContext.set(9L);
+            try {
+                when(financialTypesRepository.findByIdAndOrganizationId(1L, 9L)).thenReturn(Optional.of(type));
+                when(financialTypeMapper.toDTO(type)).thenReturn(dto);
+
+                FinancialTypeDTO result = financialTypeService.getTypeById(1L);
+
+                assertEquals("SALES", result.name());
+                verify(financialTypesRepository).findByIdAndOrganizationId(1L, 9L);
+            } finally {
+                TenantContext.clear();
+            }
+        }
     }
 }

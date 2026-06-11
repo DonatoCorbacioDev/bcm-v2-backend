@@ -1548,5 +1548,27 @@ class ContractServiceTest {
 
             assertTrue(result.isEmpty());
         }
+
+        @Test
+        @Order(57)
+        @DisplayName("getContractById with TenantContext uses org-scoped repository")
+        void shouldGetContractByIdWithTenantContext() {
+            Contracts contract = Contracts.builder().id(1L).contractNumber("ABC123").customerName("Mario").build();
+            ContractDTO dto = new ContractDTO(1L, "Mario", "ABC123", "WBS001", "Progetto",
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
+
+            TenantContext.set(11L);
+            try {
+                when(contractsRepository.findByIdAndOrganization_Id(1L, 11L)).thenReturn(Optional.of(contract));
+                when(contractMapper.toDTO(contract)).thenReturn(dto);
+
+                ContractDTO result = contractService.getContractById(1L);
+
+                assertEquals("Mario", result.customerName());
+                verify(contractsRepository).findByIdAndOrganization_Id(1L, 11L);
+            } finally {
+                TenantContext.clear();
+            }
+        }
     }
 }

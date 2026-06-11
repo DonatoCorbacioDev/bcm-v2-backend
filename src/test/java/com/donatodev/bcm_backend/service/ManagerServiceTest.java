@@ -397,5 +397,26 @@ class ManagerServiceTest {
                 TenantContext.clear();
             }
         }
+
+        @Test
+        @Order(17)
+        @DisplayName("getManagerById with TenantContext uses org-scoped repository")
+        void shouldGetManagerByIdWithTenantContext() {
+            Managers entity = Managers.builder().id(1L).firstName("Luca").lastName("Bianchi").build();
+            ManagerDTO dto = new ManagerDTO(1L, "Luca", "Bianchi", "luca@example.com", "0987654321", "HR");
+
+            TenantContext.set(9L);
+            try {
+                when(managersRepository.findByIdAndOrganizationId(1L, 9L)).thenReturn(Optional.of(entity));
+                when(managerMapper.toDTO(entity)).thenReturn(dto);
+
+                ManagerDTO result = managerService.getManagerById(1L);
+
+                assertEquals("Luca", result.firstName());
+                verify(managersRepository).findByIdAndOrganizationId(1L, 9L);
+            } finally {
+                TenantContext.clear();
+            }
+        }
     }
 }

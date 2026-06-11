@@ -259,5 +259,26 @@ class BusinessAreaServiceTest {
                 TenantContext.clear();
             }
         }
+
+        @Test
+        @Order(11)
+        @DisplayName("getAreaById with TenantContext uses org-scoped repository")
+        void shouldGetAreaByIdWithTenantContext() {
+            BusinessAreas entity = BusinessAreas.builder().id(1L).name("IT").description("Infra").build();
+            BusinessAreaDTO dto = new BusinessAreaDTO(1L, "IT", "Infra");
+
+            TenantContext.set(8L);
+            try {
+                when(repository.findByIdAndOrganizationId(1L, 8L)).thenReturn(Optional.of(entity));
+                when(mapper.toDTO(entity)).thenReturn(dto);
+
+                BusinessAreaDTO result = service.getAreaById(1L);
+
+                assertEquals("IT", result.name());
+                verify(repository).findByIdAndOrganizationId(1L, 8L);
+            } finally {
+                TenantContext.clear();
+            }
+        }
     }
 }

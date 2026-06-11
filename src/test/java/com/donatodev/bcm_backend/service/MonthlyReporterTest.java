@@ -23,7 +23,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.test.context.ActiveProfiles;
+
+import ch.qos.logback.classic.Level;
 
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
@@ -253,6 +256,41 @@ class MonthlyReporterTest {
             assertDoesNotThrow(() -> monthlyReporter.sendMonthlyReports());
 
             verify(emailService).sendEmail(eq("admin@testorg.com"), anyString(), anyString());
+        }
+
+        @Test
+        @Order(9)
+        @DisplayName("Should send report without info logging when INFO level is disabled")
+        void shouldSendReportWithInfoLoggingDisabled() {
+            Organization org = Organization.builder().id(1L).name("TestOrg")
+                    .subscriptionTier(SubscriptionTier.FREE).build();
+
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setEmail("admin@testorg.com");
+            Users admin = Users.builder().id(1L).username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .manager(manager).organization(org).build();
+
+            when(organizationRepository.findAll()).thenReturn(List.of(org));
+            when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(10);
+            when(contractsRepository.countActiveContractsByOrg(1L)).thenReturn(7);
+            when(contractsRepository.countExpiredContractsByOrg(1L)).thenReturn(2);
+            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(3L);
+            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(50000.0);
+            when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN")).thenReturn(List.of(admin));
+
+            ch.qos.logback.classic.Logger reporterLogger =
+                    (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(MonthlyReporter.class);
+            Level originalLevel = reporterLogger.getLevel();
+            reporterLogger.setLevel(Level.WARN);
+            try {
+                monthlyReporter.sendMonthlyReports();
+            } finally {
+                reporterLogger.setLevel(originalLevel);
+            }
+
+            verify(emailService).sendEmail(eq("admin@testorg.com"), contains("[BCM] Monthly Report"), anyString());
         }
     }
 }
