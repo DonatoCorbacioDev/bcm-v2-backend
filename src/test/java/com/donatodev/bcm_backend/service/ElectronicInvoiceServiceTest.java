@@ -4,11 +4,11 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -82,7 +82,7 @@ class ElectronicInvoiceServiceTest {
 
     private FatturaPaInvoiceData sampleParsedData() {
         return new FatturaPaInvoiceData("Acme Forniture S.r.l.", "IT12345678901", "TD01", "2024/001",
-                LocalDate.of(2024, 3, 15), new BigDecimal("1220.00"), "EUR", sampleLineItems());
+                LocalDate.of(2024, Month.MARCH, 15), new BigDecimal("1220.00"), "EUR", sampleLineItems());
     }
 
     private ElectronicInvoice fakeInvoice(Contracts contract, String lineItemsJson) {
@@ -98,7 +98,7 @@ class ElectronicInvoiceServiceTest {
         invoice.setSupplierVatNumber("IT12345678901");
         invoice.setDocumentType("TD01");
         invoice.setInvoiceNumber("2024/001");
-        invoice.setInvoiceDate(LocalDate.of(2024, 3, 15));
+        invoice.setInvoiceDate(LocalDate.of(2024, Month.MARCH, 15));
         invoice.setTotalAmount(new BigDecimal("1220.00"));
         invoice.setCurrency("EUR");
         invoice.setLineItemsJson(lineItemsJson);
@@ -420,7 +420,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("equals: null returns false")
         void equalsNull() {
             InvoiceDownload download = new InvoiceDownload(VALID_XML, "f.xml", "application/xml");
-            assertFalse(download.equals(null));
+            assertNotEquals(null, download);
         }
 
         @Test
@@ -428,7 +428,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("equals: different type returns false")
         void equalsDifferentType() {
             InvoiceDownload download = new InvoiceDownload(VALID_XML, "f.xml", "application/xml");
-            assertFalse(download.equals("string"));
+            assertNotEquals("string", download);
         }
 
         @Test

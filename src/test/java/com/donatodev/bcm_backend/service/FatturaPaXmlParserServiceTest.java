@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -18,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -56,7 +59,7 @@ class FatturaPaXmlParserServiceTest {
             assertEquals("IT12345678901", data.supplierVatNumber());
             assertEquals("TD01", data.documentType());
             assertEquals("2024/001", data.invoiceNumber());
-            assertEquals(LocalDate.of(2024, 3, 15), data.invoiceDate());
+            assertEquals(LocalDate.of(2024, Month.MARCH, 15), data.invoiceDate());
             assertEquals(0, new BigDecimal("1220.00").compareTo(data.totalAmount()));
             assertEquals("EUR", data.currency());
 
@@ -80,7 +83,7 @@ class FatturaPaXmlParserServiceTest {
             assertEquals("RSSMRA80A01H501U", data.supplierVatNumber());
             assertEquals("TD01", data.documentType());
             assertEquals("1", data.invoiceNumber());
-            assertEquals(LocalDate.of(2024, 5, 1), data.invoiceDate());
+            assertEquals(LocalDate.of(2024, Month.MAY, 1), data.invoiceDate());
             assertNull(data.totalAmount());
             assertEquals("EUR", data.currency());
 
@@ -114,24 +117,15 @@ class FatturaPaXmlParserServiceTest {
     @DisplayName("parse: invalid documents are rejected")
     class ParseInvalidDocuments {
 
-        @Test
-        @DisplayName("malformed XML throws IllegalArgumentException")
-        void shouldRejectMalformedXml() throws Exception {
-            byte[] xml = loadResource("fattura-pa-malformed.xml");
-            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
-        }
-
-        @Test
-        @DisplayName("wrong root element throws IllegalArgumentException")
-        void shouldRejectWrongRoot() throws Exception {
-            byte[] xml = loadResource("fattura-pa-wrong-root.xml");
-            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
-        }
-
-        @Test
-        @DisplayName("XXE attempt (DOCTYPE + external entity) is rejected outright")
-        void shouldRejectXxeAttempt() throws Exception {
-            byte[] xml = loadResource("fattura-pa-xxe-attempt.xml");
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "fattura-pa-malformed.xml",
+                "fattura-pa-wrong-root.xml",
+                "fattura-pa-xxe-attempt.xml"
+        })
+        @DisplayName("malformed XML, wrong root element, or XXE attempt throws IllegalArgumentException")
+        void shouldRejectInvalidDocuments(String resourceName) throws Exception {
+            byte[] xml = loadResource(resourceName);
             assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
         }
     }

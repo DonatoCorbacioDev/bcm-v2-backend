@@ -81,7 +81,7 @@ class ElectronicInvoiceControllerTest {
                 Instant.parse("2027-01-15T12:00:00Z"),
                 "http://localhost:8090/api/v1/contracts/" + contractId + "/invoices/1/download",
                 "Acme Forniture S.r.l.", "IT12345678901", "TD01", "2024/001",
-                LocalDate.of(2024, 3, 15), new BigDecimal("1220.00"), "EUR", sampleLineItems());
+                LocalDate.of(2024, Month.MARCH, 15), new BigDecimal("1220.00"), "EUR", sampleLineItems());
     }
 
     @BeforeEach
