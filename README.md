@@ -704,6 +704,8 @@ docker run -p 8090:8090 --env-file .env.prod bcm-backend:1.0.0
 
 This project is licensed under a **Custom Non-Commercial License** - see the [LICENSE](./LICENSE) file for full details.
 
+> **This project itself is NOT open source.** It is published as a personal portfolio project under a custom restrictive license. See [LICENSE](./LICENSE) for details.
+
 **Summary:**
 
 - ✅ Code available for educational purposes and review

@@ -1,5 +1,11 @@
 -- V4__create_admin_user.sql
 -- Creates default admin user for system initialization
+--
+-- NOTE: This default account (and its known "admin123" password hash) is
+-- intentionally disabled by a later migration -
+-- see V14__neutralize_default_admin.sql, which sets verified = FALSE for
+-- any account still using this exact hash. Do not rely on these
+-- credentials in production; use the forgot-password flow to recover access.
 
 -- Create admin manager (id=1)
 INSERT INTO managers (id, first_name, last_name, email, phone_number, department)

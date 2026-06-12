@@ -14,12 +14,12 @@
     <version>1.0.0-SNAPSHOT</version>
     <name>Business Contracts Manager</name>
     <description>Enterprise-grade Business Contracts Manager - Full Stack SaaS Platform for Contract Lifecycle Management</description>
-    <url>https://github.com/donatodev/bcm-backend</url>
+    <url>https://github.com/DonatoCorbacioDev/bcm-v2-backend</url>
 	
     <licenses>
         <license>
             <name>Proprietary License</name>
-            <url>https://github.com/donatocorbacio/bcm-v2/blob/main/LICENSE</url>
+            <url>https://github.com/DonatoCorbacioDev/bcm-v2-backend/blob/main/LICENSE</url>
             <distribution>repo</distribution>
             <comments>Custom restrictive license. Commercial use prohibited without written permission. See LICENSE file for full terms.</comments>
         </license>
@@ -38,9 +38,9 @@
     </developers>
 	
     <scm>
-        <connection>scm:git:git://github.com/donatodev/bcm-backend.git</connection>
-        <developerConnection>scm:git:ssh://github.com:donatodev/bcm-backend.git</developerConnection>
-        <url>https://github.com/donatodev/bcm-backend/tree/main</url>
+        <connection>scm:git:git://github.com/DonatoCorbacioDev/bcm-v2-backend.git</connection>
+        <developerConnection>scm:git:ssh://github.com:DonatoCorbacioDev/bcm-v2-backend.git</developerConnection>
+        <url>https://github.com/DonatoCorbacioDev/bcm-v2-backend/tree/main</url>
     </scm>
 	
     <properties>

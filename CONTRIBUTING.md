@@ -118,7 +118,7 @@ Users need to attach PDF contracts to contract records.
 ### Contributing Code
 
 1. **Fork the repository**
-2. **Create a feature branch** from `develop`
+2. **Create a feature branch** from `main`
 3. **Make your changes** following coding standards
 4. **Write/update tests** (maintain 100% coverage goal)
 5. **Update documentation** if needed
@@ -438,7 +438,7 @@ Add tests for:
 - [ ] No linter errors (`mvn spotbugs:check`)
 - [ ] No security vulnerabilities (`mvn dependency-check:check`)
 - [ ] Commit messages follow convention
-- [ ] Branch is up-to-date with `develop`
+- [ ] Branch is up-to-date with `main`
 
 ### Submitting
 
@@ -448,7 +448,7 @@ Add tests for:
    ```
 
 2. **Open Pull Request:**
-   - Base: `develop` (not `main`)
+   - Base: `main`
    - Title: Use conventional commit format
    - Description: Use the template below
 
@@ -493,7 +493,7 @@ Closes #(issue_number)
 2. **Code review** by maintainers
 3. **Feedback addressed** by contributor
 4. **Approval** from at least one maintainer
-5. **Merge** to `develop` branch
+5. **Merge** to `main` branch
 
 ### After Merge
 
