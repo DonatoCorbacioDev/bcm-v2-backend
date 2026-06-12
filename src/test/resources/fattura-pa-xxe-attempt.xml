@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE FatturaElettronica [
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<FatturaElettronica>
+    <FatturaElettronicaHeader>
+        <CedentePrestatore>
+            <DatiAnagrafici>
+                <Anagrafica>
+                    <Denominazione>&xxe;</Denominazione>
+                </Anagrafica>
+            </DatiAnagrafici>
+        </CedentePrestatore>
+    </FatturaElettronicaHeader>
+    <FatturaElettronicaBody/>
+</FatturaElettronica>

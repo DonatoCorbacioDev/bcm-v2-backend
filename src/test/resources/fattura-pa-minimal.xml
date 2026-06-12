@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FatturaElettronica versione="FPR12">
+    <FatturaElettronicaHeader>
+        <CedentePrestatore>
+            <DatiAnagrafici>
+                <CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>
+                <Anagrafica>
+                    <Nome>Mario</Nome>
+                    <Cognome>Rossi</Cognome>
+                </Anagrafica>
+            </DatiAnagrafici>
+        </CedentePrestatore>
+    </FatturaElettronicaHeader>
+    <FatturaElettronicaBody>
+        <DatiGenerali>
+            <DatiGeneraliDocumento>
+                <TipoDocumento>TD01</TipoDocumento>
+                <Divisa>EUR</Divisa>
+                <Data>2024-05-01</Data>
+                <Numero>1</Numero>
+            </DatiGeneraliDocumento>
+        </DatiGenerali>
+        <DatiBeniServizi>
+            <DettaglioLinee>
+                <NumeroLinea>1</NumeroLinea>
+                <Descrizione>Prestazione occasionale</Descrizione>
+                <PrezzoUnitario>500.00</PrezzoUnitario>
+                <PrezzoTotale>500.00</PrezzoTotale>
+                <AliquotaIVA>0.00</AliquotaIVA>
+            </DettaglioLinee>
+        </DatiBeniServizi>
+    </FatturaElettronicaBody>
+</FatturaElettronica>
