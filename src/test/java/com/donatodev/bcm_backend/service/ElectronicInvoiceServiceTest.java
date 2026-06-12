@@ -1,7 +1,9 @@
 package com.donatodev.bcm_backend.service;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Month;
@@ -41,7 +43,6 @@ import com.donatodev.bcm_backend.entity.ElectronicInvoice;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
-import com.donatodev.bcm_backend.service.ElectronicInvoiceService.InvoiceDownload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
@@ -305,7 +306,7 @@ class ElectronicInvoiceServiceTest {
                     .thenReturn(Optional.of(invoice));
             when(localStorageService.readDocument(invoice.getStoragePath())).thenReturn(VALID_XML);
 
-            InvoiceDownload result = electronicInvoiceService.downloadInvoice(CONTRACT_ID, INVOICE_ID);
+            FileDownload result = electronicInvoiceService.downloadInvoice(CONTRACT_ID, INVOICE_ID);
 
             assertNotNull(result.bytes());
             assertEquals("invoice.xml", result.fileName());
@@ -399,19 +400,58 @@ class ElectronicInvoiceServiceTest {
             assertNotNull(result.lineItems());
             assertEquals(0, result.lineItems().size());
         }
+
+        @Test
+        @Order(18)
+        @DisplayName("getInvoice: throws UncheckedIOException when lineItemsJson is malformed")
+        void shouldThrowWhenLineItemsJsonIsMalformed() {
+            Contracts contract = fakeContract();
+            ElectronicInvoice invoice = fakeInvoice(contract, "not valid json");
+
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(invoice));
+
+            assertThrows(UncheckedIOException.class,
+                    () -> electronicInvoiceService.getInvoice(CONTRACT_ID, INVOICE_ID));
+        }
+
+        @Test
+        @Order(19)
+        @DisplayName("uploadInvoice: accepts XML content without an XML declaration")
+        void shouldAcceptXmlWithoutDeclaration() throws IOException {
+            Contracts contract = fakeContract();
+            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
+            ElectronicInvoice saved = fakeInvoice(contract, lineItemsJson);
+
+            byte[] xmlWithoutDeclaration = "<FatturaElettronica></FatturaElettronica>".getBytes(StandardCharsets.UTF_8);
+
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(fatturaPaXmlParserService.parse(any())).thenReturn(sampleParsedData());
+            when(localStorageService.storeInvoice(any(), eq(CONTRACT_ID), any()))
+                    .thenReturn("invoices/0/1/uuid-invoice.xml");
+            when(invoiceRepository.save(any(ElectronicInvoice.class))).thenReturn(saved);
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "invoice.xml", "application/xml", xmlWithoutDeclaration);
+
+            ElectronicInvoiceDTO result = electronicInvoiceService.uploadInvoice(CONTRACT_ID, file);
+
+            assertNotNull(result);
+        }
     }
 
     @Nested
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-    @DisplayName("InvoiceDownload record")
+    @DisplayName("FileDownload record")
     @SuppressWarnings("unused")
-    class InvoiceDownloadRecord {
+    class FileDownloadRecord {
 
         @Test
         @Order(1)
         @DisplayName("equals: same reference returns true")
         void equalsSameReference() {
-            InvoiceDownload download = new InvoiceDownload(VALID_XML, "f.xml", "application/xml");
+            FileDownload download = new FileDownload(VALID_XML, "f.xml", "application/xml");
             assertEquals(download, download);
         }
 
@@ -419,7 +459,7 @@ class ElectronicInvoiceServiceTest {
         @Order(2)
         @DisplayName("equals: null returns false")
         void equalsNull() {
-            InvoiceDownload download = new InvoiceDownload(VALID_XML, "f.xml", "application/xml");
+            FileDownload download = new FileDownload(VALID_XML, "f.xml", "application/xml");
             assertNotEquals(null, download);
         }
 
@@ -427,7 +467,7 @@ class ElectronicInvoiceServiceTest {
         @Order(3)
         @DisplayName("equals: different type returns false")
         void equalsDifferentType() {
-            InvoiceDownload download = new InvoiceDownload(VALID_XML, "f.xml", "application/xml");
+            FileDownload download = new FileDownload(VALID_XML, "f.xml", "application/xml");
             assertNotEquals("string", download);
         }
 
@@ -435,8 +475,8 @@ class ElectronicInvoiceServiceTest {
         @Order(4)
         @DisplayName("equals: same content returns true, hashCode matches")
         void equalsAndHashCode() {
-            InvoiceDownload d1 = new InvoiceDownload(VALID_XML, "f.xml", "application/xml");
-            InvoiceDownload d2 = new InvoiceDownload(VALID_XML, "f.xml", "application/xml");
+            FileDownload d1 = new FileDownload(VALID_XML, "f.xml", "application/xml");
+            FileDownload d2 = new FileDownload(VALID_XML, "f.xml", "application/xml");
             assertEquals(d1, d2);
             assertEquals(d1.hashCode(), d2.hashCode());
         }
@@ -445,8 +485,8 @@ class ElectronicInvoiceServiceTest {
         @Order(5)
         @DisplayName("equals: returns false when bytes differ")
         void notEqualsDifferentBytes() {
-            InvoiceDownload d1 = new InvoiceDownload(VALID_XML, "f.xml", "application/xml");
-            InvoiceDownload d2 = new InvoiceDownload(new byte[]{1, 2, 3}, "f.xml", "application/xml");
+            FileDownload d1 = new FileDownload(VALID_XML, "f.xml", "application/xml");
+            FileDownload d2 = new FileDownload(new byte[]{1, 2, 3}, "f.xml", "application/xml");
             assertNotEquals(d1, d2);
         }
 
@@ -454,8 +494,8 @@ class ElectronicInvoiceServiceTest {
         @Order(6)
         @DisplayName("equals: returns false when fileName differs")
         void notEqualsDifferentFileName() {
-            InvoiceDownload d1 = new InvoiceDownload(VALID_XML, "a.xml", "application/xml");
-            InvoiceDownload d2 = new InvoiceDownload(VALID_XML, "b.xml", "application/xml");
+            FileDownload d1 = new FileDownload(VALID_XML, "a.xml", "application/xml");
+            FileDownload d2 = new FileDownload(VALID_XML, "b.xml", "application/xml");
             assertNotEquals(d1, d2);
         }
 
@@ -463,8 +503,8 @@ class ElectronicInvoiceServiceTest {
         @Order(7)
         @DisplayName("equals: returns false when contentType differs")
         void notEqualsDifferentContentType() {
-            InvoiceDownload d1 = new InvoiceDownload(VALID_XML, "f.xml", "application/xml");
-            InvoiceDownload d2 = new InvoiceDownload(VALID_XML, "f.xml", "text/xml");
+            FileDownload d1 = new FileDownload(VALID_XML, "f.xml", "application/xml");
+            FileDownload d2 = new FileDownload(VALID_XML, "f.xml", "text/xml");
             assertNotEquals(d1, d2);
         }
 
@@ -472,7 +512,7 @@ class ElectronicInvoiceServiceTest {
         @Order(8)
         @DisplayName("toString: contains fileName")
         void toStringContainsFileName() {
-            InvoiceDownload download = new InvoiceDownload(VALID_XML, "invoice.xml", "application/xml");
+            FileDownload download = new FileDownload(VALID_XML, "invoice.xml", "application/xml");
             assertTrue(download.toString().contains("invoice.xml"));
         }
     }

@@ -133,5 +133,26 @@ class LocalStorageServiceTest {
             assertThrows(java.io.UncheckedIOException.class,
                     () -> localStorageService.deleteDocument(fakePath));
         }
+
+        @Test
+        @Order(10)
+        @DisplayName("storeInvoice: creates file and returns relative path ending in .xml")
+        void shouldStoreInvoiceAndReturnPath() {
+            String path = localStorageService.storeInvoice(1L, 42L, CONTENT);
+
+            assertNotNull(path);
+            assertTrue(path.startsWith("invoices/1/42/"));
+            assertTrue(path.endsWith(".xml"));
+            assertTrue(Files.exists(tempDir.resolve(path)));
+        }
+
+        @Test
+        @Order(11)
+        @DisplayName("storeInvoice: null orgId defaults to 0 in path")
+        void shouldUseZeroOrgIdWhenNullForInvoice() {
+            String path = localStorageService.storeInvoice(null, 42L, CONTENT);
+
+            assertTrue(path.startsWith("invoices/0/42/"));
+        }
     }
 }

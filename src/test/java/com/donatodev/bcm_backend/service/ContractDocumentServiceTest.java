@@ -38,7 +38,6 @@ import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
-import com.donatodev.bcm_backend.service.ContractDocumentService.DocumentDownload;
 
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
@@ -297,7 +296,7 @@ class ContractDocumentServiceTest {
                     .thenReturn(Optional.of(doc));
             when(localStorageService.readDocument(doc.getStoragePath())).thenReturn(VALID_PDF);
 
-            DocumentDownload result = contractDocumentService.downloadDocument(CONTRACT_ID, DOC_ID);
+            FileDownload result = contractDocumentService.downloadDocument(CONTRACT_ID, DOC_ID);
 
             assertNotNull(result.bytes());
             assertEquals("contract.pdf", result.fileName());
@@ -347,76 +346,76 @@ class ContractDocumentServiceTest {
                     () -> contractDocumentService.deleteDocument(CONTRACT_ID, DOC_ID));
         }
 
-        // ---- DocumentDownload record ----
+        // ---- FileDownload record ----
 
         @Test
         @Order(17)
-        @DisplayName("DocumentDownload: equals same reference returns true")
+        @DisplayName("FileDownload: equals same reference returns true")
         void documentDownloadEqualsSameReference() {
-            DocumentDownload dd = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
+            FileDownload dd = new FileDownload(VALID_PDF, "f.pdf", "application/pdf");
             assertEquals(dd, dd);
         }
 
         @Test
         @Order(18)
-        @DisplayName("DocumentDownload: equals null returns false")
+        @DisplayName("FileDownload: equals null returns false")
         void documentDownloadEqualsNull() {
-            DocumentDownload dd = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
+            FileDownload dd = new FileDownload(VALID_PDF, "f.pdf", "application/pdf");
             boolean result = dd.equals(null);
             assertFalse(result);
         }
 
         @Test
         @Order(19)
-        @DisplayName("DocumentDownload: equals different type returns false")
+        @DisplayName("FileDownload: equals different type returns false")
         void documentDownloadEqualsDifferentType() {
-            DocumentDownload dd = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
+            FileDownload dd = new FileDownload(VALID_PDF, "f.pdf", "application/pdf");
             boolean result = dd.equals("string");
             assertFalse(result);
         }
 
         @Test
         @Order(20)
-        @DisplayName("DocumentDownload: equals same content returns true, hashCode matches")
+        @DisplayName("FileDownload: equals same content returns true, hashCode matches")
         void documentDownloadEqualsAndHashCode() {
-            DocumentDownload dd1 = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
-            DocumentDownload dd2 = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
+            FileDownload dd1 = new FileDownload(VALID_PDF, "f.pdf", "application/pdf");
+            FileDownload dd2 = new FileDownload(VALID_PDF, "f.pdf", "application/pdf");
             assertEquals(dd1, dd2);
             assertEquals(dd2.hashCode(), dd1.hashCode());
         }
 
         @Test
         @Order(22)
-        @DisplayName("DocumentDownload: equals returns false when bytes differ")
+        @DisplayName("FileDownload: equals returns false when bytes differ")
         void documentDownloadNotEqualsDifferentBytes() {
-            DocumentDownload dd1 = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
-            DocumentDownload dd2 = new DocumentDownload(new byte[]{1, 2, 3}, "f.pdf", "application/pdf");
+            FileDownload dd1 = new FileDownload(VALID_PDF, "f.pdf", "application/pdf");
+            FileDownload dd2 = new FileDownload(new byte[]{1, 2, 3}, "f.pdf", "application/pdf");
             assertNotEquals(dd1, dd2);
         }
 
         @Test
         @Order(23)
-        @DisplayName("DocumentDownload: equals returns false when fileName differs")
+        @DisplayName("FileDownload: equals returns false when fileName differs")
         void documentDownloadNotEqualsDifferentFileName() {
-            DocumentDownload dd1 = new DocumentDownload(VALID_PDF, "a.pdf", "application/pdf");
-            DocumentDownload dd2 = new DocumentDownload(VALID_PDF, "b.pdf", "application/pdf");
+            FileDownload dd1 = new FileDownload(VALID_PDF, "a.pdf", "application/pdf");
+            FileDownload dd2 = new FileDownload(VALID_PDF, "b.pdf", "application/pdf");
             assertNotEquals(dd1, dd2);
         }
 
         @Test
         @Order(24)
-        @DisplayName("DocumentDownload: equals returns false when contentType differs")
+        @DisplayName("FileDownload: equals returns false when contentType differs")
         void documentDownloadNotEqualsDifferentContentType() {
-            DocumentDownload dd1 = new DocumentDownload(VALID_PDF, "f.pdf", "application/pdf");
-            DocumentDownload dd2 = new DocumentDownload(VALID_PDF, "f.pdf", "text/plain");
+            FileDownload dd1 = new FileDownload(VALID_PDF, "f.pdf", "application/pdf");
+            FileDownload dd2 = new FileDownload(VALID_PDF, "f.pdf", "text/plain");
             assertNotEquals(dd1, dd2);
         }
 
         @Test
         @Order(21)
-        @DisplayName("DocumentDownload: toString contains fileName")
+        @DisplayName("FileDownload: toString contains fileName")
         void documentDownloadToString() {
-            DocumentDownload dd = new DocumentDownload(VALID_PDF, "contract.pdf", "application/pdf");
+            FileDownload dd = new FileDownload(VALID_PDF, "contract.pdf", "application/pdf");
             assertTrue(dd.toString().contains("contract.pdf"));
         }
 

@@ -20,7 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.donatodev.bcm_backend.dto.ElectronicInvoiceDTO;
 import com.donatodev.bcm_backend.service.ElectronicInvoiceService;
-import com.donatodev.bcm_backend.service.ElectronicInvoiceService.InvoiceDownload;
+import com.donatodev.bcm_backend.service.FileDownload;
 
 @RestController
 @RequestMapping("/contracts/{contractId}/invoices")
@@ -60,7 +60,7 @@ public class ElectronicInvoiceController {
     public ResponseEntity<byte[]> downloadInvoice(
             @PathVariable Long contractId,
             @PathVariable Long invoiceId) {
-        InvoiceDownload download = invoiceService.downloadInvoice(contractId, invoiceId);
+        FileDownload download = invoiceService.downloadInvoice(contractId, invoiceId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentDisposition(ContentDisposition.attachment()
                 .filename(download.fileName()).build());

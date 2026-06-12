@@ -43,7 +43,7 @@ import com.donatodev.bcm_backend.repository.RefreshTokenRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.donatodev.bcm_backend.service.ContractDocumentService;
-import com.donatodev.bcm_backend.service.ContractDocumentService.DocumentDownload;
+import com.donatodev.bcm_backend.service.FileDownload;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -212,7 +212,7 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns PDF bytes with correct headers")
         void shouldDownloadDocumentSuccessfully() throws Exception {
-            DocumentDownload download = new DocumentDownload(
+            FileDownload download = new FileDownload(
                     VALID_PDF, "contract.pdf", "application/pdf");
             when(contractDocumentService.downloadDocument(anyLong(), anyLong())).thenReturn(download);
 

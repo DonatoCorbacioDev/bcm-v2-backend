@@ -43,7 +43,7 @@ import com.donatodev.bcm_backend.repository.RefreshTokenRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.donatodev.bcm_backend.service.ElectronicInvoiceService;
-import com.donatodev.bcm_backend.service.ElectronicInvoiceService.InvoiceDownload;
+import com.donatodev.bcm_backend.service.FileDownload;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -253,7 +253,7 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns XML bytes with correct headers")
         void shouldDownloadInvoiceSuccessfully() throws Exception {
-            InvoiceDownload download = new InvoiceDownload(VALID_XML, "invoice.xml", "application/xml");
+            FileDownload download = new FileDownload(VALID_XML, "invoice.xml", "application/xml");
             when(electronicInvoiceService.downloadInvoice(anyLong(), anyLong())).thenReturn(download);
 
             mockMvc.perform(get("/contracts/" + contractId + "/invoices/1/download"))

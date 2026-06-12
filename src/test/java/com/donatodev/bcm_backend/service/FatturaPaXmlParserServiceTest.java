@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 import com.donatodev.bcm_backend.dto.FatturaPaInvoiceData;
 import com.donatodev.bcm_backend.dto.InvoiceLineItemDTO;
@@ -201,6 +205,41 @@ class FatturaPaXmlParserServiceTest {
                 + "</FatturaElettronicaBody>"
                 + "</FatturaElettronica>";
 
+        private static final String EMPTY_ROOT_XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<FatturaElettronica/>";
+
+        private static final String NOME_ONLY_XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<FatturaElettronica>"
+                + "<FatturaElettronicaHeader>"
+                + "<CedentePrestatore><DatiAnagrafici>"
+                + "<Anagrafica><Nome>Mario</Nome></Anagrafica>"
+                + "</DatiAnagrafici></CedentePrestatore>"
+                + "</FatturaElettronicaHeader>"
+                + "<FatturaElettronicaBody/>"
+                + "</FatturaElettronica>";
+
+        private static final String EMPTY_ID_FISCALE_IVA_XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<FatturaElettronica>"
+                + "<FatturaElettronicaHeader>"
+                + "<CedentePrestatore><DatiAnagrafici>"
+                + "<IdFiscaleIVA/>"
+                + "<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>"
+                + "</DatiAnagrafici></CedentePrestatore>"
+                + "</FatturaElettronicaHeader>"
+                + "<FatturaElettronicaBody/>"
+                + "</FatturaElettronica>";
+
+        private static final String PARTIAL_ID_FISCALE_IVA_XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<FatturaElettronica>"
+                + "<FatturaElettronicaHeader>"
+                + "<CedentePrestatore><DatiAnagrafici>"
+                + "<IdFiscaleIVA><IdPaese>IT</IdPaese></IdFiscaleIVA>"
+                + "<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>"
+                + "</DatiAnagrafici></CedentePrestatore>"
+                + "</FatturaElettronicaHeader>"
+                + "<FatturaElettronicaBody/>"
+                + "</FatturaElettronica>";
+
         @Test
         @DisplayName("missing Anagrafica/Data/NumeroLinea: supplierName, invoiceDate, lineNumber are null")
         void shouldReturnNullForMissingOptionalFields() {
@@ -241,6 +280,45 @@ class FatturaPaXmlParserServiceTest {
         void shouldRejectInvalidLineNumber() {
             byte[] xml = INVALID_LINE_NUMBER_XML.getBytes(StandardCharsets.UTF_8);
             assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
+        }
+
+        @Test
+        @DisplayName("missing Header and Body elements entirely: all fields null, empty line items")
+        void shouldHandleMissingHeaderAndBody() {
+            FatturaPaInvoiceData data = parserService.parse(EMPTY_ROOT_XML.getBytes(StandardCharsets.UTF_8));
+
+            assertNull(data.supplierName());
+            assertNull(data.supplierVatNumber());
+            assertNull(data.documentType());
+            assertNull(data.invoiceNumber());
+            assertNull(data.invoiceDate());
+            assertNull(data.totalAmount());
+            assertNull(data.currency());
+            assertEquals(0, data.lineItems().size());
+        }
+
+        @Test
+        @DisplayName("Anagrafica with Nome but no Cognome: supplierName is null")
+        void shouldReturnNullSupplierNameWhenCognomeMissing() {
+            FatturaPaInvoiceData data = parserService.parse(NOME_ONLY_XML.getBytes(StandardCharsets.UTF_8));
+
+            assertNull(data.supplierName());
+        }
+
+        @Test
+        @DisplayName("empty IdFiscaleIVA: falls back to CodiceFiscale")
+        void shouldFallBackToCodiceFiscaleWhenIdFiscaleIvaEmpty() {
+            FatturaPaInvoiceData data = parserService.parse(EMPTY_ID_FISCALE_IVA_XML.getBytes(StandardCharsets.UTF_8));
+
+            assertEquals("RSSMRA80A01H501U", data.supplierVatNumber());
+        }
+
+        @Test
+        @DisplayName("IdFiscaleIVA with only IdPaese: falls back to CodiceFiscale")
+        void shouldFallBackToCodiceFiscaleWhenIdCodiceMissing() {
+            FatturaPaInvoiceData data = parserService.parse(PARTIAL_ID_FISCALE_IVA_XML.getBytes(StandardCharsets.UTF_8));
+
+            assertEquals("RSSMRA80A01H501U", data.supplierVatNumber());
         }
     }
 
@@ -343,6 +421,23 @@ class FatturaPaXmlParserServiceTest {
         void getTextOrNullReturnsNullWhenNotFound() throws Exception {
             Element root = buildElement(XML, true);
             assertNull(FatturaPaXmlParserService.getTextOrNull(root, "DoesNotExist"));
+        }
+
+        @Test
+        @DisplayName("getTextOrNull: returns null when element's text content is null")
+        void getTextOrNullReturnsNullWhenTextContentIsNull() {
+            Element parent = mock(Element.class);
+            Element child = mock(Element.class);
+            NodeList children = mock(NodeList.class);
+
+            when(parent.getChildNodes()).thenReturn(children);
+            when(children.getLength()).thenReturn(1);
+            when(children.item(0)).thenReturn(child);
+            when(child.getNodeType()).thenReturn(Node.ELEMENT_NODE);
+            when(child.getLocalName()).thenReturn("Target");
+            when(child.getTextContent()).thenReturn(null);
+
+            assertNull(FatturaPaXmlParserService.getTextOrNull(parent, "Target"));
         }
     }
 }

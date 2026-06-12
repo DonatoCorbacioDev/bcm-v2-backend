@@ -1,9 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -87,14 +85,14 @@ public class ContractDocumentService {
     }
 
     @Transactional(readOnly = true)
-    public DocumentDownload downloadDocument(Long contractId, Long documentId) {
+    public FileDownload downloadDocument(Long contractId, Long documentId) {
         getContractInScope(contractId);
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(DOC_NOT_FOUND, documentId, contractId)));
 
         byte[] bytes = localStorageService.readDocument(doc.getStoragePath());
-        return new DocumentDownload(bytes, doc.getFileName(), doc.getContentType());
+        return new FileDownload(bytes, doc.getFileName(), doc.getContentType());
     }
 
     @Transactional
@@ -147,33 +145,5 @@ public class ContractDocumentService {
                 doc.getContentType(),
                 doc.getUploadedAt(),
                 downloadUrl);
-    }
-
-    public record DocumentDownload(byte[] bytes, String fileName, String contentType) {
-
-        @Override
-        @SuppressWarnings({"java:S6880", "java:S6878"}) // record pattern deconstruction breaks JaCoCo branch coverage
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof DocumentDownload other)) return false;
-            return Arrays.equals(bytes, other.bytes)
-                    && Objects.equals(fileName, other.fileName)
-                    && Objects.equals(contentType, other.contentType);
-        }
-
-        @Override
-        public int hashCode() {
-            int result = Arrays.hashCode(bytes);
-            result = 31 * result + Objects.hashCode(fileName);
-            result = 31 * result + Objects.hashCode(contentType);
-            return result;
-        }
-
-        @Override
-        public String toString() {
-            return "DocumentDownload[bytes=" + Arrays.toString(bytes)
-                    + ", fileName=" + fileName
-                    + ", contentType=" + contentType + "]";
-        }
     }
 }

@@ -3,9 +3,7 @@ package com.donatodev.bcm_backend.service;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -106,14 +104,14 @@ public class ElectronicInvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public InvoiceDownload downloadInvoice(Long contractId, Long invoiceId) {
+    public FileDownload downloadInvoice(Long contractId, Long invoiceId) {
         getContractInScope(contractId);
         ElectronicInvoice invoice = invoiceRepository.findByIdAndContractId(invoiceId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(INVOICE_NOT_FOUND, invoiceId, contractId)));
 
         byte[] bytes = localStorageService.readDocument(invoice.getStoragePath());
-        return new InvoiceDownload(bytes, invoice.getFileName(), invoice.getContentType());
+        return new FileDownload(bytes, invoice.getFileName(), invoice.getContentType());
     }
 
     @Transactional
@@ -178,34 +176,6 @@ public class ElectronicInvoiceService {
             return objectMapper.readValue(lineItemsJson, new TypeReference<List<InvoiceLineItemDTO>>() {});
         } catch (JsonProcessingException e) {
             throw new UncheckedIOException("Failed to deserialize invoice line items", e);
-        }
-    }
-
-    public record InvoiceDownload(byte[] bytes, String fileName, String contentType) {
-
-        @Override
-        @SuppressWarnings({"java:S6880", "java:S6878"}) // record pattern deconstruction breaks JaCoCo branch coverage
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof InvoiceDownload other)) return false;
-            return Arrays.equals(bytes, other.bytes)
-                    && Objects.equals(fileName, other.fileName)
-                    && Objects.equals(contentType, other.contentType);
-        }
-
-        @Override
-        public int hashCode() {
-            int result = Arrays.hashCode(bytes);
-            result = 31 * result + Objects.hashCode(fileName);
-            result = 31 * result + Objects.hashCode(contentType);
-            return result;
-        }
-
-        @Override
-        public String toString() {
-            return "InvoiceDownload[bytes=" + Arrays.toString(bytes)
-                    + ", fileName=" + fileName
-                    + ", contentType=" + contentType + "]";
         }
     }
 }

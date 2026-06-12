@@ -21,7 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
 import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 import com.donatodev.bcm_backend.service.ContractDocumentService;
-import com.donatodev.bcm_backend.service.ContractDocumentService.DocumentDownload;
+import com.donatodev.bcm_backend.service.FileDownload;
 
 @RestController
 @RequestMapping("/contracts/{contractId}/documents")
@@ -53,7 +53,7 @@ public class ContractDocumentController {
     public ResponseEntity<byte[]> downloadDocument(
             @PathVariable Long contractId,
             @PathVariable Long documentId) {
-        DocumentDownload download = documentService.downloadDocument(contractId, documentId);
+        FileDownload download = documentService.downloadDocument(contractId, documentId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentDisposition(ContentDisposition.attachment()
                 .filename(download.fileName()).build());
