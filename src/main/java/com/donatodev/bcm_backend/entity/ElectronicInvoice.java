@@ -5,7 +5,6 @@ import java.time.LocalDate;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -41,7 +40,6 @@ public class ElectronicInvoice extends StoredFile {
     @Column(name = "currency", length = 3)
     private String currency;
 
-    @Lob
-    @Column(name = "line_items_json")
+    @Column(name = "line_items_json", columnDefinition = "LONGTEXT")
     private String lineItemsJson;
 }
