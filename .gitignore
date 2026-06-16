@@ -41,3 +41,6 @@ build/
 .env.*.local
 !.env.example
 
+### Local SQL scripts (test data, do not commit) ###
+sql/DML/seed-test-data.sql
+
