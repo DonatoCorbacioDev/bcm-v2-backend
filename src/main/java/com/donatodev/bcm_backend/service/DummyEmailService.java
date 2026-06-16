@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
  * email sending functionality by logging messages to the console.
  */
 @Service
-@Profile("test")
+@Profile({"test", "dev"})
 @Primary
 public class DummyEmailService implements IEmailService {
 
