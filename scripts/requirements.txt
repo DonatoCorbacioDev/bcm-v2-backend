@@ -1,0 +1,4 @@
+# Extra dependencies for scripts/generate_fatturapa_samples.py only - not part of the Java build.
+# Install with: pip install -r scripts/requirements.txt
+Faker==40.23.0
+requests==2.32.3
