@@ -57,20 +57,38 @@ FALLBACK_NOUNS = [
     "Tecnologie", "Engineering", "Trasporti", "Software",
 ]
 FALLBACK_SUFFIXES = ["S.r.l.", "S.p.A.", "S.n.c.", "S.a.s."]
-DESCRIPTIONS = [
-    "Servizio di consulenza informatica", "Fornitura materiale di cancelleria",
-    "Manutenzione impianti elettrici", "Licenza software annuale",
-    "Servizio di trasporto merci", "Noleggio attrezzature da cantiere",
-    "Consulenza fiscale e amministrativa", "Fornitura materiale edile",
-    "Servizio di pulizia uffici", "Sviluppo applicativo gestionale",
-    "Manutenzione ordinaria impianto idraulico", "Servizio di assistenza tecnica",
-    "Fornitura componenti elettronici", "Consulenza legale societaria",
-    "Servizio di catering aziendale", "Stampa e rilegatura documenti",
-    "Manutenzione hardware e rete", "Servizio di traduzione documenti",
-    "Fornitura dispositivi di protezione individuale", "Affitto sala riunioni",
-]
+# Each description lists only the units of measure that make sense for it
+# (a service can't plausibly be billed in KG, a "fornitura" of goods in HUR).
+DESCRIPTIONS_WITH_UNITS = {
+    "Servizio di consulenza informatica": ["HUR", "GG"],
+    "Fornitura materiale di cancelleria": ["PZ", "NR"],
+    "Manutenzione impianti elettrici": ["HUR", "GG"],
+    "Licenza software annuale": ["NR"],
+    "Servizio di trasporto merci": ["GG", "NR"],
+    "Noleggio attrezzature da cantiere": ["GG", "MS"],
+    "Consulenza fiscale e amministrativa": ["HUR", "GG"],
+    "Fornitura materiale edile": ["KG", "PZ"],
+    "Servizio di pulizia uffici": ["HUR", "MS"],
+    "Sviluppo applicativo gestionale": ["GG", "HUR"],
+    "Manutenzione ordinaria impianto idraulico": ["HUR", "GG"],
+    "Servizio di assistenza tecnica": ["HUR", "GG"],
+    "Fornitura componenti elettronici": ["PZ", "NR"],
+    "Consulenza legale societaria": ["HUR"],
+    "Servizio di catering aziendale": ["NR", "GG"],
+    "Stampa e rilegatura documenti": ["PZ", "NR"],
+    "Manutenzione hardware e rete": ["HUR", "GG"],
+    "Servizio di traduzione documenti": ["HUR", "NR"],
+    "Fornitura dispositivi di protezione individuale": ["PZ"],
+    "Affitto sala riunioni": ["GG", "MS"],
+}
+# Units where a fractional quantity is plausible (weight, hours); the rest
+# (pieces, days, months, generic count) are whole numbers.
+DECIMAL_UNITS = {"KG", "HUR"}
+QUANTITY_RANGES = {
+    "PZ": (1, 200), "NR": (1, 50), "GG": (1, 60), "MS": (1, 24),
+    "KG": (1, 500), "HUR": (1, 200),
+}
 PROVINCE_CODES = ["RM", "MI", "TO", "NA", "BO", "FI", "VE", "BA", "PA", "GE"]
-UNITS_OF_MEASURE = ["PZ", "HUR", "KG", "GG", "MS", "NR"]
 VAT_RATES = [4.00, 10.00, 22.00]
 DOC_TYPES = [("TD01", 0.85), ("TD04", 0.15)]
 EDGE_CASE_KINDS = ["zero_amount", "single_line", "long_description"]
@@ -107,12 +125,23 @@ def random_company_name(rng):
     return f"{rng.choice(FALLBACK_SURNAMES)} {rng.choice(FALLBACK_NOUNS)} {rng.choice(FALLBACK_SUFFIXES)}"
 
 
-def random_description(rng):
+def random_line_template(rng):
     # Faker's bs()/catch_phrase() produce abstract corporate buzzwords (even in
     # it_IT) rather than something that reads like a real invoice line, so a
     # curated pool of plausible Italian service/product descriptions is used
-    # regardless of whether Faker is installed.
-    return rng.choice(DESCRIPTIONS)
+    # regardless of whether Faker is installed. The unit of measure is picked
+    # from the description's own plausible set, not independently, so a
+    # service never ends up billed in KG and a "fornitura" never in HUR.
+    description = rng.choice(list(DESCRIPTIONS_WITH_UNITS.keys()))
+    unit = rng.choice(DESCRIPTIONS_WITH_UNITS[description])
+    return description, unit
+
+
+def random_quantity(rng, unit):
+    low, high = QUANTITY_RANGES[unit]
+    if unit in DECIMAL_UNITS:
+        return round(rng.uniform(low, high), 2)
+    return float(rng.randint(low, high))
 
 
 def random_address(rng):
@@ -139,19 +168,20 @@ def random_invoice_date(rng, today):
 def build_line_items(rng, n_lines, edge_case_kind):
     lines = []
     if edge_case_kind == "zero_amount":
-        lines.append({"description": random_description(rng), "quantity": 1.0, "unit": rng.choice(UNITS_OF_MEASURE), "unit_price": 0.0, "vat_rate": rng.choice(VAT_RATES)})
+        description, unit = random_line_template(rng)
+        lines.append({"description": description, "quantity": 1.0, "unit": unit, "unit_price": 0.0, "vat_rate": rng.choice(VAT_RATES)})
     else:
         for i in range(n_lines):
-            quantity = round(rng.uniform(1, 50), 2)
+            description, unit = random_line_template(rng)
+            quantity = random_quantity(rng, unit)
             unit_price = round(rng.uniform(10, 500), 2)
-            description = random_description(rng)
             if edge_case_kind == "long_description" and i == 0:
                 description = (description + " - ") * 40
                 description = description[:2000]
             lines.append({
                 "description": description,
                 "quantity": quantity,
-                "unit": rng.choice(UNITS_OF_MEASURE),
+                "unit": unit,
                 "unit_price": unit_price,
                 "vat_rate": rng.choice(VAT_RATES),
             })
