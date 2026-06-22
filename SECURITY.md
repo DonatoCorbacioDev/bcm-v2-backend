@@ -95,7 +95,7 @@ Use parameterized queries or Spring Data JPA specifications
 #### Data Protection
 - ✅ **SQL Injection Prevention** - JPA parameterized queries
 - ✅ **XSS Protection** - Content Security Policy headers
-- ✅ **CSRF Protection** - Disabled for stateless API (JWT-only)
+- ✅ **CSRF Protection** - Disabled at the framework level, but not exploitable: every authenticated request relies on the `Authorization` header (never auto-sent by browsers); the only cookie, the HttpOnly `refresh_token`, is scoped to `/auth` with `SameSite=Lax` (see `SecurityConfig`/`RefreshCookieFactory`)
 - ✅ **Input Validation** - Hibernate Validator on all DTOs
 - ✅ **Output Sanitization** - No sensitive data in responses
 - ✅ **Secure password storage** - Never logged or returned in API

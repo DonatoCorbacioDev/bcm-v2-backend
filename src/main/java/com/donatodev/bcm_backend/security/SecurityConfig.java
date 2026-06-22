@@ -37,7 +37,7 @@ public class SecurityConfig {
     };
 
     @Bean
-    @SuppressWarnings("java:S4502") // Stateless JWT API — no session cookies, no CSRF risk
+    @SuppressWarnings("java:S4502") // see CSRF rationale below — no exploitable cross-site risk
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
@@ -47,8 +47,14 @@ public class SecurityConfig {
 
         http
                 .cors(Customizer.withDefaults())
-                // CSRF disabled: Stateless REST API using JWT (Authorization header).
-                // No session cookies = no CSRF risk. Safe for this architecture.
+                // CSRF disabled: every authenticated request still relies on the
+                // Authorization header (Bearer access token), which the browser
+                // never attaches automatically — that's what actually rules out CSRF.
+                // The only cookie in play is the HttpOnly refresh_token (see
+                // RefreshCookieFactory), scoped to /auth and SameSite=Lax, so it is
+                // not sent on cross-site requests; a forged cross-site call could at
+                // worst trigger a token refresh or a logout, neither state-changing
+                // nor able to leak the new token back to the attacker (blocked by CORS).
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth

@@ -5,6 +5,7 @@ import java.time.ZoneId;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -16,6 +17,7 @@ import org.springframework.security.authentication.AuthenticationTrustResolverIm
 
 import com.donatodev.bcm_backend.dto.*;
 import com.donatodev.bcm_backend.entity.*;
+import com.donatodev.bcm_backend.exception.RefreshTokenException;
 import com.donatodev.bcm_backend.exception.RegistrationException;
 import com.donatodev.bcm_backend.service.*;
 import com.donatodev.bcm_backend.service.RefreshTokenService;
@@ -36,6 +38,7 @@ public class AuthController {
     private final IEmailService emailService;
     private final PasswordResetTokenService passwordResetTokenService;
     private final RefreshTokenService refreshTokenService;
+    private final RefreshCookieFactory refreshCookieFactory;
     private final AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
 
     @Value("${app.backend-base-url}")
@@ -52,17 +55,19 @@ public class AuthController {
             VerificationTokenService verificationTokenService,
             IEmailService emailService,
             PasswordResetTokenService passwordResetTokenService,
-            RefreshTokenService refreshTokenService) {
+            RefreshTokenService refreshTokenService,
+            RefreshCookieFactory refreshCookieFactory) {
         this.authService = authService;
         this.userService = userService;
         this.verificationTokenService = verificationTokenService;
         this.emailService = emailService;
         this.passwordResetTokenService = passwordResetTokenService;
         this.refreshTokenService = refreshTokenService;
+        this.refreshCookieFactory = refreshCookieFactory;
     }
 
     public AuthController() {
-        this(null, null, null, null, null, null);
+        this(null, null, null, null, null, null, null);
     }
 
     /**
@@ -114,26 +119,41 @@ public class AuthController {
     }
 
     /**
-     * Authenticates a user and returns a JWT token.
+     * Authenticates a user and returns a JWT access token. The refresh token
+     * is never exposed in the response body: it is set as an HttpOnly cookie
+     * so client-side JavaScript cannot read it.
      *
      * @param request the login request with username and password
-     * @return JWT token if authentication is successful
+     * @return the access token if authentication is successful
      */
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody AuthRequestDTO request) {
-        return ResponseEntity.ok(authService.authenticate(request.username(), request.password(), request.organizationSlug()));
+    public ResponseEntity<AccessTokenResponse> login(@Valid @RequestBody AuthRequestDTO request) {
+        AuthResponseDTO response = authService.authenticate(
+                request.username(), request.password(), request.organizationSlug());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.create(response.refreshToken()).toString())
+                .body(new AccessTokenResponse(response.token()));
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponseDTO> refresh(@Valid @RequestBody RefreshTokenRequest request) {
-        String newAccessToken = refreshTokenService.refreshAccessToken(request.refreshToken());
-        return ResponseEntity.ok(new AuthResponseDTO(newAccessToken, request.refreshToken()));
+    public ResponseEntity<AccessTokenResponse> refresh(
+            @CookieValue(name = RefreshCookieFactory.COOKIE_NAME, required = false) String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new RefreshTokenException("Refresh token not found");
+        }
+        String newAccessToken = refreshTokenService.refreshAccessToken(refreshToken);
+        return ResponseEntity.ok(new AccessTokenResponse(newAccessToken));
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest request) {
-        refreshTokenService.revokeToken(request.refreshToken());
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = RefreshCookieFactory.COOKIE_NAME, required = false) String refreshToken) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            refreshTokenService.revokeToken(refreshToken);
+        }
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.clear().toString())
+                .build();
     }
 
     /**

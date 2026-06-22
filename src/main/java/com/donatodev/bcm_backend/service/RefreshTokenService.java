@@ -66,4 +66,8 @@ public class RefreshTokenService {
             refreshTokenRepository.save(t);
         });
     }
+
+    public long getRefreshExpirationMs() {
+        return refreshExpirationMs;
+    }
 }

@@ -25,8 +25,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import jakarta.servlet.http.Cookie;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import com.donatodev.bcm_backend.dto.ForgotPasswordRequestDTO;
 import com.donatodev.bcm_backend.dto.ResetPasswordRequestDTO;
@@ -173,7 +177,9 @@ class AuthControllerTest {
                 .content(objectMapper.writeValueAsString(loginDto)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").exists())
-                .andExpect(jsonPath("$.refreshToken").exists());
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(cookie().exists(RefreshCookieFactory.COOKIE_NAME))
+                .andExpect(cookie().httpOnly(RefreshCookieFactory.COOKIE_NAME, true));
     }
 
     /**
@@ -517,20 +523,19 @@ class AuthControllerTest {
         user.setVerified(true);
         usersRepository.save(user);
 
-        String loginBody = mockMvc.perform(post("/auth/login")
+        MockHttpServletResponse loginResponse = mockMvc.perform(post("/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new AuthRequestDTO("refreshuser", "pass123"))))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
+                .andReturn().getResponse();
 
-        String refreshToken = objectMapper.readTree(loginBody).get("refreshToken").asText();
+        String refreshToken = loginResponse.getCookie(RefreshCookieFactory.COOKIE_NAME).getValue();
 
         mockMvc.perform(post("/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+                .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, refreshToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").exists())
-                .andExpect(jsonPath("$.refreshToken").value(refreshToken));
+                .andExpect(jsonPath("$.refreshToken").doesNotExist());
     }
 
     /**
@@ -540,8 +545,18 @@ class AuthControllerTest {
     @Order(23)
     void shouldReturnUnauthorizedWhenRefreshTokenInvalid() throws Exception {
         mockMvc.perform(post("/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"refreshToken\":\"nonexistent-token\"}"))
+                .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, "nonexistent-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value(containsString("Refresh token not found")));
+    }
+
+    /**
+     * Test refresh fails when the refresh_token cookie is absent entirely.
+     */
+    @Test
+    @Order(28)
+    void shouldReturnUnauthorizedWhenRefreshCookieMissing() throws Exception {
+        mockMvc.perform(post("/auth/refresh"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value(containsString("Refresh token not found")));
     }
@@ -562,35 +577,34 @@ class AuthControllerTest {
         user.setVerified(true);
         usersRepository.save(user);
 
-        String loginBody = mockMvc.perform(post("/auth/login")
+        MockHttpServletResponse loginResponse = mockMvc.perform(post("/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new AuthRequestDTO("logoutuser", "pass123"))))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
+                .andReturn().getResponse();
 
-        String refreshToken = objectMapper.readTree(loginBody).get("refreshToken").asText();
+        String refreshToken = loginResponse.getCookie(RefreshCookieFactory.COOKIE_NAME).getValue();
 
         mockMvc.perform(post("/auth/logout")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
-                .andExpect(status().isNoContent());
+                .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, refreshToken)))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().maxAge(RefreshCookieFactory.COOKIE_NAME, 0));
 
         mockMvc.perform(post("/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+                .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, refreshToken)))
                 .andExpect(status().isUnauthorized());
     }
 
     /**
-     * Test refresh fails with blank token (validation error).
+     * Test logout is idempotent (no-op, still 204) when there is no refresh
+     * cookie to revoke.
      */
     @Test
     @Order(25)
-    void shouldReturnBadRequestWhenRefreshTokenBlank() throws Exception {
-        mockMvc.perform(post("/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"refreshToken\":\"\"}"))
-                .andExpect(status().isBadRequest());
+    void shouldLogoutSuccessfullyWhenNoRefreshCookiePresent() throws Exception {
+        mockMvc.perform(post("/auth/logout"))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().maxAge(RefreshCookieFactory.COOKIE_NAME, 0));
     }
 
     /**

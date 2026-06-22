@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -10,7 +11,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.donatodev.bcm_backend.auth.AccessTokenResponse;
 import com.donatodev.bcm_backend.auth.AuthResponseDTO;
+import com.donatodev.bcm_backend.auth.RefreshCookieFactory;
 import com.donatodev.bcm_backend.dto.OrganizationDTO;
 import com.donatodev.bcm_backend.dto.OrganizationRegistrationRequest;
 import com.donatodev.bcm_backend.dto.UpdateOrganizationRequest;
@@ -23,16 +26,20 @@ import jakarta.validation.Valid;
 public class OrganizationController {
 
     private final OrganizationService organizationService;
+    private final RefreshCookieFactory refreshCookieFactory;
 
-    public OrganizationController(OrganizationService organizationService) {
+    public OrganizationController(OrganizationService organizationService, RefreshCookieFactory refreshCookieFactory) {
         this.organizationService = organizationService;
+        this.refreshCookieFactory = refreshCookieFactory;
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponseDTO> register(
+    public ResponseEntity<AccessTokenResponse> register(
             @Valid @RequestBody OrganizationRegistrationRequest request) {
+        AuthResponseDTO response = organizationService.registerOrganization(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(organizationService.registerOrganization(request));
+                .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.create(response.refreshToken()).toString())
+                .body(new AccessTokenResponse(response.token()));
     }
 
     @GetMapping("/me")

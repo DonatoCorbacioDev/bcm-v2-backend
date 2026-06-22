@@ -18,9 +18,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.donatodev.bcm_backend.auth.RefreshCookieFactory;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Roles;
@@ -78,14 +80,16 @@ class OrganizationControllerTest {
 
         @Test
         @Order(1)
-        @DisplayName("Successful registration returns 201 with access and refresh tokens")
+        @DisplayName("Successful registration returns 201 with access token and refresh cookie")
         void shouldRegisterSuccessfully() throws Exception {
             mockMvc.perform(post(REGISTER_URL)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(VALID_REGISTRATION))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.token").exists())
-                    .andExpect(jsonPath("$.refreshToken").exists());
+                    .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                    .andExpect(cookie().exists(RefreshCookieFactory.COOKIE_NAME))
+                    .andExpect(cookie().httpOnly(RefreshCookieFactory.COOKIE_NAME, true));
         }
 
         @Test
