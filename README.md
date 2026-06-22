@@ -20,6 +20,8 @@ BCM v2.0 is the second iteration of my Business Contract Manager system, represe
 **Author:** Donato Corbacio  
 **Contact:** donatocorbacio92@gmail.com
 
+> This repository is published as a portfolio/demonstration project for code review and learning purposes. The author retains all commercial rights, including the possibility of a future SaaS launch — see [LICENSE](./LICENSE).
+
 ---
 
 ## ✨ Key Features
