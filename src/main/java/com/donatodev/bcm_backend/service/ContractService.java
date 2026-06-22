@@ -89,8 +89,11 @@ public class ContractService {
         logger.info("Authenticated user role: {}", safeRole);
 
         if (ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
-            return contractsRepository.findAll()
-                    .stream()
+            Long orgId = TenantContext.get();
+            List<Contracts> contracts = (orgId != null)
+                    ? contractsRepository.findByOrganization_Id(orgId)
+                    : contractsRepository.findAll();
+            return contracts.stream()
                     .map(contractMapper::toDTO)
                     .toList();
         }
@@ -128,8 +131,11 @@ public class ContractService {
     public List<ContractDTO> getContractsByStatus(ContractStatus status) {
         AuthCtx auth = getAuthCtx();
         if (ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
-            return contractsRepository.findByStatus(status)
-                    .stream()
+            Long orgId = TenantContext.get();
+            List<Contracts> contracts = (orgId != null)
+                    ? contractsRepository.findByStatusAndOrganization_Id(status, orgId)
+                    : contractsRepository.findByStatus(status);
+            return contracts.stream()
                     .map(contractMapper::toDTO)
                     .toList();
         }
@@ -261,13 +267,16 @@ public class ContractService {
         AuthCtx auth = getAuthCtx();
 
         Page<Contracts> pageResult = ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))
-                ? searchPagedAdmin(status, hasTerm, term, pageable)
+                ? searchPagedAdmin(TenantContext.get(), status, hasTerm, term, pageable)
                 : searchPagedManager(auth.managerId(), status, hasTerm, term, pageable);
 
         return pageResult.map(contractMapper::toDTO);
     }
 
-    private Page<Contracts> searchPagedAdmin(ContractStatus status, boolean hasTerm, String term, Pageable pageable) {
+    private Page<Contracts> searchPagedAdmin(Long orgId, ContractStatus status, boolean hasTerm, String term, Pageable pageable) {
+        if (orgId != null) {
+            return searchPagedAdminForOrg(orgId, status, hasTerm, term, pageable);
+        }
         if (status != null && hasTerm) {
             // contractNumber OR customerName con stesso status
             return contractsRepository
@@ -281,6 +290,18 @@ public class ContractService {
                             term, term, pageable);
         } else {
             return contractsRepository.findAllBy(pageable);
+        }
+    }
+
+    private Page<Contracts> searchPagedAdminForOrg(Long orgId, ContractStatus status, boolean hasTerm, String term, Pageable pageable) {
+        if (status != null && hasTerm) {
+            return contractsRepository.findByOrgAndStatusAndTerm(orgId, status, term, pageable);
+        } else if (status != null) {
+            return contractsRepository.findByStatusAndOrganization_Id(status, orgId, pageable);
+        } else if (hasTerm) {
+            return contractsRepository.findByOrgAndTerm(orgId, term, pageable);
+        } else {
+            return contractsRepository.findByOrganization_Id(orgId, pageable);
         }
     }
 

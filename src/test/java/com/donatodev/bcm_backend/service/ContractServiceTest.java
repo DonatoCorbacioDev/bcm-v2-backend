@@ -1570,5 +1570,189 @@ class ContractServiceTest {
                 TenantContext.clear();
             }
         }
+
+        @Test
+        @Order(58)
+        @DisplayName("getAllContracts as ADMIN with TenantContext uses org-scoped repository")
+        void shouldGetAllContractsWithOrgFilter() {
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .build();
+            Contracts entity = Contracts.builder().id(1L).customerName("OrgClient").build();
+            ContractDTO dto = new ContractDTO(1L, "OrgClient", "C001", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), null, 1L, null, null, null, null, 0);
+
+            mockAuthentication("admin", "ADMIN");
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+
+            TenantContext.set(20L);
+            try {
+                when(contractsRepository.findByOrganization_Id(20L)).thenReturn(List.of(entity));
+                when(contractMapper.toDTO(entity)).thenReturn(dto);
+
+                List<ContractDTO> result = contractService.getAllContracts();
+
+                assertEquals(1, result.size());
+                verify(contractsRepository).findByOrganization_Id(20L);
+                verify(contractsRepository, never()).findAll();
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(59)
+        @DisplayName("getContractsByStatus as ADMIN with TenantContext uses org-scoped repository")
+        void shouldGetContractsByStatusWithOrgFilter() {
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .build();
+            Contracts entity = Contracts.builder().id(1L).customerName("OrgClient").build();
+            ContractDTO dto = new ContractDTO(1L, "OrgClient", "C001", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), null, 1L, null, null, null, null, 0);
+
+            mockAuthentication("admin", "ADMIN");
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+
+            TenantContext.set(21L);
+            try {
+                when(contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, 21L))
+                        .thenReturn(List.of(entity));
+                when(contractMapper.toDTO(entity)).thenReturn(dto);
+
+                List<ContractDTO> result = contractService.getContractsByStatus(ContractStatus.ACTIVE);
+
+                assertEquals(1, result.size());
+                verify(contractsRepository).findByStatusAndOrganization_Id(ContractStatus.ACTIVE, 21L);
+                verify(contractsRepository, never()).findByStatus(any(ContractStatus.class));
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(60)
+        @DisplayName("searchPaged as ADMIN with TenantContext and no filter uses org-scoped repository")
+        void shouldSearchPagedAdminWithOrgFilterNoTerm() {
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .build();
+            Contracts contract = Contracts.builder().id(1L).customerName("OrgClient").build();
+            ContractDTO dto = new ContractDTO(1L, "OrgClient", "C001", "WBS", "Proj",
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
+            Page<Contracts> page = new PageImpl<>(List.of(contract));
+
+            mockAuthentication("admin", "ADMIN");
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+
+            TenantContext.set(22L);
+            try {
+                when(contractsRepository.findByOrganization_Id(eq(22L), any(Pageable.class))).thenReturn(page);
+                when(contractMapper.toDTO(contract)).thenReturn(dto);
+
+                Page<ContractDTO> result = contractService.searchPaged(null, null, 0, 10);
+
+                assertEquals(1, result.getTotalElements());
+                verify(contractsRepository).findByOrganization_Id(eq(22L), any(Pageable.class));
+                verify(contractsRepository, never()).findAllBy(any(Pageable.class));
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(61)
+        @DisplayName("searchPaged as ADMIN with TenantContext and status filter uses org-scoped repository")
+        void shouldSearchPagedAdminWithOrgFilterAndStatus() {
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .build();
+            Contracts contract = Contracts.builder().id(1L).status(ContractStatus.ACTIVE).build();
+            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
+            Page<Contracts> page = new PageImpl<>(List.of(contract));
+
+            mockAuthentication("admin", "ADMIN");
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+
+            TenantContext.set(23L);
+            try {
+                when(contractsRepository.findByStatusAndOrganization_Id(eq(ContractStatus.ACTIVE), eq(23L), any(Pageable.class)))
+                        .thenReturn(page);
+                when(contractMapper.toDTO(contract)).thenReturn(dto);
+
+                Page<ContractDTO> result = contractService.searchPaged(null, ContractStatus.ACTIVE, 0, 10);
+
+                assertEquals(1, result.getTotalElements());
+                verify(contractsRepository).findByStatusAndOrganization_Id(eq(ContractStatus.ACTIVE), eq(23L), any(Pageable.class));
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(62)
+        @DisplayName("searchPaged as ADMIN with TenantContext and search term uses org-scoped repository")
+        void shouldSearchPagedAdminWithOrgFilterAndTerm() {
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .build();
+            Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
+            ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
+            Page<Contracts> page = new PageImpl<>(List.of(contract));
+
+            mockAuthentication("admin", "ADMIN");
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+
+            TenantContext.set(24L);
+            try {
+                when(contractsRepository.findByOrgAndTerm(eq(24L), eq("test"), any(Pageable.class))).thenReturn(page);
+                when(contractMapper.toDTO(contract)).thenReturn(dto);
+
+                Page<ContractDTO> result = contractService.searchPaged("test", null, 0, 10);
+
+                assertEquals(1, result.getTotalElements());
+                verify(contractsRepository).findByOrgAndTerm(eq(24L), eq("test"), any(Pageable.class));
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(63)
+        @DisplayName("searchPaged as ADMIN with TenantContext, status and term uses org-scoped repository")
+        void shouldSearchPagedAdminWithOrgFilterStatusAndTerm() {
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .build();
+            Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
+            ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
+            Page<Contracts> page = new PageImpl<>(List.of(contract));
+
+            mockAuthentication("admin", "ADMIN");
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+
+            TenantContext.set(25L);
+            try {
+                when(contractsRepository.findByOrgAndStatusAndTerm(eq(25L), eq(ContractStatus.ACTIVE), eq("test"), any(Pageable.class)))
+                        .thenReturn(page);
+                when(contractMapper.toDTO(contract)).thenReturn(dto);
+
+                Page<ContractDTO> result = contractService.searchPaged("test", ContractStatus.ACTIVE, 0, 10);
+
+                assertEquals(1, result.getTotalElements());
+                verify(contractsRepository).findByOrgAndStatusAndTerm(eq(25L), eq(ContractStatus.ACTIVE), eq("test"), any(Pageable.class));
+            } finally {
+                TenantContext.clear();
+            }
+        }
     }
 }

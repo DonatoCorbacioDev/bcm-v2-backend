@@ -35,6 +35,25 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
     List<Contracts> findByStatus(ContractStatus status);
 
     /**
+     * Finds all contracts belonging to the given organization. Used to scope
+     * ADMIN-wide contract listings to the authenticated tenant.
+     *
+     * @param orgId the organization ID
+     * @return a list of matching {@link Contracts}
+     */
+    List<Contracts> findByOrganization_Id(Long orgId);
+
+    /**
+     * Finds all contracts with the specified status belonging to the given
+     * organization.
+     *
+     * @param status the contract status to filter by
+     * @param orgId the organization ID
+     * @return a list of matching {@link Contracts}
+     */
+    List<Contracts> findByStatusAndOrganization_Id(ContractStatus status, Long orgId);
+
+    /**
      * Finds all contracts assigned to a specific manager.
      *
      * @param managerId the ID of the manager
@@ -129,6 +148,52 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
 
     @EntityGraph("contracts.withManagerAndArea")
     Page<Contracts> findByStatus(ContractStatus status, Pageable pageable);
+
+    /**
+     * Paged listing of contracts belonging to the given organization. Used to
+     * scope the ADMIN "no filter" search to the authenticated tenant.
+     */
+    @EntityGraph("contracts.withManagerAndArea")
+    Page<Contracts> findByOrganization_Id(Long orgId, Pageable pageable);
+
+    /**
+     * Paged listing of contracts with the given status belonging to the given
+     * organization. Used to scope the ADMIN "status only" search to the
+     * authenticated tenant.
+     */
+    @EntityGraph("contracts.withManagerAndArea")
+    Page<Contracts> findByStatusAndOrganization_Id(ContractStatus status, Long orgId, Pageable pageable);
+
+    /**
+     * Paged search by contract number or customer name, scoped to the given
+     * organization. Used by the ADMIN "term only" search.
+     */
+    @EntityGraph("contracts.withManagerAndArea")
+    @Query("""
+        SELECT c FROM Contracts c
+        WHERE c.organization.id = :orgId
+          AND (LOWER(c.contractNumber) LIKE LOWER(CONCAT('%', :term, '%'))
+               OR LOWER(c.customerName) LIKE LOWER(CONCAT('%', :term, '%')))
+        """)
+    Page<Contracts> findByOrgAndTerm(@Param("orgId") Long orgId, @Param("term") String term, Pageable pageable);
+
+    /**
+     * Paged search by status and (contract number or customer name), scoped
+     * to the given organization. Used by the ADMIN "status and term" search.
+     */
+    @EntityGraph("contracts.withManagerAndArea")
+    @Query("""
+        SELECT c FROM Contracts c
+        WHERE c.organization.id = :orgId
+          AND c.status = :status
+          AND (LOWER(c.contractNumber) LIKE LOWER(CONCAT('%', :term, '%'))
+               OR LOWER(c.customerName) LIKE LOWER(CONCAT('%', :term, '%')))
+        """)
+    Page<Contracts> findByOrgAndStatusAndTerm(
+            @Param("orgId") Long orgId,
+            @Param("status") ContractStatus status,
+            @Param("term") String term,
+            Pageable pageable);
 
     @EntityGraph("contracts.withManagerAndArea")
     Page<Contracts> findByContractNumberContainingIgnoreCaseOrCustomerNameContainingIgnoreCase(
