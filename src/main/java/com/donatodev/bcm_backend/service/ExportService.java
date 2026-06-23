@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -19,17 +20,16 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 
 import com.donatodev.bcm_backend.dto.ContractDTO;
-import com.itextpdf.text.BaseColor;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.Element;
-import com.itextpdf.text.Font;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.Paragraph;
-import com.itextpdf.text.Phrase;
-import com.itextpdf.text.pdf.PdfPCell;
-import com.itextpdf.text.pdf.PdfPTable;
-import com.itextpdf.text.pdf.PdfWriter;
+import org.openpdf.text.Document;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.Element;
+import org.openpdf.text.Font;
+import org.openpdf.text.PageSize;
+import org.openpdf.text.Paragraph;
+import org.openpdf.text.Phrase;
+import org.openpdf.text.pdf.PdfPCell;
+import org.openpdf.text.pdf.PdfPTable;
+import org.openpdf.text.pdf.PdfWriter;
 
 /**
  * Service for exporting contracts to Excel and PDF formats. Provides methods to
@@ -119,13 +119,13 @@ public class ExportService {
         document.open();
 
         // Title
-        Font titleFont = new Font(Font.FontFamily.HELVETICA, 20, Font.BOLD, BaseColor.DARK_GRAY);
+        Font titleFont = new Font(Font.HELVETICA, 20, Font.BOLD, Color.DARK_GRAY);
         Paragraph title = new Paragraph("Business Contracts Manager", titleFont);
         title.setAlignment(Element.ALIGN_CENTER);
         document.add(title);
 
         Paragraph subtitle = new Paragraph("Contracts Export Report",
-                new Font(Font.FontFamily.HELVETICA, 14, Font.NORMAL, BaseColor.GRAY));
+                new Font(Font.HELVETICA, 14, Font.NORMAL, Color.GRAY));
         subtitle.setAlignment(Element.ALIGN_CENTER);
         subtitle.setSpacingAfter(10);
         document.add(subtitle);
@@ -134,7 +134,7 @@ public class ExportService {
         String dateStr = LocalDateTime.now(ZoneId.systemDefault())
                 .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
         Paragraph date = new Paragraph("Generated: " + dateStr,
-                new Font(Font.FontFamily.HELVETICA, 9, Font.ITALIC, BaseColor.GRAY));
+                new Font(Font.HELVETICA, 9, Font.ITALIC, Color.GRAY));
         date.setAlignment(Element.ALIGN_CENTER);
         date.setSpacingAfter(20);
         document.add(date);
@@ -149,11 +149,11 @@ public class ExportService {
             "Contract Number", "Customer", "Project", "Status",
             "Start Date", "End Date", "Manager", "Business Area"
         };
-        Font headerFont = new Font(Font.FontFamily.HELVETICA, 9, Font.BOLD, BaseColor.WHITE);
+        Font headerFont = new Font(Font.HELVETICA, 9, Font.BOLD, Color.WHITE);
 
         for (String header : headers) {
             PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
-            cell.setBackgroundColor(new BaseColor(52, 73, 94)); // Dark blue
+            cell.setBackgroundColor(new Color(52, 73, 94)); // Dark blue
             cell.setHorizontalAlignment(Element.ALIGN_CENTER);
             cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
             cell.setPadding(6);
@@ -161,12 +161,12 @@ public class ExportService {
         }
 
         // Data rows with alternating colors
-        Font dataFont = new Font(Font.FontFamily.HELVETICA, 8);
-        BaseColor evenRowColor = new BaseColor(240, 240, 240);
+        Font dataFont = new Font(Font.HELVETICA, 8);
+        Color evenRowColor = new Color(240, 240, 240);
 
         int rowIndex = 0;
         for (ContractDTO contract : contracts) {
-            BaseColor rowColor = (rowIndex % 2 == 0) ? BaseColor.WHITE : evenRowColor;
+            Color rowColor = (rowIndex % 2 == 0) ? Color.WHITE : evenRowColor;
 
             addCellToTable(table, contract.contractNumber(), dataFont, rowColor);
             addCellToTable(table, contract.customerName(), dataFont, rowColor);
@@ -193,7 +193,7 @@ public class ExportService {
         // Footer with statistics
         Paragraph footer = new Paragraph(
                 String.format("%nTotal Contracts: %d", contracts.size()),
-                new Font(Font.FontFamily.HELVETICA, 11, Font.BOLD, BaseColor.DARK_GRAY)
+                new Font(Font.HELVETICA, 11, Font.BOLD, Color.DARK_GRAY)
         );
         footer.setSpacingBefore(15);
         document.add(footer);
@@ -205,7 +205,7 @@ public class ExportService {
     /**
      * Helper method to add a cell to the PDF table with consistent styling.
      */
-    private void addCellToTable(PdfPTable table, String content, Font font, BaseColor bgColor) {
+    private void addCellToTable(PdfPTable table, String content, Font font, Color bgColor) {
         PdfPCell cell = new PdfPCell(new Phrase(content, font));
         cell.setBackgroundColor(bgColor);
         cell.setPadding(4);

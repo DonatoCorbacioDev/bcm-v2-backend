@@ -26,7 +26,7 @@ import com.donatodev.bcm_backend.dto.BusinessAreaDTO;
 import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ManagerDTO;
 import com.donatodev.bcm_backend.entity.ContractStatus;
-import com.itextpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfReader;
 
 /**
  * Unit tests for ExportService. Tests Excel and PDF export functionality with

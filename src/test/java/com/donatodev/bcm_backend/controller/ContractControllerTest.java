@@ -52,7 +52,7 @@ import com.donatodev.bcm_backend.service.ContractSchedulerService;
 import com.donatodev.bcm_backend.service.ExportService;
 import com.donatodev.bcm_backend.util.TestDataCleaner;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.itextpdf.text.DocumentException;
+import org.openpdf.text.DocumentException;
 
 /**
  * Integration tests for {@link ContractController}.

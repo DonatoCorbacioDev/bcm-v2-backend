@@ -36,7 +36,7 @@ import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.service.ContractSchedulerService;
 import com.donatodev.bcm_backend.service.ContractService;
 import com.donatodev.bcm_backend.service.ExportService;
-import com.itextpdf.text.DocumentException;
+import org.openpdf.text.DocumentException;
 
 /**
  * REST controller for managing company contracts.
