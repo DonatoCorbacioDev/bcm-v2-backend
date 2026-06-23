@@ -141,8 +141,10 @@ public class AuthController {
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new RefreshTokenException("Refresh token not found");
         }
-        String newAccessToken = refreshTokenService.refreshAccessToken(refreshToken);
-        return ResponseEntity.ok(new AccessTokenResponse(newAccessToken));
+        RefreshTokenService.RotatedTokens rotated = refreshTokenService.refreshAccessToken(refreshToken);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.create(rotated.refreshToken()).toString())
+                .body(new AccessTokenResponse(rotated.accessToken()));
     }
 
     @PostMapping("/logout")

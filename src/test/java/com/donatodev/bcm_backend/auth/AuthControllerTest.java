@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.Collections;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import org.junit.jupiter.api.BeforeEach;
@@ -531,11 +532,58 @@ class AuthControllerTest {
 
         String refreshToken = loginResponse.getCookie(RefreshCookieFactory.COOKIE_NAME).getValue();
 
-        mockMvc.perform(post("/auth/refresh")
+        MockHttpServletResponse refreshResponse = mockMvc.perform(post("/auth/refresh")
                 .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, refreshToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").exists())
-                .andExpect(jsonPath("$.refreshToken").doesNotExist());
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andReturn().getResponse();
+
+        String rotatedRefreshToken = refreshResponse.getCookie(RefreshCookieFactory.COOKIE_NAME).getValue();
+        assertThat(rotatedRefreshToken).isNotEqualTo(refreshToken);
+    }
+
+    /**
+     * Test that reusing a refresh token after it has been rotated is
+     * detected and revokes every refresh token belonging to the user,
+     * forcing re-authentication on all sessions.
+     */
+    @Test
+    @Order(29)
+    void shouldDetectRefreshTokenReuseAndRevokeAllSessions() throws Exception {
+        UserDTO dto = new UserDTO(null, "reuseuser", "pass123", managerId, roleId, false, null);
+        mockMvc.perform(post("/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isCreated());
+
+        Users user = usersRepository.findByUsername("reuseuser").orElseThrow();
+        user.setVerified(true);
+        usersRepository.save(user);
+
+        MockHttpServletResponse loginResponse = mockMvc.perform(post("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new AuthRequestDTO("reuseuser", "pass123"))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse();
+
+        String originalRefreshToken = loginResponse.getCookie(RefreshCookieFactory.COOKIE_NAME).getValue();
+
+        MockHttpServletResponse refreshResponse = mockMvc.perform(post("/auth/refresh")
+                .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, originalRefreshToken)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse();
+
+        String rotatedRefreshToken = refreshResponse.getCookie(RefreshCookieFactory.COOKIE_NAME).getValue();
+
+        mockMvc.perform(post("/auth/refresh")
+                .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, originalRefreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value(containsString("reuse detected")));
+
+        mockMvc.perform(post("/auth/refresh")
+                .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, rotatedRefreshToken)))
+                .andExpect(status().isUnauthorized());
     }
 
     /**

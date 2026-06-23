@@ -66,7 +66,7 @@ class RefreshTokenServiceTest {
 
         @Test
         @Order(2)
-        @DisplayName("refreshAccessToken returns new access token")
+        @DisplayName("refreshAccessToken rotates the refresh token and returns both tokens")
         void shouldRefreshAccessToken() {
             Users user = Users.builder().username("testuser").build();
             RefreshToken token = RefreshToken.builder()
@@ -75,13 +75,22 @@ class RefreshTokenServiceTest {
                     .expiryDate(Instant.parse("2030-01-01T00:00:00Z"))
                     .revoked(false)
                     .build();
+            RefreshToken newToken = RefreshToken.builder()
+                    .token("new-refresh-token")
+                    .user(user)
+                    .expiryDate(Instant.parse("2030-01-01T00:00:00Z"))
+                    .revoked(false)
+                    .build();
 
             when(refreshTokenRepository.findByToken("valid-token")).thenReturn(Optional.of(token));
+            when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(token, newToken);
             when(jwtUtils.generateToken(user)).thenReturn("new-access-token");
 
-            String result = refreshTokenService.refreshAccessToken("valid-token");
+            RefreshTokenService.RotatedTokens result = refreshTokenService.refreshAccessToken("valid-token");
 
-            assertEquals("new-access-token", result);
+            assertEquals("new-access-token", result.accessToken());
+            assertEquals("new-refresh-token", result.refreshToken());
+            assertEquals(true, token.isRevoked());
         }
 
         @Test
@@ -96,11 +105,12 @@ class RefreshTokenServiceTest {
 
         @Test
         @Order(4)
-        @DisplayName("refreshAccessToken throws when token is revoked")
+        @DisplayName("refreshAccessToken detects reuse of a revoked token and revokes all user tokens")
         void shouldThrowWhenTokenRevoked() {
+            Users user = Users.builder().username("victim").build();
             RefreshToken token = RefreshToken.builder()
                     .token("revoked-token")
-                    .user(Users.builder().build())
+                    .user(user)
                     .expiryDate(Instant.parse("2030-01-01T00:00:00Z"))
                     .revoked(true)
                     .build();
@@ -109,6 +119,8 @@ class RefreshTokenServiceTest {
 
             assertThrows(RefreshTokenException.class,
                     () -> refreshTokenService.refreshAccessToken("revoked-token"));
+
+            verify(refreshTokenRepository).revokeAllByUser(user);
         }
 
         @Test

@@ -30,7 +30,43 @@ public class RefreshTokenService {
     @Transactional
     public RefreshToken createRefreshToken(Users user) {
         refreshTokenRepository.deleteAllByUser(user);
+        return issueToken(user);
+    }
 
+    /**
+     * Rotates the refresh token on every use: the presented token is revoked
+     * and a brand new one is issued alongside the new access token. If a
+     * caller presents a token that is already revoked, that token has either
+     * expired naturally or already been rotated away - presenting it again
+     * means it was stolen and replayed, so every refresh token belonging to
+     * the user is revoked to force re-authentication on all sessions.
+     */
+    @Transactional(noRollbackFor = RefreshTokenException.class)
+    public RotatedTokens refreshAccessToken(String tokenValue) {
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(tokenValue)
+                .orElseThrow(() -> new RefreshTokenException("Refresh token not found"));
+
+        if (refreshToken.isRevoked()) {
+            refreshTokenRepository.revokeAllByUser(refreshToken.getUser());
+            throw new RefreshTokenException("Refresh token reuse detected; all sessions revoked");
+        }
+
+        if (refreshToken.getExpiryDate().isBefore(Instant.now())) {
+            refreshToken.setRevoked(true);
+            refreshTokenRepository.save(refreshToken);
+            throw new RefreshTokenException("Refresh token has expired");
+        }
+
+        refreshToken.setRevoked(true);
+        refreshTokenRepository.save(refreshToken);
+
+        RefreshToken newRefreshToken = issueToken(refreshToken.getUser());
+        String newAccessToken = jwtUtils.generateToken(refreshToken.getUser());
+
+        return new RotatedTokens(newAccessToken, newRefreshToken.getToken());
+    }
+
+    private RefreshToken issueToken(Users user) {
         RefreshToken token = RefreshToken.builder()
                 .user(user)
                 .token(UUID.randomUUID().toString())
@@ -41,23 +77,7 @@ public class RefreshTokenService {
         return refreshTokenRepository.save(token);
     }
 
-    @Transactional
-    public String refreshAccessToken(String tokenValue) {
-        RefreshToken refreshToken = refreshTokenRepository.findByToken(tokenValue)
-                .orElseThrow(() -> new RefreshTokenException("Refresh token not found"));
-
-        if (refreshToken.isRevoked()) {
-            throw new RefreshTokenException("Refresh token has been revoked");
-        }
-
-        if (refreshToken.getExpiryDate().isBefore(Instant.now())) {
-            refreshToken.setRevoked(true);
-            refreshTokenRepository.save(refreshToken);
-            throw new RefreshTokenException("Refresh token has expired");
-        }
-
-        return jwtUtils.generateToken(refreshToken.getUser());
-    }
+    public record RotatedTokens(String accessToken, String refreshToken) {}
 
     @Transactional
     public void revokeToken(String tokenValue) {
