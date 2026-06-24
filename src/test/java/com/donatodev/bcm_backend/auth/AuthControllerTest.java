@@ -610,6 +610,32 @@ class AuthControllerTest {
     }
 
     /**
+     * Test refresh fails when the refresh_token cookie is present but blank
+     * (non-null, isBlank() branch).
+     */
+    @Test
+    @Order(30)
+    void shouldReturnUnauthorizedWhenRefreshCookieBlank() throws Exception {
+        mockMvc.perform(post("/auth/refresh")
+                .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, "")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value(containsString("Refresh token not found")));
+    }
+
+    /**
+     * Test logout is a no-op (still 204) when the refresh_token cookie is
+     * present but blank (non-null, isBlank() branch).
+     */
+    @Test
+    @Order(31)
+    void shouldLogoutSuccessfullyWhenRefreshCookieBlank() throws Exception {
+        mockMvc.perform(post("/auth/logout")
+                .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, "")))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().maxAge(RefreshCookieFactory.COOKIE_NAME, 0));
+    }
+
+    /**
      * Test logout revokes the refresh token (subsequent refresh should fail).
      */
     @Test

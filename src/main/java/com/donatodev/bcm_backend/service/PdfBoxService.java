@@ -15,9 +15,10 @@ import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 @Service
 public class PdfBoxService {
 
-    // Possessive quantifier ++ prevents backtracking, eliminating ReDoS risk
+    // Single quantified character class, no alternation: linear-time matching with
+    // no backtracking ambiguity. extractAmount() filters out matches with no currency symbol.
     private static final Pattern AMOUNT_PATTERN =
-            Pattern.compile("[€$][\\d.,]++|[\\d.,]++[€$]", Pattern.CASE_INSENSITIVE);
+            Pattern.compile("[€$]?[\\d.,]++[€$]?", Pattern.CASE_INSENSITIVE);
 
     public DocumentAnalysisDTO analyzeDocument(Long documentId, byte[] pdfBytes) {
         String rawText;
@@ -57,6 +58,12 @@ public class PdfBoxService {
 
     String extractAmount(String text) {
         Matcher matcher = AMOUNT_PATTERN.matcher(text);
-        return matcher.find() ? matcher.group().trim() : null;
+        while (matcher.find()) {
+            String match = matcher.group();
+            if (match.indexOf('€') >= 0 || match.indexOf('$') >= 0) {
+                return match.trim();
+            }
+        }
+        return null;
     }
 }
