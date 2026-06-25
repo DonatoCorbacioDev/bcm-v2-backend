@@ -1,19 +1,19 @@
 # 🏢 BCM v2.0 - Business Contracts Manager
 
-> Enterprise-grade SaaS platform for contract lifecycle management built with Spring Boot 3.5.9 and Java 21
+> SaaS platform for contract lifecycle management built with Spring Boot 3.5.10 and Java 21
 
 [![CI](https://github.com/DonatoCorbacioDev/bcm-v2-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/DonatoCorbacioDev/bcm-v2-backend/actions/workflows/ci.yml)
 [![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)](https://openjdk.org/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.9-brightgreen?logo=spring)](https://spring.io/projects/spring-boot)
-[![Coverage](https://img.shields.io/badge/Coverage-100%25%20Perfect-brightgreen?style=flat&logo=codecov)](./target/site/jacoco/index.html)
-[![Tests](https://img.shields.io/badge/Tests-316%20methods-success)](./target/site/jacoco/index.html)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.10-brightgreen?logo=spring)](https://spring.io/projects/spring-boot)
+[![Coverage](https://img.shields.io/badge/Coverage-99%25%20instructions-brightgreen?style=flat&logo=codecov)](./target/site/jacoco/index.html)
+[![Tests](https://img.shields.io/badge/Tests-810%20methods-success)](./target/site/jacoco/index.html)
 [![License](https://img.shields.io/badge/License-Custom-blue)](./LICENSE)
 [![Database](https://img.shields.io/badge/Database-MySQL%208.0-blue?logo=mysql)](https://www.mysql.com/)
 [![Flyway](https://img.shields.io/badge/Migrations-Flyway-red?logo=flyway)](https://flywaydb.org/)
 
 ## 🎯 Overview
 
-BCM v2.0 is the second iteration of my Business Contract Manager system, representing a complete architectural redesign from the original version developed during my master's thesis. This version showcases modern Spring Boot best practices, **100% test coverage** (instruction and branch), production-ready security features, and automated database versioning with Flyway.
+BCM v2.0 is the second iteration of my Business Contract Manager system, representing a complete architectural redesign from the original version developed during my master's thesis. This version showcases modern Spring Boot best practices, high test coverage (99% instruction/branch, 100% line — see [Code Quality Metrics](#-code-quality-metrics)), JWT-based security hardening, and automated database versioning with Flyway. It is a portfolio/MVP project moving toward production readiness — see [Roadmap](#-roadmap) and [docs/SECURITY.md](./docs/SECURITY.md) for what's done and what's still open.
 
 **Project Type:** Portfolio Project | Full-Stack SaaS Backend  
 **Status:** Active Development  
@@ -167,7 +167,7 @@ sequenceDiagram
 
 **Backend Framework:**
 
-- Spring Boot 3.5.9 (Latest stable)
+- Spring Boot 3.5.10
 - Java 21 LTS
 - Maven for dependency management
 
@@ -195,7 +195,7 @@ sequenceDiagram
 
 **Code Quality & Analysis:**
 
-- JaCoCo (100% test coverage)
+- JaCoCo (75% minimum threshold enforced on every build; current run ~99%)
 - SpotBugs for bug detection
 - FindSecBugs for security analysis
 - SonarQube compatible
@@ -215,17 +215,18 @@ sequenceDiagram
 
 ## 📊 Code Quality Metrics
 
-| Metric                    | Value                        | Status              |
-| ------------------------- | ---------------------------- | ------------------- |
-| **Test Coverage**         | 100% (0 missed instructions) | ✅ Perfect          |
-| **Branch Coverage**       | 100% (0 missed branches)     | ✅ Perfect          |
-| **Test Classes**          | 54 classes                   | ✅ Comprehensive    |
-| **Test Methods**          | 316 methods                  | ✅ Extensive        |
-| **Lines Covered**         | 1,092 lines                  | ✅ Full coverage    |
-| **Cyclomatic Complexity** | 417 (0 missed)               | ✅ Well tested      |
-| **Security Scan**         | No issues                    | ✅ FindSecBugs pass |
-| **Architecture**          | Clean separation             | ✅ Professional     |
-| **Package Coverage**      | All packages: 100%           | ✅ Perfect          |
+| Metric                    | Value                         | Status              |
+| ------------------------- | ------------------------------ | ------------------- |
+| **Instruction Coverage**  | 99% (10,149 / 10,154)          | ✅ High             |
+| **Branch Coverage**       | 99% (573 / 574)                | ✅ High             |
+| **Line Coverage**         | 100% (2,364 / 2,364)           | ✅ Full coverage    |
+| **Test Classes**          | 67 classes                     | ✅ Comprehensive    |
+| **Test Methods**          | ~810 methods                   | ✅ Extensive        |
+| **Cyclomatic Complexity** | 828 (2 missed)                 | ✅ Well tested      |
+| **Security Scan**         | No issues                      | ✅ FindSecBugs pass |
+| **Package Coverage**      | 88 classes, 1 with a small gap | ✅ High             |
+
+Numbers above are from the last local `mvn clean test jacoco:report` run (2026-06-25); regenerate with the same command to verify — see [target/site/jacoco/index.html](./target/site/jacoco/index.html).
 
 ---
 
@@ -479,16 +480,17 @@ mvn clean package -DskipTests
 
 | Package    | Coverage | Key Tests                        |
 | ---------- | -------- | -------------------------------- |
-| service    | 100%     | Business logic (all services)    |
+| service    | 99%      | Business logic (all services)    |
 | controller | 100%     | REST endpoints (all controllers) |
 | mapper     | 100%     | All DTO mappings                 |
 | auth       | 100%     | AuthService, AuthController      |
 | jwt        | 100%     | Token generation/validation      |
-| security   | 100%     | SecurityConfig                   |
 | exception  | 100%     | Global exception handling        |
+| aspect     | 100%     | Audit aspect                     |
+| security   | 100%     | SecurityConfig                   |
 | util       | 100%     | Utility classes                  |
 
-**Perfect Score:** All packages achieve 100% instruction and branch coverage.
+Most packages are at 100% instruction/branch coverage; `service` sits at 99% (2 missed instructions). DTOs, entities, config, and the main application class are excluded from measurement (see [CLAUDE.md](./CLAUDE.md)).
 
 **Note:** Tests use H2 in-memory database with Flyway disabled for speed.
 
@@ -591,6 +593,12 @@ The application supports multiple profiles:
 - **test**: Testing environment with H2 database, Flyway disabled
 - **prod**: Production mode with optimized settings, Flyway validate-on-migrate
 
+## 🗺 Roadmap
+
+- **MVP (done):** core contract/document/invoice lifecycle, JWT auth with refresh-token rotation and reuse detection, multi-tenancy, RBAC, audit log, notifications, ML proxy (forecast/risk score), FatturaPA XML viewer.
+- **Beta (in progress):** cross-tenant regression test coverage, production security checklist (see [docs/SECURITY.md](./docs/SECURITY.md)), secret scanning in CI, accessibility pass on the frontend.
+- **Production readiness (open):** distributed rate limiting (current implementation is in-memory/per-IP, see SECURITY.md), credential rotation runbook, dataset-backed ML baselines beyond the current rule-based/linear models.
+
 ### Production Deployment Checklist
 
 Before deploying to production:
@@ -630,19 +638,18 @@ docker run -p 8090:8090 --env-file .env.prod bcm-backend:1.0.0
 
 **Major Rewrite:**
 
-- ✨ Migrated to Spring Boot 3.5.9 + Java 21
+- ✨ Migrated to Spring Boot 3.5.10 + Java 21
 - ✨ Redesigned architecture with clean layers
 - ✨ JWT-based authentication
-- ✨ Comprehensive test suite (100% coverage - perfect score)
+- ✨ Comprehensive test suite (~99% instruction/branch coverage, 75% minimum enforced)
 - ✨ Role-based access control
 - ✨ Email verification system
 - ✨ Multi-manager support per contract
 - ✨ Advanced search and pagination
 - ✨ OpenAPI 3 documentation
-- ✨ Production-ready security
+- ✨ JWT/RBAC security hardening (see [docs/SECURITY.md](./docs/SECURITY.md) for what's production-ready vs. still open)
 - ✨ **Flyway database migrations (automatic versioning)**
 - ✨ **Multi-environment configuration (dev/test/prod)**
-- ✨ **Enterprise-grade database management**
 
 ### Version 1.0 (2024)
 
