@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -105,12 +106,21 @@ public class ContractService {
     }
 
     /**
-     * Retrieves a contract by its ID.
+     * Retrieves a contract by its ID. MANAGERs can only access contracts assigned to them.
      */
     public ContractDTO getContractById(Long id) {
-        return findContractInScope(id)
-                .map(contractMapper::toDTO)
+        Contracts contract = findContractInScope(id)
                 .orElseThrow(() -> new ContractNotFoundException("Contract ID " + id + " not found"));
+
+        AuthCtx auth = getAuthCtx();
+        if (!ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
+            Long contractManagerId = contract.getManager() != null ? contract.getManager().getId() : null;
+            if (auth.managerId() == null || !auth.managerId().equals(contractManagerId)) {
+                throw new AccessDeniedException("Not authorized to access contract: " + id);
+            }
+        }
+
+        return contractMapper.toDTO(contract);
     }
 
     /**

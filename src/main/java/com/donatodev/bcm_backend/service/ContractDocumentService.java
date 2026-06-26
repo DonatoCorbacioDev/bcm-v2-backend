@@ -9,14 +9,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
 import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 import com.donatodev.bcm_backend.entity.ContractDocument;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.UsersRepository;
 
 @Service
 public class ContractDocumentService {
@@ -32,20 +38,24 @@ public class ContractDocumentService {
     private final ContractsRepository contractsRepository;
     private final LocalStorageService localStorageService;
     private final PdfBoxService pdfBoxService;
+    private final UsersRepository usersRepository;
 
     public ContractDocumentService(ContractDocumentRepository documentRepository,
                                    ContractsRepository contractsRepository,
                                    LocalStorageService localStorageService,
-                                   PdfBoxService pdfBoxService) {
+                                   PdfBoxService pdfBoxService,
+                                   UsersRepository usersRepository) {
         this.documentRepository = documentRepository;
         this.contractsRepository = contractsRepository;
         this.localStorageService = localStorageService;
         this.pdfBoxService = pdfBoxService;
+        this.usersRepository = usersRepository;
     }
 
     @Transactional
     public ContractDocumentDTO uploadDocument(Long contractId, MultipartFile file) throws IOException {
         Contracts contract = getContractInScope(contractId);
+        checkManagerCanAccess(contract);
 
         validateFile(file);
 
@@ -67,7 +77,8 @@ public class ContractDocumentService {
 
     @Transactional(readOnly = true)
     public List<ContractDocumentDTO> getDocuments(Long contractId) {
-        getContractInScope(contractId);
+        Contracts contract = getContractInScope(contractId);
+        checkManagerCanAccess(contract);
         return documentRepository.findByContractIdOrderByUploadedAtDesc(contractId)
                 .stream()
                 .map(this::toDTO)
@@ -75,7 +86,8 @@ public class ContractDocumentService {
     }
 
     public DocumentAnalysisDTO extractText(Long contractId, Long documentId) {
-        getContractInScope(contractId);
+        Contracts contract = getContractInScope(contractId);
+        checkManagerCanAccess(contract);
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(DOC_NOT_FOUND, documentId, contractId)));
@@ -86,7 +98,8 @@ public class ContractDocumentService {
 
     @Transactional(readOnly = true)
     public FileDownload downloadDocument(Long contractId, Long documentId) {
-        getContractInScope(contractId);
+        Contracts contract = getContractInScope(contractId);
+        checkManagerCanAccess(contract);
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(DOC_NOT_FOUND, documentId, contractId)));
@@ -97,13 +110,34 @@ public class ContractDocumentService {
 
     @Transactional
     public void deleteDocument(Long contractId, Long documentId) {
-        getContractInScope(contractId);
+        Contracts contract = getContractInScope(contractId);
+        checkManagerCanAccess(contract);
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(DOC_NOT_FOUND, documentId, contractId)));
 
         localStorageService.deleteDocument(doc.getStoragePath());
         documentRepository.delete(doc);
+    }
+
+    /**
+     * Throws {@link AccessDeniedException} when the authenticated user is a MANAGER
+     * not assigned to the given contract. Skips the check when no auth context is present.
+     */
+    private void checkManagerCanAccess(Contracts contract) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            return;
+        }
+        Users user = usersRepository.findByUsername(auth.getName()).orElse(null);
+        if (user == null || !"MANAGER".equals(user.getRole().getRole())) {
+            return;
+        }
+        Long managerId = user.getManager() != null ? user.getManager().getId() : null;
+        Long contractManagerId = contract.getManager() != null ? contract.getManager().getId() : null;
+        if (managerId == null || !managerId.equals(contractManagerId)) {
+            throw new AccessDeniedException("Not authorized to access contract: " + contract.getId());
+        }
     }
 
     /**

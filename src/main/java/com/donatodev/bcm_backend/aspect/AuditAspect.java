@@ -39,7 +39,7 @@ public class AuditAspect {
             Long entityId = extractEntityId(result, joinPoint.getArgs());
             String username = getCurrentUsername();
             Long orgId = TenantContext.get();
-            String details = className + "." + methodName;
+            String details = className + "." + methodName + (entityId != null ? "#" + entityId : "");
 
             auditLogService.save(action, entityType, entityId, username, orgId, details);
         } catch (Exception e) {

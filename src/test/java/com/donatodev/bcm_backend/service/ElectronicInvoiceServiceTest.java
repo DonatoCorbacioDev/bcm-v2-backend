@@ -15,6 +15,10 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -40,9 +44,13 @@ import com.donatodev.bcm_backend.dto.FatturaPaInvoiceData;
 import com.donatodev.bcm_backend.dto.InvoiceLineItemDTO;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
+import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.entity.Roles;
+import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
+import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,6 +61,7 @@ class ElectronicInvoiceServiceTest {
     @Mock private ContractsRepository contractsRepository;
     @Mock private LocalStorageService localStorageService;
     @Mock private FatturaPaXmlParserService fatturaPaXmlParserService;
+    @Mock private UsersRepository usersRepository;
 
     private ElectronicInvoiceService electronicInvoiceService;
     private ObjectMapper objectMapper;
@@ -66,7 +75,7 @@ class ElectronicInvoiceServiceTest {
     void setup() {
         objectMapper = new ObjectMapper();
         electronicInvoiceService = new ElectronicInvoiceService(
-                invoiceRepository, contractsRepository, localStorageService, fatturaPaXmlParserService, objectMapper);
+                invoiceRepository, contractsRepository, localStorageService, fatturaPaXmlParserService, objectMapper, usersRepository);
         ReflectionTestUtils.setField(electronicInvoiceService, "backendBaseUrl", BACKEND_URL);
     }
 
@@ -514,6 +523,67 @@ class ElectronicInvoiceServiceTest {
         void toStringContainsFileName() {
             FileDownload download = new FileDownload(VALID_XML, "invoice.xml", "application/xml");
             assertTrue(download.toString().contains("invoice.xml"));
+        }
+    }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @DisplayName("Manager access control")
+    @SuppressWarnings("unused")
+    class ManagerAccessControl {
+
+        @Test
+        @Order(1)
+        @DisplayName("getInvoices: MANAGER assigned to contract can access invoices")
+        void shouldAllowManagerToAccessAssignedContractInvoices() throws Exception {
+            Managers manager = Managers.builder().id(7L).build();
+            Contracts contract = fakeContract();
+            contract.setManager(manager);
+            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
+            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+
+            Users managerUser = Users.builder()
+                    .username("mgr")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(manager)
+                    .build();
+            User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(usersRepository.findByUsername("mgr")).thenReturn(Optional.of(managerUser));
+            when(invoiceRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
+                    .thenReturn(List.of(invoice));
+
+            List<ElectronicInvoiceDTO> result = electronicInvoiceService.getInvoices(CONTRACT_ID);
+
+            assertEquals(1, result.size());
+            SecurityContextHolder.clearContext();
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("getInvoices: MANAGER not assigned to contract throws AccessDeniedException")
+        void shouldDenyManagerAccessToUnassignedContractInvoices() {
+            Managers contractManager = Managers.builder().id(99L).build();
+            Managers userManager = Managers.builder().id(7L).build();
+            Contracts contract = fakeContract();
+            contract.setManager(contractManager);
+
+            Users managerUser = Users.builder()
+                    .username("mgr")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(userManager)
+                    .build();
+            User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(usersRepository.findByUsername("mgr")).thenReturn(Optional.of(managerUser));
+
+            assertThrows(AccessDeniedException.class,
+                    () -> electronicInvoiceService.getInvoices(CONTRACT_ID));
+            SecurityContextHolder.clearContext();
         }
     }
 }

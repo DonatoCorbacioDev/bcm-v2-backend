@@ -3,6 +3,7 @@ package com.donatodev.bcm_backend.service;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -117,6 +118,7 @@ public class FinancialValueService {
             org.setId(orgId);
             value.setOrganization(org);
         }
+        checkAccessToFinancialValue(value);
         value = financialValuesRepository.save(value);
         return financialValueMapper.toDTO(value);
     }
@@ -190,6 +192,8 @@ public class FinancialValueService {
      */
     private void checkAccessToFinancialValue(FinancialValues value) {
         String username = getAuthenticatedUsername();
+        if (username == null) return;
+
         Users user = usersRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User" + NOT_FOUND_SUFFIX));
 
@@ -198,7 +202,7 @@ public class FinancialValueService {
             Long valueManagerId = value.getContract().getManager().getId();
 
             if (!managerId.equals(valueManagerId)) {
-                throw new SecurityException("Access denied: you are not assigned to this contract");
+                throw new AccessDeniedException("Access denied: you are not assigned to this contract");
             }
         }
     }

@@ -147,12 +147,19 @@ class ContractServiceTest {
         }
 
         /**
-         * Tests retrieving a contract by its ID returns the corresponding DTO.
+         * Tests retrieving a contract by its ID returns the corresponding DTO (ADMIN).
          */
         @Test
         @Order(2)
         @DisplayName("Get contract by ID returns DTO")
         void shouldGetContractById() {
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .build();
+            mockAuthentication("admin", "ADMIN");
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+
             Contracts contract = Contracts.builder().id(1L).contractNumber("ABC123").customerName("Mario").build();
             ContractDTO dto = new ContractDTO(1L, "Mario", "ABC123", "WBS001", "Progetto",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
@@ -163,6 +170,52 @@ class ContractServiceTest {
             ContractDTO result = contractService.getContractById(1L);
 
             assertEquals("Mario", result.customerName());
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("Get contract by ID as MANAGER returns DTO for assigned contract")
+        void shouldGetContractByIdAsManager() {
+            Managers manager = Managers.builder().id(5L).build();
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(manager)
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            Contracts contract = Contracts.builder().id(1L).customerName("Mario").manager(manager).build();
+            ContractDTO dto = new ContractDTO(1L, "Mario", "ABC123", "WBS001", "Progetto",
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 5L, null, null, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(contractMapper.toDTO(contract)).thenReturn(dto);
+
+            ContractDTO result = contractService.getContractById(1L);
+
+            assertEquals("Mario", result.customerName());
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("Get contract by ID as MANAGER throws AccessDeniedException for unassigned contract")
+        void shouldDenyGetContractByIdForUnassignedManager() {
+            Managers myManager = Managers.builder().id(5L).build();
+            Managers otherManager = Managers.builder().id(99L).build();
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(myManager)
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            Contracts contract = Contracts.builder().id(1L).customerName("Mario").manager(otherManager).build();
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+
+            assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                    () -> contractService.getContractById(1L));
         }
 
         /**
@@ -1553,6 +1606,13 @@ class ContractServiceTest {
         @Order(57)
         @DisplayName("getContractById with TenantContext uses org-scoped repository")
         void shouldGetContractByIdWithTenantContext() {
+            Users admin = Users.builder()
+                    .username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .build();
+            mockAuthentication("admin", "ADMIN");
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+
             Contracts contract = Contracts.builder().id(1L).contractNumber("ABC123").customerName("Mario").build();
             ContractDTO dto = new ContractDTO(1L, "Mario", "ABC123", "WBS001", "Progetto",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);

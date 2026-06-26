@@ -30,14 +30,23 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
+
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
 import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 import com.donatodev.bcm_backend.entity.ContractDocument;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.entity.Roles;
+import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.UsersRepository;
 
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
@@ -47,6 +56,7 @@ class ContractDocumentServiceTest {
     @Mock private ContractsRepository contractsRepository;
     @Mock private LocalStorageService localStorageService;
     @Mock private PdfBoxService pdfBoxService;
+    @Mock private UsersRepository usersRepository;
 
     @InjectMocks
     private ContractDocumentService contractDocumentService;
@@ -439,6 +449,59 @@ class ContractDocumentServiceTest {
             } finally {
                 TenantContext.clear();
             }
+        }
+
+        @Test
+        @Order(26)
+        @DisplayName("getDocuments: MANAGER assigned to contract can access documents")
+        void shouldAllowManagerToAccessAssignedContractDocuments() {
+            Managers manager = Managers.builder().id(7L).build();
+            Contracts contract = fakeContract();
+            contract.setManager(manager);
+            ContractDocument doc = fakeDoc(contract);
+
+            Users managerUser = Users.builder()
+                    .username("mgr")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(manager)
+                    .build();
+            User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(usersRepository.findByUsername("mgr")).thenReturn(Optional.of(managerUser));
+            when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
+                    .thenReturn(List.of(doc));
+
+            List<ContractDocumentDTO> result = contractDocumentService.getDocuments(CONTRACT_ID);
+
+            assertEquals(1, result.size());
+            SecurityContextHolder.clearContext();
+        }
+
+        @Test
+        @Order(27)
+        @DisplayName("getDocuments: MANAGER not assigned to contract throws AccessDeniedException")
+        void shouldDenyManagerAccessToUnassignedContractDocuments() {
+            Managers contractManager = Managers.builder().id(99L).build();
+            Managers userManager = Managers.builder().id(7L).build();
+            Contracts contract = fakeContract();
+            contract.setManager(contractManager);
+
+            Users managerUser = Users.builder()
+                    .username("mgr")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(userManager)
+                    .build();
+            User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(usersRepository.findByUsername("mgr")).thenReturn(Optional.of(managerUser));
+
+            assertThrows(AccessDeniedException.class,
+                    () -> contractDocumentService.getDocuments(CONTRACT_ID));
+            SecurityContextHolder.clearContext();
         }
     }
 }

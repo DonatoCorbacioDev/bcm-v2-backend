@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.springframework.security.access.AccessDeniedException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
@@ -220,6 +221,37 @@ class FinancialValueServiceTest {
             assertEquals(300.0, result.financialAmount());
         }
 
+        @Test
+        @Order(5)
+        @DisplayName("createValue should throw AccessDeniedException if MANAGER is not assigned to contract")
+        void shouldDenyCreateIfManagerNotAssigned() {
+            UserDetails userDetails = org.springframework.security.core.userdetails.User
+                    .withUsername("managerX")
+                    .password(TEST_PASSWORD)
+                    .roles("MANAGER")
+                    .build();
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities()));
+
+            Managers contractManager = Managers.builder().id(99L).build();
+            Managers userManager = Managers.builder().id(1L).build();
+            Users managerUser = Users.builder()
+                    .username("managerX")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(userManager)
+                    .build();
+
+            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValues entity = FinancialValues.builder()
+                    .contract(Contracts.builder().manager(contractManager).build())
+                    .build();
+
+            when(mapper.toEntity(dto)).thenReturn(entity);
+            when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
+
+            assertThrows(AccessDeniedException.class, () -> service.createValue(dto));
+        }
+
         /**
          * Test: Should return only the manager's own financial values when user
          * is MANAGER.
@@ -262,7 +294,7 @@ class FinancialValueServiceTest {
         }
 
         /**
-         * Test: Should throw SecurityException if a MANAGER tries to access a
+         * Test: Should throw AccessDeniedException if a MANAGER tries to access a
          * value not assigned to them.
          */
         @Test
@@ -295,7 +327,7 @@ class FinancialValueServiceTest {
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
             when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
 
-            SecurityException ex = assertThrows(SecurityException.class, () -> service.getValueById(1L));
+            AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.getValueById(1L));
             assertTrue(ex.getMessage().contains("Access denied"));
         }
 
@@ -363,7 +395,7 @@ class FinancialValueServiceTest {
         }
 
         /**
-         * Test: Should throw SecurityException when a MANAGER tries to delete a
+         * Test: Should throw AccessDeniedException when a MANAGER tries to delete a
          * value not assigned to their contract.
          */
         @Test
@@ -394,7 +426,7 @@ class FinancialValueServiceTest {
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
             when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
 
-            SecurityException ex = assertThrows(SecurityException.class, () -> service.deleteValue(1L));
+            AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.deleteValue(1L));
             assertTrue(ex.getMessage().contains("Access denied"));
         }
 
@@ -492,7 +524,7 @@ class FinancialValueServiceTest {
          */
         @Test
         @Order(16)
-        @DisplayName("updateValue should throw SecurityException if manager not owner")
+        @DisplayName("updateValue should throw AccessDeniedException if manager not owner")
         void shouldDenyUpdateIfManagerNotAssigned() {
             UserDetails userDetails = org.springframework.security.core.userdetails.User
                     .withUsername("managerX")
@@ -520,7 +552,7 @@ class FinancialValueServiceTest {
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
             when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
 
-            SecurityException ex = assertThrows(SecurityException.class, () -> service.updateValue(1L, dto));
+            AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.updateValue(1L, dto));
             assertTrue(ex.getMessage().contains("Access denied"));
         }
 

@@ -211,11 +211,13 @@ class ContractControllerTest {
         @Test
         @Order(3)
         @DisplayName("The contract has been retrieved successfully by ID")
-        @WithMockUser(roles = "ADMIN")
+        @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldGetContractById() throws Exception {
             Managers manager = managersRepository.save(Managers.builder()
                     .firstName("Giulia").lastName("Rossi").email("giulia@example.com")
                     .phoneNumber("222333").department("Marketing").build());
+
+            createUser("admin", "ADMIN", null);
 
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                     .name("Marketing").description("Promo").build());
