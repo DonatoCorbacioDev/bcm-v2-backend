@@ -25,6 +25,8 @@ public class WeeklyDigestService {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final int EXPIRY_WINDOW_DAYS = 30;
     private static final int MAX_ROWS = 5;
+    private static final String CLOSE_DIV = "</div>";
+    private static final String CLOSE_TD = "</td>";
 
     private final OrganizationRepository organizationRepository;
     private final ContractsRepository contractsRepository;
@@ -118,76 +120,82 @@ public class WeeklyDigestService {
           .append("<div class='header'>")
           .append("<h1>BCM Weekly Digest</h1>")
           .append("<p>").append(escapeHtml(orgName)).append(" &bull; ").append(today.format(DATE_FMT)).append("</p>")
-          .append("</div>")
+          .append(CLOSE_DIV)
           .append("<div class='content'>");
 
-        // --- Expiring contracts section ---
-        sb.append("<div class='section-title'>Scadenze imminenti (prossimi ").append(EXPIRY_WINDOW_DAYS).append(" giorni)</div>");
+        appendExpiringSection(sb, expiring, today);
+        appendCriticalSection(sb, expiring, today);
 
+        sb.append(CLOSE_DIV)
+          .append("<div class='footer'>")
+          .append("Business Contracts Manager &bull; Generato il ").append(generatedAt)
+          .append("<br>Questo messaggio è stato inviato automaticamente. Non rispondere a questa email.")
+          .append(CLOSE_DIV)
+          .append("</body></html>");
+
+        return sb.toString();
+    }
+
+    private void appendExpiringSection(StringBuilder sb, List<Contracts> expiring, LocalDate today) {
+        sb.append("<div class='section-title'>Scadenze imminenti (prossimi ").append(EXPIRY_WINDOW_DAYS).append(" giorni)</div>");
         if (expiring.isEmpty()) {
             sb.append("<p class='empty'>Nessun contratto in scadenza nei prossimi ").append(EXPIRY_WINDOW_DAYS).append(" giorni.</p>");
-        } else {
-            List<Contracts> rows = expiring.stream().limit(MAX_ROWS).toList();
-            sb.append("<table><thead><tr>")
-              .append("<th>Contratto</th><th>Cliente</th><th>Scadenza</th><th>Urgenza</th>")
-              .append("</tr></thead><tbody>");
-
-            for (Contracts c : rows) {
-                long daysLeft = today.until(c.getEndDate()).getDays();
-                String badge = daysLeft <= 7 ? "badge-urgent"
-                             : daysLeft <= 14 ? "badge-warning"
-                             : "badge-normal";
-                String label = daysLeft <= 7 ? "Critico"
-                             : daysLeft <= 14 ? "Urgente"
-                             : "In scadenza";
-
-                sb.append("<tr>")
-                  .append("<td>").append(escapeHtml(c.getContractNumber())).append("</td>")
-                  .append("<td>").append(escapeHtml(c.getCustomerName())).append("</td>")
-                  .append("<td>").append(c.getEndDate().format(DATE_FMT)).append("</td>")
-                  .append("<td><span class='").append(badge).append("'>").append(label).append("</span></td>")
-                  .append("</tr>");
-            }
-
-            sb.append("</tbody></table>");
-            if (expiring.size() > MAX_ROWS) {
-                sb.append("<p style='font-size:12px;color:#6b7280;margin-top:8px'>")
-                  .append("+ ").append(expiring.size() - MAX_ROWS)
-                  .append(" altri contratti in scadenza. Accedi a BCM per la lista completa.</p>");
-            }
+            return;
         }
+        sb.append("<table><thead><tr>")
+          .append("<th>Contratto</th><th>Cliente</th><th>Scadenza</th><th>Urgenza</th>")
+          .append("</tr></thead><tbody>");
+        for (Contracts c : expiring.stream().limit(MAX_ROWS).toList()) {
+            long daysLeft = today.until(c.getEndDate()).getDays();
+            sb.append("<tr>")
+              .append("<td>").append(escapeHtml(c.getContractNumber())).append(CLOSE_TD)
+              .append("<td>").append(escapeHtml(c.getCustomerName())).append(CLOSE_TD)
+              .append("<td>").append(c.getEndDate().format(DATE_FMT)).append(CLOSE_TD)
+              .append("<td><span class='").append(urgencyBadge(daysLeft)).append("'>").append(urgencyLabel(daysLeft)).append("</span>").append(CLOSE_TD)
+              .append("</tr>");
+        }
+        sb.append("</tbody></table>");
+        if (expiring.size() > MAX_ROWS) {
+            sb.append("<p style='font-size:12px;color:#6b7280;margin-top:8px'>")
+              .append("+ ").append(expiring.size() - MAX_ROWS)
+              .append(" altri contratti in scadenza. Accedi a BCM per la lista completa.</p>");
+        }
+    }
 
-        // --- High-risk shortlist: contracts expiring within 7 days ---
+    private void appendCriticalSection(StringBuilder sb, List<Contracts> expiring, LocalDate today) {
         List<Contracts> critical = expiring.stream()
                 .filter(c -> c.getEndDate() != null && today.until(c.getEndDate()).getDays() <= 7)
                 .limit(MAX_ROWS)
                 .toList();
-
-        if (!critical.isEmpty()) {
-            sb.append("<div class='section-title'>Contratti critici (&le;7 giorni alla scadenza)</div>")
-              .append("<table><thead><tr>")
-              .append("<th>Contratto</th><th>Cliente</th><th>Progetto</th><th>Scadenza</th>")
-              .append("</tr></thead><tbody>");
-
-            for (Contracts c : critical) {
-                sb.append("<tr>")
-                  .append("<td>").append(escapeHtml(c.getContractNumber())).append("</td>")
-                  .append("<td>").append(escapeHtml(c.getCustomerName())).append("</td>")
-                  .append("<td>").append(escapeHtml(c.getProjectName() != null ? c.getProjectName() : "—")).append("</td>")
-                  .append("<td style='color:#991b1b;font-weight:600'>").append(c.getEndDate().format(DATE_FMT)).append("</td>")
-                  .append("</tr>");
-            }
-            sb.append("</tbody></table>");
+        if (critical.isEmpty()) {
+            return;
         }
+        sb.append("<div class='section-title'>Contratti critici (&le;7 giorni alla scadenza)</div>")
+          .append("<table><thead><tr>")
+          .append("<th>Contratto</th><th>Cliente</th><th>Progetto</th><th>Scadenza</th>")
+          .append("</tr></thead><tbody>");
+        for (Contracts c : critical) {
+            String project = c.getProjectName() != null ? c.getProjectName() : "—";
+            sb.append("<tr>")
+              .append("<td>").append(escapeHtml(c.getContractNumber())).append(CLOSE_TD)
+              .append("<td>").append(escapeHtml(c.getCustomerName())).append(CLOSE_TD)
+              .append("<td>").append(escapeHtml(project)).append(CLOSE_TD)
+              .append("<td style='color:#991b1b;font-weight:600'>").append(c.getEndDate().format(DATE_FMT)).append(CLOSE_TD)
+              .append("</tr>");
+        }
+        sb.append("</tbody></table>");
+    }
 
-        sb.append("</div>") // close content
-          .append("<div class='footer'>")
-          .append("Business Contracts Manager &bull; Generato il ").append(generatedAt)
-          .append("<br>Questo messaggio è stato inviato automaticamente. Non rispondere a questa email.")
-          .append("</div>")
-          .append("</body></html>");
+    private static String urgencyBadge(long daysLeft) {
+        if (daysLeft <= 7) return "badge-urgent";
+        if (daysLeft <= 14) return "badge-warning";
+        return "badge-normal";
+    }
 
-        return sb.toString();
+    private static String urgencyLabel(long daysLeft) {
+        if (daysLeft <= 7) return "Critico";
+        if (daysLeft <= 14) return "Urgente";
+        return "In scadenza";
     }
 
     private static String escapeHtml(String s) {

@@ -85,7 +85,7 @@ class MlCacheRefresherTest {
                     .thenThrow(new RuntimeException("ML down"));
             when(mlProxyService.fetchForecastRaw(anyInt(), eq(2L)))
                     .thenReturn(ResponseEntity.ok("{}"));
-            when(mlProxyService.fetchAnomaliesRaw(eq(2L)))
+            when(mlProxyService.fetchAnomaliesRaw(2L))
                     .thenReturn(ResponseEntity.ok("[]"));
 
             mlCacheRefresher.refreshAll();

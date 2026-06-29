@@ -78,7 +78,7 @@ class WeeklyDigestServiceTest {
             Organization o = org(1L);
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
-                    eq(today), eq(today.plusDays(30)), eq(1L)))
+                    today, today.plusDays(30), 1L))
                     .thenReturn(List.of(contract("C-001", "Rossi S.r.l.", today.plusDays(5))));
             when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN"))
                     .thenReturn(List.of(admin("admin1@example.com"), admin("admin2@example.com")));
@@ -95,7 +95,7 @@ class WeeklyDigestServiceTest {
             Organization o = org(2L);
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
-                    eq(today), eq(today.plusDays(30)), eq(2L)))
+                    today, today.plusDays(30), 2L))
                     .thenReturn(List.of());
             when(usersRepository.findByOrganizationIdAndRoleRole(2L, "ADMIN"))
                     .thenReturn(List.of());
@@ -112,7 +112,7 @@ class WeeklyDigestServiceTest {
             Organization o = org(3L);
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
-                    eq(today), eq(today.plusDays(30)), eq(3L)))
+                    today, today.plusDays(30), 3L))
                     .thenReturn(List.of());
             when(usersRepository.findByOrganizationIdAndRoleRole(3L, "ADMIN"))
                     .thenReturn(List.of(adminNoManager()));
@@ -128,7 +128,7 @@ class WeeklyDigestServiceTest {
             Organization o = org(4L);
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
-                    eq(today), eq(today.plusDays(30)), eq(4L)))
+                    today, today.plusDays(30), 4L))
                     .thenReturn(List.of(
                             contract("C-001", "ClienteA", today.plusDays(3)),
                             contract("C-002", "ClienteB", today.plusDays(10))));
@@ -149,7 +149,7 @@ class WeeklyDigestServiceTest {
             Organization o = org(5L);
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
-                    eq(today), eq(today.plusDays(30)), eq(5L)))
+                    today, today.plusDays(30), 5L))
                     .thenReturn(List.of());
             when(usersRepository.findByOrganizationIdAndRoleRole(5L, "ADMIN"))
                     .thenReturn(List.of(admin("admin@test.com")));
@@ -210,8 +210,9 @@ class WeeklyDigestServiceTest {
             List<Contracts> expiring = List.of(
                     contract("C-XSS", "<script>alert('xss')</script>", today.plusDays(10)));
             String html = weeklyDigestService.buildHtmlBody("Acme", today, expiring);
-            assertThat(html).doesNotContain("<script>");
-            assertThat(html).contains("&lt;script&gt;");
+            assertThat(html)
+                    .doesNotContain("<script>")
+                    .contains("&lt;script&gt;");
         }
 
         @Test
@@ -245,12 +246,12 @@ class WeeklyDigestServiceTest {
 
             // org 1: throws
             when(contractsRepository.findExpiringContractsByOrg(
-                    eq(today), eq(today.plusDays(30)), eq(1L)))
+                    today, today.plusDays(30), 1L))
                     .thenThrow(new RuntimeException("DB error"));
 
             // org 2: succeeds
             when(contractsRepository.findExpiringContractsByOrg(
-                    eq(today), eq(today.plusDays(30)), eq(2L)))
+                    today, today.plusDays(30), 2L))
                     .thenReturn(List.of());
             when(usersRepository.findByOrganizationIdAndRoleRole(2L, "ADMIN"))
                     .thenReturn(List.of(admin("admin2@test.com")));

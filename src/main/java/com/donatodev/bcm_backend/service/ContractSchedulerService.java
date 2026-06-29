@@ -84,30 +84,7 @@ public class ContractSchedulerService {
                     ContractStatus.ACTIVE, targetDate);
 
             for (Contracts contract : contracts) {
-                Managers manager = contract.getManager();
-                String safeContractNumber = contract.getContractNumber().replaceAll(CRLF_REGEX, "_");
-
-                if (manager != null && manager.getEmail() != null) {
-                    try {
-                        sendExpirationEmail(contract, manager, days);
-                        notificationsSent++;
-                        String safeEmail = manager.getEmail().replaceAll(CRLF_REGEX, "_");
-                        logger.info("Expiration notification sent for contract: {} ({}d) to manager: {}",
-                                safeContractNumber, days, safeEmail);
-                    } catch (Exception e) {
-                        logger.error("Failed to send expiration notification for contract: {}",
-                                safeContractNumber, e);
-                    }
-                    try {
-                        agentNotificationService.notifyExpiringContract(contract);
-                    } catch (Exception e) {
-                        logger.error("Failed to create in-app notification for contract: {}",
-                                safeContractNumber, e);
-                    }
-                } else {
-                    logger.warn("Contract {} has no manager assigned or manager has no email",
-                            safeContractNumber);
-                }
+                notificationsSent += processContractForThreshold(contract, days);
             }
         }
 
@@ -122,6 +99,31 @@ public class ContractSchedulerService {
     public void runOnStartup() {
         logger.info("Running contract expiration check on application startup...");
         performExpirationCheck();
+    }
+
+    private int processContractForThreshold(Contracts contract, int days) {
+        Managers manager = contract.getManager();
+        String safeContractNumber = contract.getContractNumber().replaceAll(CRLF_REGEX, "_");
+        if (manager == null || manager.getEmail() == null) {
+            logger.warn("Contract {} has no manager assigned or manager has no email", safeContractNumber);
+            return 0;
+        }
+        int sent = 0;
+        try {
+            sendExpirationEmail(contract, manager, days);
+            sent = 1;
+            String safeEmail = manager.getEmail().replaceAll(CRLF_REGEX, "_");
+            logger.info("Expiration notification sent for contract: {} ({}d) to manager: {}",
+                    safeContractNumber, days, safeEmail);
+        } catch (Exception e) {
+            logger.error("Failed to send expiration notification for contract: {}", safeContractNumber, e);
+        }
+        try {
+            agentNotificationService.notifyExpiringContract(contract);
+        } catch (Exception e) {
+            logger.error("Failed to create in-app notification for contract: {}", safeContractNumber, e);
+        }
+        return sent;
     }
 
     /**
