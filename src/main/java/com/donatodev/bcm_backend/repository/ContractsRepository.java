@@ -346,6 +346,16 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
      */
     List<Contracts> findByStatusAndEndDateBefore(ContractStatus status, LocalDate endDate);
 
+    /**
+     * Finds all contracts with the given status whose end date falls exactly on the specified date.
+     * Used by the scheduler to send threshold-based expiration notifications (30/14/7/1 days).
+     *
+     * @param status  the contract status to filter by
+     * @param endDate the exact end date to match
+     * @return list of matching contracts
+     */
+    List<Contracts> findByStatusAndEndDate(ContractStatus status, LocalDate endDate);
+
     @Query("""
             SELECT COUNT(c) FROM Contracts c
             WHERE c.organization.id = :orgId
