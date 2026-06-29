@@ -113,5 +113,40 @@ class MlProxyControllerTest {
             mockMvc.perform(get("/risk-scores"))
                     .andExpect(status().isServiceUnavailable());
         }
+
+        @Test
+        @Order(7)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Admin can fetch anomalies")
+        void shouldReturnAnomaliesForAdmin() throws Exception {
+            when(mlProxyService.getAnomalies()).thenReturn(
+                    ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body("[]"));
+
+            mockMvc.perform(get("/anomalies"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().json("[]"));
+
+            verify(mlProxyService).getAnomalies();
+        }
+
+        @Test
+        @Order(8)
+        @DisplayName("Unauthenticated request to anomalies is denied")
+        void shouldReturn401ForUnauthenticatedAnomalies() throws Exception {
+            mockMvc.perform(get("/anomalies"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @Order(9)
+        @WithMockUser(roles = "MANAGER")
+        @DisplayName("Propagates 503 for anomalies when ML service is unavailable")
+        void shouldPropagate503ForAnomalies() throws Exception {
+            when(mlProxyService.getAnomalies()).thenReturn(
+                    ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build());
+
+            mockMvc.perform(get("/anomalies"))
+                    .andExpect(status().isServiceUnavailable());
+        }
     }
 }

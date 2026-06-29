@@ -33,4 +33,10 @@ public class MlProxyController {
     public ResponseEntity<String> getRiskScores() {
         return mlProxyService.getRiskScores();
     }
+
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @GetMapping("/anomalies")
+    public ResponseEntity<String> getAnomalies() {
+        return mlProxyService.getAnomalies();
+    }
 }
