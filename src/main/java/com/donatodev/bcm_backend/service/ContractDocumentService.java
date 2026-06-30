@@ -129,7 +129,11 @@ public class ContractDocumentService {
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
             return;
         }
-        Users user = usersRepository.findByUsername(auth.getName()).orElse(null);
+        Long orgId = TenantContext.get();
+        if (orgId == null) {
+            return;
+        }
+        Users user = usersRepository.findByUsernameAndOrganizationId(auth.getName(), orgId).orElse(null);
         if (user == null || !"MANAGER".equals(user.getRole().getRole())) {
             return;
         }

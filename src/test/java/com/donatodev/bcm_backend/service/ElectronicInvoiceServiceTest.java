@@ -550,15 +550,20 @@ class ElectronicInvoiceServiceTest {
             User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
-            when(usersRepository.findByUsername("mgr")).thenReturn(Optional.of(managerUser));
-            when(invoiceRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
-                    .thenReturn(List.of(invoice));
+            TenantContext.set(1L);
+            try {
+                when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, 1L)).thenReturn(Optional.of(contract));
+                when(usersRepository.findByUsernameAndOrganizationId("mgr", 1L)).thenReturn(Optional.of(managerUser));
+                when(invoiceRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
+                        .thenReturn(List.of(invoice));
 
-            List<ElectronicInvoiceDTO> result = electronicInvoiceService.getInvoices(CONTRACT_ID);
+                List<ElectronicInvoiceDTO> result = electronicInvoiceService.getInvoices(CONTRACT_ID);
 
-            assertEquals(1, result.size());
-            SecurityContextHolder.clearContext();
+                assertEquals(1, result.size());
+            } finally {
+                TenantContext.clear();
+                SecurityContextHolder.clearContext();
+            }
         }
 
         @Test
@@ -578,12 +583,17 @@ class ElectronicInvoiceServiceTest {
             User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
-            when(usersRepository.findByUsername("mgr")).thenReturn(Optional.of(managerUser));
+            TenantContext.set(1L);
+            try {
+                when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, 1L)).thenReturn(Optional.of(contract));
+                when(usersRepository.findByUsernameAndOrganizationId("mgr", 1L)).thenReturn(Optional.of(managerUser));
 
-            assertThrows(AccessDeniedException.class,
-                    () -> electronicInvoiceService.getInvoices(CONTRACT_ID));
-            SecurityContextHolder.clearContext();
+                assertThrows(AccessDeniedException.class,
+                        () -> electronicInvoiceService.getInvoices(CONTRACT_ID));
+            } finally {
+                TenantContext.clear();
+                SecurityContextHolder.clearContext();
+            }
         }
     }
 }

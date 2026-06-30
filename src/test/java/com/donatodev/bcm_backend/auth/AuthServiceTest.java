@@ -22,7 +22,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
-import com.donatodev.bcm_backend.entity.RefreshToken;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.AmbiguousUsernameException;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
@@ -76,12 +75,10 @@ class AuthServiceTest {
                     .verified(true)
                     .build();
 
-            RefreshToken fakeRefreshToken = RefreshToken.builder().token("fake-refresh-token").build();
-
             when(usersRepository.findAllByUsername("admin")).thenReturn(List.of(user));
             when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
             when(jwtUtils.generateToken(user)).thenReturn("fake-jwt-token");
-            when(refreshTokenService.createRefreshToken(user)).thenReturn(fakeRefreshToken);
+            when(refreshTokenService.createRefreshToken(user)).thenReturn("fake-refresh-token");
 
             AuthResponseDTO response = authService.authenticate("admin", "password");
 
@@ -175,12 +172,10 @@ class AuthServiceTest {
                     .verified(true)
                     .build();
 
-            RefreshToken fakeRefreshToken = RefreshToken.builder().token("fake-refresh-token").build();
-
             when(usersRepository.findByUsernameAndOrganizationSlug("admin", "org-a")).thenReturn(Optional.of(user));
             when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
             when(jwtUtils.generateToken(user)).thenReturn("fake-jwt-token");
-            when(refreshTokenService.createRefreshToken(user)).thenReturn(fakeRefreshToken);
+            when(refreshTokenService.createRefreshToken(user)).thenReturn("fake-refresh-token");
 
             AuthResponseDTO response = authService.authenticate("admin", "password", "org-a");
 
@@ -217,12 +212,10 @@ class AuthServiceTest {
                     .verified(true)
                     .build();
 
-            RefreshToken fakeRefreshToken = RefreshToken.builder().token("fake-refresh-token").build();
-
             when(usersRepository.findAllByUsername("admin")).thenReturn(List.of(user));
             when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
             when(jwtUtils.generateToken(user)).thenReturn("fake-jwt-token");
-            when(refreshTokenService.createRefreshToken(user)).thenReturn(fakeRefreshToken);
+            when(refreshTokenService.createRefreshToken(user)).thenReturn("fake-refresh-token");
 
             AuthResponseDTO response = authService.authenticate("admin", "password", "");
 

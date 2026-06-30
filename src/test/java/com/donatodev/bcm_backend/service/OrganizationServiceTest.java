@@ -28,7 +28,6 @@ import com.donatodev.bcm_backend.dto.OrganizationRegistrationRequest;
 import com.donatodev.bcm_backend.dto.UpdateOrganizationRequest;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
-import com.donatodev.bcm_backend.entity.RefreshToken;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.SubscriptionTier;
 import com.donatodev.bcm_backend.entity.Users;
@@ -78,7 +77,6 @@ class OrganizationServiceTest {
             Organization org = savedOrg();
             Managers manager = Managers.builder().id(1L).email("admin@acme.com").build();
             Users admin = Users.builder().id(1L).username("acme-admin").organization(org).build();
-            RefreshToken rt = RefreshToken.builder().token("refresh-token").build();
 
             when(usersRepository.existsByUsername("acme-admin")).thenReturn(false);
             when(managersRepository.existsByEmail("admin@acme.com")).thenReturn(false);
@@ -90,7 +88,7 @@ class OrganizationServiceTest {
             when(passwordEncoder.encode("secret123")).thenReturn("hashed");
             when(usersRepository.save(any())).thenReturn(admin);
             when(jwtUtils.generateToken(admin)).thenReturn("access-token");
-            when(refreshTokenService.createRefreshToken(admin)).thenReturn(rt);
+            when(refreshTokenService.createRefreshToken(admin)).thenReturn("refresh-token");
 
             var response = organizationService.registerOrganization(validRequest());
 
@@ -126,7 +124,6 @@ class OrganizationServiceTest {
             Organization org = savedOrg();
             Managers manager = Managers.builder().id(1L).build();
             Users admin = Users.builder().id(1L).username("acme-admin").organization(org).build();
-            RefreshToken rt = RefreshToken.builder().token("rt").build();
 
             when(usersRepository.existsByUsername(anyString())).thenReturn(false);
             when(managersRepository.existsByEmail(anyString())).thenReturn(false);
@@ -141,7 +138,7 @@ class OrganizationServiceTest {
             when(passwordEncoder.encode(anyString())).thenReturn("hashed");
             when(usersRepository.save(any())).thenReturn(admin);
             when(jwtUtils.generateToken(any())).thenReturn("token");
-            when(refreshTokenService.createRefreshToken(any())).thenReturn(rt);
+            when(refreshTokenService.createRefreshToken(any())).thenReturn("rt");
 
             var response = organizationService.registerOrganization(validRequest());
             assertNotNull(response.token());
@@ -191,7 +188,6 @@ class OrganizationServiceTest {
             Organization org = savedOrg();
             Managers manager = Managers.builder().id(1L).build();
             Users admin = Users.builder().id(1L).username("acme-admin").organization(org).build();
-            RefreshToken rt = RefreshToken.builder().token("rt").build();
 
             OrganizationRegistrationRequest req = new OrganizationRegistrationRequest(
                     "!!!###", "spec-admin", "secret123", "spec@test.com", "Spec", "Admin");
@@ -206,7 +202,7 @@ class OrganizationServiceTest {
             when(passwordEncoder.encode(anyString())).thenReturn("hashed");
             when(usersRepository.save(any())).thenReturn(admin);
             when(jwtUtils.generateToken(any())).thenReturn("token");
-            when(refreshTokenService.createRefreshToken(any())).thenReturn(rt);
+            when(refreshTokenService.createRefreshToken(any())).thenReturn("rt");
 
             var response = organizationService.registerOrganization(req);
 

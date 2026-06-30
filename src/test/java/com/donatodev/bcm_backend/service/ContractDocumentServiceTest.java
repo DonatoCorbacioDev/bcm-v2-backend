@@ -468,15 +468,20 @@ class ContractDocumentServiceTest {
             User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
-            when(usersRepository.findByUsername("mgr")).thenReturn(Optional.of(managerUser));
-            when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
-                    .thenReturn(List.of(doc));
+            TenantContext.set(1L);
+            try {
+                when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, 1L)).thenReturn(Optional.of(contract));
+                when(usersRepository.findByUsernameAndOrganizationId("mgr", 1L)).thenReturn(Optional.of(managerUser));
+                when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
+                        .thenReturn(List.of(doc));
 
-            List<ContractDocumentDTO> result = contractDocumentService.getDocuments(CONTRACT_ID);
+                List<ContractDocumentDTO> result = contractDocumentService.getDocuments(CONTRACT_ID);
 
-            assertEquals(1, result.size());
-            SecurityContextHolder.clearContext();
+                assertEquals(1, result.size());
+            } finally {
+                TenantContext.clear();
+                SecurityContextHolder.clearContext();
+            }
         }
 
         @Test
@@ -496,12 +501,17 @@ class ContractDocumentServiceTest {
             User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
-            when(usersRepository.findByUsername("mgr")).thenReturn(Optional.of(managerUser));
+            TenantContext.set(1L);
+            try {
+                when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, 1L)).thenReturn(Optional.of(contract));
+                when(usersRepository.findByUsernameAndOrganizationId("mgr", 1L)).thenReturn(Optional.of(managerUser));
 
-            assertThrows(AccessDeniedException.class,
-                    () -> contractDocumentService.getDocuments(CONTRACT_ID));
-            SecurityContextHolder.clearContext();
+                assertThrows(AccessDeniedException.class,
+                        () -> contractDocumentService.getDocuments(CONTRACT_ID));
+            } finally {
+                TenantContext.clear();
+                SecurityContextHolder.clearContext();
+            }
         }
     }
 }

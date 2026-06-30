@@ -1,5 +1,8 @@
 package com.donatodev.bcm_backend.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -28,9 +31,9 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public RefreshToken createRefreshToken(Users user) {
+    public String createRefreshToken(Users user) {
         refreshTokenRepository.deleteAllByUser(user);
-        return issueToken(user);
+        return issueToken(user).rawToken();
     }
 
     /**
@@ -43,7 +46,7 @@ public class RefreshTokenService {
      */
     @Transactional(noRollbackFor = RefreshTokenException.class)
     public RotatedTokens refreshAccessToken(String tokenValue) {
-        RefreshToken refreshToken = refreshTokenRepository.findByToken(tokenValue)
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(hashToken(tokenValue))
                 .orElseThrow(() -> new RefreshTokenException("Refresh token not found"));
 
         if (refreshToken.isRevoked()) {
@@ -60,28 +63,30 @@ public class RefreshTokenService {
         refreshToken.setRevoked(true);
         refreshTokenRepository.save(refreshToken);
 
-        RefreshToken newRefreshToken = issueToken(refreshToken.getUser());
+        IssuedToken newToken = issueToken(refreshToken.getUser());
         String newAccessToken = jwtUtils.generateToken(refreshToken.getUser());
 
-        return new RotatedTokens(newAccessToken, newRefreshToken.getToken());
+        return new RotatedTokens(newAccessToken, newToken.rawToken());
     }
 
-    private RefreshToken issueToken(Users user) {
+    private IssuedToken issueToken(Users user) {
+        String rawToken = UUID.randomUUID().toString();
         RefreshToken token = RefreshToken.builder()
                 .user(user)
-                .token(UUID.randomUUID().toString())
+                .token(hashToken(rawToken))
                 .expiryDate(Instant.now().plusMillis(refreshExpirationMs))
                 .revoked(false)
                 .build();
-
-        return refreshTokenRepository.save(token);
+        return new IssuedToken(rawToken, refreshTokenRepository.save(token));
     }
 
     public record RotatedTokens(String accessToken, String refreshToken) {}
 
+    private record IssuedToken(String rawToken, RefreshToken entity) {}
+
     @Transactional
     public void revokeToken(String tokenValue) {
-        refreshTokenRepository.findByToken(tokenValue).ifPresent(t -> {
+        refreshTokenRepository.findByToken(hashToken(tokenValue)).ifPresent(t -> {
             t.setRevoked(true);
             refreshTokenRepository.save(t);
         });
@@ -89,5 +94,19 @@ public class RefreshTokenService {
 
     public long getRefreshExpirationMs() {
         return refreshExpirationMs;
+    }
+
+    static String hashToken(String rawToken) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(rawToken.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(64);
+            for (byte b : digest) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
     }
 }

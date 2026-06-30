@@ -91,7 +91,7 @@ public class OrganizationService {
                 .build());
 
         String accessToken = jwtUtils.generateToken(admin);
-        String refreshToken = refreshTokenService.createRefreshToken(admin).getToken();
+        String refreshToken = refreshTokenService.createRefreshToken(admin);
         return new AuthResponseDTO(accessToken, refreshToken);
     }
 
