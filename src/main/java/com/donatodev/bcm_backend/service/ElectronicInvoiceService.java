@@ -4,16 +4,11 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ElectronicInvoiceDTO;
@@ -21,11 +16,8 @@ import com.donatodev.bcm_backend.dto.FatturaPaInvoiceData;
 import com.donatodev.bcm_backend.dto.InvoiceLineItemDTO;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
-import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
-import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
-import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,30 +32,27 @@ public class ElectronicInvoiceService {
     private String backendBaseUrl;
 
     private final ElectronicInvoiceRepository invoiceRepository;
-    private final ContractsRepository contractsRepository;
+    private final ContractAccessGuard contractAccessGuard;
     private final LocalStorageService localStorageService;
     private final FatturaPaXmlParserService fatturaPaXmlParserService;
     private final ObjectMapper objectMapper;
-    private final UsersRepository usersRepository;
 
     public ElectronicInvoiceService(ElectronicInvoiceRepository invoiceRepository,
-                                     ContractsRepository contractsRepository,
+                                     ContractAccessGuard contractAccessGuard,
                                      LocalStorageService localStorageService,
                                      FatturaPaXmlParserService fatturaPaXmlParserService,
-                                     ObjectMapper objectMapper,
-                                     UsersRepository usersRepository) {
+                                     ObjectMapper objectMapper) {
         this.invoiceRepository = invoiceRepository;
-        this.contractsRepository = contractsRepository;
+        this.contractAccessGuard = contractAccessGuard;
         this.localStorageService = localStorageService;
         this.fatturaPaXmlParserService = fatturaPaXmlParserService;
         this.objectMapper = objectMapper;
-        this.usersRepository = usersRepository;
     }
 
     @Transactional
     public ElectronicInvoiceDTO uploadInvoice(Long contractId, MultipartFile file) throws IOException {
-        Contracts contract = getContractInScope(contractId);
-        checkManagerCanAccess(contract);
+        Contracts contract = contractAccessGuard.getContractInScope(contractId);
+        contractAccessGuard.checkManagerCanAccess(contract);
 
         validateFile(file);
 
@@ -97,8 +86,8 @@ public class ElectronicInvoiceService {
 
     @Transactional(readOnly = true)
     public List<ElectronicInvoiceDTO> getInvoices(Long contractId) {
-        Contracts contract = getContractInScope(contractId);
-        checkManagerCanAccess(contract);
+        Contracts contract = contractAccessGuard.getContractInScope(contractId);
+        contractAccessGuard.checkManagerCanAccess(contract);
         return invoiceRepository.findByContractIdOrderByUploadedAtDesc(contractId)
                 .stream()
                 .map(this::toDTO)
@@ -107,8 +96,8 @@ public class ElectronicInvoiceService {
 
     @Transactional(readOnly = true)
     public ElectronicInvoiceDTO getInvoice(Long contractId, Long invoiceId) {
-        Contracts contract = getContractInScope(contractId);
-        checkManagerCanAccess(contract);
+        Contracts contract = contractAccessGuard.getContractInScope(contractId);
+        contractAccessGuard.checkManagerCanAccess(contract);
         ElectronicInvoice invoice = invoiceRepository.findByIdAndContractId(invoiceId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(INVOICE_NOT_FOUND, invoiceId, contractId)));
@@ -117,8 +106,8 @@ public class ElectronicInvoiceService {
 
     @Transactional(readOnly = true)
     public FileDownload downloadInvoice(Long contractId, Long invoiceId) {
-        Contracts contract = getContractInScope(contractId);
-        checkManagerCanAccess(contract);
+        Contracts contract = contractAccessGuard.getContractInScope(contractId);
+        contractAccessGuard.checkManagerCanAccess(contract);
         ElectronicInvoice invoice = invoiceRepository.findByIdAndContractId(invoiceId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(INVOICE_NOT_FOUND, invoiceId, contractId)));
@@ -129,51 +118,14 @@ public class ElectronicInvoiceService {
 
     @Transactional
     public void deleteInvoice(Long contractId, Long invoiceId) {
-        Contracts contract = getContractInScope(contractId);
-        checkManagerCanAccess(contract);
+        Contracts contract = contractAccessGuard.getContractInScope(contractId);
+        contractAccessGuard.checkManagerCanAccess(contract);
         ElectronicInvoice invoice = invoiceRepository.findByIdAndContractId(invoiceId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(INVOICE_NOT_FOUND, invoiceId, contractId)));
 
         localStorageService.deleteDocument(invoice.getStoragePath());
         invoiceRepository.delete(invoice);
-    }
-
-    /**
-     * Throws {@link AccessDeniedException} when the authenticated user is a MANAGER
-     * not assigned to the given contract. Skips the check when no auth context is present.
-     */
-    private void checkManagerCanAccess(Contracts contract) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            return;
-        }
-        Long orgId = TenantContext.get();
-        if (orgId == null) {
-            return;
-        }
-        Users user = usersRepository.findByUsernameAndOrganizationId(auth.getName(), orgId).orElse(null);
-        if (user == null || !"MANAGER".equals(user.getRole().getRole())) {
-            return;
-        }
-        Long managerId = user.getManager() != null ? user.getManager().getId() : null;
-        Long contractManagerId = contract.getManager() != null ? contract.getManager().getId() : null;
-        if (managerId == null || !managerId.equals(contractManagerId)) {
-            throw new AccessDeniedException("Not authorized to access contract: " + contract.getId());
-        }
-    }
-
-    /**
-     * Finds the contract by ID, scoped to the current tenant when
-     * {@link TenantContext} carries an organization ID. Used to prevent
-     * cross-tenant access to a contract's invoices by ID.
-     */
-    private Contracts getContractInScope(Long contractId) {
-        Long orgId = TenantContext.get();
-        Optional<Contracts> contract = (orgId != null)
-                ? contractsRepository.findByIdAndOrganization_Id(contractId, orgId)
-                : contractsRepository.findById(contractId);
-        return contract.orElseThrow(() -> new ContractNotFoundException("Contract ID " + contractId + " not found"));
     }
 
     private void validateFile(MultipartFile file) throws IOException {

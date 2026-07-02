@@ -15,10 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -38,19 +34,13 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ElectronicInvoiceDTO;
 import com.donatodev.bcm_backend.dto.FatturaPaInvoiceData;
 import com.donatodev.bcm_backend.dto.InvoiceLineItemDTO;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
-import com.donatodev.bcm_backend.entity.Managers;
-import com.donatodev.bcm_backend.entity.Roles;
-import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
-import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
-import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
@@ -58,10 +48,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 class ElectronicInvoiceServiceTest {
 
     @Mock private ElectronicInvoiceRepository invoiceRepository;
-    @Mock private ContractsRepository contractsRepository;
+    @Mock private ContractAccessGuard contractAccessGuard;
     @Mock private LocalStorageService localStorageService;
     @Mock private FatturaPaXmlParserService fatturaPaXmlParserService;
-    @Mock private UsersRepository usersRepository;
 
     private ElectronicInvoiceService electronicInvoiceService;
     private ObjectMapper objectMapper;
@@ -75,7 +64,7 @@ class ElectronicInvoiceServiceTest {
     void setup() {
         objectMapper = new ObjectMapper();
         electronicInvoiceService = new ElectronicInvoiceService(
-                invoiceRepository, contractsRepository, localStorageService, fatturaPaXmlParserService, objectMapper, usersRepository);
+                invoiceRepository, contractAccessGuard, localStorageService, fatturaPaXmlParserService, objectMapper);
         ReflectionTestUtils.setField(electronicInvoiceService, "backendBaseUrl", BACKEND_URL);
     }
 
@@ -131,7 +120,7 @@ class ElectronicInvoiceServiceTest {
             String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
             ElectronicInvoice saved = fakeInvoice(contract, lineItemsJson);
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(fatturaPaXmlParserService.parse(any())).thenReturn(sampleParsedData());
             when(localStorageService.storeInvoice(any(), eq(CONTRACT_ID), any()))
                     .thenReturn("invoices/0/1/uuid-invoice.xml");
@@ -155,7 +144,7 @@ class ElectronicInvoiceServiceTest {
         @Order(2)
         @DisplayName("uploadInvoice: throws ContractNotFoundException when contract missing")
         void shouldThrowWhenContractNotFound() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.empty());
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenThrow(new ContractNotFoundException("Contract ID " + CONTRACT_ID + " not found"));
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "invoice.xml", "application/xml", VALID_XML);
@@ -168,7 +157,7 @@ class ElectronicInvoiceServiceTest {
         @Order(3)
         @DisplayName("uploadInvoice: throws IllegalArgumentException on empty file")
         void shouldThrowOnEmptyFile() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "invoice.xml", "application/xml", new byte[0]);
@@ -181,7 +170,7 @@ class ElectronicInvoiceServiceTest {
         @Order(4)
         @DisplayName("uploadInvoice: throws IllegalArgumentException when file exceeds 5MB")
         void shouldThrowWhenFileTooLarge() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
 
             byte[] huge = new byte[5 * 1024 * 1024 + 1];
             huge[0] = '<';
@@ -196,7 +185,7 @@ class ElectronicInvoiceServiceTest {
         @Order(5)
         @DisplayName("uploadInvoice: throws IllegalArgumentException when content is not XML")
         void shouldThrowOnNonXmlContent() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "invoice.txt", "text/plain", "not xml content".getBytes());
@@ -209,7 +198,7 @@ class ElectronicInvoiceServiceTest {
         @Order(6)
         @DisplayName("uploadInvoice: parser failure leaves no orphaned file or DB row")
         void shouldNotPersistWhenParserFails() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
             when(fatturaPaXmlParserService.parse(any()))
                     .thenThrow(new IllegalArgumentException("Invalid or malformed XML"));
 
@@ -233,7 +222,7 @@ class ElectronicInvoiceServiceTest {
             String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
             ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
                     .thenReturn(List.of(invoice));
 
@@ -248,7 +237,7 @@ class ElectronicInvoiceServiceTest {
         @Order(8)
         @DisplayName("getInvoices: returns empty list when no invoices")
         void shouldReturnEmptyInvoiceList() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
             when(invoiceRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
                     .thenReturn(List.of());
 
@@ -261,7 +250,7 @@ class ElectronicInvoiceServiceTest {
         @Order(9)
         @DisplayName("getInvoices: throws ContractNotFoundException when contract missing")
         void shouldThrowWhenContractNotFoundOnList() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.empty());
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenThrow(new ContractNotFoundException("Contract ID " + CONTRACT_ID + " not found"));
 
             assertThrows(ContractNotFoundException.class,
                     () -> electronicInvoiceService.getInvoices(CONTRACT_ID));
@@ -277,7 +266,7 @@ class ElectronicInvoiceServiceTest {
             String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
             ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
                     .thenReturn(Optional.of(invoice));
 
@@ -292,7 +281,7 @@ class ElectronicInvoiceServiceTest {
         @Order(11)
         @DisplayName("getInvoice: throws ContractNotFoundException when invoice missing")
         void shouldThrowWhenInvoiceNotFound() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
                     .thenReturn(Optional.empty());
 
@@ -310,7 +299,7 @@ class ElectronicInvoiceServiceTest {
             String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
             ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
                     .thenReturn(Optional.of(invoice));
             when(localStorageService.readDocument(invoice.getStoragePath())).thenReturn(VALID_XML);
@@ -326,7 +315,7 @@ class ElectronicInvoiceServiceTest {
         @Order(13)
         @DisplayName("downloadInvoice: throws ContractNotFoundException when invoice missing")
         void shouldThrowWhenInvoiceNotFoundOnDownload() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
                     .thenReturn(Optional.empty());
 
@@ -344,7 +333,7 @@ class ElectronicInvoiceServiceTest {
             String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
             ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
                     .thenReturn(Optional.of(invoice));
 
@@ -358,7 +347,7 @@ class ElectronicInvoiceServiceTest {
         @Order(15)
         @DisplayName("deleteInvoice: throws ContractNotFoundException when invoice missing")
         void shouldThrowWhenInvoiceNotFoundOnDelete() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
                     .thenReturn(Optional.empty());
 
@@ -366,29 +355,25 @@ class ElectronicInvoiceServiceTest {
                     () -> electronicInvoiceService.deleteInvoice(CONTRACT_ID, INVOICE_ID));
         }
 
-        // ---- TenantContext scoping ----
+        // ---- ContractAccessGuard delegation ----
 
         @Test
         @Order(16)
-        @DisplayName("getInvoices: with TenantContext uses org-scoped contract lookup")
-        void shouldGetInvoicesWithTenantContext() throws IOException {
+        @DisplayName("getInvoices: delegates contract lookup and manager-access check to ContractAccessGuard")
+        void shouldDelegateAccessChecksToGuard() throws IOException {
             Contracts contract = fakeContract();
             String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
             ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
 
-            TenantContext.set(12L);
-            try {
-                when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, 12L)).thenReturn(Optional.of(contract));
-                when(invoiceRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
-                        .thenReturn(List.of(invoice));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
+                    .thenReturn(List.of(invoice));
 
-                List<ElectronicInvoiceDTO> result = electronicInvoiceService.getInvoices(CONTRACT_ID);
+            List<ElectronicInvoiceDTO> result = electronicInvoiceService.getInvoices(CONTRACT_ID);
 
-                assertEquals(1, result.size());
-                verify(contractsRepository).findByIdAndOrganization_Id(CONTRACT_ID, 12L);
-            } finally {
-                TenantContext.clear();
-            }
+            assertEquals(1, result.size());
+            verify(contractAccessGuard).getContractInScope(CONTRACT_ID);
+            verify(contractAccessGuard).checkManagerCanAccess(contract);
         }
 
         // ---- lineItemsJson round trip ----
@@ -400,7 +385,7 @@ class ElectronicInvoiceServiceTest {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, "[]");
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
                     .thenReturn(Optional.of(invoice));
 
@@ -417,7 +402,7 @@ class ElectronicInvoiceServiceTest {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, "not valid json");
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
                     .thenReturn(Optional.of(invoice));
 
@@ -435,7 +420,7 @@ class ElectronicInvoiceServiceTest {
 
             byte[] xmlWithoutDeclaration = "<FatturaElettronica></FatturaElettronica>".getBytes(StandardCharsets.UTF_8);
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(fatturaPaXmlParserService.parse(any())).thenReturn(sampleParsedData());
             when(localStorageService.storeInvoice(any(), eq(CONTRACT_ID), any()))
                     .thenReturn("invoices/0/1/uuid-invoice.xml");
@@ -523,77 +508,6 @@ class ElectronicInvoiceServiceTest {
         void toStringContainsFileName() {
             FileDownload download = new FileDownload(VALID_XML, "invoice.xml", "application/xml");
             assertTrue(download.toString().contains("invoice.xml"));
-        }
-    }
-
-    @Nested
-    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-    @DisplayName("Manager access control")
-    @SuppressWarnings("unused")
-    class ManagerAccessControl {
-
-        @Test
-        @Order(1)
-        @DisplayName("getInvoices: MANAGER assigned to contract can access invoices")
-        void shouldAllowManagerToAccessAssignedContractInvoices() throws Exception {
-            Managers manager = Managers.builder().id(7L).build();
-            Contracts contract = fakeContract();
-            contract.setManager(manager);
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
-
-            Users managerUser = Users.builder()
-                    .username("mgr")
-                    .role(Roles.builder().role("MANAGER").build())
-                    .manager(manager)
-                    .build();
-            User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
-            SecurityContextHolder.getContext().setAuthentication(
-                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            TenantContext.set(1L);
-            try {
-                when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, 1L)).thenReturn(Optional.of(contract));
-                when(usersRepository.findByUsernameAndOrganizationId("mgr", 1L)).thenReturn(Optional.of(managerUser));
-                when(invoiceRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
-                        .thenReturn(List.of(invoice));
-
-                List<ElectronicInvoiceDTO> result = electronicInvoiceService.getInvoices(CONTRACT_ID);
-
-                assertEquals(1, result.size());
-            } finally {
-                TenantContext.clear();
-                SecurityContextHolder.clearContext();
-            }
-        }
-
-        @Test
-        @Order(2)
-        @DisplayName("getInvoices: MANAGER not assigned to contract throws AccessDeniedException")
-        void shouldDenyManagerAccessToUnassignedContractInvoices() {
-            Managers contractManager = Managers.builder().id(99L).build();
-            Managers userManager = Managers.builder().id(7L).build();
-            Contracts contract = fakeContract();
-            contract.setManager(contractManager);
-
-            Users managerUser = Users.builder()
-                    .username("mgr")
-                    .role(Roles.builder().role("MANAGER").build())
-                    .manager(userManager)
-                    .build();
-            User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
-            SecurityContextHolder.getContext().setAuthentication(
-                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            TenantContext.set(1L);
-            try {
-                when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, 1L)).thenReturn(Optional.of(contract));
-                when(usersRepository.findByUsernameAndOrganizationId("mgr", 1L)).thenReturn(Optional.of(managerUser));
-
-                assertThrows(AccessDeniedException.class,
-                        () -> electronicInvoiceService.getInvoices(CONTRACT_ID));
-            } finally {
-                TenantContext.clear();
-                SecurityContextHolder.clearContext();
-            }
         }
     }
 }

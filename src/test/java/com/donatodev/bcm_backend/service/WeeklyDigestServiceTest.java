@@ -58,6 +58,14 @@ class WeeklyDigestServiceTest {
         return new Users();
     }
 
+    private Users adminWithManagerEmail(String email) {
+        Managers m = new Managers();
+        m.setEmail(email);
+        Users u = new Users();
+        u.setManager(m);
+        return u;
+    }
+
     private Contracts contract(String number, String customer, LocalDate endDate) {
         Contracts c = new Contracts();
         c.setContractNumber(number);
@@ -120,6 +128,40 @@ class WeeklyDigestServiceTest {
             int sent = weeklyDigestService.sendDigestForOrg(o);
 
             assertThat(sent).isZero();
+        }
+
+        @Test
+        @DisplayName("Skips admin whose manager has a null email")
+        void skipsAdminWithNullManagerEmail() {
+            Organization o = org(6L);
+            LocalDate today = LocalDate.now();
+            when(contractsRepository.findExpiringContractsByOrg(
+                    today, today.plusDays(30), 6L))
+                    .thenReturn(List.of());
+            when(usersRepository.findByOrganizationIdAndRoleRole(6L, "ADMIN"))
+                    .thenReturn(List.of(adminWithManagerEmail(null)));
+
+            int sent = weeklyDigestService.sendDigestForOrg(o);
+
+            assertThat(sent).isZero();
+            verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("Skips admin whose manager has a blank email")
+        void skipsAdminWithBlankManagerEmail() {
+            Organization o = org(7L);
+            LocalDate today = LocalDate.now();
+            when(contractsRepository.findExpiringContractsByOrg(
+                    today, today.plusDays(30), 7L))
+                    .thenReturn(List.of());
+            when(usersRepository.findByOrganizationIdAndRoleRole(7L, "ADMIN"))
+                    .thenReturn(List.of(adminWithManagerEmail("   ")));
+
+            int sent = weeklyDigestService.sendDigestForOrg(o);
+
+            assertThat(sent).isZero();
+            verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
         }
 
         @Test
@@ -228,6 +270,48 @@ class WeeklyDigestServiceTest {
                     contract("C-6", "F", today.plusDays(25)));
             String html = weeklyDigestService.buildHtmlBody("Acme", today, expiring);
             assertThat(html).contains("+ 1 altri contratti");
+        }
+
+        @Test
+        @DisplayName("Critical section skips a contract with a null end date beyond the row limit")
+        void criticalSectionSkipsNullEndDateBeyondRowLimit() {
+            LocalDate today = LocalDate.now();
+            Contracts nullEndDate = contract("C-NULL", "NoEndDate S.r.l.", today.plusDays(1));
+            nullEndDate.setEndDate(null);
+            List<Contracts> expiring = List.of(
+                    contract("C-1", "A", today.plusDays(20)),
+                    contract("C-2", "B", today.plusDays(21)),
+                    contract("C-3", "C", today.plusDays(22)),
+                    contract("C-4", "D", today.plusDays(23)),
+                    contract("C-5", "E", today.plusDays(24)),
+                    nullEndDate);
+
+            String html = weeklyDigestService.buildHtmlBody("Acme", today, expiring);
+
+            assertThat(html).doesNotContain("C-NULL");
+        }
+
+        @Test
+        @DisplayName("Critical section shows a dash placeholder when projectName is null")
+        void criticalSectionShowsDashForNullProjectName() {
+            LocalDate today = LocalDate.now();
+            Contracts noProject = contract("C-NOPROJ", "NoProject S.r.l.", today.plusDays(2));
+            noProject.setProjectName(null);
+
+            String html = weeklyDigestService.buildHtmlBody("Acme", today, List.of(noProject));
+
+            assertThat(html).contains("C-NOPROJ").contains("—");
+        }
+
+        @Test
+        @DisplayName("Shows a dash placeholder when customerName is null")
+        void showsDashForNullCustomerName() {
+            LocalDate today = LocalDate.now();
+            Contracts noCustomer = contract("C-NOCUST", null, today.plusDays(20));
+
+            String html = weeklyDigestService.buildHtmlBody("Acme", today, List.of(noCustomer));
+
+            assertThat(html).contains("C-NOCUST").contains("—");
         }
     }
 

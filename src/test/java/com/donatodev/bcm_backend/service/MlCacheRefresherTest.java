@@ -136,5 +136,19 @@ class MlCacheRefresherTest {
 
             verify(mlCacheService, never()).put(anyLong(), anyString(), anyString());
         }
+
+        @Test
+        @Order(6)
+        @DisplayName("Does not save to cache when FastAPI returns a 2xx response with a null body")
+        void doesNotCacheOnNullBody() {
+            when(mlProxyService.fetchForecastRaw(anyInt(), eq(4L)))
+                    .thenReturn(ResponseEntity.status(HttpStatus.OK).body(null));
+            when(mlProxyService.fetchAnomaliesRaw(4L))
+                    .thenReturn(ResponseEntity.status(HttpStatus.OK).body(null));
+
+            mlCacheRefresher.refreshForOrg(4L);
+
+            verify(mlCacheService, never()).put(anyLong(), anyString(), anyString());
+        }
     }
 }

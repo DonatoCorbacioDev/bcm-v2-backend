@@ -20,8 +20,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.MockedStatic;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -228,6 +230,20 @@ class RefreshTokenServiceTest {
             String h1 = RefreshTokenService.hashToken("token-a");
             String h2 = RefreshTokenService.hashToken("token-b");
             assertNotEquals(h1, h2);
+        }
+
+        @Test
+        @Order(11)
+        @DisplayName("hashToken wraps NoSuchAlgorithmException in an IllegalStateException")
+        void hashTokenWrapsNoSuchAlgorithmException() {
+            try (MockedStatic<MessageDigest> mocked = mockStatic(MessageDigest.class)) {
+                mocked.when(() -> MessageDigest.getInstance("SHA-256"))
+                        .thenThrow(new NoSuchAlgorithmException("SHA-256"));
+
+                IllegalStateException ex = assertThrows(IllegalStateException.class,
+                        () -> RefreshTokenService.hashToken("any"));
+                assertEquals("SHA-256 not available", ex.getMessage());
+            }
         }
     }
 }

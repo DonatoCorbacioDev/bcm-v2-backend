@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
+import com.donatodev.bcm_backend.repository.ContractTemplateRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.repository.FinancialValuesRepository;
@@ -29,6 +30,7 @@ public class TestDataCleaner {
     private final FinancialValuesRepository financialValuesRepository;
     private final ContractManagerRepository contractManagerRepository;
     private final ContractsRepository contractsRepository;
+    private final ContractTemplateRepository contractTemplateRepository;
     private final UsersRepository usersRepository;
     private final ManagersRepository managersRepository;
     private final RolesRepository rolesRepository;
@@ -42,6 +44,7 @@ public class TestDataCleaner {
             FinancialValuesRepository financialValuesRepository,
             ContractManagerRepository contractManagerRepository,
             ContractsRepository contractsRepository,
+            ContractTemplateRepository contractTemplateRepository,
             UsersRepository usersRepository,
             ManagersRepository managersRepository,
             RolesRepository rolesRepository,
@@ -54,6 +57,7 @@ public class TestDataCleaner {
         this.financialValuesRepository = financialValuesRepository;
         this.contractManagerRepository = contractManagerRepository;
         this.contractsRepository = contractsRepository;
+        this.contractTemplateRepository = contractTemplateRepository;
         this.usersRepository = usersRepository;
         this.managersRepository = managersRepository;
         this.rolesRepository = rolesRepository;
@@ -74,6 +78,7 @@ public class TestDataCleaner {
         financialValuesRepository.deleteAll();
         contractManagerRepository.deleteAll(); // Delete join table first
         contractsRepository.deleteAll();
+        contractTemplateRepository.deleteAll(); // References business areas/managers - delete before them
         usersRepository.deleteAll();
         managersRepository.deleteAll();
         rolesRepository.deleteAll();

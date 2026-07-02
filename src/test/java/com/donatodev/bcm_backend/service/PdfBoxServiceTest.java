@@ -34,6 +34,7 @@ class PdfBoxServiceTest {
     private static byte[] pdfNoFields;
     private static byte[] pdfItalianFields;
     private static byte[] pdfWithAmount;
+    private static byte[] pdfWithEuroAmount;
     private static byte[] pdfKeywordLastLine;
     private static byte[] pdfKeywordNoColon;
     private static byte[] pdfKeywordEmptyColon;
@@ -55,6 +56,8 @@ class PdfBoxServiceTest {
                 "Scadenza: 28/02/2026");
 
         pdfWithAmount = buildPdf("Invoice total: $5,000");
+
+        pdfWithEuroAmount = buildPdf("Totale fattura: €3.500");
 
         pdfKeywordLastLine = buildPdf("customer: Last Line Corp");
 
@@ -178,6 +181,16 @@ class PdfBoxServiceTest {
 
             assertThrows(java.io.UncheckedIOException.class,
                     () -> pdfBoxService.analyzeDocument(6L, invalid));
+        }
+
+        @Test
+        @Order(10)
+        @DisplayName("analyzeDocument: detects amount with € symbol")
+        void shouldDetectEuroAmount() {
+            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(8L, pdfWithEuroAmount);
+
+            assertNotNull(result.detectedAmount());
+            assertTrue(result.detectedAmount().startsWith("€"));
         }
     }
 }

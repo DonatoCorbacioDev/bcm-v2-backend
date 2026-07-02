@@ -87,6 +87,38 @@ class MlProxyServiceTest {
             assertEquals(HttpStatus.OK, result.getStatusCode());
             verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
         }
+
+        @Test
+        @Order(3)
+        @DisplayName("Does not cache a non-2xx response from FastAPI")
+        void shouldNotCacheOnNon2xxResponse() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenThrow(new org.springframework.web.client.ResourceAccessException("Connection refused"));
+
+            ResponseEntity<String> result = mlProxyService.getForecast(6);
+
+            assertEquals(HttpStatus.SERVICE_UNAVAILABLE, result.getStatusCode());
+            verify(mlCacheService, never()).put(any(), any(), any());
+        }
+
+        @Test
+        @Order(4)
+        @DisplayName("Does not cache a 2xx response with a null body")
+        void shouldNotCacheOnNullBody() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.status(HttpStatus.OK).body(null));
+
+            ResponseEntity<String> result = mlProxyService.getForecast(6);
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+            verify(mlCacheService, never()).put(any(), any(), any());
+        }
     }
 
     @Nested
@@ -124,6 +156,38 @@ class MlProxyServiceTest {
 
             assertEquals(HttpStatus.OK, result.getStatusCode());
             verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
+        }
+
+        @Test
+        @Order(5)
+        @DisplayName("Does not cache a non-2xx response from FastAPI")
+        void shouldNotCacheOnNon2xxResponse() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(2L);
+            when(mlCacheService.get(2L, "ANOMALIES")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenThrow(new org.springframework.web.client.ResourceAccessException("Connection refused"));
+
+            ResponseEntity<String> result = mlProxyService.getAnomalies();
+
+            assertEquals(HttpStatus.SERVICE_UNAVAILABLE, result.getStatusCode());
+            verify(mlCacheService, never()).put(any(), any(), any());
+        }
+
+        @Test
+        @Order(6)
+        @DisplayName("Does not cache a 2xx response with a null body")
+        void shouldNotCacheOnNullBody() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(2L);
+            when(mlCacheService.get(2L, "ANOMALIES")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.status(HttpStatus.OK).body(null));
+
+            ResponseEntity<String> result = mlProxyService.getAnomalies();
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+            verify(mlCacheService, never()).put(any(), any(), any());
         }
     }
 

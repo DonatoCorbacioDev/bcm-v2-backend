@@ -30,33 +30,21 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
-
-import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
 import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 import com.donatodev.bcm_backend.entity.ContractDocument;
 import com.donatodev.bcm_backend.entity.Contracts;
-import com.donatodev.bcm_backend.entity.Managers;
-import com.donatodev.bcm_backend.entity.Roles;
-import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
-import com.donatodev.bcm_backend.repository.ContractsRepository;
-import com.donatodev.bcm_backend.repository.UsersRepository;
 
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
 class ContractDocumentServiceTest {
 
     @Mock private ContractDocumentRepository documentRepository;
-    @Mock private ContractsRepository contractsRepository;
+    @Mock private ContractAccessGuard contractAccessGuard;
     @Mock private LocalStorageService localStorageService;
     @Mock private PdfBoxService pdfBoxService;
-    @Mock private UsersRepository usersRepository;
 
     @InjectMocks
     private ContractDocumentService contractDocumentService;
@@ -104,7 +92,7 @@ class ContractDocumentServiceTest {
             Contracts contract = fakeContract();
             ContractDocument saved = fakeDoc(contract);
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(localStorageService.storeDocument(any(), eq(CONTRACT_ID), any()))
                     .thenReturn("contracts/0/1/uuid-contract.pdf");
             when(documentRepository.save(any(ContractDocument.class))).thenReturn(saved);
@@ -123,7 +111,8 @@ class ContractDocumentServiceTest {
         @Order(2)
         @DisplayName("uploadDocument: throws ContractNotFoundException when contract missing")
         void shouldThrowWhenContractNotFound() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.empty());
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID))
+                    .thenThrow(new ContractNotFoundException("Contract ID " + CONTRACT_ID + " not found"));
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "contract.pdf", "application/pdf", VALID_PDF);
@@ -136,7 +125,7 @@ class ContractDocumentServiceTest {
         @Order(3)
         @DisplayName("uploadDocument: throws IllegalArgumentException on empty file")
         void shouldThrowOnEmptyFile() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "empty.pdf", "application/pdf", new byte[0]);
@@ -149,7 +138,7 @@ class ContractDocumentServiceTest {
         @Order(4)
         @DisplayName("uploadDocument: throws IllegalArgumentException when file too large")
         void shouldThrowWhenFileTooLarge() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
 
             byte[] huge = new byte[11 * 1024 * 1024];
             huge[0] = '%'; huge[1] = 'P'; huge[2] = 'D'; huge[3] = 'F';
@@ -164,7 +153,7 @@ class ContractDocumentServiceTest {
         @Order(5)
         @DisplayName("uploadDocument: throws IllegalArgumentException when not a PDF (magic bytes)")
         void shouldThrowOnNonPdfFile() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "image.png", "image/png", "not a pdf content".getBytes());
@@ -177,7 +166,7 @@ class ContractDocumentServiceTest {
         @Order(6)
         @DisplayName("uploadDocument: throws IllegalArgumentException when file shorter than 4 bytes")
         void shouldThrowOnTooShortFile() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "tiny.pdf", "application/pdf", new byte[]{'%', 'P'});
@@ -190,7 +179,7 @@ class ContractDocumentServiceTest {
         @Order(6)
         @DisplayName("uploadDocument: throws when byte[1] is wrong (not 'P')")
         void shouldThrowWhenSecondByteMismatch() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "file.pdf", "application/pdf", "%XDF test".getBytes());
@@ -203,7 +192,7 @@ class ContractDocumentServiceTest {
         @Order(7)
         @DisplayName("uploadDocument: throws when byte[2] is wrong (not 'D')")
         void shouldThrowWhenThirdByteMismatch() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "file.pdf", "application/pdf", "%PXF test".getBytes());
@@ -216,7 +205,7 @@ class ContractDocumentServiceTest {
         @Order(8)
         @DisplayName("uploadDocument: throws when byte[3] is wrong (not 'F')")
         void shouldThrowWhenFourthByteMismatch() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "file.pdf", "application/pdf", "%PDX test".getBytes());
@@ -234,7 +223,7 @@ class ContractDocumentServiceTest {
             Contracts contract = fakeContract();
             ContractDocument doc = fakeDoc(contract);
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
                     .thenReturn(List.of(doc));
 
@@ -249,7 +238,7 @@ class ContractDocumentServiceTest {
         @Order(10)
         @DisplayName("getDocuments: returns empty list when no documents")
         void shouldReturnEmptyList() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
             when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
                     .thenReturn(List.of());
 
@@ -269,7 +258,7 @@ class ContractDocumentServiceTest {
             DocumentAnalysisDTO expected = new DocumentAnalysisDTO(
                     DOC_ID, "raw text", "Acme", null, null, null, null);
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
                     .thenReturn(Optional.of(doc));
             when(localStorageService.readDocument(doc.getStoragePath())).thenReturn(VALID_PDF);
@@ -284,7 +273,7 @@ class ContractDocumentServiceTest {
         @Order(12)
         @DisplayName("extractText: throws ContractNotFoundException when document missing")
         void shouldThrowWhenDocumentNotFoundOnExtract() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
                     .thenReturn(Optional.empty());
 
@@ -301,7 +290,7 @@ class ContractDocumentServiceTest {
             Contracts contract = fakeContract();
             ContractDocument doc = fakeDoc(contract);
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
                     .thenReturn(Optional.of(doc));
             when(localStorageService.readDocument(doc.getStoragePath())).thenReturn(VALID_PDF);
@@ -317,7 +306,7 @@ class ContractDocumentServiceTest {
         @Order(14)
         @DisplayName("downloadDocument: throws ContractNotFoundException when document missing")
         void shouldThrowWhenDocumentNotFoundOnDownload() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
                     .thenReturn(Optional.empty());
 
@@ -334,7 +323,7 @@ class ContractDocumentServiceTest {
             Contracts contract = fakeContract();
             ContractDocument doc = fakeDoc(contract);
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
                     .thenReturn(Optional.of(doc));
 
@@ -348,7 +337,7 @@ class ContractDocumentServiceTest {
         @Order(16)
         @DisplayName("deleteDocument: throws ContractNotFoundException when document missing")
         void shouldThrowWhenDocumentNotFoundOnDelete() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(fakeContract()));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
                     .thenReturn(Optional.empty());
 
@@ -431,87 +420,20 @@ class ContractDocumentServiceTest {
 
         @Test
         @Order(25)
-        @DisplayName("getDocuments: with TenantContext uses org-scoped contract lookup")
-        void shouldGetDocumentsWithTenantContext() {
+        @DisplayName("getDocuments: delegates contract lookup and manager-access check to ContractAccessGuard")
+        void shouldDelegateAccessChecksToGuard() {
             Contracts contract = fakeContract();
             ContractDocument doc = fakeDoc(contract);
 
-            TenantContext.set(12L);
-            try {
-                when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, 12L)).thenReturn(Optional.of(contract));
-                when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
-                        .thenReturn(List.of(doc));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
+                    .thenReturn(List.of(doc));
 
-                List<ContractDocumentDTO> result = contractDocumentService.getDocuments(CONTRACT_ID);
+            List<ContractDocumentDTO> result = contractDocumentService.getDocuments(CONTRACT_ID);
 
-                assertEquals(1, result.size());
-                verify(contractsRepository).findByIdAndOrganization_Id(CONTRACT_ID, 12L);
-            } finally {
-                TenantContext.clear();
-            }
-        }
-
-        @Test
-        @Order(26)
-        @DisplayName("getDocuments: MANAGER assigned to contract can access documents")
-        void shouldAllowManagerToAccessAssignedContractDocuments() {
-            Managers manager = Managers.builder().id(7L).build();
-            Contracts contract = fakeContract();
-            contract.setManager(manager);
-            ContractDocument doc = fakeDoc(contract);
-
-            Users managerUser = Users.builder()
-                    .username("mgr")
-                    .role(Roles.builder().role("MANAGER").build())
-                    .manager(manager)
-                    .build();
-            User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
-            SecurityContextHolder.getContext().setAuthentication(
-                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            TenantContext.set(1L);
-            try {
-                when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, 1L)).thenReturn(Optional.of(contract));
-                when(usersRepository.findByUsernameAndOrganizationId("mgr", 1L)).thenReturn(Optional.of(managerUser));
-                when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
-                        .thenReturn(List.of(doc));
-
-                List<ContractDocumentDTO> result = contractDocumentService.getDocuments(CONTRACT_ID);
-
-                assertEquals(1, result.size());
-            } finally {
-                TenantContext.clear();
-                SecurityContextHolder.clearContext();
-            }
-        }
-
-        @Test
-        @Order(27)
-        @DisplayName("getDocuments: MANAGER not assigned to contract throws AccessDeniedException")
-        void shouldDenyManagerAccessToUnassignedContractDocuments() {
-            Managers contractManager = Managers.builder().id(99L).build();
-            Managers userManager = Managers.builder().id(7L).build();
-            Contracts contract = fakeContract();
-            contract.setManager(contractManager);
-
-            Users managerUser = Users.builder()
-                    .username("mgr")
-                    .role(Roles.builder().role("MANAGER").build())
-                    .manager(userManager)
-                    .build();
-            User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
-            SecurityContextHolder.getContext().setAuthentication(
-                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            TenantContext.set(1L);
-            try {
-                when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, 1L)).thenReturn(Optional.of(contract));
-                when(usersRepository.findByUsernameAndOrganizationId("mgr", 1L)).thenReturn(Optional.of(managerUser));
-
-                assertThrows(AccessDeniedException.class,
-                        () -> contractDocumentService.getDocuments(CONTRACT_ID));
-            } finally {
-                TenantContext.clear();
-                SecurityContextHolder.clearContext();
-            }
+            assertEquals(1, result.size());
+            verify(contractAccessGuard).getContractInScope(CONTRACT_ID);
+            verify(contractAccessGuard).checkManagerCanAccess(contract);
         }
     }
 }

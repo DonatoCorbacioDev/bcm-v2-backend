@@ -218,6 +218,44 @@ class ContractServiceTest {
                     () -> contractService.getContractById(1L));
         }
 
+        @Test
+        @Order(2)
+        @DisplayName("Get contract by ID as MANAGER with no manager profile throws AccessDeniedException")
+        void shouldDenyGetContractByIdForManagerWithNoProfile() {
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            Contracts contract = Contracts.builder().id(1L).customerName("Mario").build();
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+
+            assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                    () -> contractService.getContractById(1L));
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("Get contract by ID as MANAGER throws AccessDeniedException when the contract has no manager assigned")
+        void shouldDenyGetContractByIdWhenContractHasNoManager() {
+            Managers myManager = Managers.builder().id(5L).build();
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(myManager)
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            Contracts contract = Contracts.builder().id(1L).customerName("Mario").build();
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+
+            assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                    () -> contractService.getContractById(1L));
+        }
+
         /**
          * Tests that ContractNotFoundException is thrown when a contract with
          * the given ID does not exist in the repository.
