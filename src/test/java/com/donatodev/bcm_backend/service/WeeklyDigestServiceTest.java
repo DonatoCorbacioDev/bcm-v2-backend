@@ -58,14 +58,6 @@ class WeeklyDigestServiceTest {
         return new Users();
     }
 
-    private Users adminWithManagerEmail(String email) {
-        Managers m = new Managers();
-        m.setEmail(email);
-        Users u = new Users();
-        u.setManager(m);
-        return u;
-    }
-
     private Contracts contract(String number, String customer, LocalDate endDate) {
         Contracts c = new Contracts();
         c.setContractNumber(number);
@@ -139,7 +131,7 @@ class WeeklyDigestServiceTest {
                     today, today.plusDays(30), 6L))
                     .thenReturn(List.of());
             when(usersRepository.findByOrganizationIdAndRoleRole(6L, "ADMIN"))
-                    .thenReturn(List.of(adminWithManagerEmail(null)));
+                    .thenReturn(List.of(admin(null)));
 
             int sent = weeklyDigestService.sendDigestForOrg(o);
 
@@ -156,7 +148,7 @@ class WeeklyDigestServiceTest {
                     today, today.plusDays(30), 7L))
                     .thenReturn(List.of());
             when(usersRepository.findByOrganizationIdAndRoleRole(7L, "ADMIN"))
-                    .thenReturn(List.of(adminWithManagerEmail("   ")));
+                    .thenReturn(List.of(admin("   ")));
 
             int sent = weeklyDigestService.sendDigestForOrg(o);
 
