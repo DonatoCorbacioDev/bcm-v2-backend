@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 
@@ -8,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -232,12 +232,12 @@ class ContractTemplateServiceTest {
 
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
                     "Acme Corp", "CTR-001", null, null,
-                    LocalDate.of(2026, 1, 1), null,
+                    LocalDate.of(2026, Month.JANUARY, 1), null,
                     null, null, null);
 
             ContractDTO created = new ContractDTO(
                     42L, "Acme Corp", "CTR-001", null, null,
-                    ContractStatus.DRAFT, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1),
+                    ContractStatus.DRAFT, LocalDate.of(2026, Month.JANUARY, 1), LocalDate.of(2027, Month.JANUARY, 1),
                     3L, null, null, null, null, null);
 
             when(templateRepository.findByIdAndOrgId(TEMPLATE_ID, ORG_ID))
@@ -261,14 +261,14 @@ class ContractTemplateServiceTest {
 
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
                     "Acme", "CTR-002", null, null,
-                    LocalDate.of(2026, 1, 1), null,
+                    LocalDate.of(2026, Month.JANUARY, 1), null,
                     null, null, null);
 
             when(templateRepository.findByIdAndOrgId(TEMPLATE_ID, ORG_ID))
                     .thenReturn(Optional.of(template));
             when(contractService.createContract(any(ContractDTO.class))).thenAnswer(inv -> {
                 ContractDTO arg = inv.getArgument(0);
-                assertEquals(LocalDate.of(2027, 1, 1), arg.endDate());
+                assertEquals(LocalDate.of(2027, Month.JANUARY, 1), arg.endDate());
                 return new ContractDTO(1L, "Acme", "CTR-002", null, null,
                         ContractStatus.DRAFT, arg.startDate(), arg.endDate(),
                         3L, null, null, null, null, null);
@@ -286,10 +286,10 @@ class ContractTemplateServiceTest {
             area.setId(3L);
             template.setBusinessArea(area);
 
-            LocalDate explicitEnd = LocalDate.of(2026, 6, 30);
+            LocalDate explicitEnd = LocalDate.of(2026, Month.JUNE, 30);
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
                     "Acme", "CTR-003", null, null,
-                    LocalDate.of(2026, 1, 1), explicitEnd,
+                    LocalDate.of(2026, Month.JANUARY, 1), explicitEnd,
                     null, null, null);
 
             when(templateRepository.findByIdAndOrgId(TEMPLATE_ID, ORG_ID))
@@ -314,7 +314,7 @@ class ContractTemplateServiceTest {
 
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
                     "Acme", "CTR-004", null, null,
-                    LocalDate.of(2026, 1, 1), null,
+                    LocalDate.of(2026, Month.JANUARY, 1), null,
                     null, null, null);
 
             when(templateRepository.findByIdAndOrgId(TEMPLATE_ID, ORG_ID))
@@ -333,7 +333,7 @@ class ContractTemplateServiceTest {
 
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
                     "Acme", "CTR-005", null, null,
-                    LocalDate.of(2026, 1, 1), null,
+                    LocalDate.of(2026, Month.JANUARY, 1), null,
                     7L, null, null);
 
             when(templateRepository.findByIdAndOrgId(TEMPLATE_ID, ORG_ID))
@@ -386,7 +386,7 @@ class ContractTemplateServiceTest {
 
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
                     "Acme", "CTR-006", null, null,
-                    LocalDate.of(2026, 1, 1), null,
+                    LocalDate.of(2026, Month.JANUARY, 1), null,
                     null, null, ContractStatus.ACTIVE);
 
             when(templateRepository.findByIdAndOrgId(TEMPLATE_ID, ORG_ID))

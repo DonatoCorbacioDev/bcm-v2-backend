@@ -8,6 +8,8 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
@@ -75,7 +77,7 @@ class RefreshTokenServiceTest {
             String result = refreshTokenService.createRefreshToken(user);
 
             assertNotNull(result);
-            assertTrue(result.length() > 0);
+            assertFalse(result.isEmpty());
             verify(refreshTokenRepository).deleteAllByUser(user);
             verify(refreshTokenRepository).save(any(RefreshToken.class));
         }
@@ -91,8 +93,7 @@ class RefreshTokenServiceTest {
 
             verify(refreshTokenRepository).save(any(RefreshToken.class));
             // raw token is a UUID — it should NOT equal its own SHA-256 hash
-            assertTrue(!raw.equals(sha256(raw)) || raw.equals(sha256(raw)), "raw is a UUID-style token");
-            assertEquals(raw, raw); // sanity
+            assertNotEquals(raw, sha256(raw), "raw is a UUID-style token");
         }
 
         @Test
@@ -122,7 +123,7 @@ class RefreshTokenServiceTest {
 
             assertEquals("new-access-token", result.accessToken());
             assertNotNull(result.refreshToken());
-            assertTrue(result.refreshToken().length() > 0);
+            assertFalse(result.refreshToken().isEmpty());
             assertTrue(token.isRevoked());
         }
 
@@ -226,7 +227,7 @@ class RefreshTokenServiceTest {
         void hashTokenIsDifferentForDifferentInputs() {
             String h1 = RefreshTokenService.hashToken("token-a");
             String h2 = RefreshTokenService.hashToken("token-b");
-            assertTrue(!h1.equals(h2));
+            assertNotEquals(h1, h2);
         }
     }
 }

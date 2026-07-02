@@ -96,15 +96,19 @@ public class ContractTemplateService {
         Long orgId = requireOrgId();
         ContractTemplate template = findInScope(templateId, orgId);
 
-        Long areaId = req.businessAreaId() != null ? req.businessAreaId()
-                : (template.getBusinessArea() != null ? template.getBusinessArea().getId() : null);
+        Long areaId = req.businessAreaId();
+        if (areaId == null && template.getBusinessArea() != null) {
+            areaId = template.getBusinessArea().getId();
+        }
         if (areaId == null) {
             throw new IllegalArgumentException(
                     "Business area is required: not defined in template and not provided in request");
         }
 
-        Long managerId = req.managerId() != null ? req.managerId()
-                : (template.getDefaultManager() != null ? template.getDefaultManager().getId() : null);
+        Long managerId = req.managerId();
+        if (managerId == null && template.getDefaultManager() != null) {
+            managerId = template.getDefaultManager().getId();
+        }
         ContractStatus status = req.status() != null ? req.status() : template.getDefaultStatus();
 
         LocalDate endDate = req.endDate();
