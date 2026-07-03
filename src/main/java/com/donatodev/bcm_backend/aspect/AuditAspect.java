@@ -25,9 +25,10 @@ public class AuditAspect {
         this.auditLogService = auditLogService;
     }
 
-    @Around("execution(public * com.donatodev.bcm_backend.service.*Service.create*(..)) || " +
+    @Around("(execution(public * com.donatodev.bcm_backend.service.*Service.create*(..)) || " +
             "execution(public * com.donatodev.bcm_backend.service.*Service.update*(..)) || " +
-            "execution(public * com.donatodev.bcm_backend.service.*Service.delete*(..))")
+            "execution(public * com.donatodev.bcm_backend.service.*Service.delete*(..))) && " +
+            "!target(com.donatodev.bcm_backend.service.LocalStorageService)")
     public Object auditServiceMethod(ProceedingJoinPoint joinPoint) throws Throwable {
         Object result = joinPoint.proceed();
 
@@ -77,9 +78,10 @@ public class AuditAspect {
                 // entity does not expose getId() — id will be null in audit log
             }
         }
-        // Fallback: first Long argument (typical for delete/update by id)
-        for (Object arg : args) {
-            if (arg instanceof Long id) return id;
+        // Fallback: last Long argument — methods follow a (containerId, entityId) convention,
+        // e.g. deleteInvoice(contractId, invoiceId), so the entity's own id comes last.
+        for (int i = args.length - 1; i >= 0; i--) {
+            if (args[i] instanceof Long id) return id;
         }
         return null;
     }

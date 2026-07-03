@@ -125,6 +125,19 @@ class AuditAspectTest {
         }
 
         @Test
+        @Order(5)
+        @DisplayName("Falls back to the last Long arg — entity id, not the containing resource id")
+        void shouldFallbackToLastLongArgForContainerEntityIdPattern() throws Throwable {
+            when(joinPoint.proceed()).thenReturn(null);
+            when(joinPoint.getArgs()).thenReturn(new Object[]{1L, 7L}); // (contractId, invoiceId)
+            when(signature.getName()).thenReturn("deleteInvoice");
+
+            auditAspect.auditServiceMethod(joinPoint);
+
+            verify(auditLogService).save(eq("DELETE"), any(), eq(7L), any(), any(), any());
+        }
+
+        @Test
         @Order(6)
         @DisplayName("Uses unknown method name as UPPERCASE action — covers inferAction fallback")
         void shouldUseUppercaseForUnknownMethodName() throws Throwable {
