@@ -668,25 +668,18 @@ docker run -p 8090:8090 --env-file .env.prod bcm-backend:1.0.0
 
 ### Current Limitations
 
-- Email service uses simple SMTP (consider AWS SES for production)
-- No multi-tenancy support (single organization)
-- No file upload/storage for contract documents
-- No real-time notifications (WebSocket)
-- No audit logs for all actions
+- Notifications are in-app/polling only, no WebSocket push
+- Rate limiting is in-memory/per-IP, not distributed (see [docs/SECURITY.md](./docs/SECURITY.md))
+- No Kubernetes deployment manifests (Docker Compose only, in the `bcm-v2-docker` repo)
+- ML risk classifier is trained on synthetic labels derived from the same rule-based formula it complements, not on real contract outcomes — see [MODEL_CARD.md](https://github.com/DonatoCorbacioDev/bcm-v2-ml/blob/main/MODEL_CARD.md) in the `bcm-v2-ml` repo
 
 ### Planned Improvements
 
-- [ ] Add document storage (AWS S3 integration)
-- [ ] Implement multi-tenancy for SaaS model
-- [ ] Add WebSocket notifications
-- [ ] Create comprehensive audit logging
-- [ ] Add export functionality (PDF, Excel)
-- [ ] Implement contract templates
-- [ ] Add AI-powered contract analysis (Python microservice)
-- [ ] Performance optimization for large datasets
-- [ ] Add caching layer (Redis)
-- [ ] Docker containerization
+- [ ] WebSocket real-time notifications
+- [ ] Distributed rate limiting
 - [ ] Kubernetes deployment manifests
+- [ ] ML risk classifier trained on real contract outcomes once enough labeled data exists
+- [ ] Performance optimization for large datasets
 
 ---
 
