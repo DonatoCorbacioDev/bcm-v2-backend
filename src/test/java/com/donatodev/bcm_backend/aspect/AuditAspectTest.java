@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -229,7 +230,7 @@ class AuditAspectTest {
         void shouldNotPropagateAuditException() throws Throwable {
             when(joinPoint.proceed()).thenReturn(null);
             when(signature.getName()).thenReturn("deleteItem");
-            org.mockito.Mockito.doThrow(new RuntimeException("DB error"))
+            doThrow(new RuntimeException("DB error"))
                     .when(auditLogService).save(any(), any(), any(), any(), any(), any());
 
             assertDoesNotThrow(() -> auditAspect.auditServiceMethod(joinPoint));

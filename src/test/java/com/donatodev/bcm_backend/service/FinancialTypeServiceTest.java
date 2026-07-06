@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -181,7 +182,7 @@ class FinancialTypeServiceTest {
                     () -> financialTypeService.deleteType(999L));
 
             assertEquals("Financial type ID 999 not found", ex.getMessage());
-            verify(financialTypesRepository, org.mockito.Mockito.never()).delete(any(FinancialTypes.class));
+            verify(financialTypesRepository, never()).delete(any(FinancialTypes.class));
         }
         
         /**

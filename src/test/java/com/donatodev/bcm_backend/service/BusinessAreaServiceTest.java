@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -211,7 +212,7 @@ class BusinessAreaServiceTest {
             BusinessAreaNotFoundException ex = assertThrows(BusinessAreaNotFoundException.class,
                     () -> service.deleteArea(999L));
             assertEquals("Business area ID 999 not found", ex.getMessage());
-            verify(repository, org.mockito.Mockito.never()).delete(any(BusinessAreas.class));
+            verify(repository, never()).delete(any(BusinessAreas.class));
         }
 
         @Test

@@ -17,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -210,7 +211,7 @@ class ManagerServiceTest {
                     () -> managerService.deleteManager(999L));
 
             assertEquals("Manager ID 999 not found", ex.getMessage());
-            verify(managersRepository, org.mockito.Mockito.never()).delete(any(Managers.class));
+            verify(managersRepository, never()).delete(any(Managers.class));
         }
 
         @Test

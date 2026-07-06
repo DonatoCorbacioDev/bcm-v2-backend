@@ -5,7 +5,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
-import org.mockito.Mockito;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -82,13 +87,13 @@ class JwtAuthenticationFilterTest {
                 .build());
 
         token = "validToken";
-        Mockito.reset(jwtUtils, userDetailsService);
-        Mockito.when(jwtUtils.generateToken(user)).thenReturn(token);
-        Mockito.when(userDetailsService.loadUserByUsername(Mockito.eq(user.getUsername()), Mockito.nullable(Long.class)))
+        reset(jwtUtils, userDetailsService);
+        when(jwtUtils.generateToken(user)).thenReturn(token);
+        when(userDetailsService.loadUserByUsername(eq(user.getUsername()), nullable(Long.class)))
         .thenReturn(org.springframework.security.core.userdetails.User
             .withUsername(user.getUsername()).password(DUMMY_PASSWORD_ENCODED).roles("MANAGER").build());
-        Mockito.when(jwtUtils.validateToken(Mockito.eq(token), Mockito.any())).thenReturn(true);
-        Mockito.when(jwtUtils.getUsernameFromToken(token)).thenReturn("jwtuser");
+        when(jwtUtils.validateToken(eq(token), any())).thenReturn(true);
+        when(jwtUtils.getUsernameFromToken(token)).thenReturn("jwtuser");
     }
 
     /**
@@ -99,12 +104,12 @@ class JwtAuthenticationFilterTest {
     static class MockConfig {
         @Bean
         public JwtUtils jwtUtils() {
-            return Mockito.mock(JwtUtils.class);
+            return mock(JwtUtils.class);
         }
 
         @Bean
         public CustomUserDetailsService customUserDetailsService() {
-            return Mockito.mock(CustomUserDetailsService.class);
+            return mock(CustomUserDetailsService.class);
         }
     }
 
@@ -126,7 +131,7 @@ class JwtAuthenticationFilterTest {
     @Test
     @DisplayName("Should skip filter if username is null (invalid token)")
     void shouldSkipIfUsernameIsNull() throws Exception {
-        Mockito.when(jwtUtils.getUsernameFromToken("invalidtoken")).thenReturn(null);
+        when(jwtUtils.getUsernameFromToken("invalidtoken")).thenReturn(null);
         mockMvc.perform(get("/auth/me")
             .header("Authorization", "Bearer invalidtoken"))
             .andExpect(status().isUnauthorized());
@@ -152,7 +157,7 @@ class JwtAuthenticationFilterTest {
     @DisplayName("Should skip filter if token is invalid")
     void shouldSkipIfTokenIsInvalid() throws Exception {
         String invalidToken = "completelyInvalidToken";
-        Mockito.when(jwtUtils.getUsernameFromToken(invalidToken)).thenReturn(null);
+        when(jwtUtils.getUsernameFromToken(invalidToken)).thenReturn(null);
 
         mockMvc.perform(get("/auth/me")
             .header("Authorization", "Bearer " + invalidToken))
@@ -175,11 +180,11 @@ class JwtAuthenticationFilterTest {
         Users user = usersRepository.findAll().get(0);
         String testToken = "validToken";
 
-        Mockito.when(jwtUtils.getUsernameFromToken(testToken)).thenReturn(user.getUsername());
-        Mockito.when(userDetailsService.loadUserByUsername(Mockito.eq(user.getUsername()), Mockito.nullable(Long.class)))
+        when(jwtUtils.getUsernameFromToken(testToken)).thenReturn(user.getUsername());
+        when(userDetailsService.loadUserByUsername(eq(user.getUsername()), nullable(Long.class)))
                .thenReturn(org.springframework.security.core.userdetails.User
                        .withUsername(user.getUsername()).password(DUMMY_PASSWORD_PLAIN).roles("MANAGER").build());
-        Mockito.when(jwtUtils.validateToken(Mockito.eq(testToken), Mockito.any())).thenReturn(false);
+        when(jwtUtils.validateToken(eq(testToken), any())).thenReturn(false);
 
         mockMvc.perform(get("/auth/me")
             .header("Authorization", "Bearer " + testToken))
@@ -192,8 +197,8 @@ class JwtAuthenticationFilterTest {
         Users user = usersRepository.findAll().get(0);
         String testToken = "validToken";
 
-        Mockito.when(jwtUtils.getUsernameFromToken(testToken)).thenReturn(user.getUsername());
-        Mockito.when(userDetailsService.loadUserByUsername(Mockito.eq(user.getUsername()), Mockito.nullable(Long.class)))
+        when(jwtUtils.getUsernameFromToken(testToken)).thenReturn(user.getUsername());
+        when(userDetailsService.loadUserByUsername(eq(user.getUsername()), nullable(Long.class)))
                .thenThrow(new RuntimeException("DB error"));
 
         mockMvc.perform(get("/auth/me")
@@ -205,7 +210,7 @@ class JwtAuthenticationFilterTest {
     @DisplayName("Should skip filter if getUsernameFromToken throws exception")
     void shouldSkipIfGetUsernameFromTokenThrows() throws Exception {
         String testToken = "exceptionToken";
-        Mockito.when(jwtUtils.getUsernameFromToken(testToken)).thenThrow(new RuntimeException("JWT parse error"));
+        when(jwtUtils.getUsernameFromToken(testToken)).thenThrow(new RuntimeException("JWT parse error"));
 
         mockMvc.perform(get("/auth/me")
             .header("Authorization", "Bearer " + testToken))
