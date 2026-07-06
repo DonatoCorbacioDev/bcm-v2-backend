@@ -6,7 +6,7 @@
 [![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.10-brightgreen?logo=spring)](https://spring.io/projects/spring-boot)
 [![Coverage](https://img.shields.io/badge/Coverage-99%25%20instructions-brightgreen?style=flat&logo=codecov)](./target/site/jacoco/index.html)
-[![Tests](https://img.shields.io/badge/Tests-810%20methods-success)](./target/site/jacoco/index.html)
+[![Tests](https://img.shields.io/badge/Tests-926%20methods-success)](./target/site/jacoco/index.html)
 [![License](https://img.shields.io/badge/License-Custom-blue)](./LICENSE)
 [![Database](https://img.shields.io/badge/Database-MySQL%208.0-blue?logo=mysql)](https://www.mysql.com/)
 [![Flyway](https://img.shields.io/badge/Migrations-Flyway-red?logo=flyway)](https://flywaydb.org/)
@@ -217,16 +217,16 @@ sequenceDiagram
 
 | Metric                    | Value                         | Status              |
 | ------------------------- | ------------------------------ | ------------------- |
-| **Instruction Coverage**  | 99% (10,149 / 10,154)          | ✅ High             |
-| **Branch Coverage**       | 99% (573 / 574)                | ✅ High             |
-| **Line Coverage**         | 100% (2,364 / 2,364)           | ✅ Full coverage    |
-| **Test Classes**          | 67 classes                     | ✅ Comprehensive    |
-| **Test Methods**          | ~810 methods                   | ✅ Extensive        |
-| **Cyclomatic Complexity** | 828 (2 missed)                 | ✅ Well tested      |
+| **Instruction Coverage**  | 99% (11,755 / 11,760)          | ✅ High             |
+| **Branch Coverage**       | 100% (718 / 718)               | ✅ Full coverage    |
+| **Line Coverage**         | 100% (2,724 / 2,724)           | ✅ Full coverage    |
+| **Test Classes**          | 76 classes                     | ✅ Comprehensive    |
+| **Test Methods**          | 926 methods                    | ✅ Extensive        |
+| **Cyclomatic Complexity** | 949 (1 missed)                 | ✅ Well tested      |
 | **Security Scan**         | No issues                      | ✅ FindSecBugs pass |
-| **Package Coverage**      | 88 classes, 1 with a small gap | ✅ High             |
+| **Package Coverage**      | 95 classes, 1 with a small gap | ✅ High             |
 
-Numbers above are from the last local `mvn clean test jacoco:report` run (2026-06-25); regenerate with the same command to verify — see [target/site/jacoco/index.html](./target/site/jacoco/index.html).
+Numbers above are from the last local `mvn clean test jacoco:report` run (2026-07-06); regenerate with the same command to verify — see [target/site/jacoco/index.html](./target/site/jacoco/index.html).
 
 ---
 
@@ -252,10 +252,7 @@ src/main/resources/
 ├── application.properties           # Main configuration
 ├── application-dev.properties       # Development profile
 ├── application-prod.properties      # Production profile
-└── db/migration/                    # Flyway migration scripts
-    ├── V1__initial_schema.sql       # Database schema
-    ├── V2__seed_reference_data.sql  # Reference data
-    └── V3__add_performance_indexes.sql  # Performance optimization
+└── db/migration/                    # Flyway migration scripts (V1–V18, see below)
 
 sql/                   # Legacy SQL files (reference only, deprecated)
 ```
@@ -268,13 +265,28 @@ This project uses **Flyway** for automatic database version control and migratio
 
 ### Migration Files
 
-Located in `src/main/resources/db/migration/`:
+Located in `src/main/resources/db/migration/` — 18 migrations (V1–V18), 20 tables total:
 
-| File                                  | Version | Description                                           |
-| ------------------------------------- | ------- | ----------------------------------------------------- |
-| **V1\_\_initial_schema.sql**          | v1      | Creates all database tables (10 tables)               |
-| **V2\_\_seed_reference_data.sql**     | v2      | Inserts system roles, business areas, financial types |
-| **V3\_\_add_performance_indexes.sql** | v3      | Adds 9 performance indexes for optimized queries      |
+| File                                        | Description                                              |
+| -------------------------------------------- | --------------------------------------------------------- |
+| **V1\_\_initial_schema.sql**                 | Creates the initial schema (12 tables)                    |
+| **V2\_\_seed_reference_data.sql**            | Inserts system roles, business areas, financial types     |
+| **V3\_\_add_performance_indexes.sql**        | Adds performance indexes for optimized queries            |
+| **V4\_\_create_admin_user.sql**              | Seeds the default admin account                            |
+| **V5\_\_add_created_at_to_users.sql**        | Adds `created_at` to `users`                               |
+| **V6\_\_rename_admin_username.sql**          | Normalizes the default admin's username                    |
+| **V7\_\_create_organizations.sql**           | Adds `organizations` (multi-tenancy foundation)             |
+| **V8\_\_add_organization_id.sql**            | Scopes existing tables to `organization_id`                 |
+| **V9\_\_create_refresh_tokens.sql**          | Adds `refresh_tokens` for JWT refresh flow                  |
+| **V10\_\_create_audit_logs.sql**             | Adds `audit_logs`                                           |
+| **V11\_\_create_contract_documents.sql**     | Adds `contract_documents` (PDF uploads)                     |
+| **V12\_\_rename_s3_key_to_storage_path.sql** | Renames `s3_key` → `storage_path` (post-AWS removal)         |
+| **V13\_\_create_notifications.sql**          | Adds `notifications`                                        |
+| **V14\_\_neutralize_default_admin.sql**      | Disables the V4 default admin account's known password hash |
+| **V15\_\_create_electronic_invoices.sql**    | Adds `electronic_invoices` (FatturaPA)                       |
+| **V16\_\_ml_result_cache.sql**               | Adds `ml_result_cache`                                       |
+| **V17\_\_hash_refresh_tokens.sql**           | Migrates refresh tokens to SHA-256 hashed storage             |
+| **V18\_\_create_contract_templates.sql**     | Adds `contract_templates`                                    |
 
 ### How It Works
 
@@ -314,7 +326,7 @@ mvn flyway:clean
 
 When you need to modify the database:
 
-1. Create new file with incremented version: `V4__your_description.sql`
+1. Create new file with incremented version: `V19__your_description.sql`
 2. Write your SQL DDL/DML changes
 3. Restart application → Flyway detects and applies automatically
 4. Commit migration file to Git
@@ -322,7 +334,7 @@ When you need to modify the database:
 **Example:**
 
 ```sql
--- V4__add_contract_documents_table.sql
+-- V19__add_example_table.sql
 CREATE TABLE contract_documents (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     contract_id BIGINT NOT NULL,
@@ -370,7 +382,7 @@ exit
 
 **That's it!** On application startup, Flyway will:
 
-- ✅ Create all 10 database tables
+- ✅ Create the full schema (20 tables across 18 migrations)
 - ✅ Insert system roles (ADMIN, MANAGER)
 - ✅ Add business areas and financial types
 - ✅ Create performance indexes
@@ -435,8 +447,9 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 [INFO] Flyway: Migrating schema `bcm` to version "1 - initial schema"
 [INFO] Flyway: Migrating schema `bcm` to version "2 - seed reference data"
-[INFO] Flyway: Migrating schema `bcm` to version "3 - add performance indexes"
-[INFO] Flyway: Successfully applied 3 migrations to schema `bcm`, now at version v3
+...
+[INFO] Flyway: Migrating schema `bcm` to version "18 - create contract templates"
+[INFO] Flyway: Successfully applied 18 migrations to schema `bcm`, now at version v18
 [INFO] Started BcmBackendApplication in 7.873 seconds
 ```
 
