@@ -11,6 +11,7 @@ import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.repository.FinancialValuesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.PasswordResetTokenRepository;
+import com.donatodev.bcm_backend.repository.RiskFeedbackRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.donatodev.bcm_backend.repository.VerificationTokenRepository;
@@ -27,6 +28,7 @@ public class TestDataCleaner {
     private final VerificationTokenRepository verificationTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final ContractHistoryRepository contractHistoryRepository;
+    private final RiskFeedbackRepository riskFeedbackRepository;
     private final FinancialValuesRepository financialValuesRepository;
     private final ContractManagerRepository contractManagerRepository;
     private final ContractsRepository contractsRepository;
@@ -41,6 +43,7 @@ public class TestDataCleaner {
             VerificationTokenRepository verificationTokenRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
             ContractHistoryRepository contractHistoryRepository,
+            RiskFeedbackRepository riskFeedbackRepository,
             FinancialValuesRepository financialValuesRepository,
             ContractManagerRepository contractManagerRepository,
             ContractsRepository contractsRepository,
@@ -54,6 +57,7 @@ public class TestDataCleaner {
         this.verificationTokenRepository = verificationTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.contractHistoryRepository = contractHistoryRepository;
+        this.riskFeedbackRepository = riskFeedbackRepository;
         this.financialValuesRepository = financialValuesRepository;
         this.contractManagerRepository = contractManagerRepository;
         this.contractsRepository = contractsRepository;
@@ -75,6 +79,7 @@ public class TestDataCleaner {
         verificationTokenRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
         contractHistoryRepository.deleteAll();
+        riskFeedbackRepository.deleteAll(); // References contracts - delete before them
         financialValuesRepository.deleteAll();
         contractManagerRepository.deleteAll(); // Delete join table first
         contractsRepository.deleteAll();
