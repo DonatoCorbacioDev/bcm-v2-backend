@@ -111,4 +111,13 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
      * @return an {@link Optional} containing the matching user, or empty if none found
      */
     Optional<Users> findByUsernameAndOrganizationId(String username, Long organizationId);
+
+    /**
+     * Finds a user by their public calendar feed token. Used to authenticate
+     * the .ics subscription URL, which calendar apps fetch with no bearer token.
+     *
+     * @param calendarToken the token embedded in the feed URL
+     * @return an {@link Optional} containing the matching user, or empty if none found
+     */
+    Optional<Users> findByCalendarToken(String calendarToken);
 }

@@ -61,6 +61,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(AUTH_WHITELIST, "/actuator/health").permitAll()
                 .requestMatchers(HttpMethod.POST, "/organizations/register").permitAll()
+                // Calendar apps subscribe to this URL directly and cannot send a bearer
+                // token; it is instead authenticated by the unguessable token in the path.
+                .requestMatchers(HttpMethod.GET, "/calendar/**").permitAll()
                 .requestMatchers(SWAGGER_WHITELIST).permitAll()
                 .requestMatchers(HttpMethod.POST, "/users/invite").hasRole("ADMIN")
                 .anyRequest().authenticated()

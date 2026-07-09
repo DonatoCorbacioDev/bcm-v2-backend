@@ -85,4 +85,12 @@ public class Users {
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "organization_id")
     private Organization organization;
+
+    /**
+     * Unguessable token used to authenticate the public .ics calendar feed
+     * URL (calendar apps subscribe by URL and cannot send a bearer token).
+     * Lazily generated on first request, rotatable by the user.
+     */
+    @Column(name = "calendar_token", unique = true, length = 64)
+    private String calendarToken;
 }
