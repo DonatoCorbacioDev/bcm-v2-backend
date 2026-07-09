@@ -13,6 +13,7 @@ import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.PasswordResetTokenRepository;
 import com.donatodev.bcm_backend.repository.RiskFeedbackRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
+import com.donatodev.bcm_backend.repository.SepaPaymentBatchRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.donatodev.bcm_backend.repository.VerificationTokenRepository;
 
@@ -29,6 +30,7 @@ public class TestDataCleaner {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final ContractHistoryRepository contractHistoryRepository;
     private final RiskFeedbackRepository riskFeedbackRepository;
+    private final SepaPaymentBatchRepository sepaPaymentBatchRepository;
     private final FinancialValuesRepository financialValuesRepository;
     private final ContractManagerRepository contractManagerRepository;
     private final ContractsRepository contractsRepository;
@@ -44,6 +46,7 @@ public class TestDataCleaner {
             PasswordResetTokenRepository passwordResetTokenRepository,
             ContractHistoryRepository contractHistoryRepository,
             RiskFeedbackRepository riskFeedbackRepository,
+            SepaPaymentBatchRepository sepaPaymentBatchRepository,
             FinancialValuesRepository financialValuesRepository,
             ContractManagerRepository contractManagerRepository,
             ContractsRepository contractsRepository,
@@ -58,6 +61,7 @@ public class TestDataCleaner {
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.contractHistoryRepository = contractHistoryRepository;
         this.riskFeedbackRepository = riskFeedbackRepository;
+        this.sepaPaymentBatchRepository = sepaPaymentBatchRepository;
         this.financialValuesRepository = financialValuesRepository;
         this.contractManagerRepository = contractManagerRepository;
         this.contractsRepository = contractsRepository;
@@ -80,6 +84,7 @@ public class TestDataCleaner {
         passwordResetTokenRepository.deleteAll();
         contractHistoryRepository.deleteAll();
         riskFeedbackRepository.deleteAll(); // References contracts - delete before them
+        sepaPaymentBatchRepository.deleteAll(); // References contracts - delete before them
         financialValuesRepository.deleteAll();
         contractManagerRepository.deleteAll(); // Delete join table first
         contractsRepository.deleteAll();

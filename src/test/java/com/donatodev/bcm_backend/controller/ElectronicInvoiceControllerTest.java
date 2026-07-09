@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -24,12 +25,15 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.donatodev.bcm_backend.dto.ElectronicInvoiceDTO;
 import com.donatodev.bcm_backend.dto.InvoiceLineItemDTO;
+import com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
@@ -64,6 +68,7 @@ class ElectronicInvoiceControllerTest {
     @Autowired private RolesRepository rolesRepository;
     @Autowired private UsersRepository usersRepository;
     @Autowired private RefreshTokenRepository refreshTokenRepository;
+    @Autowired private ObjectMapper objectMapper;
 
     @MockitoBean private ElectronicInvoiceService electronicInvoiceService;
 
@@ -81,7 +86,8 @@ class ElectronicInvoiceControllerTest {
                 Instant.parse("2027-01-15T12:00:00Z"),
                 "http://localhost:8090/api/v1/contracts/" + contractId + "/invoices/1/download",
                 "Acme Forniture S.r.l.", "IT12345678901", "TD01", "2024/001",
-                LocalDate.of(2024, Month.MARCH, 15), new BigDecimal("1220.00"), "EUR", sampleLineItems());
+                LocalDate.of(2024, Month.MARCH, 15), new BigDecimal("1220.00"), "EUR", sampleLineItems(),
+                null, null, null, null);
     }
 
     @BeforeEach
@@ -319,6 +325,57 @@ class ElectronicInvoiceControllerTest {
 
             mockMvc.perform(delete("/contracts/" + contractId + "/invoices/999"))
                     .andExpect(status().isNotFound());
+        }
+    }
+
+    @Nested
+    @DisplayName("PATCH /contracts/{id}/invoices/{invoiceId}/payment-details")
+    @org.junit.jupiter.api.TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @SuppressWarnings("unused")
+    class UpdatePaymentDetails {
+
+        @Test
+        @Order(1)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Admin sets supplier IBAN/BIC/due date — returns 200")
+        void shouldUpdatePaymentDetailsSuccessfully() throws Exception {
+            var request = new UpdateInvoicePaymentDetailsRequest("DE89370400440532013000", "COBADEFFXXX",
+                    LocalDate.of(2024, Month.JUNE, 30));
+            when(electronicInvoiceService.updatePaymentDetails(anyLong(), anyLong(), any()))
+                    .thenReturn(sampleInvoiceDTO(contractId));
+
+            mockMvc.perform(patch("/contracts/" + contractId + "/invoices/1/payment-details")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @Order(2)
+        @WithMockUser(roles = "MANAGER")
+        @DisplayName("Manager can also set payment details — returns 200")
+        void shouldAllowManager() throws Exception {
+            var request = new UpdateInvoicePaymentDetailsRequest("DE89370400440532013000", null, null);
+            when(electronicInvoiceService.updatePaymentDetails(anyLong(), anyLong(), any()))
+                    .thenReturn(sampleInvoiceDTO(contractId));
+
+            mockMvc.perform(patch("/contracts/" + contractId + "/invoices/1/payment-details")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("Blank IBAN fails validation — returns 400")
+        @WithMockUser(roles = "ADMIN")
+        void shouldReturn400ForBlankIban() throws Exception {
+            var request = new UpdateInvoicePaymentDetailsRequest("", null, null);
+
+            mockMvc.perform(patch("/contracts/" + contractId + "/invoices/1/payment-details")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
         }
     }
 }

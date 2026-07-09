@@ -9,5 +9,7 @@ public record OrganizationDTO(
         String name,
         String slug,
         SubscriptionTier subscriptionTier,
+        String iban,
+        String bic,
         LocalDateTime createdAt
 ) {}

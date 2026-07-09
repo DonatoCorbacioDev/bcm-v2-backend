@@ -42,6 +42,12 @@ public class Organization {
     @Builder.Default
     private SubscriptionTier subscriptionTier = SubscriptionTier.FREE;
 
+    @Column(name = "iban", length = 34)
+    private String iban;
+
+    @Column(name = "bic", length = 11)
+    private String bic;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

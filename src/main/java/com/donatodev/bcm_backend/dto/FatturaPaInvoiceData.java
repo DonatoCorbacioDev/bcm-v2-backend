@@ -12,5 +12,8 @@ public record FatturaPaInvoiceData(
         LocalDate invoiceDate,
         BigDecimal totalAmount,
         String currency,
-        List<InvoiceLineItemDTO> lineItems
+        List<InvoiceLineItemDTO> lineItems,
+        String supplierIban,
+        String supplierBic,
+        LocalDate paymentDueDate
 ) {}

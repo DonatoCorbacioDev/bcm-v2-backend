@@ -66,6 +66,9 @@ class FatturaPaXmlParserServiceTest {
             assertEquals(LocalDate.of(2024, Month.MARCH, 15), data.invoiceDate());
             assertEquals(0, new BigDecimal("1220.00").compareTo(data.totalAmount()));
             assertEquals("EUR", data.currency());
+            assertNull(data.supplierIban());
+            assertNull(data.supplierBic());
+            assertNull(data.paymentDueDate());
 
             assertEquals(1, data.lineItems().size());
             InvoiceLineItemDTO line = data.lineItems().get(0);
@@ -319,6 +322,83 @@ class FatturaPaXmlParserServiceTest {
             FatturaPaInvoiceData data = parserService.parse(PARTIAL_ID_FISCALE_IVA_XML.getBytes(StandardCharsets.UTF_8));
 
             assertEquals("RSSMRA80A01H501U", data.supplierVatNumber());
+        }
+    }
+
+    @Nested
+    @DisplayName("parse: DatiPagamento (supplier IBAN/BIC/due date)")
+    class ParseDatiPagamento {
+
+        private static final String WITH_VALID_IBAN_XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<FatturaElettronica>"
+                + "<FatturaElettronicaHeader/>"
+                + "<FatturaElettronicaBody>"
+                + "<DatiGenerali><DatiGeneraliDocumento>"
+                + "<TipoDocumento>TD01</TipoDocumento><Numero>1</Numero><Divisa>EUR</Divisa>"
+                + "</DatiGeneraliDocumento></DatiGenerali>"
+                + "<DatiPagamento><DettaglioPagamento>"
+                + "<ModalitaPagamento>MP05</ModalitaPagamento>"
+                + "<DataScadenzaPagamento>2024-06-30</DataScadenzaPagamento>"
+                + "<ImportoPagamento>1220.00</ImportoPagamento>"
+                + "<IBAN>DE89370400440532013000</IBAN>"
+                + "<BIC>COBADEFFXXX</BIC>"
+                + "</DettaglioPagamento></DatiPagamento>"
+                + "</FatturaElettronicaBody>"
+                + "</FatturaElettronica>";
+
+        private static final String WITH_MALFORMED_IBAN_XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<FatturaElettronica>"
+                + "<FatturaElettronicaHeader/>"
+                + "<FatturaElettronicaBody>"
+                + "<DatiGenerali><DatiGeneraliDocumento>"
+                + "<TipoDocumento>TD01</TipoDocumento><Numero>1</Numero><Divisa>EUR</Divisa>"
+                + "</DatiGeneraliDocumento></DatiGenerali>"
+                + "<DatiPagamento><DettaglioPagamento>"
+                + "<DataScadenzaPagamento>2024-06-30</DataScadenzaPagamento>"
+                + "<IBAN>IT00X0000000000000000000000</IBAN>"
+                + "<BIC>COBADEFFXXX</BIC>"
+                + "</DettaglioPagamento></DatiPagamento>"
+                + "</FatturaElettronicaBody>"
+                + "</FatturaElettronica>";
+
+        private static final String WITHOUT_DATI_PAGAMENTO_XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<FatturaElettronica>"
+                + "<FatturaElettronicaHeader/>"
+                + "<FatturaElettronicaBody>"
+                + "<DatiGenerali><DatiGeneraliDocumento>"
+                + "<TipoDocumento>TD01</TipoDocumento><Numero>1</Numero>"
+                + "</DatiGeneraliDocumento></DatiGenerali>"
+                + "</FatturaElettronicaBody>"
+                + "</FatturaElettronica>";
+
+        @Test
+        @DisplayName("valid IBAN/BIC/DataScadenzaPagamento are extracted and normalized")
+        void shouldExtractValidPaymentDetails() {
+            FatturaPaInvoiceData data = parserService.parse(WITH_VALID_IBAN_XML.getBytes(StandardCharsets.UTF_8));
+
+            assertEquals("DE89370400440532013000", data.supplierIban());
+            assertEquals("COBADEFFXXX", data.supplierBic());
+            assertEquals(LocalDate.of(2024, Month.JUNE, 30), data.paymentDueDate());
+        }
+
+        @Test
+        @DisplayName("malformed IBAN (bad checksum) is dropped, other payment fields still extracted")
+        void shouldDropMalformedIban() {
+            FatturaPaInvoiceData data = parserService.parse(WITH_MALFORMED_IBAN_XML.getBytes(StandardCharsets.UTF_8));
+
+            assertNull(data.supplierIban());
+            assertEquals("COBADEFFXXX", data.supplierBic());
+            assertEquals(LocalDate.of(2024, Month.JUNE, 30), data.paymentDueDate());
+        }
+
+        @Test
+        @DisplayName("no DatiPagamento block: payment fields are null")
+        void shouldReturnNullPaymentFieldsWhenAbsent() {
+            FatturaPaInvoiceData data = parserService.parse(WITHOUT_DATI_PAGAMENTO_XML.getBytes(StandardCharsets.UTF_8));
+
+            assertNull(data.supplierIban());
+            assertNull(data.supplierBic());
+            assertNull(data.paymentDueDate());
         }
     }
 

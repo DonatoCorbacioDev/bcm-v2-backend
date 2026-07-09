@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -14,10 +15,12 @@ import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ElectronicInvoiceDTO;
 import com.donatodev.bcm_backend.dto.FatturaPaInvoiceData;
 import com.donatodev.bcm_backend.dto.InvoiceLineItemDTO;
+import com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
+import com.donatodev.bcm_backend.util.IbanValidator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -79,6 +82,9 @@ public class ElectronicInvoiceService {
                 .totalAmount(parsed.totalAmount())
                 .currency(parsed.currency())
                 .lineItemsJson(lineItemsJson)
+                .supplierIban(parsed.supplierIban())
+                .supplierBic(parsed.supplierBic())
+                .paymentDueDate(parsed.paymentDueDate())
                 .build());
 
         return toDTO(invoice);
@@ -128,6 +134,31 @@ public class ElectronicInvoiceService {
         invoiceRepository.delete(invoice);
     }
 
+    @Transactional
+    public ElectronicInvoiceDTO updatePaymentDetails(Long contractId, Long invoiceId, UpdateInvoicePaymentDetailsRequest request) {
+        Contracts contract = contractAccessGuard.getContractInScope(contractId);
+        contractAccessGuard.checkManagerCanAccess(contract);
+        ElectronicInvoice invoice = invoiceRepository.findByIdAndContractId(invoiceId, contractId)
+                .orElseThrow(() -> new ContractNotFoundException(
+                        String.format(INVOICE_NOT_FOUND, invoiceId, contractId)));
+
+        if (invoice.getSepaBatch() != null) {
+            throw new IllegalArgumentException("Invoice was already included in a SEPA payment and can no longer be edited");
+        }
+
+        String normalizedIban = request.supplierIban().replace(" ", "").toUpperCase(Locale.ROOT);
+        if (!IbanValidator.isValid(normalizedIban)) {
+            throw new IllegalArgumentException("Invalid IBAN");
+        }
+        invoice.setSupplierIban(normalizedIban);
+        invoice.setSupplierBic(request.supplierBic() != null
+                ? request.supplierBic().replace(" ", "").toUpperCase(Locale.ROOT)
+                : null);
+        invoice.setPaymentDueDate(request.paymentDueDate());
+
+        return toDTO(invoiceRepository.save(invoice));
+    }
+
     private void validateFile(MultipartFile file) throws IOException {
         if (file.isEmpty()) {
             throw new IllegalArgumentException("File is empty");
@@ -158,7 +189,11 @@ public class ElectronicInvoiceService {
                 invoice.getInvoiceDate(),
                 invoice.getTotalAmount(),
                 invoice.getCurrency(),
-                deserializeLineItems(invoice.getLineItemsJson()));
+                deserializeLineItems(invoice.getLineItemsJson()),
+                invoice.getSupplierIban(),
+                invoice.getSupplierBic(),
+                invoice.getPaymentDueDate(),
+                invoice.getSepaBatch() != null ? invoice.getSepaBatch().getId() : null);
     }
 
     private List<InvoiceLineItemDTO> deserializeLineItems(String lineItemsJson) {

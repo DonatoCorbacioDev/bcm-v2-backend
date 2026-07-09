@@ -5,6 +5,9 @@ import java.time.LocalDate;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -42,4 +45,17 @@ public class ElectronicInvoice extends StoredFile {
 
     @Column(name = "line_items_json", columnDefinition = "LONGTEXT")
     private String lineItemsJson;
+
+    @Column(name = "supplier_iban", length = 34)
+    private String supplierIban;
+
+    @Column(name = "supplier_bic", length = 11)
+    private String supplierBic;
+
+    @Column(name = "payment_due_date")
+    private LocalDate paymentDueDate;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sepa_batch_id")
+    private SepaPaymentBatch sepaBatch;
 }

@@ -25,6 +25,7 @@ import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+import com.donatodev.bcm_backend.util.IbanValidator;
 
 @Service
 public class OrganizationService {
@@ -111,6 +112,17 @@ public class OrganizationService {
         if (request.subscriptionTier() != null) {
             org.setSubscriptionTier(request.subscriptionTier());
         }
+        if (request.iban() != null) {
+            String normalizedIban = request.iban().replace(" ", "").toUpperCase(Locale.ROOT);
+            if (!normalizedIban.isEmpty() && !IbanValidator.isValid(normalizedIban)) {
+                throw new IllegalArgumentException("Invalid IBAN");
+            }
+            org.setIban(normalizedIban.isEmpty() ? null : normalizedIban);
+        }
+        if (request.bic() != null) {
+            String normalizedBic = request.bic().replace(" ", "").toUpperCase(Locale.ROOT);
+            org.setBic(normalizedBic.isEmpty() ? null : normalizedBic);
+        }
 
         return toDTO(organizationRepository.save(org));
     }
@@ -158,6 +170,8 @@ public class OrganizationService {
                 org.getName(),
                 org.getSlug(),
                 org.getSubscriptionTier(),
+                org.getIban(),
+                org.getBic(),
                 org.getCreatedAt());
     }
 }

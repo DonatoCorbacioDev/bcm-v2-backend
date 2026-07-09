@@ -14,4 +14,6 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
     List<ElectronicInvoice> findByContractIdOrderByUploadedAtDesc(Long contractId);
 
     Optional<ElectronicInvoice> findByIdAndContractId(Long id, Long contractId);
+
+    List<ElectronicInvoice> findByContractIdAndIdIn(Long contractId, List<Long> ids);
 }

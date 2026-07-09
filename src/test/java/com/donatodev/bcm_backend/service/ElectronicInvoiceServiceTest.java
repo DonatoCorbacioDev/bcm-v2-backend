@@ -81,7 +81,8 @@ class ElectronicInvoiceServiceTest {
 
     private FatturaPaInvoiceData sampleParsedData() {
         return new FatturaPaInvoiceData("Acme Forniture S.r.l.", "IT12345678901", "TD01", "2024/001",
-                LocalDate.of(2024, Month.MARCH, 15), new BigDecimal("1220.00"), "EUR", sampleLineItems());
+                LocalDate.of(2024, Month.MARCH, 15), new BigDecimal("1220.00"), "EUR", sampleLineItems(),
+                null, null, null);
     }
 
     private ElectronicInvoice fakeInvoice(Contracts contract, String lineItemsJson) {
@@ -432,6 +433,69 @@ class ElectronicInvoiceServiceTest {
             ElectronicInvoiceDTO result = electronicInvoiceService.uploadInvoice(CONTRACT_ID, file);
 
             assertNotNull(result);
+        }
+
+        @Test
+        @Order(20)
+        @DisplayName("updatePaymentDetails: normalizes and saves a valid IBAN/BIC/due date")
+        void shouldUpdatePaymentDetails() throws Exception {
+            Contracts contract = fakeContract();
+            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
+            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(invoice));
+            when(invoiceRepository.save(any(ElectronicInvoice.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            var request = new com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest(
+                    "de89 3704 0044 0532 0130 00", "cobadeffxxx", LocalDate.of(2024, Month.JUNE, 30));
+
+            ElectronicInvoiceDTO result = electronicInvoiceService.updatePaymentDetails(CONTRACT_ID, INVOICE_ID, request);
+
+            assertEquals("DE89370400440532013000", result.supplierIban());
+            assertEquals("COBADEFFXXX", result.supplierBic());
+            assertEquals(LocalDate.of(2024, Month.JUNE, 30), result.paymentDueDate());
+        }
+
+        @Test
+        @Order(21)
+        @DisplayName("updatePaymentDetails: rejects an invalid IBAN")
+        void shouldRejectInvalidIbanOnPaymentDetails() throws Exception {
+            Contracts contract = fakeContract();
+            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
+            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(invoice));
+
+            var request = new com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest(
+                    "IT00X0000000000000000000000", null, null);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> electronicInvoiceService.updatePaymentDetails(CONTRACT_ID, INVOICE_ID, request));
+        }
+
+        @Test
+        @Order(22)
+        @DisplayName("updatePaymentDetails: rejects edits once the invoice is already in a SEPA batch")
+        void shouldRejectPaymentDetailsEditWhenAlreadyBatched() throws Exception {
+            Contracts contract = fakeContract();
+            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
+            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            invoice.setSepaBatch(new com.donatodev.bcm_backend.entity.SepaPaymentBatch());
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(invoice));
+
+            var request = new com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest(
+                    "DE89370400440532013000", null, null);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> electronicInvoiceService.updatePaymentDetails(CONTRACT_ID, INVOICE_ID, request));
+            verify(invoiceRepository, never()).save(any());
         }
     }
 

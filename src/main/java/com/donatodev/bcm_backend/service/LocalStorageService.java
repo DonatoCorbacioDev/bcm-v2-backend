@@ -43,6 +43,14 @@ public class LocalStorageService {
         return store(relativePath, content);
     }
 
+    // fileName is intentionally excluded from the path to prevent path traversal attacks.
+    // The original filename is stored separately in the SepaPaymentBatch entity.
+    public String storeSepaPayment(Long orgId, Long contractId, byte[] content) {
+        String relativePath = String.format("sepa/%d/%d/%s.xml",
+                orgId != null ? orgId : 0L, contractId, UUID.randomUUID());
+        return store(relativePath, content);
+    }
+
     public byte[] readDocument(String storagePath) {
         try {
             return Files.readAllBytes(Paths.get(uploadDir).resolve(storagePath));

@@ -8,5 +8,11 @@ public record UpdateOrganizationRequest(
         @Size(max = 255, message = "Organization name must not exceed 255 characters")
         String name,
 
-        SubscriptionTier subscriptionTier
+        SubscriptionTier subscriptionTier,
+
+        @Size(max = 34, message = "IBAN must not exceed 34 characters")
+        String iban,
+
+        @Size(max = 11, message = "BIC must not exceed 11 characters")
+        String bic
 ) {}

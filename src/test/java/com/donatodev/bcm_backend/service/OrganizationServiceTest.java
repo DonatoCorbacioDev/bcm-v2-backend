@@ -4,6 +4,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -157,7 +158,7 @@ class OrganizationServiceTest {
                 when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
                 when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-                UpdateOrganizationRequest req = new UpdateOrganizationRequest("New Name", SubscriptionTier.PRO);
+                UpdateOrganizationRequest req = new UpdateOrganizationRequest("New Name", SubscriptionTier.PRO, null, null);
                 OrganizationDTO result = organizationService.updateMyOrganization(req);
 
                 assertEquals("New Name", result.name());
@@ -222,7 +223,7 @@ class OrganizationServiceTest {
                 when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
                 // name = null → should NOT update name
-                UpdateOrganizationRequest req = new UpdateOrganizationRequest(null, SubscriptionTier.PRO);
+                UpdateOrganizationRequest req = new UpdateOrganizationRequest(null, SubscriptionTier.PRO, null, null);
                 OrganizationDTO result = organizationService.updateMyOrganization(req);
 
                 assertEquals("Original", result.name()); // name unchanged
@@ -245,7 +246,7 @@ class OrganizationServiceTest {
                 when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
                 // name = "  " (blank) → should NOT update name
-                UpdateOrganizationRequest req = new UpdateOrganizationRequest("   ", null);
+                UpdateOrganizationRequest req = new UpdateOrganizationRequest("   ", null, null, null);
                 OrganizationDTO result = organizationService.updateMyOrganization(req);
 
                 assertEquals("Original", result.name()); // name unchanged
@@ -308,6 +309,72 @@ class OrganizationServiceTest {
                         () -> organizationService.getMyOrganization());
             } finally {
                 SecurityContextHolder.clearContext();
+            }
+        }
+
+        @Test
+        @Order(14)
+        @DisplayName("updateMyOrganization accepts a valid IBAN, normalizing case and spaces")
+        void shouldUpdateValidIban() {
+            Organization org = Organization.builder().id(1L).name("Acme").slug("acme")
+                    .subscriptionTier(SubscriptionTier.FREE).build();
+
+            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            try {
+                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+                when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+                UpdateOrganizationRequest req = new UpdateOrganizationRequest(
+                        null, null, "de89 3704 0044 0532 0130 00", "cobadeffxxx");
+                OrganizationDTO result = organizationService.updateMyOrganization(req);
+
+                assertEquals("DE89370400440532013000", result.iban());
+                assertEquals("COBADEFFXXX", result.bic());
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(15)
+        @DisplayName("updateMyOrganization rejects an invalid IBAN")
+        void shouldRejectInvalidIban() {
+            Organization org = Organization.builder().id(1L).name("Acme").slug("acme")
+                    .subscriptionTier(SubscriptionTier.FREE).build();
+
+            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            try {
+                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+
+                UpdateOrganizationRequest req = new UpdateOrganizationRequest(
+                        null, null, "IT00X0000000000000000000000", null);
+
+                assertThrows(IllegalArgumentException.class,
+                        () -> organizationService.updateMyOrganization(req));
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(16)
+        @DisplayName("updateMyOrganization with blank IBAN/BIC clears existing values")
+        void shouldClearIbanAndBicWhenBlank() {
+            Organization org = Organization.builder().id(1L).name("Acme").slug("acme")
+                    .subscriptionTier(SubscriptionTier.FREE).iban("DE89370400440532013000").bic("COBADEFFXXX").build();
+
+            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            try {
+                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+                when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+                UpdateOrganizationRequest req = new UpdateOrganizationRequest(null, null, "", "");
+                OrganizationDTO result = organizationService.updateMyOrganization(req);
+
+                assertNull(result.iban());
+                assertNull(result.bic());
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
             }
         }
     }

@@ -41,6 +41,10 @@
         <Class name="com.donatodev.bcm_backend.service.UserService"/>
         <Bug pattern="IMPROPER_UNICODE"/>
     </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.SepaPaymentService"/>
+        <Bug pattern="IMPROPER_UNICODE"/>
+    </Match>
 
     <!-- CRLF_INJECTION_LOGS in ContractSchedulerService: the contract number is stored in
          a local variable with CRLF characters stripped before it reaches the logger.

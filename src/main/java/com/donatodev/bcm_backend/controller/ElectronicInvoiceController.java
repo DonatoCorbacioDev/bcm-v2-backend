@@ -11,16 +11,21 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.donatodev.bcm_backend.dto.ElectronicInvoiceDTO;
+import com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest;
 import com.donatodev.bcm_backend.service.ElectronicInvoiceService;
 import com.donatodev.bcm_backend.service.FileDownload;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/contracts/{contractId}/invoices")
@@ -75,5 +80,14 @@ public class ElectronicInvoiceController {
             @PathVariable Long invoiceId) {
         invoiceService.deleteInvoice(contractId, invoiceId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{invoiceId}/payment-details")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public ResponseEntity<ElectronicInvoiceDTO> updatePaymentDetails(
+            @PathVariable Long contractId,
+            @PathVariable Long invoiceId,
+            @Valid @RequestBody UpdateInvoicePaymentDetailsRequest request) {
+        return ResponseEntity.ok(invoiceService.updatePaymentDetails(contractId, invoiceId, request));
     }
 }

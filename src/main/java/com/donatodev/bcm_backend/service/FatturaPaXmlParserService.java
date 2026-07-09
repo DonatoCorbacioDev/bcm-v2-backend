@@ -8,6 +8,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -22,6 +23,9 @@ import org.xml.sax.SAXException;
 
 import com.donatodev.bcm_backend.dto.FatturaPaInvoiceData;
 import com.donatodev.bcm_backend.dto.InvoiceLineItemDTO;
+import com.donatodev.bcm_backend.util.IbanValidator;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Parses Italian electronic invoices (FatturaPA format) into {@link FatturaPaInvoiceData}.
@@ -29,6 +33,7 @@ import com.donatodev.bcm_backend.dto.InvoiceLineItemDTO;
  * <p>Only the first {@code FatturaElettronicaBody} block is read; batch files
  * containing multiple invoice bodies are out of scope.</p>
  */
+@Slf4j
 @Service
 public class FatturaPaXmlParserService {
 
@@ -61,6 +66,9 @@ public class FatturaPaXmlParserService {
         BigDecimal totalAmount = null;
         String currency = null;
         List<InvoiceLineItemDTO> lineItems = new ArrayList<>();
+        String supplierIban = null;
+        String supplierBic = null;
+        LocalDate paymentDueDate = null;
 
         if (body != null) {
             Element datiGeneraliDocumento = findDescendantByLocalName(body, "DatiGenerali", "DatiGeneraliDocumento");
@@ -73,10 +81,31 @@ public class FatturaPaXmlParserService {
             }
 
             lineItems = extractLineItems(body);
+
+            Element dettaglioPagamento = findDescendantByLocalName(body, "DatiPagamento", "DettaglioPagamento");
+            if (dettaglioPagamento != null) {
+                supplierIban = extractSupplierIban(dettaglioPagamento);
+                supplierBic = getTextOrNull(dettaglioPagamento, "BIC");
+                paymentDueDate = parseOptionalDate(getTextOrNull(dettaglioPagamento, "DataScadenzaPagamento"));
+            }
         }
 
         return new FatturaPaInvoiceData(supplierName, supplierVatNumber, documentType,
-                invoiceNumber, invoiceDate, totalAmount, currency, lineItems);
+                invoiceNumber, invoiceDate, totalAmount, currency, lineItems,
+                supplierIban, supplierBic, paymentDueDate);
+    }
+
+    private String extractSupplierIban(Element dettaglioPagamento) {
+        String rawIban = getTextOrNull(dettaglioPagamento, "IBAN");
+        if (rawIban == null) {
+            return null;
+        }
+        String normalized = rawIban.replace(" ", "").toUpperCase(Locale.ROOT);
+        if (!IbanValidator.isValid(normalized)) {
+            log.warn("Ignoring malformed IBAN found in FatturaPA DatiPagamento block");
+            return null;
+        }
+        return normalized;
     }
 
     private String extractSupplierName(Element datiAnagrafici) {
