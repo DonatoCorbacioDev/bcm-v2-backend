@@ -91,6 +91,12 @@ class AuthControllerTest {
     @Autowired
     private RefreshTokenRepository refreshTokenRepository;
 
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private com.donatodev.bcm_backend.service.TotpEncryptionService totpEncryptionService;
+
     private Long roleId;
     private Long managerId;
 
@@ -709,5 +715,79 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
                 .andExpect(status().isNoContent());
+    }
+
+    /**
+     * Full two-step login: password alone yields an MFA-pending token (no
+     * access token yet), and exchanging it with the correct TOTP code at
+     * /auth/2fa/verify completes the login.
+     */
+    @Test
+    @Order(32)
+    void shouldCompleteTwoStepLoginWithValidTotpCode() throws Exception {
+        String secret = com.donatodev.bcm_backend.util.TotpUtil.generateSecret();
+        Users user = usersRepository.save(Users.builder()
+                .username("totpuser").passwordHash(passwordEncoder.encode("mypwd123")).verified(true)
+                .totpEnabled(true).totpSecretEncrypted(totpEncryptionService.encrypt(secret))
+                .manager(managersRepository.findById(managerId).orElseThrow())
+                .role(rolesRepository.findById(roleId).orElseThrow()).build());
+
+        AuthRequestDTO loginDto = new AuthRequestDTO("totpuser", "mypwd123");
+        MockHttpServletResponse loginResponse = mockMvc.perform(post("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(loginDto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").doesNotExist())
+                .andExpect(jsonPath("$.mfaRequired").value(true))
+                .andExpect(jsonPath("$.mfaToken").exists())
+                .andReturn().getResponse();
+
+        String mfaToken = objectMapper.readTree(loginResponse.getContentAsString()).get("mfaToken").asText();
+        String code = totpCodeAt(secret, java.time.Instant.now().getEpochSecond() / 30);
+
+        String verifyJson = objectMapper.writeValueAsString(
+                new com.donatodev.bcm_backend.dto.MfaVerifyRequest(mfaToken, code));
+
+        mockMvc.perform(post("/auth/2fa/verify")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(verifyJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").exists())
+                .andExpect(jsonPath("$.mfaRequired").value(false))
+                .andExpect(cookie().exists(RefreshCookieFactory.COOKIE_NAME));
+    }
+
+    @Test
+    @Order(33)
+    void shouldRejectTwoFactorVerifyWithWrongCode() throws Exception {
+        String secret = com.donatodev.bcm_backend.util.TotpUtil.generateSecret();
+        Users user = usersRepository.save(Users.builder()
+                .username("totpuser2").passwordHash(passwordEncoder.encode("mypwd123")).verified(true)
+                .totpEnabled(true).totpSecretEncrypted(totpEncryptionService.encrypt(secret))
+                .manager(managersRepository.findById(managerId).orElseThrow())
+                .role(rolesRepository.findById(roleId).orElseThrow()).build());
+
+        AuthRequestDTO loginDto = new AuthRequestDTO("totpuser2", "mypwd123");
+        MockHttpServletResponse loginResponse = mockMvc.perform(post("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(loginDto)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse();
+
+        String mfaToken = objectMapper.readTree(loginResponse.getContentAsString()).get("mfaToken").asText();
+        String verifyJson = objectMapper.writeValueAsString(
+                new com.donatodev.bcm_backend.dto.MfaVerifyRequest(mfaToken, "000000"));
+
+        mockMvc.perform(post("/auth/2fa/verify")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(verifyJson))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private String totpCodeAt(String secret, long timeStep) throws Exception {
+        java.lang.reflect.Method m = com.donatodev.bcm_backend.util.TotpUtil.class
+                .getDeclaredMethod("generateCode", String.class, long.class);
+        m.setAccessible(true);
+        return (String) m.invoke(null, secret, timeStep);
     }
 }

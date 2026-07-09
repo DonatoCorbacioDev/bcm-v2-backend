@@ -42,6 +42,9 @@ public class JwtUtils {
     @Value("${jwt.expirationMs}")
     private int jwtExpirationMs;
 
+    private static final long MFA_PENDING_TOKEN_TTL_MS = 5 * 60 * 1000L;
+    private static final String CLAIM_MFA_PENDING = "mfaPending";
+
     public Clock getClock() {
         return this.clock;
     }
@@ -100,6 +103,42 @@ public class JwtUtils {
 
     public String getUsernameFromJwtToken(String token) {
         return getClaimFromToken(token, Claims::getSubject);
+    }
+
+    /**
+     * Issues a short-lived token identifying a login that has passed the
+     * password check but still needs a second (TOTP) factor. It carries the
+     * {@code mfaPending} claim so {@link #isMfaPendingToken} — and the
+     * authentication filter — can tell it apart from a real access token.
+     */
+    public String generateMfaPendingToken(Users user) {
+        Instant now = clock.instant();
+        Instant expiration = now.plusMillis(MFA_PENDING_TOKEN_TTL_MS);
+        Long orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
+
+        return Jwts.builder()
+                .subject(user.getUsername())
+                .issuedAt(toLegacyDate(now))
+                .expiration(toLegacyDate(expiration))
+                .claim("orgId", orgId)
+                .claim(CLAIM_MFA_PENDING, true)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    /**
+     * True if the token is a short-lived MFA-pending token rather than a
+     * real access token. Returns false (not an exception) for malformed or
+     * expired input, matching {@link #validateJwtToken(String)}'s style.
+     */
+    public boolean isMfaPendingToken(String token) {
+        try {
+            Object claim = getClaimFromToken(token, claims -> claims.get(CLAIM_MFA_PENDING));
+            return Boolean.TRUE.equals(claim);
+        } catch (ExpiredJwtException | MalformedJwtException | UnsupportedJwtException
+                 | IllegalArgumentException | SignatureException e) {
+            return false;
+        }
     }
 
     /**

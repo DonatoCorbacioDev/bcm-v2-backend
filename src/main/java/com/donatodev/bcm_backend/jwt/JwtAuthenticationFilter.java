@@ -53,7 +53,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
 
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (username != null && !jwtUtils.isMfaPendingToken(token)
+                    && SecurityContextHolder.getContext().getAuthentication() == null) {
                 try {
                     Long orgId = jwtUtils.getOrganizationIdFromToken(token);
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username, orgId);

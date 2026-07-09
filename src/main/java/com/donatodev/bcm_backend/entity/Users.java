@@ -93,4 +93,16 @@ public class Users {
      */
     @Column(name = "calendar_token", unique = true, length = 64)
     private String calendarToken;
+
+    /**
+     * AES-GCM encrypted TOTP secret (base64). Present once the user has
+     * started or completed 2FA enrollment; only meaningful together with
+     * {@link #totpEnabled}.
+     */
+    @Column(name = "totp_secret_encrypted", length = 255)
+    private String totpSecretEncrypted;
+
+    @Builder.Default
+    @Column(name = "totp_enabled", nullable = false)
+    private boolean totpEnabled = false;
 }

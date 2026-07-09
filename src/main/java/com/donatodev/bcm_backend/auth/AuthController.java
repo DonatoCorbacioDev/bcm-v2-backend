@@ -39,6 +39,7 @@ public class AuthController {
     private final PasswordResetTokenService passwordResetTokenService;
     private final RefreshTokenService refreshTokenService;
     private final RefreshCookieFactory refreshCookieFactory;
+    private final TwoFactorAuthService twoFactorAuthService;
     private final AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
 
     @Value("${app.backend-base-url}")
@@ -56,7 +57,8 @@ public class AuthController {
             IEmailService emailService,
             PasswordResetTokenService passwordResetTokenService,
             RefreshTokenService refreshTokenService,
-            RefreshCookieFactory refreshCookieFactory) {
+            RefreshCookieFactory refreshCookieFactory,
+            TwoFactorAuthService twoFactorAuthService) {
         this.authService = authService;
         this.userService = userService;
         this.verificationTokenService = verificationTokenService;
@@ -64,10 +66,11 @@ public class AuthController {
         this.passwordResetTokenService = passwordResetTokenService;
         this.refreshTokenService = refreshTokenService;
         this.refreshCookieFactory = refreshCookieFactory;
+        this.twoFactorAuthService = twoFactorAuthService;
     }
 
     public AuthController() {
-        this(null, null, null, null, null, null, null);
+        this(null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -122,17 +125,44 @@ public class AuthController {
      * Authenticates a user and returns a JWT access token. The refresh token
      * is never exposed in the response body: it is set as an HttpOnly cookie
      * so client-side JavaScript cannot read it.
+     * <p>
+     * If the account has 2FA enabled, no tokens are issued yet: the response
+     * carries {@code mfaRequired=true} and a short-lived {@code mfaToken}
+     * that must be exchanged via {@link #verifyTwoFactor} for the real
+     * tokens.
      *
      * @param request the login request with username and password
-     * @return the access token if authentication is successful
+     * @return the access token if authentication is successful, or an
+     * MFA-pending response otherwise
      */
     @PostMapping("/login")
-    public ResponseEntity<AccessTokenResponse> login(@Valid @RequestBody AuthRequestDTO request) {
-        AuthResponseDTO response = authService.authenticate(
+    public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody AuthRequestDTO request) {
+        LoginOutcome outcome = authService.authenticate(
                 request.username(), request.password(), request.organizationSlug());
+
+        if (outcome.mfaRequired()) {
+            return ResponseEntity.ok(new LoginResponseDTO(null, true, outcome.mfaToken()));
+        }
+
+        AuthResponseDTO response = outcome.tokens();
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.create(response.refreshToken()).toString())
-                .body(new AccessTokenResponse(response.token()));
+                .body(new LoginResponseDTO(response.token(), false, null));
+    }
+
+    /**
+     * Completes a two-step login: exchanges the MFA-pending token from
+     * {@link #login} plus a TOTP or recovery code for the real access token.
+     *
+     * @param request the pending MFA token and the verification code
+     * @return the access token if the code is valid
+     */
+    @PostMapping("/2fa/verify")
+    public ResponseEntity<LoginResponseDTO> verifyTwoFactor(@Valid @RequestBody MfaVerifyRequest request) {
+        AuthResponseDTO response = twoFactorAuthService.verifyLogin(request.mfaToken(), request.code());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.create(response.refreshToken()).toString())
+                .body(new LoginResponseDTO(response.token(), false, null));
     }
 
     @PostMapping("/refresh")

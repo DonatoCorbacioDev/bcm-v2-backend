@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
@@ -80,10 +81,11 @@ class AuthServiceTest {
             when(jwtUtils.generateToken(user)).thenReturn("fake-jwt-token");
             when(refreshTokenService.createRefreshToken(user)).thenReturn("fake-refresh-token");
 
-            AuthResponseDTO response = authService.authenticate("admin", "password");
+            LoginOutcome outcome = authService.authenticate("admin", "password");
 
-            assertEquals("fake-jwt-token", response.token());
-            assertEquals("fake-refresh-token", response.refreshToken());
+            assertFalse(outcome.mfaRequired());
+            assertEquals("fake-jwt-token", outcome.tokens().token());
+            assertEquals("fake-refresh-token", outcome.tokens().refreshToken());
         }
 
         /**
@@ -177,10 +179,10 @@ class AuthServiceTest {
             when(jwtUtils.generateToken(user)).thenReturn("fake-jwt-token");
             when(refreshTokenService.createRefreshToken(user)).thenReturn("fake-refresh-token");
 
-            AuthResponseDTO response = authService.authenticate("admin", "password", "org-a");
+            LoginOutcome outcome = authService.authenticate("admin", "password", "org-a");
 
-            assertEquals("fake-jwt-token", response.token());
-            assertEquals("fake-refresh-token", response.refreshToken());
+            assertEquals("fake-jwt-token", outcome.tokens().token());
+            assertEquals("fake-refresh-token", outcome.tokens().refreshToken());
         }
 
         /**
@@ -217,10 +219,35 @@ class AuthServiceTest {
             when(jwtUtils.generateToken(user)).thenReturn("fake-jwt-token");
             when(refreshTokenService.createRefreshToken(user)).thenReturn("fake-refresh-token");
 
-            AuthResponseDTO response = authService.authenticate("admin", "password", "");
+            LoginOutcome outcome = authService.authenticate("admin", "password", "");
 
-            assertEquals("fake-jwt-token", response.token());
-            assertEquals("fake-refresh-token", response.refreshToken());
+            assertEquals("fake-jwt-token", outcome.tokens().token());
+            assertEquals("fake-refresh-token", outcome.tokens().refreshToken());
+        }
+
+        /**
+         * Test authentication returns an MFA-pending outcome instead of tokens
+         * when the account has 2FA enabled.
+         */
+        @Test
+        @Order(9)
+        @DisplayName("Authenticate returns MFA-pending outcome when 2FA is enabled")
+        void shouldReturnMfaPendingWhenTotpEnabled() {
+            Users user = Users.builder()
+                    .username("admin")
+                    .passwordHash("hashedpwd")
+                    .verified(true)
+                    .totpEnabled(true)
+                    .build();
+
+            when(usersRepository.findAllByUsername("admin")).thenReturn(List.of(user));
+            when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
+            when(jwtUtils.generateMfaPendingToken(user)).thenReturn("fake-mfa-pending-token");
+
+            LoginOutcome outcome = authService.authenticate("admin", "password");
+
+            assertTrue(outcome.mfaRequired());
+            assertEquals("fake-mfa-pending-token", outcome.mfaToken());
         }
     }
 }

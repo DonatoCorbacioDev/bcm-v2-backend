@@ -40,12 +40,13 @@ public class AuthService {
      *
      * @param username the user's username
      * @param password the raw password to verify
-     * @return an {@link AuthResponseDTO} containing the access token and refresh token
+     * @return a {@link LoginOutcome} carrying either the issued tokens, or an
+     * MFA-pending token if the account has 2FA enabled
      * @throws UsernameNotFoundException if the username is not found
      * @throws BadCredentialsException if the password is incorrect
      * @throws AccountNotVerifiedException if the account is not yet verified
      */
-    public AuthResponseDTO authenticate(String username, String password) {
+    public LoginOutcome authenticate(String username, String password) {
         return authenticate(username, password, null);
     }
 
@@ -55,18 +56,24 @@ public class AuthService {
      * Since usernames are only unique per-organization, a username may match users in
      * more than one organization. In that case, {@code organizationSlug} must be
      * provided to identify the correct account.
+     * <p>
+     * If the account has TOTP 2FA enabled, this stops short of issuing real
+     * tokens: the caller must complete the login via
+     * {@code TwoFactorAuthService.verifyLogin} using the returned MFA-pending
+     * token.
      *
      * @param username the user's username
      * @param password the raw password to verify
      * @param organizationSlug optional slug of the organization the user belongs to
-     * @return an {@link AuthResponseDTO} containing the access token and refresh token
+     * @return a {@link LoginOutcome} carrying either the issued tokens, or an
+     * MFA-pending token if the account has 2FA enabled
      * @throws UsernameNotFoundException if the username is not found
      * @throws AmbiguousUsernameException if the username matches users in multiple organizations
      * and no {@code organizationSlug} was provided
      * @throws BadCredentialsException if the password is incorrect
      * @throws AccountNotVerifiedException if the account is not yet verified
      */
-    public AuthResponseDTO authenticate(String username, String password, String organizationSlug) {
+    public LoginOutcome authenticate(String username, String password, String organizationSlug) {
         Users user = findUser(username, organizationSlug);
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
@@ -77,9 +84,13 @@ public class AuthService {
             throw new AccountNotVerifiedException("Account not verified. Please check your email");
         }
 
+        if (user.isTotpEnabled()) {
+            return new LoginOutcome(null, jwtUtils.generateMfaPendingToken(user));
+        }
+
         String accessToken = jwtUtils.generateToken(user);
         String refreshToken = refreshTokenService.createRefreshToken(user);
-        return new AuthResponseDTO(accessToken, refreshToken);
+        return new LoginOutcome(new AuthResponseDTO(accessToken, refreshToken), null);
     }
 
     /**
