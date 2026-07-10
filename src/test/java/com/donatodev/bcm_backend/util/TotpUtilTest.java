@@ -122,12 +122,12 @@ class TotpUtilTest {
     @Test
     @DisplayName("generateCode wraps a Mac failure as IllegalStateException")
     void shouldWrapMacFailure() {
+        String secret = TotpUtil.generateSecret();
         try (MockedStatic<Mac> mockedMac = Mockito.mockStatic(Mac.class)) {
             mockedMac.when(() -> Mac.getInstance(anyString()))
                     .thenThrow(new NoSuchAlgorithmException("no such algorithm"));
 
-            assertThrows(IllegalStateException.class,
-                    () -> TotpUtil.verifyCode(TotpUtil.generateSecret(), "123456"));
+            assertThrows(IllegalStateException.class, () -> TotpUtil.verifyCode(secret, "123456"));
         }
     }
 }

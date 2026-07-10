@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -12,7 +13,6 @@ import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.AfterEach;
@@ -21,6 +21,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
@@ -155,20 +158,29 @@ class SepaPaymentServiceTest {
             verify(batchRepository, never()).save(any());
         }
 
-        @Test
-        @DisplayName("throws when a selected invoice has no supplier IBAN")
-        void shouldThrowWhenInvoiceHasNoSupplierIban() {
+        @ParameterizedTest(name = "[{index}] {0}")
+        @MethodSource("invalidIbanScenarios")
+        @DisplayName("throws when a required IBAN is missing or blank")
+        void shouldThrowForInvalidIban(String description, String orgIban, String invoiceIban) {
             Contracts contract = fakeContract();
-            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, null, "EUR", new BigDecimal("100.00"));
-
+            Organization org = fakeOrganization(orgIban, "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, invoiceIban, "EUR", new BigDecimal("100.00"));
             List<Long> invoiceIds = List.of(10L);
+
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
             when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
 
             assertThrows(IllegalArgumentException.class,
                     () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
+        }
+
+        static Stream<Arguments> invalidIbanScenarios() {
+            return Stream.of(
+                    Arguments.of("invoice supplier IBAN is null", "DE89370400440532013000", null),
+                    Arguments.of("invoice supplier IBAN is blank", "DE89370400440532013000", "   "),
+                    Arguments.of("organization IBAN is blank", "   ", "IT60X0542811101000000123456")
+            );
         }
 
         @Test
@@ -234,38 +246,6 @@ class SepaPaymentServiceTest {
 
             assertThrows(IllegalArgumentException.class,
                     () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, pastDate));
-        }
-
-        @Test
-        @DisplayName("throws when the organization IBAN is blank rather than null")
-        void shouldThrowWhenOrgIbanIsBlank() {
-            Contracts contract = fakeContract();
-            Organization org = fakeOrganization("   ", null);
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
-            List<Long> invoiceIds = List.of(10L);
-
-            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
-            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
-
-            assertThrows(IllegalArgumentException.class,
-                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
-        }
-
-        @Test
-        @DisplayName("throws when a selected invoice's supplier IBAN is blank rather than null")
-        void shouldThrowWhenInvoiceSupplierIbanIsBlank() {
-            Contracts contract = fakeContract();
-            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "   ", "EUR", new BigDecimal("100.00"));
-            List<Long> invoiceIds = List.of(10L);
-
-            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
-            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
-
-            assertThrows(IllegalArgumentException.class,
-                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
         }
 
         @Test
@@ -670,19 +650,4 @@ class SepaPaymentServiceTest {
         return false;
     }
 
-    private String attrOf(Document doc, String tagName, int index, String attrName) {
-        NodeList nodes = doc.getElementsByTagName(tagName);
-        return ((Element) nodes.item(index)).getAttribute(attrName);
-    }
-
-    private boolean hasChildElement(Document doc, String parentTag, String childTag) {
-        NodeList parents = doc.getElementsByTagName(parentTag);
-        for (int i = 0; i < parents.getLength(); i++) {
-            Element parent = (Element) parents.item(i);
-            if (parent.getElementsByTagName(childTag).getLength() > 0) {
-                return true;
-            }
-        }
-        return false;
-    }
 }
