@@ -6,9 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import com.donatodev.bcm_backend.config.TenantContext;
@@ -24,6 +21,7 @@ import com.donatodev.bcm_backend.mapper.RiskFeedbackMapper;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.RiskFeedbackRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 
 /**
  * Business logic for recording and retrieving human feedback on ML/heuristic
@@ -141,23 +139,8 @@ public class RiskFeedbackService {
     }
 
     private Users getAuthenticatedUser() {
-        String username = getAuthenticatedUsername();
+        String username = AuthenticatedUserUtils.getUsernameOrNull();
         return usersRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG));
-    }
-
-    private String getAuthenticatedUsername() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return null;
-        }
-        Object principal = authentication.getPrincipal();
-        if (principal == null) {
-            return null;
-        }
-        if (principal instanceof UserDetails userDetails) {
-            return userDetails.getUsername();
-        }
-        return principal.toString();
     }
 }

@@ -215,13 +215,15 @@ class SepaPaymentServiceTest {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
             ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", BigDecimal.TEN);
+            List<Long> invoiceIds = List.of(10L);
+            LocalDate pastDate = LocalDate.now().minusDays(1);
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L))).thenReturn(List.of(invoice));
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
             when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
 
             assertThrows(IllegalArgumentException.class,
-                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(10L), LocalDate.now().minusDays(1)));
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, pastDate));
         }
     }
 

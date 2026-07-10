@@ -3,9 +3,6 @@ package com.donatodev.bcm_backend.service;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import com.donatodev.bcm_backend.config.TenantContext;
@@ -18,6 +15,7 @@ import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.mapper.ContractHistoryMapper;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 
 /**
  * Service class for business logic related to contract history.
@@ -54,7 +52,7 @@ public class ContractHistoryService {
 	 * @throws UserNotFoundException if the authenticated user cannot be found
 	 */
 	public List<ContractHistoryDTO> getAll() {
-		String username = getAuthenticatedUsername();
+		String username = AuthenticatedUserUtils.getUsernameOrNull();
 		Users user = usersRepository.findByUsername(username)
 				.orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG));
 
@@ -88,7 +86,7 @@ public class ContractHistoryService {
 		ContractHistory history = findHistoryInScope(id)
 				.orElseThrow(() -> new ContractHistoryNotFoundException("History ID " + id + " not found"));
 
-		String username = getAuthenticatedUsername();
+		String username = AuthenticatedUserUtils.getUsernameOrNull();
 		Users user = usersRepository.findByUsername(username)
 				.orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG));
 
@@ -112,7 +110,7 @@ public class ContractHistoryService {
 	 * @throws RuntimeException if access is denied
 	 */
 	public List<ContractHistoryDTO> getByContractId(Long contractId) {
-		String username = getAuthenticatedUsername();
+		String username = AuthenticatedUserUtils.getUsernameOrNull();
 		Users user = usersRepository.findByUsername(username)
 				.orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG));
 
@@ -173,25 +171,5 @@ public class ContractHistoryService {
 		return (orgId != null)
 				? historyRepository.findByIdAndContract_Organization_Id(id, orgId)
 				: historyRepository.findById(id);
-	}
-
-	/**
-	 * Retrieves the username of the currently authenticated user.
-	 *
-	 * @return the username, or {@code null} if authentication information is not available
-	 */
-	private String getAuthenticatedUsername() {
-		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-		if (authentication == null || !authentication.isAuthenticated()) {
-			return null;
-		}
-		Object principal = authentication.getPrincipal();
-		if (principal == null) {
-			return null;
-		}
-		if (principal instanceof UserDetails userDetails) {
-			return userDetails.getUsername();
-		}
-		return principal.toString();
 	}
 }

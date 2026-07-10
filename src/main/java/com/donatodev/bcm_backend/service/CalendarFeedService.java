@@ -8,12 +8,9 @@ import java.util.HexFormat;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Users;
@@ -38,18 +35,21 @@ public class CalendarFeedService {
 
     private final UsersRepository usersRepository;
     private final ContractsRepository contractsRepository;
+    private final CurrentUserResolver currentUserResolver;
 
     @Value("${app.backend-base-url:http://localhost:8090/api/v1}")
     private String backendBaseUrl;
 
-    public CalendarFeedService(UsersRepository usersRepository, ContractsRepository contractsRepository) {
+    public CalendarFeedService(UsersRepository usersRepository, ContractsRepository contractsRepository,
+                                CurrentUserResolver currentUserResolver) {
         this.usersRepository = usersRepository;
         this.contractsRepository = contractsRepository;
+        this.currentUserResolver = currentUserResolver;
     }
 
     @Transactional
     public String getOrCreateFeedUrl() {
-        Users user = resolveCurrentUser();
+        Users user = currentUserResolver.resolve();
         if (user.getCalendarToken() == null) {
             user.setCalendarToken(generateToken());
             usersRepository.save(user);
@@ -59,7 +59,7 @@ public class CalendarFeedService {
 
     @Transactional
     public String regenerateFeedUrl() {
-        Users user = resolveCurrentUser();
+        Users user = currentUserResolver.resolve();
         user.setCalendarToken(generateToken());
         usersRepository.save(user);
         return buildUrl(user.getCalendarToken());
@@ -111,25 +111,6 @@ public class CalendarFeedService {
             return contractsRepository.findByManagerIdAndStatus(user.getManager().getId(), ContractStatus.ACTIVE);
         }
         return List.of();
-    }
-
-    private Users resolveCurrentUser() {
-        String username = getAuthenticatedUsername();
-        Long orgId = TenantContext.get();
-        if (orgId != null) {
-            return usersRepository.findByUsernameAndOrganizationId(username, orgId)
-                    .orElseThrow(() -> new UserNotFoundException("User not found"));
-        }
-        return usersRepository.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
-    }
-
-    private String getAuthenticatedUsername() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            throw new UserNotFoundException("No authenticated user");
-        }
-        return auth.getName();
     }
 
     private String generateToken() {

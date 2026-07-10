@@ -62,7 +62,7 @@ class TwoFactorAuthServiceTest {
     void setup() {
         twoFactorAuthService = new TwoFactorAuthService(
                 usersRepository, recoveryCodeRepository, totpEncryptionService,
-                passwordEncoder, jwtUtils, refreshTokenService);
+                passwordEncoder, jwtUtils, refreshTokenService, new CurrentUserResolver(usersRepository));
         // pass-through "encryption" so plaintext secrets can be asserted on directly
         lenient().when(totpEncryptionService.encrypt(anyString())).thenAnswer(inv -> "ENC(" + inv.getArgument(0) + ")");
         lenient().when(totpEncryptionService.decrypt(anyString())).thenAnswer(inv -> {

@@ -51,7 +51,8 @@ class CalendarFeedServiceTest {
 
     @BeforeEach
     void setup() {
-        calendarFeedService = new CalendarFeedService(usersRepository, contractsRepository);
+        calendarFeedService = new CalendarFeedService(
+                usersRepository, contractsRepository, new CurrentUserResolver(usersRepository));
         ReflectionTestUtils.setField(calendarFeedService, "backendBaseUrl", BACKEND_URL);
     }
 

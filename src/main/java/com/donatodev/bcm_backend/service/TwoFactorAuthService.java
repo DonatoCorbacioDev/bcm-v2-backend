@@ -6,20 +6,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.auth.AuthResponseDTO;
-import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.TotpConfirmResponse;
 import com.donatodev.bcm_backend.dto.TotpSetupResponse;
 import com.donatodev.bcm_backend.dto.TotpStatusResponse;
 import com.donatodev.bcm_backend.entity.TotpRecoveryCode;
 import com.donatodev.bcm_backend.entity.Users;
-import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.TotpRecoveryCodeRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
@@ -44,24 +40,27 @@ public class TwoFactorAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final RefreshTokenService refreshTokenService;
+    private final CurrentUserResolver currentUserResolver;
 
     public TwoFactorAuthService(UsersRepository usersRepository,
                                 TotpRecoveryCodeRepository recoveryCodeRepository,
                                 TotpEncryptionService totpEncryptionService,
                                 PasswordEncoder passwordEncoder,
                                 JwtUtils jwtUtils,
-                                RefreshTokenService refreshTokenService) {
+                                RefreshTokenService refreshTokenService,
+                                CurrentUserResolver currentUserResolver) {
         this.usersRepository = usersRepository;
         this.recoveryCodeRepository = recoveryCodeRepository;
         this.totpEncryptionService = totpEncryptionService;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtils = jwtUtils;
         this.refreshTokenService = refreshTokenService;
+        this.currentUserResolver = currentUserResolver;
     }
 
     @Transactional
     public TotpSetupResponse setup() {
-        Users user = resolveCurrentUser();
+        Users user = currentUserResolver.resolve();
         String secret = TotpUtil.generateSecret();
         user.setTotpSecretEncrypted(totpEncryptionService.encrypt(secret));
         user.setTotpEnabled(false);
@@ -72,7 +71,7 @@ public class TwoFactorAuthService {
 
     @Transactional
     public TotpConfirmResponse confirm(String code) {
-        Users user = resolveCurrentUser();
+        Users user = currentUserResolver.resolve();
         if (user.getTotpSecretEncrypted() == null) {
             throw new IllegalArgumentException("Call setup before confirming 2FA");
         }
@@ -97,7 +96,7 @@ public class TwoFactorAuthService {
 
     @Transactional
     public void disable(String code) {
-        Users user = resolveCurrentUser();
+        Users user = currentUserResolver.resolve();
         if (!user.isTotpEnabled() || user.getTotpSecretEncrypted() == null) {
             throw new IllegalArgumentException("2FA is not enabled");
         }
@@ -115,7 +114,7 @@ public class TwoFactorAuthService {
 
     @Transactional(readOnly = true)
     public TotpStatusResponse status() {
-        return new TotpStatusResponse(resolveCurrentUser().isTotpEnabled());
+        return new TotpStatusResponse(currentUserResolver.resolve().isTotpEnabled());
     }
 
     /**
@@ -182,22 +181,4 @@ public class TwoFactorAuthService {
         return sb.toString();
     }
 
-    private Users resolveCurrentUser() {
-        String username = getAuthenticatedUsername();
-        Long orgId = TenantContext.get();
-        if (orgId != null) {
-            return usersRepository.findByUsernameAndOrganizationId(username, orgId)
-                    .orElseThrow(() -> new UserNotFoundException("User not found"));
-        }
-        return usersRepository.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
-    }
-
-    private String getAuthenticatedUsername() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            throw new UserNotFoundException("No authenticated user");
-        }
-        return auth.getName();
-    }
 }
