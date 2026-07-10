@@ -44,6 +44,7 @@ public class JwtUtils {
 
     private static final long MFA_PENDING_TOKEN_TTL_MS = 5 * 60 * 1000L;
     private static final String CLAIM_MFA_PENDING = "mfaPending";
+    private static final String CLAIM_ORG_ID = "orgId";
 
     public Clock getClock() {
         return this.clock;
@@ -89,7 +90,7 @@ public class JwtUtils {
                 .subject(user.getUsername())
                 .issuedAt(toLegacyDate(now))
                 .expiration(toLegacyDate(expiration))
-                .claim("orgId", orgId)
+                .claim(CLAIM_ORG_ID, orgId)
                 .signWith(getSigningKey())
                 .compact();
     }
@@ -120,7 +121,7 @@ public class JwtUtils {
                 .subject(user.getUsername())
                 .issuedAt(toLegacyDate(now))
                 .expiration(toLegacyDate(expiration))
-                .claim("orgId", orgId)
+                .claim(CLAIM_ORG_ID, orgId)
                 .claim(CLAIM_MFA_PENDING, true)
                 .signWith(getSigningKey())
                 .compact();
@@ -157,7 +158,7 @@ public class JwtUtils {
      * (e.g. tokens issued before multi-tenancy was introduced).
      */
     public Long getOrganizationIdFromToken(String token) {
-        Object orgId = getClaimFromToken(token, claims -> claims.get("orgId"));
+        Object orgId = getClaimFromToken(token, claims -> claims.get(CLAIM_ORG_ID));
 
         if (orgId == null) {
             return null;

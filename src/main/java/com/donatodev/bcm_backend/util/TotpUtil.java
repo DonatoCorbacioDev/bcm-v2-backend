@@ -60,6 +60,7 @@ public final class TotpUtil {
         return false;
     }
 
+    @SuppressWarnings("java:S4790") // RFC 6238 mandates HMAC-SHA1 for interop with standard authenticator apps
     private static String generateCode(String secretBase32, long timeStep) {
         byte[] key = new Base32().decode(padBase32(secretBase32));
         byte[] data = ByteBuffer.allocate(8).putLong(timeStep).array();

@@ -135,12 +135,13 @@ class SepaPaymentServiceTest {
             Organization org = fakeOrganization(null, null);
             ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
 
+            List<Long> invoiceIds = List.of(10L);
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L))).thenReturn(List.of(invoice));
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
             when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
 
             assertThrows(IllegalArgumentException.class,
-                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(10L), null));
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
             verify(batchRepository, never()).save(any());
         }
 
@@ -151,12 +152,13 @@ class SepaPaymentServiceTest {
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
             ElectronicInvoice invoice = fakeInvoice(10L, null, "EUR", new BigDecimal("100.00"));
 
+            List<Long> invoiceIds = List.of(10L);
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L))).thenReturn(List.of(invoice));
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
             when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
 
             assertThrows(IllegalArgumentException.class,
-                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(10L), null));
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
         }
 
         @Test
@@ -167,24 +169,26 @@ class SepaPaymentServiceTest {
             ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
             invoice.setSepaBatch(SepaPaymentBatch.builder().id(1L).build());
 
+            List<Long> invoiceIds = List.of(10L);
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L))).thenReturn(List.of(invoice));
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
             when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
 
             assertThrows(IllegalArgumentException.class,
-                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(10L), null));
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
         }
 
         @Test
         @DisplayName("throws when some invoice IDs don't belong to the contract")
         void shouldThrowWhenInvoiceIdsNotFound() {
             Contracts contract = fakeContract();
+            List<Long> invoiceIds = List.of(10L, 11L);
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L, 11L)))
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds))
                     .thenReturn(List.of(fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", BigDecimal.TEN)));
 
             assertThrows(IllegalArgumentException.class,
-                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(10L, 11L), null));
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
         }
 
         @Test
@@ -195,13 +199,14 @@ class SepaPaymentServiceTest {
             ElectronicInvoice invoice1 = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", BigDecimal.TEN);
             ElectronicInvoice invoice2 = fakeInvoice(11L, "FR1420041010050500013M02606", "USD", BigDecimal.TEN);
 
+            List<Long> invoiceIds = List.of(10L, 11L);
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L, 11L)))
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds))
                     .thenReturn(List.of(invoice1, invoice2));
             when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
 
             assertThrows(IllegalArgumentException.class,
-                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(10L, 11L), null));
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
         }
 
         @Test

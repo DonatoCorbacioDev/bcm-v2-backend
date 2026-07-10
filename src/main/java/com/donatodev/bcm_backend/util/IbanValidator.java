@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
  */
 public final class IbanValidator {
 
-    private static final Pattern IBAN_PATTERN = Pattern.compile("^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$");
+    private static final Pattern IBAN_PATTERN = Pattern.compile("^[A-Z]{2}\\d{2}[A-Z0-9]{11,30}$");
     private static final BigInteger NINETY_SEVEN = BigInteger.valueOf(97);
 
     private IbanValidator() {

@@ -726,7 +726,7 @@ class AuthControllerTest {
     @Order(32)
     void shouldCompleteTwoStepLoginWithValidTotpCode() throws Exception {
         String secret = com.donatodev.bcm_backend.util.TotpUtil.generateSecret();
-        Users user = usersRepository.save(Users.builder()
+        usersRepository.save(Users.builder()
                 .username("totpuser").passwordHash(passwordEncoder.encode("mypwd123")).verified(true)
                 .totpEnabled(true).totpSecretEncrypted(totpEncryptionService.encrypt(secret))
                 .manager(managersRepository.findById(managerId).orElseThrow())
@@ -761,7 +761,7 @@ class AuthControllerTest {
     @Order(33)
     void shouldRejectTwoFactorVerifyWithWrongCode() throws Exception {
         String secret = com.donatodev.bcm_backend.util.TotpUtil.generateSecret();
-        Users user = usersRepository.save(Users.builder()
+        usersRepository.save(Users.builder()
                 .username("totpuser2").passwordHash(passwordEncoder.encode("mypwd123")).verified(true)
                 .totpEnabled(true).totpSecretEncrypted(totpEncryptionService.encrypt(secret))
                 .manager(managersRepository.findById(managerId).orElseThrow())

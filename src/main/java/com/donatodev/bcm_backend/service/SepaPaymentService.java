@@ -8,6 +8,7 @@ import java.math.RoundingMode;
 import java.text.Normalizer;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -92,8 +93,10 @@ public class SepaPaymentService {
             }
         }
 
-        LocalDate executionDate = requestedExecutionDate != null ? requestedExecutionDate : LocalDate.now();
-        if (executionDate.isBefore(LocalDate.now())) {
+        LocalDate executionDate = requestedExecutionDate != null
+                ? requestedExecutionDate
+                : LocalDate.now(ZoneId.systemDefault());
+        if (executionDate.isBefore(LocalDate.now(ZoneId.systemDefault()))) {
             throw new IllegalArgumentException("Execution date cannot be in the past");
         }
 
@@ -304,6 +307,8 @@ public class SepaPaymentService {
         try {
             TransformerFactory transformerFactory = TransformerFactory.newInstance();
             transformerFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
             Transformer transformer = transformerFactory.newTransformer();
             transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
             transformer.setOutputProperty(OutputKeys.INDENT, "yes");
