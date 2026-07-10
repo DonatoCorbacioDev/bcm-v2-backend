@@ -260,7 +260,7 @@ class ElectronicInvoiceServiceTest {
         // ---- getInvoice ----
 
         @Test
-        @Order(10)
+        @Order(11)
         @DisplayName("getInvoice: returns DTO with deserialized line items")
         void shouldReturnInvoiceDetail() throws IOException {
             Contracts contract = fakeContract();
@@ -279,7 +279,27 @@ class ElectronicInvoiceServiceTest {
         }
 
         @Test
-        @Order(11)
+        @Order(10)
+        @DisplayName("getInvoice: includes the SEPA batch id when the invoice was already paid")
+        void shouldReturnInvoiceDetailWithSepaBatchId() throws IOException {
+            Contracts contract = fakeContract();
+            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
+            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            com.donatodev.bcm_backend.entity.SepaPaymentBatch batch =
+                    com.donatodev.bcm_backend.entity.SepaPaymentBatch.builder().id(77L).build();
+            invoice.setSepaBatch(batch);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(invoice));
+
+            ElectronicInvoiceDTO result = electronicInvoiceService.getInvoice(CONTRACT_ID, INVOICE_ID);
+
+            assertEquals(77L, result.sepaBatchId());
+        }
+
+        @Test
+        @Order(12)
         @DisplayName("getInvoice: throws ContractNotFoundException when invoice missing")
         void shouldThrowWhenInvoiceNotFound() {
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
@@ -293,7 +313,7 @@ class ElectronicInvoiceServiceTest {
         // ---- downloadInvoice ----
 
         @Test
-        @Order(12)
+        @Order(13)
         @DisplayName("downloadInvoice: returns bytes and metadata")
         void shouldDownloadInvoice() throws IOException {
             Contracts contract = fakeContract();
@@ -313,7 +333,7 @@ class ElectronicInvoiceServiceTest {
         }
 
         @Test
-        @Order(13)
+        @Order(14)
         @DisplayName("downloadInvoice: throws ContractNotFoundException when invoice missing")
         void shouldThrowWhenInvoiceNotFoundOnDownload() {
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
@@ -327,7 +347,7 @@ class ElectronicInvoiceServiceTest {
         // ---- deleteInvoice ----
 
         @Test
-        @Order(14)
+        @Order(15)
         @DisplayName("deleteInvoice: deletes from local storage and repository")
         void shouldDeleteInvoice() throws IOException {
             Contracts contract = fakeContract();
@@ -345,7 +365,7 @@ class ElectronicInvoiceServiceTest {
         }
 
         @Test
-        @Order(15)
+        @Order(16)
         @DisplayName("deleteInvoice: throws ContractNotFoundException when invoice missing")
         void shouldThrowWhenInvoiceNotFoundOnDelete() {
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
@@ -359,7 +379,7 @@ class ElectronicInvoiceServiceTest {
         // ---- ContractAccessGuard delegation ----
 
         @Test
-        @Order(16)
+        @Order(17)
         @DisplayName("getInvoices: delegates contract lookup and manager-access check to ContractAccessGuard")
         void shouldDelegateAccessChecksToGuard() throws IOException {
             Contracts contract = fakeContract();
@@ -380,7 +400,7 @@ class ElectronicInvoiceServiceTest {
         // ---- lineItemsJson round trip ----
 
         @Test
-        @Order(17)
+        @Order(18)
         @DisplayName("getInvoice: empty lineItemsJson array deserializes to empty list, not null")
         void shouldRoundTripEmptyLineItems() {
             Contracts contract = fakeContract();
@@ -397,7 +417,7 @@ class ElectronicInvoiceServiceTest {
         }
 
         @Test
-        @Order(18)
+        @Order(19)
         @DisplayName("getInvoice: throws UncheckedIOException when lineItemsJson is malformed")
         void shouldThrowWhenLineItemsJsonIsMalformed() {
             Contracts contract = fakeContract();
@@ -412,7 +432,7 @@ class ElectronicInvoiceServiceTest {
         }
 
         @Test
-        @Order(19)
+        @Order(20)
         @DisplayName("uploadInvoice: accepts XML content without an XML declaration")
         void shouldAcceptXmlWithoutDeclaration() throws IOException {
             Contracts contract = fakeContract();
@@ -436,7 +456,7 @@ class ElectronicInvoiceServiceTest {
         }
 
         @Test
-        @Order(20)
+        @Order(21)
         @DisplayName("updatePaymentDetails: normalizes and saves a valid IBAN/BIC/due date")
         void shouldUpdatePaymentDetails() throws Exception {
             Contracts contract = fakeContract();
@@ -459,7 +479,43 @@ class ElectronicInvoiceServiceTest {
         }
 
         @Test
-        @Order(21)
+        @Order(22)
+        @DisplayName("updatePaymentDetails: clears the BIC when the request omits it")
+        void shouldClearBicWhenOmitted() throws Exception {
+            Contracts contract = fakeContract();
+            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
+            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(invoice));
+            when(invoiceRepository.save(any(ElectronicInvoice.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            var request = new com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest(
+                    "DE89370400440532013000", null, null);
+
+            ElectronicInvoiceDTO result = electronicInvoiceService.updatePaymentDetails(CONTRACT_ID, INVOICE_ID, request);
+
+            assertEquals(null, result.supplierBic());
+        }
+
+        @Test
+        @Order(23)
+        @DisplayName("updatePaymentDetails: throws ContractNotFoundException when invoice missing")
+        void shouldThrowWhenInvoiceNotFoundOnUpdatePaymentDetails() {
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.empty());
+
+            var request = new com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest(
+                    "DE89370400440532013000", null, null);
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> electronicInvoiceService.updatePaymentDetails(CONTRACT_ID, INVOICE_ID, request));
+        }
+
+        @Test
+        @Order(24)
         @DisplayName("updatePaymentDetails: rejects an invalid IBAN")
         void shouldRejectInvalidIbanOnPaymentDetails() throws Exception {
             Contracts contract = fakeContract();
@@ -478,7 +534,7 @@ class ElectronicInvoiceServiceTest {
         }
 
         @Test
-        @Order(22)
+        @Order(25)
         @DisplayName("updatePaymentDetails: rejects edits once the invoice is already in a SEPA batch")
         void shouldRejectPaymentDetailsEditWhenAlreadyBatched() throws Exception {
             Contracts contract = fakeContract();

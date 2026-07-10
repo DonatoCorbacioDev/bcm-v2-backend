@@ -154,5 +154,26 @@ class LocalStorageServiceTest {
 
             assertTrue(path.startsWith("invoices/0/42/"));
         }
+
+        @Test
+        @Order(12)
+        @DisplayName("storeSepaPayment: creates file and returns relative path ending in .xml")
+        void shouldStoreSepaPaymentAndReturnPath() {
+            String path = localStorageService.storeSepaPayment(1L, 42L, CONTENT);
+
+            assertNotNull(path);
+            assertTrue(path.startsWith("sepa/1/42/"));
+            assertTrue(path.endsWith(".xml"));
+            assertTrue(Files.exists(tempDir.resolve(path)));
+        }
+
+        @Test
+        @Order(13)
+        @DisplayName("storeSepaPayment: null orgId defaults to 0 in path")
+        void shouldUseZeroOrgIdWhenNullForSepaPayment() {
+            String path = localStorageService.storeSepaPayment(null, 42L, CONTENT);
+
+            assertTrue(path.startsWith("sepa/0/42/"));
+        }
     }
 }

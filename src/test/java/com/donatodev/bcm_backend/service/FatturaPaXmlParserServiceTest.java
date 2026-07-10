@@ -361,6 +361,20 @@ class FatturaPaXmlParserServiceTest {
                 + "</FatturaElettronicaBody>"
                 + "</FatturaElettronica>";
 
+        private static final String WITHOUT_IBAN_XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<FatturaElettronica>"
+                + "<FatturaElettronicaHeader/>"
+                + "<FatturaElettronicaBody>"
+                + "<DatiGenerali><DatiGeneraliDocumento>"
+                + "<TipoDocumento>TD01</TipoDocumento><Numero>1</Numero><Divisa>EUR</Divisa>"
+                + "</DatiGeneraliDocumento></DatiGenerali>"
+                + "<DatiPagamento><DettaglioPagamento>"
+                + "<DataScadenzaPagamento>2024-06-30</DataScadenzaPagamento>"
+                + "<BIC>COBADEFFXXX</BIC>"
+                + "</DettaglioPagamento></DatiPagamento>"
+                + "</FatturaElettronicaBody>"
+                + "</FatturaElettronica>";
+
         private static final String WITHOUT_DATI_PAGAMENTO_XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
                 + "<FatturaElettronica>"
                 + "<FatturaElettronicaHeader/>"
@@ -389,6 +403,15 @@ class FatturaPaXmlParserServiceTest {
             assertNull(data.supplierIban());
             assertEquals("COBADEFFXXX", data.supplierBic());
             assertEquals(LocalDate.of(2024, Month.JUNE, 30), data.paymentDueDate());
+        }
+
+        @Test
+        @DisplayName("DettaglioPagamento without an IBAN element: supplierIban is null")
+        void shouldReturnNullIbanWhenElementAbsent() {
+            FatturaPaInvoiceData data = parserService.parse(WITHOUT_IBAN_XML.getBytes(StandardCharsets.UTF_8));
+
+            assertNull(data.supplierIban());
+            assertEquals("COBADEFFXXX", data.supplierBic());
         }
 
         @Test

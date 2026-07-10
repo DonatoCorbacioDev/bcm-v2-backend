@@ -1,6 +1,9 @@
 package com.donatodev.bcm_backend.service;
 
+import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+
+import javax.crypto.Cipher;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -8,6 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.anyString;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class TotpEncryptionServiceTest {
@@ -61,5 +67,16 @@ class TotpEncryptionServiceTest {
                 Base64.getEncoder().encodeToString("differentsecretdifferentsecret!!".getBytes()));
 
         assertThrows(IllegalStateException.class, () -> otherService.decrypt(encrypted));
+    }
+
+    @Test
+    @DisplayName("encrypt wraps a GeneralSecurityException as IllegalStateException")
+    void shouldWrapEncryptionFailure() {
+        try (MockedStatic<Cipher> mockedCipher = Mockito.mockStatic(Cipher.class)) {
+            mockedCipher.when(() -> Cipher.getInstance(anyString()))
+                    .thenThrow(new NoSuchAlgorithmException("no such algorithm"));
+
+            assertThrows(IllegalStateException.class, () -> encryptionService.encrypt("JBSWY3DPEHPK3PXP"));
+        }
     }
 }

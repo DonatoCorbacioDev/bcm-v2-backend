@@ -226,6 +226,34 @@ class TwoFactorAuthServiceTest {
             assertThrows(IllegalArgumentException.class, () -> twoFactorAuthService.disable("000000"));
             assertTrue(user.isTotpEnabled());
         }
+
+        @Test
+        @DisplayName("throws when 2FA is enabled but no secret was ever stored")
+        void shouldThrowWhenEnabledWithoutSecret() {
+            authenticateAs(USERNAME);
+            Users user = Users.builder().id(1L).username(USERNAME).totpEnabled(true).build();
+            when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
+
+            assertThrows(IllegalArgumentException.class, () -> twoFactorAuthService.disable("123456"));
+        }
+
+        @Test
+        @DisplayName("throws when an unused recovery code exists but doesn't match")
+        void shouldThrowWhenRecoveryCodeDoesNotMatch() {
+            authenticateAs(USERNAME);
+            String secret = TotpUtil.generateSecret();
+            Users user = Users.builder().id(1L).username(USERNAME).totpEnabled(true)
+                    .totpSecretEncrypted("ENC(" + secret + ")").build();
+            when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
+
+            TotpRecoveryCode recoveryCode = TotpRecoveryCode.builder().id(9L).user(user).codeHash("hash").build();
+            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(1L)).thenReturn(List.of(recoveryCode));
+            when(passwordEncoder.matches("WRONG-CODE", "hash")).thenReturn(false);
+
+            assertThrows(IllegalArgumentException.class, () -> twoFactorAuthService.disable("WRONG-CODE"));
+            assertNull(recoveryCode.getUsedAt());
+            assertTrue(user.isTotpEnabled());
+        }
     }
 
     @Nested
@@ -329,6 +357,20 @@ class TwoFactorAuthServiceTest {
 
             assertThrows(BadCredentialsException.class,
                     () -> twoFactorAuthService.verifyLogin("pending-token", "000000"));
+        }
+
+        @Test
+        @DisplayName("rejects when the resolved user has 2FA enabled but no secret was ever stored")
+        void shouldRejectWhenEnabledWithoutSecret() {
+            Users user = Users.builder().username(USERNAME).totpEnabled(true).build();
+
+            when(jwtUtils.isMfaPendingToken("pending-token")).thenReturn(true);
+            when(jwtUtils.getUsernameFromToken("pending-token")).thenReturn(USERNAME);
+            when(jwtUtils.getOrganizationIdFromToken("pending-token")).thenReturn(ORG_ID);
+            when(usersRepository.findByUsernameAndOrganizationId(USERNAME, ORG_ID)).thenReturn(Optional.of(user));
+
+            assertThrows(BadCredentialsException.class,
+                    () -> twoFactorAuthService.verifyLogin("pending-token", "123456"));
         }
 
         @Test

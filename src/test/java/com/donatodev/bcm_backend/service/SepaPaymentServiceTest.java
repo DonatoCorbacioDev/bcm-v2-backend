@@ -7,8 +7,12 @@ import java.util.List;
 import java.util.Optional;
 
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.AfterEach;
@@ -17,14 +21,20 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 import com.donatodev.bcm_backend.config.TenantContext;
@@ -225,6 +235,368 @@ class SepaPaymentServiceTest {
             assertThrows(IllegalArgumentException.class,
                     () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, pastDate));
         }
+
+        @Test
+        @DisplayName("throws when the organization IBAN is blank rather than null")
+        void shouldThrowWhenOrgIbanIsBlank() {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("   ", null);
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
+        }
+
+        @Test
+        @DisplayName("throws when a selected invoice's supplier IBAN is blank rather than null")
+        void shouldThrowWhenInvoiceSupplierIbanIsBlank() {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, "   ", "EUR", new BigDecimal("100.00"));
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
+        }
+
+        @Test
+        @DisplayName("defaults the execution date to today when none is requested")
+        void shouldDefaultExecutionDateToToday() throws Exception {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null);
+
+            Document doc = parse(result.bytes());
+            assertEquals(LocalDate.now().toString(), textOf(doc, "ReqdExctnDt"));
+        }
+
+        @Test
+        @DisplayName("resolves the debtor organization from the contract when there is no tenant context")
+        void shouldResolveOrganizationFromContractWhenNoTenantContext() throws Exception {
+            TenantContext.clear();
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            Contracts contract = fakeContract();
+            contract.setOrganization(org);
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(localStorageService.storeSepaPayment(eq(null), eq(CONTRACT_ID), any())).thenReturn("sepa/0/1/uuid.xml");
+            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null);
+
+            assertTrue(xmlContains(parse(result.bytes()), "IBAN", "DE89370400440532013000"));
+            verify(organizationRepository, never()).findById(any());
+        }
+
+        @Test
+        @DisplayName("throws when there is no tenant context and the contract has no organization")
+        void shouldThrowWhenNoTenantContextAndContractHasNoOrganization() {
+            TenantContext.clear();
+            Contracts contract = fakeContract();
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
+        }
+
+        @Test
+        @DisplayName("throws when the tenant's organization id doesn't resolve to an organization")
+        void shouldThrowWhenTenantOrganizationNotFound() {
+            Contracts contract = fakeContract();
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.empty());
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
+        }
+
+        @Test
+        @DisplayName("defaults an invoice's currency to EUR when it isn't set")
+        void shouldDefaultInvoiceCurrencyToEurWhenMissing() {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", null, new BigDecimal("100.00"));
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            ArgumentCaptor<SepaPaymentBatch> captor = ArgumentCaptor.forClass(SepaPaymentBatch.class);
+            when(batchRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+            sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null);
+
+            assertEquals("EUR", captor.getValue().getCurrency());
+        }
+
+        @Test
+        @DisplayName("creates a zero-transaction batch when no invoice ids are given")
+        void shouldCreateZeroInvoiceBatchWhenInvoiceIdsEmpty() throws Exception {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            List<Long> invoiceIds = List.of();
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of());
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            ArgumentCaptor<SepaPaymentBatch> captor = ArgumentCaptor.forClass(SepaPaymentBatch.class);
+            when(batchRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null);
+
+            assertEquals("EUR", captor.getValue().getCurrency());
+            assertEquals("0", textOf(parse(result.bytes()), "NbOfTxs"));
+        }
+
+        @Test
+        @DisplayName("falls back to NOTPROVIDED and a generic remittance when the invoice has no number")
+        void shouldFallBackWhenInvoiceNumberMissing() throws Exception {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            invoice.setInvoiceNumber(null);
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null);
+
+            Document doc = parse(result.bytes());
+            assertEquals("NOTPROVIDED", textOf(doc, "EndToEndId"));
+            assertEquals("Pagamento fattura 10", textOf(doc, "Ustrd"));
+        }
+
+        @Test
+        @DisplayName("uses NOTPROVIDED when the invoice number sanitizes to an empty string")
+        void shouldUseNotProvidedWhenInvoiceNumberSanitizesToEmpty() throws Exception {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            invoice.setInvoiceNumber("###");
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null);
+
+            assertEquals("NOTPROVIDED", textOf(parse(result.bytes()), "EndToEndId"));
+        }
+
+        @Test
+        @DisplayName("defaults a missing invoice amount to zero in the XML")
+        void shouldDefaultInvoiceAmountToZeroWhenMissing() throws Exception {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", null);
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null);
+
+            assertEquals("0.00", textOf(parse(result.bytes()), "InstdAmt"));
+        }
+
+        @Test
+        @DisplayName("uses NOTPROVIDED under DbtrAgt when the organization has no BIC")
+        void shouldOmitOrganizationBicWhenMissing() throws Exception {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("DE89370400440532013000", null);
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null);
+
+            Document doc = parse(result.bytes());
+            Element dbtrAgt = (Element) doc.getElementsByTagName("DbtrAgt").item(0);
+            assertEquals(0, dbtrAgt.getElementsByTagName("BIC").getLength());
+            assertEquals(1, dbtrAgt.getElementsByTagName("Othr").getLength());
+        }
+
+        @Test
+        @DisplayName("uses NOTPROVIDED under CdtrAgt when the supplier has no BIC")
+        void shouldOmitSupplierBicWhenMissing() throws Exception {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            invoice.setSupplierBic(null);
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null);
+
+            Document doc = parse(result.bytes());
+            Element cdtrAgt = (Element) doc.getElementsByTagName("CdtrAgt").item(0);
+            assertEquals(0, cdtrAgt.getElementsByTagName("BIC").getLength());
+            assertEquals(1, cdtrAgt.getElementsByTagName("Othr").getLength());
+        }
+
+        @Test
+        @DisplayName("uses NOTPROVIDED under DbtrAgt when the organization BIC is blank")
+        void shouldOmitOrganizationBicWhenBlank() throws Exception {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("DE89370400440532013000", "   ");
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null);
+
+            Document doc = parse(result.bytes());
+            Element dbtrAgt = (Element) doc.getElementsByTagName("DbtrAgt").item(0);
+            assertEquals(0, dbtrAgt.getElementsByTagName("BIC").getLength());
+            assertEquals(1, dbtrAgt.getElementsByTagName("Othr").getLength());
+        }
+
+        @Test
+        @DisplayName("strips diacritics and truncates a debtor name longer than 70 characters")
+        void shouldSanitizeAndTruncateLongOrganizationName() throws Exception {
+            Contracts contract = fakeContract();
+            String longName = "Società Élaboratà ".repeat(5); // > 70 chars, has diacritics
+            Organization org = Organization.builder().id(ORG_ID).name(longName)
+                    .iban("DE89370400440532013000").bic("COBADEFFXXX").build();
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null);
+
+            String nm = textOf(parse(result.bytes()), "Nm");
+            assertTrue(nm.length() <= 70);
+            assertTrue(nm.startsWith("Societa Elaborata"));
+        }
+
+        @Test
+        @DisplayName("treats a missing organization name as an empty debtor name")
+        void shouldUseEmptyNameWhenOrganizationNameIsNull() throws Exception {
+            Contracts contract = fakeContract();
+            Organization org = Organization.builder().id(ORG_ID).name(null)
+                    .iban("DE89370400440532013000").bic("COBADEFFXXX").build();
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null);
+
+            assertEquals("", textOf(parse(result.bytes()), "Nm"));
+        }
+
+        @Test
+        @DisplayName("wraps a broken XML parser as an IllegalStateException")
+        void shouldWrapParserConfigurationFailure() throws Exception {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+
+            DocumentBuilderFactory brokenFactory = spy(DocumentBuilderFactory.newInstance());
+            doThrow(new ParserConfigurationException("boom"))
+                    .when(brokenFactory).newDocumentBuilder();
+
+            try (MockedStatic<DocumentBuilderFactory> mocked = mockStatic(DocumentBuilderFactory.class)) {
+                mocked.when(DocumentBuilderFactory::newInstance).thenReturn(brokenFactory);
+
+                assertThrows(IllegalStateException.class,
+                        () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
+            }
+        }
+
+        @Test
+        @DisplayName("wraps a broken XML transformer as an UncheckedIOException")
+        void shouldWrapTransformerFailure() throws Exception {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<Long> invoiceIds = List.of(10L);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+
+            TransformerFactory brokenFactory = spy(TransformerFactory.newInstance());
+            doThrow(new TransformerConfigurationException("boom"))
+                    .when(brokenFactory).newTransformer();
+
+            try (MockedStatic<TransformerFactory> mocked = mockStatic(TransformerFactory.class)) {
+                mocked.when(TransformerFactory::newInstance).thenReturn(brokenFactory);
+
+                assertThrows(java.io.UncheckedIOException.class,
+                        () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
+            }
+        }
     }
 
     @Nested
@@ -292,6 +664,22 @@ class SepaPaymentServiceTest {
         NodeList nodes = doc.getElementsByTagName(tagName);
         for (int i = 0; i < nodes.getLength(); i++) {
             if (value.equals(nodes.item(i).getTextContent())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String attrOf(Document doc, String tagName, int index, String attrName) {
+        NodeList nodes = doc.getElementsByTagName(tagName);
+        return ((Element) nodes.item(index)).getAttribute(attrName);
+    }
+
+    private boolean hasChildElement(Document doc, String parentTag, String childTag) {
+        NodeList parents = doc.getElementsByTagName(parentTag);
+        for (int i = 0; i < parents.getLength(); i++) {
+            Element parent = (Element) parents.item(i);
+            if (parent.getElementsByTagName(childTag).getLength() > 0) {
                 return true;
             }
         }

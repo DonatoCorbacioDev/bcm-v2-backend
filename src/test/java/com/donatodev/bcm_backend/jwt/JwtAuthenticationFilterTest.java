@@ -216,4 +216,14 @@ class JwtAuthenticationFilterTest {
             .header("Authorization", "Bearer " + testToken))
             .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    @DisplayName("Should skip filter if the token is an MFA-pending token")
+    void shouldSkipIfTokenIsMfaPending() throws Exception {
+        when(jwtUtils.isMfaPendingToken(token)).thenReturn(true);
+
+        mockMvc.perform(get("/auth/me")
+            .header("Authorization", "Bearer " + token))
+            .andExpect(status().isUnauthorized());
+    }
 }

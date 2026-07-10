@@ -153,6 +153,44 @@ class RiskFeedbackServiceTest {
 
         @Test
         @Order(4)
+        @DisplayName("create as MANAGER on a contract with no manager assigned throws AccessDeniedException")
+        void shouldThrowWhenContractHasNoManager() {
+            Managers managerEntity = Managers.builder().id(5L).build();
+            Users managerUser = Users.builder().username("manager").role(Roles.builder().role("MANAGER").build()).manager(managerEntity).build();
+            Contracts contract = Contracts.builder().id(1L).build();
+            RiskFeedbackRequest request = new RiskFeedbackRequest(0.4, "MEDIUM", null, null, false);
+
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken("manager", null, List.of(() -> "ROLE_MANAGER"))
+            );
+
+            when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+
+            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(1L, request));
+        }
+
+        @Test
+        @Order(5)
+        @DisplayName("create as MANAGER with no manager profile throws AccessDeniedException")
+        void shouldThrowWhenManagerHasNoProfile() {
+            Managers otherManager = Managers.builder().id(99L).build();
+            Users managerUser = Users.builder().username("manager").role(Roles.builder().role("MANAGER").build()).build();
+            Contracts contract = Contracts.builder().id(1L).manager(otherManager).build();
+            RiskFeedbackRequest request = new RiskFeedbackRequest(0.4, "MEDIUM", null, null, false);
+
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken("manager", null, List.of(() -> "ROLE_MANAGER"))
+            );
+
+            when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+
+            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(1L, request));
+        }
+
+        @Test
+        @Order(6)
         @DisplayName("create throws ContractNotFoundException when contract missing")
         void shouldThrowWhenContractMissing() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
@@ -169,7 +207,7 @@ class RiskFeedbackServiceTest {
         }
 
         @Test
-        @Order(5)
+        @Order(7)
         @DisplayName("create with TenantContext scopes contract lookup to the organization")
         void shouldCreateWithTenantContext() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
@@ -195,7 +233,7 @@ class RiskFeedbackServiceTest {
         }
 
         @Test
-        @Order(6)
+        @Order(8)
         @DisplayName("create stores the organization id resolved from TenantContext when the contract has none")
         void shouldFallBackToTenantContextOrgId() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
@@ -221,7 +259,7 @@ class RiskFeedbackServiceTest {
         }
 
         @Test
-        @Order(7)
+        @Order(9)
         @DisplayName("getFeedbackForCurrentUser as ADMIN with TenantContext uses org-scoped repository")
         void shouldGetFeedbackAsAdminWithTenant() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
@@ -244,7 +282,7 @@ class RiskFeedbackServiceTest {
         }
 
         @Test
-        @Order(8)
+        @Order(10)
         @DisplayName("getFeedbackForCurrentUser as ADMIN without TenantContext falls back to findAll")
         void shouldGetFeedbackAsAdminWithoutTenant() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
@@ -265,7 +303,7 @@ class RiskFeedbackServiceTest {
         }
 
         @Test
-        @Order(9)
+        @Order(11)
         @DisplayName("getFeedbackForCurrentUser as MANAGER scopes by manager id")
         void shouldGetFeedbackAsManager() {
             Managers manager = Managers.builder().id(5L).build();
@@ -288,7 +326,7 @@ class RiskFeedbackServiceTest {
         }
 
         @Test
-        @Order(10)
+        @Order(12)
         @DisplayName("getFeedbackForCurrentUser keeps only the most recent entry per contract")
         void shouldDedupeToLatestPerContract() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
@@ -316,7 +354,7 @@ class RiskFeedbackServiceTest {
         }
 
         @Test
-        @Order(11)
+        @Order(13)
         @DisplayName("create throws UserNotFoundException when authenticated user does not exist")
         void shouldThrowUserNotFoundOnCreate() {
             RiskFeedbackRequest request = new RiskFeedbackRequest(0.4, "MEDIUM", null, null, true);
@@ -332,7 +370,7 @@ class RiskFeedbackServiceTest {
         }
 
         @Test
-        @Order(12)
+        @Order(14)
         @DisplayName("getFeedbackForCurrentUser throws UserNotFoundException when not authenticated")
         void shouldThrowUserNotFoundOnGet() {
             SecurityContextHolder.clearContext();

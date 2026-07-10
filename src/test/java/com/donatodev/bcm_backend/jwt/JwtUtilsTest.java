@@ -387,4 +387,42 @@ class JwtUtilsTest {
 
         org.junit.jupiter.api.Assertions.assertNull(orgId);
     }
+
+    @Test
+    @Order(20)
+    @DisplayName("generateMfaPendingToken with no organization embeds a null orgId claim")
+    void shouldGenerateMfaPendingTokenWithoutOrganization() {
+        // testUser has no organization → orgId claim is null
+        String token = jwtUtils.generateMfaPendingToken(testUser);
+
+        assertNotNull(token);
+        assertTrue(jwtUtils.isMfaPendingToken(token));
+        org.junit.jupiter.api.Assertions.assertNull(jwtUtils.getOrganizationIdFromToken(token));
+    }
+
+    @Test
+    @Order(21)
+    @DisplayName("generateMfaPendingToken with organization embeds the orgId claim")
+    void shouldGenerateMfaPendingTokenWithOrganization() {
+        Organization org = Organization.builder()
+                .id(9L).name("Acme").slug("acme")
+                .subscriptionTier(SubscriptionTier.FREE).build();
+        Users userWithOrg = Users.builder()
+                .id(3L).username("mfauser").passwordHash("hash")
+                .role(testRole).verified(true).organization(org).build();
+
+        String token = jwtUtils.generateMfaPendingToken(userWithOrg);
+
+        assertEquals(9L, jwtUtils.getOrganizationIdFromToken(token));
+    }
+
+    @Test
+    @Order(22)
+    @DisplayName("isMfaPendingToken returns false for a malformed or tampered token")
+    void shouldReturnFalseForMalformedMfaPendingToken() {
+        assertFalse(jwtUtils.isMfaPendingToken("not.a.valid.jwt"));
+
+        String token = jwtUtils.generateMfaPendingToken(testUser);
+        assertFalse(jwtUtils.isMfaPendingToken(token + "tampered"));
+    }
 }

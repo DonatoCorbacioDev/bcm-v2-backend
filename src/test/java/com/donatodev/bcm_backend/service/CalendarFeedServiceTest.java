@@ -190,6 +190,23 @@ class CalendarFeedServiceTest {
         }
 
         @Test
+        @DisplayName("admin with no organization: includes all ACTIVE contracts, unscoped")
+        void shouldBuildFeedForAdminWithoutOrganization() {
+            Roles adminRole = Roles.builder().id(1L).role("ADMIN").build();
+            Users user = Users.builder().id(1L).username(USERNAME).role(adminRole)
+                    .calendarToken("token-no-org").build();
+            when(usersRepository.findByCalendarToken("token-no-org")).thenReturn(Optional.of(user));
+            when(contractsRepository.findByStatus(ContractStatus.ACTIVE))
+                    .thenReturn(List.of(
+                            contract(5L, "CTR-005", "Delta", LocalDate.of(2026, Month.NOVEMBER, 20))));
+
+            String ics = calendarFeedService.buildIcsFeed("token-no-org");
+
+            assertTrue(ics.contains("UID:contract-5@bcm\r\n"));
+            verify(contractsRepository, never()).findByStatusAndOrganization_Id(any(), any());
+        }
+
+        @Test
         @DisplayName("manager: scoped to their own assigned contracts only")
         void shouldBuildFeedForManager() {
             Users user = managerUser(42L, "token-2");

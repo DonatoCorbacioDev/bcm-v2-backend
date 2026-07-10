@@ -1,17 +1,24 @@
 package com.donatodev.bcm_backend.util;
 
 import java.lang.reflect.Method;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+
+import javax.crypto.Mac;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import static org.mockito.ArgumentMatchers.anyString;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 class TotpUtilTest {
 
@@ -104,5 +111,23 @@ class TotpUtilTest {
     void shouldRejectWrongCode() {
         String secret = TotpUtil.generateSecret();
         assertFalse(TotpUtil.verifyCode(secret, "000000"));
+    }
+
+    @Test
+    @DisplayName("generateCode pads a Base32 secret whose length isn't a multiple of 8")
+    void shouldPadSecretNotMultipleOfEight() throws Exception {
+        assertTrue(codeAt("MZXW6", 1).matches("\\d{6}"));
+    }
+
+    @Test
+    @DisplayName("generateCode wraps a Mac failure as IllegalStateException")
+    void shouldWrapMacFailure() {
+        try (MockedStatic<Mac> mockedMac = Mockito.mockStatic(Mac.class)) {
+            mockedMac.when(() -> Mac.getInstance(anyString()))
+                    .thenThrow(new NoSuchAlgorithmException("no such algorithm"));
+
+            assertThrows(IllegalStateException.class,
+                    () -> TotpUtil.verifyCode(TotpUtil.generateSecret(), "123456"));
+        }
     }
 }
