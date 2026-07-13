@@ -12,6 +12,7 @@ import com.donatodev.bcm_backend.dto.ManagerDTO;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.entity.WorkflowStage;
 import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
@@ -89,7 +90,8 @@ public class ContractMapper {
                 contract.getManager() != null ? contract.getManager().getFirstName() + " " + contract.getManager().getLastName() : null,
                 managerDTO,
                 areaDTO,
-                daysUntilExpiry
+                daysUntilExpiry,
+                contract.getWorkflowStage()
         );
     }
 
@@ -123,6 +125,9 @@ public class ContractMapper {
                                 .orElseThrow(() -> new BusinessAreaNotFoundException("Business area not found: " + dto.areaId()))
                         : null)
                 .manager(resolveManager(dto.managerId()))
+                // Workflow stage is derived, not user-settable on creation: a
+                // DRAFT contract starts the workflow, anything else never enters it.
+                .workflowStage(dto.status() == ContractStatus.DRAFT ? WorkflowStage.DRAFT : null)
                 .build();
     }
 

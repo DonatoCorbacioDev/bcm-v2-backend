@@ -43,7 +43,8 @@ public class UserMapper {
                 user.getManager() != null ? user.getManager().getId() : null,
                 user.getRole().getId(),
                 user.isVerified(),
-                user.getCreatedAt()
+                user.getCreatedAt(),
+                user.isCanApproveContracts()
         );
     }
 
@@ -78,6 +79,7 @@ public class UserMapper {
                 .manager(manager)
                 .role(role)
                 .verified(Boolean.TRUE.equals(dto.verified()))
+                .canApproveContracts(Boolean.TRUE.equals(dto.canApproveContracts()))
                 .build();
     }
 }

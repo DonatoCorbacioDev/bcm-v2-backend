@@ -29,6 +29,7 @@ import com.donatodev.bcm_backend.dto.TopManagerDTO;
 import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.WorkflowStage;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Users;
@@ -181,6 +182,11 @@ public class ContractService {
 
         // Save previous status for history tracking
         ContractStatus previousStatus = contract.getStatus();
+
+        if (contract.getWorkflowStage() == WorkflowStage.IN_REVIEW && contractDTO.status() != previousStatus) {
+            throw new IllegalArgumentException(
+                    "Cannot change status while the contract is under review; approve or reject it instead");
+        }
 
         contract.setCustomerName(contractDTO.customerName());
         contract.setContractNumber(contractDTO.contractNumber());

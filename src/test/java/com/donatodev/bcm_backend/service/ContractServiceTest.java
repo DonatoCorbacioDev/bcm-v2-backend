@@ -343,6 +343,35 @@ class ContractServiceTest {
         }
 
         /**
+         * Tests that a direct status change is rejected while the contract is
+         * under approval-workflow review — it must go through approve/reject
+         * instead of an arbitrary update.
+         */
+        @Test
+        @Order(100)
+        @DisplayName("Update contract rejects a status change while IN_REVIEW")
+        void shouldRejectStatusChangeWhileInReview() {
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .customerName("Client")
+                    .contractNumber("CNTR-WF")
+                    .status(ContractStatus.DRAFT)
+                    .workflowStage(com.donatodev.bcm_backend.entity.WorkflowStage.IN_REVIEW)
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
+                    .build();
+
+            ContractDTO updateDTO = new ContractDTO(1L, "Client", "CNTR-WF", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
+                    LocalDate.of(2027, Month.JUNE, 15).plusDays(5), 1L, 1L, null, null, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+            assertThrows(IllegalArgumentException.class, () -> contractService.updateContract(1L, updateDTO));
+            verify(contractsRepository, never()).save(any());
+        }
+
+        /**
          * Tests that the repository's deleteById method is called when deleting
          * a contract.
          */

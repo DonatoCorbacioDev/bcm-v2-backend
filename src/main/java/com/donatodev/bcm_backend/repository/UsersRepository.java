@@ -61,6 +61,16 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
     List<Users> findByOrganizationIdAndRoleRole(Long orgId, String roleName);
 
     /**
+     * Finds all users in an organization who are allowed to approve/reject
+     * contracts submitted for review (in addition to ADMINs, who can always
+     * approve/reject regardless of this flag).
+     *
+     * @param orgId the organization ID
+     * @return users with the approval permission enabled
+     */
+    List<Users> findByOrganizationIdAndCanApproveContractsTrue(Long orgId);
+
+    /**
      * Finds a user by ID, scoped to the given organization. Used to prevent
      * cross-tenant access to users by ID.
      *

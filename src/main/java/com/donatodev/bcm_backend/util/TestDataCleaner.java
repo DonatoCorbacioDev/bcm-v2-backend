@@ -6,6 +6,7 @@ import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractTemplateRepository;
+import com.donatodev.bcm_backend.repository.ContractWorkflowEventRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.repository.FinancialValuesRepository;
@@ -30,6 +31,7 @@ public class TestDataCleaner {
     private final VerificationTokenRepository verificationTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final ContractHistoryRepository contractHistoryRepository;
+    private final ContractWorkflowEventRepository contractWorkflowEventRepository;
     private final RiskFeedbackRepository riskFeedbackRepository;
     private final SepaPaymentBatchRepository sepaPaymentBatchRepository;
     private final TotpRecoveryCodeRepository totpRecoveryCodeRepository;
@@ -47,6 +49,7 @@ public class TestDataCleaner {
             VerificationTokenRepository verificationTokenRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
             ContractHistoryRepository contractHistoryRepository,
+            ContractWorkflowEventRepository contractWorkflowEventRepository,
             RiskFeedbackRepository riskFeedbackRepository,
             SepaPaymentBatchRepository sepaPaymentBatchRepository,
             TotpRecoveryCodeRepository totpRecoveryCodeRepository,
@@ -63,6 +66,7 @@ public class TestDataCleaner {
         this.verificationTokenRepository = verificationTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.contractHistoryRepository = contractHistoryRepository;
+        this.contractWorkflowEventRepository = contractWorkflowEventRepository;
         this.riskFeedbackRepository = riskFeedbackRepository;
         this.sepaPaymentBatchRepository = sepaPaymentBatchRepository;
         this.totpRecoveryCodeRepository = totpRecoveryCodeRepository;
@@ -88,6 +92,7 @@ public class TestDataCleaner {
         passwordResetTokenRepository.deleteAll();
         totpRecoveryCodeRepository.deleteAll(); // References users - delete before them
         contractHistoryRepository.deleteAll();
+        contractWorkflowEventRepository.deleteAll(); // References contracts and users - delete before them
         riskFeedbackRepository.deleteAll(); // References contracts - delete before them
         sepaPaymentBatchRepository.deleteAll(); // References contracts - delete before them
         financialValuesRepository.deleteAll();

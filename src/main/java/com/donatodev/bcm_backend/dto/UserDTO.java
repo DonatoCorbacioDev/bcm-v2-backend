@@ -18,6 +18,7 @@ import jakarta.validation.constraints.Size;
  * @param managerId the ID of the associated manager (nullable)
  * @param roleId the ID of the assigned role (not null)
  * @param verified whether the user has verified their email
+ * @param canApproveContracts whether the user can approve/reject contracts submitted for review
  */
 public record UserDTO(
         Long id,
@@ -31,7 +32,16 @@ public record UserDTO(
         @NotNull(message = "Role ID is required")
         Long roleId,
         Boolean verified,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        Boolean canApproveContracts
         ) {
 
+    /**
+     * Compatibility constructor for call sites predating the approval
+     * workflow permission — defaults {@code canApproveContracts} to false.
+     */
+    public UserDTO(Long id, String username, String password, Long managerId, Long roleId,
+            Boolean verified, LocalDateTime createdAt) {
+        this(id, username, password, managerId, roleId, verified, createdAt, false);
+    }
 }

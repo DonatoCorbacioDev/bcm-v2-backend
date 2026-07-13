@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -270,6 +271,103 @@ class AgentNotificationServiceTest {
                     .thenReturn(Optional.of(user));
 
             agentNotificationService.notifyAnomalyDetected(contract, "Anomaly");
+
+            verify(notificationService, never()).createForUser(anyLong(), anyLong(), anyString(), anyString(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("Unit Test: AgentNotificationService workflow notifications")
+    @SuppressWarnings("unused")
+    class VerifyWorkflowNotifications {
+
+        @Test
+        @DisplayName("Should skip submitted-for-review notification when contract has no organization")
+        void skipsSubmittedForReviewWhenNoOrganization() {
+            Contracts contract = Contracts.builder().id(1L).contractNumber("CNT-WF-001").build();
+
+            agentNotificationService.notifySubmittedForReview(contract);
+
+            verify(notificationService, never()).createForUser(anyLong(), anyLong(), anyString(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("Should notify each admin and approver once, de-duplicating a user who is both")
+        void notifiesAdminsAndApproversDeduped() {
+            Organization org = Organization.builder().id(10L).name("TestOrg").build();
+            Contracts contract = Contracts.builder()
+                    .id(1L).contractNumber("CNT-WF-002").customerName("Client B")
+                    .organization(org).build();
+
+            Users adminAndApprover = Users.builder().id(1L).username("admin1").build();
+            Users approverOnly = Users.builder().id(2L).username("approver1").build();
+            when(usersRepository.findByOrganizationIdAndRoleRole(10L, "ADMIN"))
+                    .thenReturn(java.util.List.of(adminAndApprover));
+            when(usersRepository.findByOrganizationIdAndCanApproveContractsTrue(10L))
+                    .thenReturn(java.util.List.of(adminAndApprover, approverOnly));
+
+            agentNotificationService.notifySubmittedForReview(contract);
+
+            verify(notificationService).createForUser(eq(1L), eq(10L), anyString(), anyString(), eq(NotificationType.INFO));
+            verify(notificationService).createForUser(eq(2L), eq(10L), anyString(), anyString(), eq(NotificationType.INFO));
+        }
+
+        @Test
+        @DisplayName("Should notify the contract's manager when approved")
+        void notifiesApproval() {
+            Organization org = Organization.builder().id(10L).name("TestOrg").build();
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setEmail("manager@test.com");
+            Contracts contract = Contracts.builder()
+                    .id(1L).contractNumber("CNT-WF-003").manager(manager).build();
+
+            Users user = Users.builder().id(5L).username("mgr").organization(org).build();
+            when(usersRepository.findByManagerEmailIgnoreCase("manager@test.com")).thenReturn(Optional.of(user));
+
+            agentNotificationService.notifyWorkflowApproved(contract);
+
+            verify(notificationService).createForUser(eq(5L), eq(10L), anyString(), anyString(), eq(NotificationType.INFO));
+        }
+
+        @Test
+        @DisplayName("Should skip approval notification when the contract has no manager")
+        void skipsApprovalWhenNoManager() {
+            Contracts contract = Contracts.builder().id(1L).contractNumber("CNT-WF-004").manager(null).build();
+
+            agentNotificationService.notifyWorkflowApproved(contract);
+
+            verify(notificationService, never()).createForUser(anyLong(), anyLong(), anyString(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("Should notify the contract's manager with the comment when rejected")
+        void notifiesRejectionWithComment() {
+            Organization org = Organization.builder().id(10L).name("TestOrg").build();
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setEmail("manager@test.com");
+            Contracts contract = Contracts.builder()
+                    .id(1L).contractNumber("CNT-WF-005").manager(manager).build();
+
+            Users user = Users.builder().id(5L).username("mgr").organization(org).build();
+            when(usersRepository.findByManagerEmailIgnoreCase("manager@test.com")).thenReturn(Optional.of(user));
+
+            agentNotificationService.notifyWorkflowRejected(contract, "Manca l'allegato");
+
+            verify(notificationService).createForUser(eq(5L), eq(10L), anyString(),
+                    contains("Manca l'allegato"), eq(NotificationType.WARNING));
+        }
+
+        @Test
+        @DisplayName("Should skip rejection notification when the manager has no email")
+        void skipsRejectionWhenManagerHasNoEmail() {
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setEmail(null);
+            Contracts contract = Contracts.builder().id(1L).contractNumber("CNT-WF-006").manager(manager).build();
+
+            agentNotificationService.notifyWorkflowRejected(contract, "no");
 
             verify(notificationService, never()).createForUser(anyLong(), anyLong(), anyString(), anyString(), any());
         }

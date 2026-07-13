@@ -105,4 +105,12 @@ public class Users {
     @Builder.Default
     @Column(name = "totp_enabled", nullable = false)
     private boolean totpEnabled = false;
+
+    /**
+     * Whether this user can approve or reject contracts submitted for
+     * review, in addition to ADMIN (who can always approve/reject).
+     */
+    @Builder.Default
+    @Column(name = "can_approve_contracts", nullable = false)
+    private boolean canApproveContracts = false;
 }

@@ -10,10 +10,12 @@ package com.donatodev.bcm_backend.dto;
  * @param username the username of the user
  * @param role     the role assigned to the user (e.g., ADMIN, MANAGER)
  * @param verified true if the user's email has been verified
+ * @param canApproveContracts whether the user can approve/reject contracts submitted for review
  */
 public record UserProfileDTO(
     Long id,
     String username,
     String role,
-    boolean verified
+    boolean verified,
+    boolean canApproveContracts
 ) {}

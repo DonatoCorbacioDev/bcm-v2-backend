@@ -3,6 +3,7 @@ package com.donatodev.bcm_backend.dto;
 import java.time.LocalDate;
 
 import com.donatodev.bcm_backend.entity.ContractStatus;
+import com.donatodev.bcm_backend.entity.WorkflowStage;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -26,6 +27,7 @@ import jakarta.validation.constraints.NotNull;
  * @param managerName the name of the assigned manager
  * @param manager the nested manager details (optional)
  * @param area the nested business area details (optional)
+ * @param workflowStage the approval workflow stage (null if the contract never entered the workflow)
  */
 public record ContractDTO(
         Long id,
@@ -41,7 +43,20 @@ public record ContractDTO(
         String managerName,
         ManagerDTO manager,
         BusinessAreaDTO area,
-        Integer daysUntilExpiry
+        Integer daysUntilExpiry,
+        WorkflowStage workflowStage
         ) {
 
+    /**
+     * Compatibility constructor for call sites predating the approval
+     * workflow — defaults {@code workflowStage} to {@code null} (contract
+     * not part of the workflow).
+     */
+    public ContractDTO(Long id, String customerName, String contractNumber, String wbsCode,
+            String projectName, ContractStatus status, LocalDate startDate, LocalDate endDate,
+            Long areaId, Long managerId, String managerName, ManagerDTO manager, BusinessAreaDTO area,
+            Integer daysUntilExpiry) {
+        this(id, customerName, contractNumber, wbsCode, projectName, status, startDate, endDate,
+                areaId, managerId, managerName, manager, area, daysUntilExpiry, null);
+    }
 }

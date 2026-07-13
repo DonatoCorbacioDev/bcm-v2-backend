@@ -115,4 +115,13 @@ public class Contracts {
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "organization_id")
     private Organization organization;
+
+    /**
+     * Approval workflow stage. Only meaningful while {@link #status} is
+     * {@link ContractStatus#DRAFT}; {@code null} for contracts created
+     * directly as ACTIVE/EXPIRED/CANCELLED, which never enter the workflow.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "workflow_stage")
+    private WorkflowStage workflowStage;
 }

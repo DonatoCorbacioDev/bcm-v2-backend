@@ -176,6 +176,8 @@ public class UserService {
 		user.setRole(rolesRepository.findById(dto.roleId())
 				.orElseThrow(() -> new IllegalArgumentException("Role ID not found")));
 
+		user.setCanApproveContracts(Boolean.TRUE.equals(dto.canApproveContracts()));
+
 		user = usersRepository.save(user);
 		return userMapper.toDTO(user);
 	}
@@ -237,7 +239,8 @@ public class UserService {
 				user.getId(),
 				user.getUsername(),
 				user.getRole().getRole(),
-				user.isVerified()
+				user.isVerified(),
+				user.isCanApproveContracts()
 		);
 	}
 
