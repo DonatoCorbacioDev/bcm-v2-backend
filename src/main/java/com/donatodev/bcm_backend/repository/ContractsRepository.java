@@ -35,6 +35,16 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
     List<Contracts> findByStatus(ContractStatus status);
 
     /**
+     * Checks whether a contract with the given contract number already
+     * exists. Used by bulk import to reject duplicate rows before hitting
+     * the database's unique constraint.
+     *
+     * @param contractNumber the contract number to check
+     * @return {@code true} if a contract with this number already exists
+     */
+    boolean existsByContractNumber(String contractNumber);
+
+    /**
      * Finds all contracts belonging to the given organization. Used to scope
      * ADMIN-wide contract listings to the authenticated tenant.
      *

@@ -1,10 +1,17 @@
 package com.donatodev.bcm_backend.controller;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.Month;
 
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import static org.hamcrest.Matchers.containsString;
 import org.junit.jupiter.api.BeforeEach;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
@@ -21,6 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import org.springframework.test.context.ActiveProfiles;
@@ -28,6 +36,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -1076,6 +1085,108 @@ class ContractControllerTest {
                     .with(csrf()))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.status").value(400));
+        }
+    }
+
+    /**
+     * Integration tests for the bulk import endpoints
+     * ({@code POST /contracts/import/excel} and {@code GET /contracts/import/template}).
+     */
+    @Nested
+    @DisplayName("API Verification on Contract Import")
+    @SuppressWarnings("unused")
+    class VerificationApiContractImport {
+
+        private byte[] buildImportWorkbook(String contractNumber, String areaName, String managerCell) throws Exception {
+            try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                Sheet sheet = workbook.createSheet("Contratti");
+                String[] header = {
+                    "Contract Number", "Customer", "Project", "Status",
+                    "Start Date", "End Date", "Manager", "Business Area"
+                };
+                Row headerRow = sheet.createRow(0);
+                for (int i = 0; i < header.length; i++) {
+                    headerRow.createCell(i).setCellValue(header[i]);
+                }
+                Row dataRow = sheet.createRow(1);
+                dataRow.createCell(0).setCellValue(contractNumber);
+                dataRow.createCell(1).setCellValue("Cliente Import");
+                dataRow.createCell(3).setCellValue("ACTIVE");
+                dataRow.createCell(4).setCellValue("01/01/2024");
+                dataRow.createCell(5).setCellValue("31/12/2024");
+                if (managerCell != null) {
+                    dataRow.createCell(6).setCellValue(managerCell);
+                }
+                dataRow.createCell(7).setCellValue(areaName);
+                workbook.write(out);
+                return out.toByteArray();
+            }
+        }
+
+        @Test
+        @DisplayName("Should import a valid contract from an uploaded Excel file")
+        @WithMockUser(roles = "ADMIN")
+        void shouldImportContractsFromExcel() throws Exception {
+            businessAreasRepository.save(BusinessAreas.builder().name("Import-Area").description("d").build());
+
+            byte[] bytes = buildImportWorkbook("CNTR-IMPORT-1", "Import-Area", null);
+            MockMultipartFile file = new MockMultipartFile("file", "import.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes);
+
+            mockMvc.perform(multipart("/contracts/import/excel").file(file).with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalRows").value(1))
+                    .andExpect(jsonPath("$.importedCount").value(1))
+                    .andExpect(jsonPath("$.errorCount").value(0));
+
+            assertTrue(contractsRepository.existsByContractNumber("CNTR-IMPORT-1"));
+        }
+
+        @Test
+        @DisplayName("Should report a row error for an unknown business area")
+        @WithMockUser(roles = "ADMIN")
+        void shouldReportRowErrorForUnknownArea() throws Exception {
+            byte[] bytes = buildImportWorkbook("CNTR-IMPORT-2", "Nonexistent-Area", null);
+            MockMultipartFile file = new MockMultipartFile("file", "import.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes);
+
+            mockMvc.perform(multipart("/contracts/import/excel").file(file).with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.importedCount").value(0))
+                    .andExpect(jsonPath("$.errorCount").value(1))
+                    .andExpect(jsonPath("$.errors[0].rowNumber").value(2));
+        }
+
+        @Test
+        @DisplayName("Should return 403 when a manager tries to import contracts")
+        @WithMockUser(username = "manager-import", roles = "MANAGER")
+        void shouldReturn403WhenManagerImports() throws Exception {
+            createUser("manager-import", "MANAGER", null);
+            byte[] bytes = buildImportWorkbook("CNTR-IMPORT-3", "Any-Area", null);
+            MockMultipartFile file = new MockMultipartFile("file", "import.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes);
+
+            mockMvc.perform(multipart("/contracts/import/excel").file(file).with(csrf()))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("Should download the import template as a valid .xlsx file")
+        @WithMockUser(roles = "ADMIN")
+        void shouldDownloadImportTemplate() throws Exception {
+            mockMvc.perform(get("/contracts/import/template"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Content-Disposition",
+                            containsString("contract_import_template.xlsx")));
+        }
+
+        @Test
+        @DisplayName("Should return 403 when a manager tries to download the import template")
+        @WithMockUser(username = "manager-template", roles = "MANAGER")
+        void shouldReturn403WhenManagerDownloadsTemplate() throws Exception {
+            createUser("manager-template", "MANAGER", null);
+            mockMvc.perform(get("/contracts/import/template"))
+                    .andExpect(status().isForbidden());
         }
     }
 }

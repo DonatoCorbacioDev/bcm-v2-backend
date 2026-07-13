@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -17,6 +18,16 @@ public interface ManagersRepository extends JpaRepository<Managers, Long> {
     boolean existsByEmail(String email);
 
     Page<Managers> findByOrganizationId(Long organizationId, Pageable pageable);
+
+    /**
+     * Finds all managers belonging to the given organization, unpaged. Used
+     * by bulk contract import to resolve manager names against the full
+     * roster of an organization in one query.
+     *
+     * @param organizationId the organization ID
+     * @return all managers belonging to the organization
+     */
+    List<Managers> findAllByOrganizationId(Long organizationId);
 
     /**
      * Finds a manager by ID, scoped to the given organization. Used to

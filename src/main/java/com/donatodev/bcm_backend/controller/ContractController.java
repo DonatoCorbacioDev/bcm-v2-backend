@@ -24,15 +24,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.donatodev.bcm_backend.dto.AssignManagerRequest;
 import com.donatodev.bcm_backend.dto.CollaboratorsRequest;
 import com.donatodev.bcm_backend.dto.ContractDTO;
+import com.donatodev.bcm_backend.dto.ContractImportResultDTO;
 import com.donatodev.bcm_backend.dto.ContractStatsResponse;
 import com.donatodev.bcm_backend.dto.ContractsByAreaDTO;
 import com.donatodev.bcm_backend.dto.ContractsTimelineDTO;
 import com.donatodev.bcm_backend.dto.TopManagerDTO;
 import com.donatodev.bcm_backend.entity.ContractStatus;
+import com.donatodev.bcm_backend.service.ContractImportService;
 import com.donatodev.bcm_backend.service.ContractSchedulerService;
 import com.donatodev.bcm_backend.service.ContractService;
 import com.donatodev.bcm_backend.service.ExportService;
@@ -54,14 +57,17 @@ public class ContractController {
     private final ContractService contractService;
     private final ExportService exportService;
     private final ContractSchedulerService contractSchedulerService;
+    private final ContractImportService contractImportService;
 
     public ContractController(
             ContractService contractService,
             ExportService exportService,
-            ContractSchedulerService contractSchedulerService) {
+            ContractSchedulerService contractSchedulerService,
+            ContractImportService contractImportService) {
         this.contractService = contractService;
         this.exportService = exportService;
         this.contractSchedulerService = contractSchedulerService;
+        this.contractImportService = contractImportService;
     }
 
     /**
@@ -314,5 +320,41 @@ public class ContractController {
         logger.info("Manual trigger of contract expiration check requested");
         contractSchedulerService.expireOverdueContracts();
         return ResponseEntity.ok("Contract expiration check completed successfully");
+    }
+
+    /**
+     * Bulk-imports contracts from an uploaded .xlsx file. Each row is
+     * validated and saved independently; a per-row report of successes and
+     * errors is returned.
+     *
+     * @param file the uploaded spreadsheet
+     * @return HTTP 200 with a {@link ContractImportResultDTO} report
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping(value = "/import/excel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ContractImportResultDTO> importContractsFromExcel(
+            @RequestParam("file") MultipartFile file) throws IOException {
+        ContractImportResultDTO result = contractImportService.importFromExcel(file);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Downloads a blank .xlsx template with the expected column layout for
+     * bulk contract import.
+     *
+     * @return Excel template file as byte array
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/import/template")
+    public ResponseEntity<byte[]> downloadImportTemplate() throws IOException {
+        byte[] data = contractImportService.generateTemplate();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", "contract_import_template.xlsx");
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(data);
     }
 }
