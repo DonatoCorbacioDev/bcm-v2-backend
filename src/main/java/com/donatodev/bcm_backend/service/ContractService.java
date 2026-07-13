@@ -26,6 +26,7 @@ import com.donatodev.bcm_backend.dto.ContractStatsResponse;
 import com.donatodev.bcm_backend.dto.ContractsByAreaDTO;
 import com.donatodev.bcm_backend.dto.ContractsTimelineDTO;
 import com.donatodev.bcm_backend.dto.TopManagerDTO;
+import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
@@ -33,10 +34,12 @@ import com.donatodev.bcm_backend.entity.WorkflowStage;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Users;
+import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.mapper.ContractMapper;
+import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
@@ -64,6 +67,7 @@ public class ContractService {
     private final ManagerService managerService;
     private final ContractManagerRepository contractManagerRepository;
     private final ContractHistoryRepository contractHistoryRepository;
+    private final BusinessAreasRepository businessAreasRepository;
 
     public ContractService(
             ContractsRepository contractsRepository,
@@ -71,7 +75,8 @@ public class ContractService {
             UsersRepository usersRepository,
             ManagerService managerService,
             ContractManagerRepository contractManagerRepository,
-            ContractHistoryRepository contractHistoryRepository
+            ContractHistoryRepository contractHistoryRepository,
+            BusinessAreasRepository businessAreasRepository
     ) {
         this.contractsRepository = contractsRepository;
         this.contractMapper = contractMapper;
@@ -79,6 +84,7 @@ public class ContractService {
         this.managerService = managerService;
         this.contractManagerRepository = contractManagerRepository;
         this.contractHistoryRepository = contractHistoryRepository;
+        this.businessAreasRepository = businessAreasRepository;
     }
 
     /**
@@ -195,6 +201,26 @@ public class ContractService {
         contract.setStatus(contractDTO.status());
         contract.setStartDate(contractDTO.startDate());
         contract.setEndDate(contractDTO.endDate());
+
+        if (contractDTO.areaId() != null) {
+            BusinessAreas area = businessAreasRepository.findById(contractDTO.areaId())
+                    .orElseThrow(() -> new BusinessAreaNotFoundException("Business area not found: " + contractDTO.areaId()));
+            contract.setBusinessArea(area);
+        }
+        contract.setManager(contractDTO.managerId() != null
+                ? managerService.getManagerEntity(contractDTO.managerId())
+                : null);
+
+        // Derive workflow stage the same way contract creation does: entering
+        // DRAFT for the first time starts the workflow; leaving DRAFT for any
+        // other status means the approval workflow no longer applies.
+        if (contractDTO.status() == ContractStatus.DRAFT) {
+            if (previousStatus != ContractStatus.DRAFT) {
+                contract.setWorkflowStage(WorkflowStage.DRAFT);
+            }
+        } else {
+            contract.setWorkflowStage(null);
+        }
 
         contract = contractsRepository.save(contract);
 

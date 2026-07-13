@@ -46,15 +46,18 @@ import com.donatodev.bcm_backend.dto.ContractStatsResponse;
 import com.donatodev.bcm_backend.dto.ContractsByAreaDTO;
 import com.donatodev.bcm_backend.dto.ContractsTimelineDTO;
 import com.donatodev.bcm_backend.dto.TopManagerDTO;
+import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
+import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.mapper.ContractMapper;
+import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
@@ -94,6 +97,9 @@ class ContractServiceTest {
 
     @Mock
     private ContractHistoryRepository contractHistoryRepository;
+
+    @Mock
+    private BusinessAreasRepository businessAreasRepository;
 
     @InjectMocks
     private ContractService contractService;
@@ -332,6 +338,7 @@ class ContractServiceTest {
             when(contractsRepository.save(existing)).thenReturn(existing);
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(adminUser));
             when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
+            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
 
             ContractDTO result = contractService.updateContract(1L, updateDTO);
 
@@ -368,6 +375,211 @@ class ContractServiceTest {
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
 
             assertThrows(IllegalArgumentException.class, () -> contractService.updateContract(1L, updateDTO));
+            verify(contractsRepository, never()).save(any());
+        }
+
+        /**
+         * Tests that editing a non-DRAFT contract into DRAFT starts the
+         * approval workflow, mirroring what happens on creation.
+         */
+        @Test
+        @Order(101)
+        @DisplayName("Update contract sets workflowStage=DRAFT when status changes to DRAFT")
+        void shouldStartWorkflowWhenEditedIntoDraft() {
+            mockAuthentication("admin", "ADMIN");
+            Roles adminRole = Roles.builder().role("ADMIN").build();
+            Users adminUser = Users.builder().id(100L).username("admin").role(adminRole).build();
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(adminUser));
+
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .customerName("Client")
+                    .contractNumber("CNTR-EDIT-DRAFT")
+                    .status(ContractStatus.ACTIVE)
+                    .workflowStage(null)
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
+                    .build();
+
+            ContractDTO updateDTO = new ContractDTO(1L, "Client", "CNTR-EDIT-DRAFT", null, null,
+                    ContractStatus.DRAFT, LocalDate.of(2027, Month.JUNE, 15),
+                    LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.save(existing)).thenReturn(existing);
+            when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
+            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
+
+            contractService.updateContract(1L, updateDTO);
+
+            assertEquals(com.donatodev.bcm_backend.entity.WorkflowStage.DRAFT, existing.getWorkflowStage());
+        }
+
+        /**
+         * Tests that editing a DRAFT contract into a non-DRAFT status clears
+         * the workflow stage, since it no longer applies.
+         */
+        @Test
+        @Order(102)
+        @DisplayName("Update contract clears workflowStage when status changes away from DRAFT")
+        void shouldClearWorkflowStageWhenEditedAwayFromDraft() {
+            mockAuthentication("admin", "ADMIN");
+            Roles adminRole = Roles.builder().role("ADMIN").build();
+            Users adminUser = Users.builder().id(100L).username("admin").role(adminRole).build();
+            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(adminUser));
+
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .customerName("Client")
+                    .contractNumber("CNTR-EDIT-ACTIVE")
+                    .status(ContractStatus.DRAFT)
+                    .workflowStage(com.donatodev.bcm_backend.entity.WorkflowStage.DRAFT)
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
+                    .build();
+
+            ContractDTO updateDTO = new ContractDTO(1L, "Client", "CNTR-EDIT-ACTIVE", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
+                    LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.save(existing)).thenReturn(existing);
+            when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
+            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
+
+            contractService.updateContract(1L, updateDTO);
+
+            assertEquals(null, existing.getWorkflowStage());
+        }
+
+        /**
+         * Tests that editing other fields of a DRAFT contract without
+         * changing its status leaves the workflow stage untouched.
+         */
+        @Test
+        @Order(103)
+        @DisplayName("Update contract leaves workflowStage untouched when status stays DRAFT")
+        void shouldLeaveWorkflowStageWhenStatusUnchangedDraft() {
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .customerName("Client")
+                    .contractNumber("CNTR-STILL-DRAFT")
+                    .status(ContractStatus.DRAFT)
+                    .workflowStage(com.donatodev.bcm_backend.entity.WorkflowStage.DRAFT)
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
+                    .build();
+
+            ContractDTO updateDTO = new ContractDTO(1L, "Client Renamed", "CNTR-STILL-DRAFT", null, null,
+                    ContractStatus.DRAFT, LocalDate.of(2027, Month.JUNE, 15),
+                    LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.save(existing)).thenReturn(existing);
+            when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
+            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
+
+            contractService.updateContract(1L, updateDTO);
+
+            assertEquals(com.donatodev.bcm_backend.entity.WorkflowStage.DRAFT, existing.getWorkflowStage());
+        }
+
+        /**
+         * Tests that updating a contract actually applies the new manager and
+         * business area — previously the update path silently ignored both.
+         */
+        @Test
+        @Order(104)
+        @DisplayName("Update contract applies the new manager and business area")
+        void shouldUpdateManagerAndBusinessAreaOnEdit() {
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .customerName("Client")
+                    .contractNumber("CNTR-MGR-AREA")
+                    .status(ContractStatus.ACTIVE)
+                    .manager(null)
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
+                    .build();
+
+            ContractDTO updateDTO = new ContractDTO(1L, "Client", "CNTR-MGR-AREA", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
+                    LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 2L, 5L, null, null, null, null);
+
+            Managers newManager = Managers.builder().id(5L).firstName("Mario").lastName("Rossi").build();
+            BusinessAreas newArea = BusinessAreas.builder().id(2L).name("Sales").build();
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.save(existing)).thenReturn(existing);
+            when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
+            when(businessAreasRepository.findById(2L)).thenReturn(Optional.of(newArea));
+            when(managerService.getManagerEntity(5L)).thenReturn(newManager);
+
+            contractService.updateContract(1L, updateDTO);
+
+            assertEquals(newManager, existing.getManager());
+            assertEquals(newArea, existing.getBusinessArea());
+        }
+
+        /**
+         * Tests that clearing the manager (managerId=null) on update actually
+         * unassigns it, rather than leaving the previous manager in place.
+         */
+        @Test
+        @Order(105)
+        @DisplayName("Update contract clears the manager when managerId is null")
+        void shouldClearManagerWhenManagerIdIsNullOnEdit() {
+            Managers oldManager = Managers.builder().id(9L).firstName("Old").lastName("Manager").build();
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .customerName("Client")
+                    .contractNumber("CNTR-CLEAR-MGR")
+                    .status(ContractStatus.ACTIVE)
+                    .manager(oldManager)
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
+                    .build();
+
+            ContractDTO updateDTO = new ContractDTO(1L, "Client", "CNTR-CLEAR-MGR", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
+                    LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, null, null, null, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.save(existing)).thenReturn(existing);
+            when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
+            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
+
+            contractService.updateContract(1L, updateDTO);
+
+            assertEquals(null, existing.getManager());
+            verify(managerService, never()).getManagerEntity(any());
+        }
+
+        /**
+         * Tests that updating a contract with a non-existent business area ID
+         * throws rather than silently keeping the old area.
+         */
+        @Test
+        @Order(106)
+        @DisplayName("Update contract throws when the business area does not exist")
+        void shouldThrowWhenUpdateReferencesUnknownBusinessArea() {
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .customerName("Client")
+                    .contractNumber("CNTR-BAD-AREA")
+                    .status(ContractStatus.ACTIVE)
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
+                    .build();
+
+            ContractDTO updateDTO = new ContractDTO(1L, "Client", "CNTR-BAD-AREA", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
+                    LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 999L, null, null, null, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(businessAreasRepository.findById(999L)).thenReturn(Optional.empty());
+
+            assertThrows(BusinessAreaNotFoundException.class, () -> contractService.updateContract(1L, updateDTO));
             verify(contractsRepository, never()).save(any());
         }
 
@@ -1307,6 +1519,7 @@ class ContractServiceTest {
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
             when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
+            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
 
             ContractDTO result = contractService.updateContract(1L, updateDTO);
 
@@ -1343,6 +1556,7 @@ class ContractServiceTest {
 
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
+            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
 
             // Should throw UserNotFoundException when trying to create history
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
