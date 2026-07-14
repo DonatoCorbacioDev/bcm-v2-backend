@@ -19,6 +19,9 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
+# Tesseract OCR engine, used as a fallback for scanned PDFs with no text layer
+RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-ita
+
 # Create non-root user for security
 RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring

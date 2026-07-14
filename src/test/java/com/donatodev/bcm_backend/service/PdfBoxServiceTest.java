@@ -1,5 +1,8 @@
 package com.donatodev.bcm_backend.service;
 
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
@@ -8,7 +11,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
@@ -16,19 +25,25 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 
 import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 
 @ExtendWith(MockitoExtension.class)
 class PdfBoxServiceTest {
 
-    private final PdfBoxService pdfBoxService = new PdfBoxService();
+    @Mock
+    private OcrService ocrService;
+
+    private PdfBoxService pdfBoxService;
 
     private static byte[] pdfWithFields;
     private static byte[] pdfNoFields;
@@ -38,6 +53,13 @@ class PdfBoxServiceTest {
     private static byte[] pdfKeywordLastLine;
     private static byte[] pdfKeywordNoColon;
     private static byte[] pdfKeywordEmptyColon;
+    private static byte[] scannedSinglePagePdf;
+    private static byte[] scannedTwelvePagePdf;
+
+    @BeforeEach
+    void setUp() {
+        pdfBoxService = new PdfBoxService(ocrService);
+    }
 
     @BeforeAll
     static void createTestPdfs() throws IOException {
@@ -64,6 +86,9 @@ class PdfBoxServiceTest {
         pdfKeywordNoColon = buildPdf("customer without colon here");
 
         pdfKeywordEmptyColon = buildPdf("customer:");
+
+        scannedSinglePagePdf = buildImageOnlyPdf(1);
+        scannedTwelvePagePdf = buildImageOnlyPdf(12);
     }
 
     private static byte[] buildPdf(String... lines) throws IOException {
@@ -81,6 +106,29 @@ class PdfBoxServiceTest {
                     cs.newLine();
                 }
                 cs.endText();
+            }
+            doc.save(out);
+            return out.toByteArray();
+        }
+    }
+
+    /** Builds a PDF with pages containing only a rasterized image, no text operators — simulates a scanned document. */
+    private static byte[] buildImageOnlyPdf(int pageCount) throws IOException {
+        BufferedImage image = new BufferedImage(200, 60, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = image.createGraphics();
+        g.setColor(Color.WHITE);
+        g.fillRect(0, 0, image.getWidth(), image.getHeight());
+        g.dispose();
+
+        try (PDDocument doc = new PDDocument();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            PDImageXObject pdImage = LosslessFactory.createFromImage(doc, image);
+            for (int i = 0; i < pageCount; i++) {
+                PDPage page = new PDPage();
+                doc.addPage(page);
+                try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
+                    cs.drawImage(pdImage, 50, 500, 200, 60);
+                }
             }
             doc.save(out);
             return out.toByteArray();
@@ -191,6 +239,49 @@ class PdfBoxServiceTest {
 
             assertNotNull(result.detectedAmount());
             assertTrue(result.detectedAmount().startsWith("€"));
+        }
+
+        @Test
+        @Order(11)
+        @DisplayName("extractRawText: does not invoke OCR when the PDF already has a text layer")
+        void shouldNotInvokeOcrWhenTextLayerSufficient() {
+            pdfBoxService.extractRawText(pdfWithFields);
+
+            verify(ocrService, never()).extractText(any());
+        }
+
+        @Test
+        @Order(12)
+        @DisplayName("extractRawText: falls back to OCR when the PDF has no text layer")
+        void shouldFallBackToOcrWhenTextLayerEmpty() {
+            when(ocrService.extractText(any())).thenReturn("Cliente: OCR Corp");
+
+            String result = pdfBoxService.extractRawText(scannedSinglePagePdf);
+
+            assertEquals("Cliente: OCR Corp", result);
+            verify(ocrService, times(1)).extractText(any());
+        }
+
+        @Test
+        @Order(13)
+        @DisplayName("analyzeDocument: extracts fields from OCR text when the PDF is scanned")
+        void shouldExtractFieldsFromOcrText() {
+            when(ocrService.extractText(any())).thenReturn("Cliente: Scansione Corp");
+
+            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(9L, scannedSinglePagePdf);
+
+            assertEquals("Scansione Corp", result.detectedCustomerName());
+        }
+
+        @Test
+        @Order(14)
+        @DisplayName("extractRawText: caps OCR to at most 10 pages on large scanned documents")
+        void shouldCapOcrToMaxPages() {
+            when(ocrService.extractText(any())).thenReturn("page text");
+
+            pdfBoxService.extractRawText(scannedTwelvePagePdf);
+
+            verify(ocrService, times(10)).extractText(any());
         }
     }
 }

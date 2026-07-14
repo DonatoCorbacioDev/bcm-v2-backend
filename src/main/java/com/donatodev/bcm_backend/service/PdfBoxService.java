@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Locale;
@@ -7,6 +8,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +21,19 @@ public class PdfBoxService {
     // no backtracking ambiguity. extractAmount() filters out matches with no currency symbol.
     private static final Pattern AMOUNT_PATTERN =
             Pattern.compile("[€$]?[\\d.,]++[€$]?", Pattern.CASE_INSENSITIVE);
+
+    // Below this length, PDFTextStripper output is treated as "no text layer"
+    // (a scanned/photographed page) rather than a genuinely short document.
+    private static final int MIN_TEXT_LENGTH = 20;
+    // Caps OCR cost on large scanned documents — Tesseract runs seconds per page.
+    private static final int MAX_OCR_PAGES = 10;
+    private static final float OCR_RENDER_DPI = 200f;
+
+    private final OcrService ocrService;
+
+    public PdfBoxService(OcrService ocrService) {
+        this.ocrService = ocrService;
+    }
 
     public DocumentAnalysisDTO analyzeDocument(Long documentId, byte[] pdfBytes) {
         String rawText = extractRawText(pdfBytes);
@@ -35,10 +50,25 @@ public class PdfBoxService {
 
     public String extractRawText(byte[] pdfBytes) {
         try (PDDocument doc = PDDocument.load(pdfBytes)) {
-            return new PDFTextStripper().getText(doc);
+            String text = new PDFTextStripper().getText(doc);
+            if (text.trim().length() >= MIN_TEXT_LENGTH) {
+                return text;
+            }
+            return extractTextViaOcr(doc);
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to extract text from PDF", e);
         }
+    }
+
+    private String extractTextViaOcr(PDDocument doc) throws IOException {
+        PDFRenderer renderer = new PDFRenderer(doc);
+        int pageCount = Math.min(doc.getNumberOfPages(), MAX_OCR_PAGES);
+        StringBuilder text = new StringBuilder();
+        for (int page = 0; page < pageCount; page++) {
+            BufferedImage image = renderer.renderImageWithDPI(page, OCR_RENDER_DPI);
+            text.append(ocrService.extractText(image)).append('\n');
+        }
+        return text.toString().trim();
     }
 
     String extractField(String text, String... keywords) {
