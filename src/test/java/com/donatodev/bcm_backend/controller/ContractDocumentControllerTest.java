@@ -280,6 +280,47 @@ class ContractDocumentControllerTest {
     }
 
     @Nested
+    @DisplayName("POST /contracts/{id}/documents/{docId}/analyze-clause-risk")
+    @org.junit.jupiter.api.TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @SuppressWarnings("unused")
+    class AnalyzeClauseRisk {
+
+        @Test
+        @Order(1)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Returns the ML clause risk analysis JSON")
+        void shouldAnalyzeClauseRiskSuccessfully() throws Exception {
+            org.springframework.http.ResponseEntity<String> mlResponse =
+                    org.springframework.http.ResponseEntity.ok("{\"clauses\":[]}");
+            when(contractDocumentService.analyzeClauseRisk(anyLong(), anyLong())).thenReturn(mlResponse);
+
+            mockMvc.perform(post("/contracts/" + contractId + "/documents/1/analyze-clause-risk"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().json("{\"clauses\":[]}"));
+        }
+
+        @Test
+        @Order(2)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Returns 404 when document not found")
+        void shouldReturn404WhenDocumentNotFound() throws Exception {
+            when(contractDocumentService.analyzeClauseRisk(anyLong(), anyLong()))
+                    .thenThrow(new ContractNotFoundException("Document ID 999 not found"));
+
+            mockMvc.perform(post("/contracts/" + contractId + "/documents/999/analyze-clause-risk"))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("Unauthenticated request returns 401")
+        void shouldReturn401WhenNotAuthenticated() throws Exception {
+            mockMvc.perform(post("/contracts/" + contractId + "/documents/1/analyze-clause-risk"))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Nested
     @DisplayName("DELETE /contracts/{id}/documents/{docId}")
     @org.junit.jupiter.api.TestMethodOrder(MethodOrderer.OrderAnnotation.class)
     @SuppressWarnings("unused")

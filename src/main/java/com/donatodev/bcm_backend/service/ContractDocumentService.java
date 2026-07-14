@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,15 +31,18 @@ public class ContractDocumentService {
     private final ContractAccessGuard contractAccessGuard;
     private final LocalStorageService localStorageService;
     private final PdfBoxService pdfBoxService;
+    private final MlProxyService mlProxyService;
 
     public ContractDocumentService(ContractDocumentRepository documentRepository,
                                    ContractAccessGuard contractAccessGuard,
                                    LocalStorageService localStorageService,
-                                   PdfBoxService pdfBoxService) {
+                                   PdfBoxService pdfBoxService,
+                                   MlProxyService mlProxyService) {
         this.documentRepository = documentRepository;
         this.contractAccessGuard = contractAccessGuard;
         this.localStorageService = localStorageService;
         this.pdfBoxService = pdfBoxService;
+        this.mlProxyService = mlProxyService;
     }
 
     @Transactional
@@ -83,6 +87,18 @@ public class ContractDocumentService {
 
         byte[] bytes = localStorageService.readDocument(doc.getStoragePath());
         return pdfBoxService.analyzeDocument(doc.getId(), bytes);
+    }
+
+    public ResponseEntity<String> analyzeClauseRisk(Long contractId, Long documentId) {
+        Contracts contract = contractAccessGuard.getContractInScope(contractId);
+        contractAccessGuard.checkManagerCanAccess(contract);
+        ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
+                .orElseThrow(() -> new ContractNotFoundException(
+                        String.format(DOC_NOT_FOUND, documentId, contractId)));
+
+        byte[] bytes = localStorageService.readDocument(doc.getStoragePath());
+        String rawText = pdfBoxService.extractRawText(bytes);
+        return mlProxyService.analyzeClauseRisk(rawText);
     }
 
     @Transactional(readOnly = true)

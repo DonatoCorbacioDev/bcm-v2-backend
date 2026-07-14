@@ -26,6 +26,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -45,6 +47,7 @@ class ContractDocumentServiceTest {
     @Mock private ContractAccessGuard contractAccessGuard;
     @Mock private LocalStorageService localStorageService;
     @Mock private PdfBoxService pdfBoxService;
+    @Mock private MlProxyService mlProxyService;
 
     @InjectMocks
     private ContractDocumentService contractDocumentService;
@@ -434,6 +437,41 @@ class ContractDocumentServiceTest {
             assertEquals(1, result.size());
             verify(contractAccessGuard).getContractInScope(CONTRACT_ID);
             verify(contractAccessGuard).checkManagerCanAccess(contract);
+        }
+
+        // ---- analyzeClauseRisk ----
+
+        @Test
+        @Order(26)
+        @DisplayName("analyzeClauseRisk: extracts raw text and delegates to MlProxyService")
+        void shouldAnalyzeClauseRisk() {
+            Contracts contract = fakeContract();
+            ContractDocument doc = fakeDoc(contract);
+            ResponseEntity<String> mlResponse = ResponseEntity.ok("{\"clauses\":[]}");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(doc));
+            when(localStorageService.readDocument(doc.getStoragePath())).thenReturn(VALID_PDF);
+            when(pdfBoxService.extractRawText(VALID_PDF)).thenReturn("raw contract text");
+            when(mlProxyService.analyzeClauseRisk("raw contract text")).thenReturn(mlResponse);
+
+            ResponseEntity<String> result = contractDocumentService.analyzeClauseRisk(CONTRACT_ID, DOC_ID);
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+            assertEquals("{\"clauses\":[]}", result.getBody());
+        }
+
+        @Test
+        @Order(27)
+        @DisplayName("analyzeClauseRisk: throws ContractNotFoundException when document missing")
+        void shouldThrowWhenDocumentNotFoundOnAnalyzeClauseRisk() {
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID))
+                    .thenReturn(Optional.empty());
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> contractDocumentService.analyzeClauseRisk(CONTRACT_ID, DOC_ID));
         }
     }
 }

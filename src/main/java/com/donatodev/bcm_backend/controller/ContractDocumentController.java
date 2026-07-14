@@ -69,6 +69,14 @@ public class ContractDocumentController {
         return ResponseEntity.ok(documentService.extractText(contractId, documentId));
     }
 
+    @PostMapping("/{documentId}/analyze-clause-risk")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public ResponseEntity<String> analyzeClauseRisk(
+            @PathVariable Long contractId,
+            @PathVariable Long documentId) {
+        return documentService.analyzeClauseRisk(contractId, documentId);
+    }
+
     @DeleteMapping("/{documentId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteDocument(

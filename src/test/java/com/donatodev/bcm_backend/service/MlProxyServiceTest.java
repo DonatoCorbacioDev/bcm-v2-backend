@@ -251,6 +251,63 @@ class MlProxyServiceTest {
 
     @Nested
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @DisplayName("analyzeClauseRisk()")
+    @SuppressWarnings("unused")
+    class AnalyzeClauseRisk {
+
+        @Test
+        @Order(1)
+        @DisplayName("Posts text to /clause-risk-analysis and returns the response body")
+        void shouldPostTextAndReturnResponse() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            when(restTemplate.exchange(eq(FASTAPI_URL + "/clause-risk-analysis"), eq(HttpMethod.POST),
+                    any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"clauses\":[]}"));
+
+            ResponseEntity<String> result = mlProxyService.analyzeClauseRisk("some contract text");
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+            assertEquals("{\"clauses\":[]}", result.getBody());
+            verify(restTemplate).exchange(eq(FASTAPI_URL + "/clause-risk-analysis"), eq(HttpMethod.POST),
+                    org.mockito.ArgumentMatchers.argThat((HttpEntity<?> e) ->
+                            "some contract text".equals(((java.util.Map<?, ?>) e.getBody()).get("text"))),
+                    eq(String.class));
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("Adds X-Internal-Api-Key header when configured")
+        void shouldAddInternalApiKeyHeader() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            ReflectionTestUtils.setField(mlProxyService, "internalApiKey", "secret");
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"clauses\":[]}"));
+
+            mlProxyService.analyzeClauseRisk("some text");
+
+            verify(restTemplate).exchange(
+                    anyString(), eq(HttpMethod.POST),
+                    org.mockito.ArgumentMatchers.argThat((HttpEntity<?> e) ->
+                            "secret".equals(e.getHeaders().getFirst("X-Internal-Api-Key"))),
+                    eq(String.class));
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("Returns 503 when the ML service is unreachable")
+        void shouldReturn503WhenMlUnreachable() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                    .thenThrow(new ResourceAccessException("Connection refused"));
+
+            ResponseEntity<String> result = mlProxyService.analyzeClauseRisk("some text");
+
+            assertEquals(HttpStatus.SERVICE_UNAVAILABLE, result.getStatusCode());
+        }
+    }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
     @DisplayName("Error handling and headers")
     @SuppressWarnings("unused")
     class ErrorHandling {

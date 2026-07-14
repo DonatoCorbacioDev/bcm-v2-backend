@@ -21,12 +21,7 @@ public class PdfBoxService {
             Pattern.compile("[€$]?[\\d.,]++[€$]?", Pattern.CASE_INSENSITIVE);
 
     public DocumentAnalysisDTO analyzeDocument(Long documentId, byte[] pdfBytes) {
-        String rawText;
-        try (PDDocument doc = PDDocument.load(pdfBytes)) {
-            rawText = new PDFTextStripper().getText(doc);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to extract text from PDF", e);
-        }
+        String rawText = extractRawText(pdfBytes);
 
         return new DocumentAnalysisDTO(
                 documentId,
@@ -36,6 +31,14 @@ public class PdfBoxService {
                 extractField(rawText, "start date", "data inizio", "data di inizio", "from"),
                 extractField(rawText, "end date", "data fine", "data di fine", "scadenza", "to"),
                 extractAmount(rawText));
+    }
+
+    public String extractRawText(byte[] pdfBytes) {
+        try (PDDocument doc = PDDocument.load(pdfBytes)) {
+            return new PDFTextStripper().getText(doc);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to extract text from PDF", e);
+        }
     }
 
     String extractField(String text, String... keywords) {
