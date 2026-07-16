@@ -15,6 +15,7 @@ public class MlCacheRefresher {
 
     private static final Logger logger = LoggerFactory.getLogger(MlCacheRefresher.class);
     private static final int[] FORECAST_HORIZONS = {3, 6};
+    private static final String CRLF_REGEX = "[\r\n]";
 
     private final OrganizationRepository organizationRepository;
     private final MlProxyService mlProxyService;
@@ -56,8 +57,13 @@ public class MlCacheRefresher {
             }
             return true;
         } catch (Exception e) {
-            logger.warn("ML cache refresh failed for org {}: {}", orgId, e.getMessage());
+            logger.warn("ML cache refresh failed for org {}: {}", orgId, safeMessage(e));
             return false;
         }
+    }
+
+    private static String safeMessage(Exception e) {
+        String message = e.getMessage();
+        return message == null ? null : message.replaceAll(CRLF_REGEX, "_");
     }
 }

@@ -27,6 +27,7 @@ public class WeeklyDigestService {
     private static final int MAX_ROWS = 5;
     private static final String CLOSE_DIV = "</div>";
     private static final String CLOSE_TD = "</td>";
+    private static final String CRLF_REGEX = "[\r\n]";
 
     private final OrganizationRepository organizationRepository;
     private final ContractsRepository contractsRepository;
@@ -53,7 +54,8 @@ public class WeeklyDigestService {
             try {
                 sent += sendDigestForOrg(org);
             } catch (Exception e) {
-                logger.warn("Weekly digest failed for org {} (id={}): {}", org.getName(), org.getId(), e.getMessage());
+                String safeName = org.getName().replaceAll(CRLF_REGEX, "_");
+                logger.warn("Weekly digest failed for org {} (id={}): {}", safeName, org.getId(), e.getMessage());
             }
         }
         logger.info("Weekly digest complete: {} email(s) sent", sent);

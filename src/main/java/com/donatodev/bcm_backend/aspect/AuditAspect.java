@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.aspect;
 
 import java.lang.reflect.Method;
+import java.util.Locale;
 
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -18,6 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @Slf4j
 public class AuditAspect {
+
+    private static final String CRLF_REGEX = "[\r\n]";
 
     private final AuditLogService auditLogService;
 
@@ -44,17 +47,22 @@ public class AuditAspect {
 
             auditLogService.save(action, entityType, entityId, username, orgId, details);
         } catch (Exception e) {
-            log.warn("Failed to persist audit log entry: {}", e.getMessage());
+            log.warn("Failed to persist audit log entry: {}", safeMessage(e));
         }
 
         return result;
+    }
+
+    private static String safeMessage(Exception e) {
+        String message = e.getMessage();
+        return message == null ? null : message.replaceAll(CRLF_REGEX, "_");
     }
 
     private String inferAction(String methodName) {
         if (methodName.startsWith("create")) return "CREATE";
         if (methodName.startsWith("update")) return "UPDATE";
         if (methodName.startsWith("delete")) return "DELETE";
-        return methodName.toUpperCase();
+        return methodName.toUpperCase(Locale.ROOT);
     }
 
     private String inferEntityType(String className) {
@@ -67,14 +75,14 @@ public class AuditAspect {
                 Method idMethod = result.getClass().getMethod("id");
                 Object value = idMethod.invoke(result);
                 if (value instanceof Number n) return n.longValue();
-            } catch (Exception e) {
+            } catch (ReflectiveOperationException e) {
                 // DTO does not expose id() — try getId() below
             }
             try {
                 Method getIdMethod = result.getClass().getMethod("getId");
                 Object value = getIdMethod.invoke(result);
                 if (value instanceof Number n) return n.longValue();
-            } catch (Exception e) {
+            } catch (ReflectiveOperationException e) {
                 // entity does not expose getId() — id will be null in audit log
             }
         }

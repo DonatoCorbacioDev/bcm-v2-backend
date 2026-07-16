@@ -16,10 +16,26 @@ public class LocalStorageService {
     @Value("${storage.upload-dir:uploads}")
     private String uploadDir;
 
+    // Every caller in this class builds relativePath itself from numeric IDs
+    // and a UUID (never from raw user input), but resolveWithinRoot() still
+    // rejects anything that would escape uploadDir (e.g. "../"), so the
+    // guarantee holds even if that ever changes.
+    private Path resolveWithinRoot(String relativePath) {
+        Path root = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path target = root.resolve(relativePath).normalize();
+        if (!target.startsWith(root)) {
+            throw new SecurityException("Storage path escapes upload root: " + relativePath);
+        }
+        return target;
+    }
+
     private String store(String relativePath, byte[] content) {
-        Path target = Paths.get(uploadDir).resolve(relativePath);
+        Path target = resolveWithinRoot(relativePath);
+        Path parent = target.getParent();
         try {
-            Files.createDirectories(target.getParent());
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
             Files.write(target, content);
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to store document", e);
@@ -53,7 +69,7 @@ public class LocalStorageService {
 
     public byte[] readDocument(String storagePath) {
         try {
-            return Files.readAllBytes(Paths.get(uploadDir).resolve(storagePath));
+            return Files.readAllBytes(resolveWithinRoot(storagePath));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to read document", e);
         }
@@ -61,7 +77,7 @@ public class LocalStorageService {
 
     public void deleteDocument(String storagePath) {
         try {
-            Files.deleteIfExists(Paths.get(uploadDir).resolve(storagePath));
+            Files.deleteIfExists(resolveWithinRoot(storagePath));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to delete document", e);
         }

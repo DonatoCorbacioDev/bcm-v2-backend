@@ -27,6 +27,7 @@ public class OcrService {
 
     private static final Logger log = LoggerFactory.getLogger(OcrService.class);
     private static final long TIMEOUT_SECONDS = 30;
+    private static final String CRLF_REGEX = "[\r\n]";
 
     // Field initializers double as defaults for plain `new OcrService()`
     // construction (tests) — @Value only overwrites them when Spring manages
@@ -52,7 +53,7 @@ public class OcrService {
             ImageIO.write(image, "png", tempImage);
             return runTesseract(tempImage);
         } catch (IOException e) {
-            log.warn("OCR failed: {}", e.getMessage());
+            log.warn("OCR failed: {}", safeMessage(e));
             return "";
         } finally {
             if (!tempImage.delete()) {
@@ -90,5 +91,10 @@ public class OcrService {
         }
 
         return output.trim();
+    }
+
+    private static String safeMessage(Exception e) {
+        String message = e.getMessage();
+        return message == null ? null : message.replaceAll(CRLF_REGEX, "_");
     }
 }

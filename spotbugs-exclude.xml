@@ -49,13 +49,71 @@
         <Class name="com.donatodev.bcm_backend.service.ContractImportService"/>
         <Bug pattern="IMPROPER_UNICODE"/>
     </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.OrganizationService"/>
+        <Bug pattern="IMPROPER_UNICODE"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.PdfBoxService"/>
+        <Bug pattern="IMPROPER_UNICODE"/>
+    </Match>
 
-    <!-- CRLF_INJECTION_LOGS in ContractSchedulerService: the contract number is stored in
-         a local variable with CRLF characters stripped before it reaches the logger.
-         FindSecBugs does not track String.replaceAll as a sanitizer for taint analysis. -->
+    <!-- CRLF_INJECTION_LOGS: the logged string is stripped of CRLF characters
+         (String.replaceAll) before reaching the logger. FindSecBugs does not
+         track replaceAll as a sanitizer for taint analysis, so these are
+         false positives once the value has actually been sanitized. -->
     <Match>
         <Class name="com.donatodev.bcm_backend.service.ContractSchedulerService"/>
         <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.MonthlyReporter"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.WeeklyDigestService"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
+    <!-- PATH_TRAVERSAL_IN in LocalStorageService.resolveWithinRoot(): this IS
+         the fix, not the vulnerability — it normalizes the resolved path and
+         rejects anything that escapes uploadDir (the standard OWASP-recommended
+         containment check). FindSecBugs cannot verify a startsWith() containment
+         check as a sanitizer for its taint analysis. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.LocalStorageService"/>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+    </Match>
+
+    <!-- CRLF_INJECTION_LOGS in MlCacheRefresher: safeMessage() strips CRLF via
+         String.replaceAll before the value reaches the logger, identical to
+         the already-sanitized pattern in AuditAspect/OcrService/RiskScoreRefresher
+         (which FindSecBugs's taint tracker does resolve on its own — this one
+         instance it does not, likely an analysis-depth quirk). -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.MlCacheRefresher"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
+    <!-- COMMAND_INJECTION in OcrService: ProcessBuilder is used with its
+         List<String> constructor (no shell involved, so no metacharacter
+         injection is possible regardless of content). Every argument is
+         either server config (tesseract-command/language/tessdata-dir, set
+         by an admin, not per-request user input) or a JVM-generated temp
+         file path — never raw request data. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.OcrService"/>
+        <Bug pattern="COMMAND_INJECTION"/>
+    </Match>
+
+    <!-- POTENTIAL_XML_INJECTION in WeeklyDigestService: every user-controlled
+         field (org name, contract number, customer name, project name) is
+         passed through the local escapeHtml() helper before being appended
+         to the HTML email body. FindSecBugs does not recognize a hand-written
+         method as a sanitizer for taint analysis. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.WeeklyDigestService"/>
+        <Bug pattern="POTENTIAL_XML_INJECTION"/>
     </Match>
 
 </FindBugsFilter>

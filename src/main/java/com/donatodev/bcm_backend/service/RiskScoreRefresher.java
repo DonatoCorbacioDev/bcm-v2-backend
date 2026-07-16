@@ -13,6 +13,7 @@ import com.donatodev.bcm_backend.repository.ContractsRepository;
 public class RiskScoreRefresher {
 
     private static final Logger logger = LoggerFactory.getLogger(RiskScoreRefresher.class);
+    private static final String CRLF_REGEX = "[\r\n]";
 
     @Value("${ml.fastapi.url:http://localhost:8000}")
     private String fastApiUrl;
@@ -47,7 +48,7 @@ public class RiskScoreRefresher {
 
             logger.info("Risk score refresh completed. {} high-risk notifications created.", notified);
         } catch (Exception e) {
-            logger.warn("FastAPI risk score service unavailable, skipping refresh: {}", e.getMessage());
+            logger.warn("FastAPI risk score service unavailable, skipping refresh: {}", safeMessage(e));
         }
     }
 
@@ -57,9 +58,14 @@ public class RiskScoreRefresher {
                     agentNotificationService.notifyHighRisk(contract, entry.riskScore()));
             return true;
         } catch (Exception e) {
-            logger.error("Failed to process risk score for contract {}: {}", entry.contractId(), e.getMessage());
+            logger.error("Failed to process risk score for contract {}: {}", entry.contractId(), safeMessage(e));
             return false;
         }
+    }
+
+    private static String safeMessage(Exception e) {
+        String message = e.getMessage();
+        return message == null ? null : message.replaceAll(CRLF_REGEX, "_");
     }
 
     record RiskScoreEntry(Long contractId, double riskScore) {}
