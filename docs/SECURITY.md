@@ -1,8 +1,12 @@
 # Security overview
 
 This document summarizes the current threat model and the concrete steps required before
-running BCM in production. It reflects the state of the codebase as audited on 2026-06-25,
+running BCM in production. It reflects the state of the codebase as audited on 2026-07-16,
 not aspirational claims — update it whenever a control changes.
+
+For personal-data-specific obligations (GDPR: data categories, sub-processors,
+retention, data-subject rights), see `docs/GDPR.md` — this document covers
+the technical security controls that back article 32.
 
 ## Threat model (synthesis)
 
@@ -15,6 +19,7 @@ not aspirational claims — update it whenever a control changes.
 | ML proxy (`MlProxyService` → FastAPI) | Unauthenticated access to the ML service | Shared `X-Internal-Api-Key` header, enforced by the backend on every proxied call | The ML service itself disables this check when its own `INTERNAL_API_KEY` is empty — must be set whenever the ML service is reachable outside the backend's trusted network (see bcm-v2-ml) |
 | Uploaded documents | Malicious file upload / path traversal | 10MB max size, magic-byte PDF validation (not just `Content-Type`), storage path built from UUID + orgId/contractId (original filename never used in the path) | None known |
 | Database | Default/weak credentials | Migrations do not embed real production secrets; `V4__create_admin_user.sql` seeds a default admin account, neutralized by `V14__neutralize_default_admin.sql` | The default admin's BCrypt hash is visible in migration history; rotate/disable it explicitly on every new deployment (see checklist) |
+| Frontend (bcm-v2-frontend) | XSS / clickjacking / data exfiltration via injected scripts | Content-Security-Policy with a per-request nonce issued in `middleware.ts` (`script-src 'self' 'nonce-…' 'strict-dynamic'`, no `unsafe-inline`), plus `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` | `style-src` still allows `'unsafe-inline'` (Radix UI injects inline styles for positioning) — lower severity than script injection but not zero |
 
 ## Production security checklist
 
@@ -30,7 +35,8 @@ Before exposing this backend outside a trusted/internal network:
 - [ ] Set up automated database backups and verify restore procedure.
 - [ ] Configure log aggregation and alerting on `actuator/health` (and `metrics`/`info`, the only other exposed actuator endpoints).
 - [ ] Add secret scanning to CI (gitleaks, already wired in `.github/workflows/ci.yml`) and document the rotation procedure if a secret is ever flagged: revoke immediately, issue a new one, redeploy, and confirm the old value no longer authenticates.
-- [ ] Run `mvn spotbugs:check` and review the FindSecBugs report as part of the release process.
+- [x] Run `mvn spotbugs:check` and review the FindSecBugs report as part of the release process — clean as of 2026-07-16 (0 findings; fixed path traversal containment in `LocalStorageService`, CRLF log sanitization in five schedulers/aspects, narrowed an overly-broad reflection catch in `AuditAspect`; remaining findings in `spotbugs-exclude.xml` are documented false positives, re-verify on every dependency/SpotBugs upgrade since analyzer behavior can shift).
+- [x] Frontend security headers (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) — implemented 2026-07-16 via `middleware.ts`. Verified against a real build: a naive static CSP without a nonce broke React hydration entirely, so this needs re-testing (not just re-deploying) if the CSP is ever touched again.
 
 ## Known limitations (won't fix without explicit need)
 
