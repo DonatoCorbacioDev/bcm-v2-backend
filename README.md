@@ -22,6 +22,8 @@ BCM v2.0 is the second iteration of my Business Contract Manager system, represe
 
 > This repository is published as a portfolio/demonstration project for code review and learning purposes. The author retains all commercial rights, including the possibility of a future SaaS launch — see [LICENSE](./LICENSE).
 
+This is the API for the [bcm-v2-frontend](https://github.com/DonatoCorbacioDev/bcm-v2-frontend) dashboard — see that repo's [Screenshots](https://github.com/DonatoCorbacioDev/bcm-v2-frontend#-screenshots) section for what the UI looks like.
+
 ---
 
 ## ✨ Key Features
@@ -770,7 +772,11 @@ Special thanks to the developers of all libraries and tools used in this project
 
 ## 🔗 Related Projects
 
-- **BCM Frontend v2.0** (In Development): React + Next.js frontend
+BCM v2.0 is split across 4 repositories:
+
+- **[bcm-v2-frontend](https://github.com/DonatoCorbacioDev/bcm-v2-frontend)** — Next.js/TypeScript dashboard
+- **[bcm-v2-ml](https://github.com/DonatoCorbacioDev/bcm-v2-ml)** — FastAPI service for risk scoring, forecasting, anomaly detection and LLM-based clause analysis
+- **[bcm-v2-docker](https://github.com/DonatoCorbacioDev/bcm-v2-docker)** — Docker Compose setup to run the full stack with one command
 - **BCM v1.0** (Thesis Project): Angular-based original version
 
 ---
