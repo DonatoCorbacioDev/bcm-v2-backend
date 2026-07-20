@@ -431,6 +431,15 @@ FRONTEND_BASE_URL=http://localhost:3000
 
 **Note:** For Gmail, use an [App Password](https://support.google.com/accounts/answer/185833), not your regular password.
 
+### Ollama setup (for semantic document search)
+
+Unlike the other AI features (proxied through [bcm-v2-ml](https://github.com/DonatoCorbacioDev/bcm-v2-ml)), this backend calls Ollama directly via Spring AI to embed contract documents for search:
+
+```bash
+ollama pull nomic-embed-text
+ollama serve
+```
+
 ### 4. Build and Run
 
 ```bash

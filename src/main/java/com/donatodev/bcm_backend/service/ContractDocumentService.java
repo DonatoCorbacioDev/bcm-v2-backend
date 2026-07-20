@@ -32,17 +32,20 @@ public class ContractDocumentService {
     private final LocalStorageService localStorageService;
     private final PdfBoxService pdfBoxService;
     private final MlProxyService mlProxyService;
+    private final SemanticSearchService semanticSearchService;
 
     public ContractDocumentService(ContractDocumentRepository documentRepository,
                                    ContractAccessGuard contractAccessGuard,
                                    LocalStorageService localStorageService,
                                    PdfBoxService pdfBoxService,
-                                   MlProxyService mlProxyService) {
+                                   MlProxyService mlProxyService,
+                                   SemanticSearchService semanticSearchService) {
         this.documentRepository = documentRepository;
         this.contractAccessGuard = contractAccessGuard;
         this.localStorageService = localStorageService;
         this.pdfBoxService = pdfBoxService;
         this.mlProxyService = mlProxyService;
+        this.semanticSearchService = semanticSearchService;
     }
 
     @Transactional
@@ -86,7 +89,9 @@ public class ContractDocumentService {
                         String.format(DOC_NOT_FOUND, documentId, contractId)));
 
         byte[] bytes = localStorageService.readDocument(doc.getStoragePath());
-        return pdfBoxService.analyzeDocument(doc.getId(), bytes);
+        DocumentAnalysisDTO analysis = pdfBoxService.analyzeDocument(doc.getId(), bytes);
+        semanticSearchService.generateAndStoreEmbedding(doc, analysis.rawText());
+        return analysis;
     }
 
     public ResponseEntity<String> analyzeClauseRisk(Long contractId, Long documentId) {

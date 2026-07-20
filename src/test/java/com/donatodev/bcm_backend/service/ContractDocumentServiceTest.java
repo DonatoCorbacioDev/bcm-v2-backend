@@ -48,6 +48,7 @@ class ContractDocumentServiceTest {
     @Mock private LocalStorageService localStorageService;
     @Mock private PdfBoxService pdfBoxService;
     @Mock private MlProxyService mlProxyService;
+    @Mock private SemanticSearchService semanticSearchService;
 
     @InjectMocks
     private ContractDocumentService contractDocumentService;

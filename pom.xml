@@ -54,6 +54,9 @@
         <mapstruct.version>1.6.2</mapstruct.version>
         <poi.version>5.2.5</poi.version>
         <openpdf.version>3.0.5</openpdf.version>
+        <!-- 1.1.x is the last line compatible with Spring Boot 3.x — Spring AI
+             2.0 requires Spring Boot 4. -->
+        <spring-ai.version>1.1.8</spring-ai.version>
 		
         <!-- Plugin Versions -->
         <jacoco.version>0.8.13</jacoco.version>
@@ -83,6 +86,13 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-compress</artifactId>
                 <version>1.27.1</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -211,6 +221,12 @@
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
             <version>2.0.31</version>
+        </dependency>
+
+        <!-- Spring AI: Ollama embedding model for semantic document search -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-ollama</artifactId>
         </dependency>
 
         <!-- AOP Support -->

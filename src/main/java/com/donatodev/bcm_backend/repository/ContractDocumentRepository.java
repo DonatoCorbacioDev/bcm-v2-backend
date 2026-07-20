@@ -14,4 +14,6 @@ public interface ContractDocumentRepository extends JpaRepository<ContractDocume
     List<ContractDocument> findByContractIdOrderByUploadedAtDesc(Long contractId);
 
     Optional<ContractDocument> findByIdAndContractId(Long id, Long contractId);
+
+    List<ContractDocument> findByOrgIdAndEmbeddingIsNotNull(Long orgId);
 }
