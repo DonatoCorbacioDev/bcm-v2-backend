@@ -3,9 +3,12 @@ package com.donatodev.bcm_backend.service;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.ZoneId;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -419,28 +422,37 @@ public class ContractService {
     }
 
     /**
-     * Get contracts timeline (created per month for last 6 months). Converts
-     * native query results (Object[]) to DTOs.
+     * Get contracts timeline (contracts started, by start_date, per month for
+     * the last 12 calendar months). Always returns exactly 12 chronologically
+     * ordered entries, zero-filled for months with no contracts started, so
+     * that bulk imports (many contracts sharing one created_at but spread
+     * across start_date) don't collapse into a single data point.
      *
-     * @return list of months with contract counts
+     * @return chronologically ordered list of 12 months with contract counts
      */
     public List<ContractsTimelineDTO> getContractsTimeline() {
-        LocalDateTime sixMonthsAgo = LocalDateTime.now(ZoneId.systemDefault()).minusMonths(6);
+        YearMonth currentMonth = YearMonth.now(ZoneId.systemDefault());
+        YearMonth startMonth = currentMonth.minusMonths(11);
+        LocalDate windowStart = startMonth.atDay(1);
+
         Long orgId = TenantContext.get();
         List<Object[]> results = (orgId != null)
-                ? contractsRepository.countContractsByMonthAndOrg(sixMonthsAgo, orgId)
-                : contractsRepository.countContractsByMonth(sixMonthsAgo);
+                ? contractsRepository.countContractsByMonthAndOrg(windowStart, orgId)
+                : contractsRepository.countContractsByMonth(windowStart);
 
-        return results.stream()
-                .map(row -> {
-                    int year = ((Number) row[0]).intValue();
-                    int month = ((Number) row[1]).intValue();
-                    long count = ((Number) row[2]).longValue();
+        Map<YearMonth, Long> countsByMonth = new LinkedHashMap<>();
+        for (int i = 0; i < 12; i++) {
+            countsByMonth.put(startMonth.plusMonths(i), 0L);
+        }
+        for (Object[] row : results) {
+            int year = ((Number) row[0]).intValue();
+            int month = ((Number) row[1]).intValue();
+            long count = ((Number) row[2]).longValue();
+            countsByMonth.computeIfPresent(YearMonth.of(year, month), (ym, existing) -> count);
+        }
 
-                    // Format as YYYY-MM
-                    String monthStr = String.format("%04d-%02d", year, month);
-                    return new ContractsTimelineDTO(monthStr, count);
-                })
+        return countsByMonth.entrySet().stream()
+                .map(entry -> new ContractsTimelineDTO(entry.getKey().toString(), entry.getValue()))
                 .toList();
     }
 

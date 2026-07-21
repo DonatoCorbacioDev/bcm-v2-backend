@@ -3,6 +3,8 @@ package com.donatodev.bcm_backend.service;
 import java.time.LocalDate;
 import java.time.Month;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -1635,31 +1637,39 @@ class ContractServiceTest {
 
         @Test
         @Order(46)
-        @DisplayName("Should get contracts timeline")
+        @DisplayName("Should get contracts timeline (started per month, last 12 months, zero-filled)")
         void shouldGetContractsTimeline() {
-            LocalDateTime sixMonthsAgo = LocalDateTime.of(2026, Month.DECEMBER, 15, 12, 0);
+            YearMonth currentMonth = YearMonth.now(ZoneId.systemDefault());
+            YearMonth oldestMonth = currentMonth.minusMonths(11);
+            YearMonth sixMonthsAgo = currentMonth.minusMonths(6);
+            YearMonth threeMonthsAgo = currentMonth.minusMonths(3);
 
             List<Object[]> mockResults = List.of(
-                    new Object[]{2025, 8, 5L},
-                    new Object[]{2025, 9, 3L},
-                    new Object[]{2025, 10, 7L}
+                    new Object[]{sixMonthsAgo.getYear(), sixMonthsAgo.getMonthValue(), 5L},
+                    new Object[]{threeMonthsAgo.getYear(), threeMonthsAgo.getMonthValue(), 3L},
+                    new Object[]{currentMonth.getYear(), currentMonth.getMonthValue(), 7L}
             );
 
-            when(contractsRepository.countContractsByMonth(any(LocalDateTime.class)))
+            when(contractsRepository.countContractsByMonth(any(LocalDate.class)))
                     .thenReturn(mockResults);
 
             List<ContractsTimelineDTO> result = contractService.getContractsTimeline();
 
             assertNotNull(result);
-            assertEquals(3, result.size());
-            assertEquals("2025-08", result.get(0).getMonth());
-            assertEquals(5L, result.get(0).getCount());
-            assertEquals("2025-09", result.get(1).getMonth());
-            assertEquals(3L, result.get(1).getCount());
-            assertEquals("2025-10", result.get(2).getMonth());
-            assertEquals(7L, result.get(2).getCount());
+            assertEquals(12, result.size());
+            // Chronological order: oldest month first, current month last
+            assertEquals(oldestMonth.toString(), result.get(0).getMonth());
+            assertEquals(currentMonth.toString(), result.get(11).getMonth());
+            // Zero-filled months with no contracts started
+            assertEquals(0L, result.get(0).getCount());
+            // Real counts land on the correct chronological index
+            assertEquals(5L, result.get(5).getCount());
+            assertEquals(sixMonthsAgo.toString(), result.get(5).getMonth());
+            assertEquals(3L, result.get(8).getCount());
+            assertEquals(threeMonthsAgo.toString(), result.get(8).getMonth());
+            assertEquals(7L, result.get(11).getCount());
 
-            verify(contractsRepository, times(1)).countContractsByMonth(any(LocalDateTime.class));
+            verify(contractsRepository, times(1)).countContractsByMonth(any(LocalDate.class));
         }
 
         @Test
@@ -1711,18 +1721,19 @@ class ContractServiceTest {
 
         @Test
         @Order(49)
-        @DisplayName("Should return empty list when no contracts timeline data")
+        @DisplayName("Should zero-fill all 12 months when no contracts were started in the window")
         void shouldReturnEmptyListWhenNoTimelineData() {
 
-            when(contractsRepository.countContractsByMonth(any(LocalDateTime.class)))
+            when(contractsRepository.countContractsByMonth(any(LocalDate.class)))
                     .thenReturn(List.of());
 
             List<ContractsTimelineDTO> result = contractService.getContractsTimeline();
 
             assertNotNull(result);
-            assertTrue(result.isEmpty());
+            assertEquals(12, result.size());
+            assertTrue(result.stream().allMatch(dto -> dto.getCount() == 0L));
 
-            verify(contractsRepository, times(1)).countContractsByMonth(any(LocalDateTime.class));
+            verify(contractsRepository, times(1)).countContractsByMonth(any(LocalDate.class));
         }
 
         @Test
@@ -1833,14 +1844,17 @@ class ContractServiceTest {
         void shouldGetContractsTimelineWithOrgFilter() {
             TenantContext.set(4L);
             try {
+                YearMonth currentMonth = YearMonth.now(ZoneId.systemDefault());
                 java.util.ArrayList<Object[]> rows = new java.util.ArrayList<>();
-                rows.add(new Object[]{2025, 6, 3L});
-                when(contractsRepository.countContractsByMonthAndOrg(any(LocalDateTime.class), eq(4L)))
+                rows.add(new Object[]{currentMonth.getYear(), currentMonth.getMonthValue(), 3L});
+                when(contractsRepository.countContractsByMonthAndOrg(any(LocalDate.class), eq(4L)))
                         .thenReturn(rows);
 
                 List<ContractsTimelineDTO> result = contractService.getContractsTimeline();
 
                 assertNotNull(result);
+                assertEquals(12, result.size());
+                assertEquals(3L, result.get(11).getCount());
             } finally {
                 TenantContext.clear();
             }

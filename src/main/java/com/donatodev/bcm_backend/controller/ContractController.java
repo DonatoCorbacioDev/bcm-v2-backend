@@ -285,9 +285,9 @@ public class ContractController {
     }
 
     /**
-     * Get contracts timeline (created per month).
+     * Get contracts timeline (started per month, last 12 months, zero-filled).
      *
-     * @return list of months with contract counts
+     * @return chronologically ordered list of 12 months with contract counts
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/stats/timeline")

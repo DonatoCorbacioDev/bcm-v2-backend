@@ -264,37 +264,38 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
     List<ContractsByAreaDTO> countContractsByAreaAndOrg(@Param("orgId") Long orgId);
 
     /**
-     * Count contracts created per month for the last 6 months. Uses HQL with
-     * EXTRACT functions for cross-database compatibility.
+     * Count contracts started (by start_date) per month from a given window
+     * start onward. Uses HQL with EXTRACT functions for cross-database
+     * compatibility. The caller zero-fills months with no matches.
      *
-     * @param sixMonthsAgo the date 6 months ago
+     * @param windowStart the first day of the earliest month to include
      * @return list of Object arrays containing [year, month, count]
      */
     @Query("""
     SELECT
-        EXTRACT(YEAR FROM c.createdAt),
-        EXTRACT(MONTH FROM c.createdAt),
+        EXTRACT(YEAR FROM c.startDate),
+        EXTRACT(MONTH FROM c.startDate),
         COUNT(c)
     FROM Contracts c
-    WHERE c.createdAt >= :sixMonthsAgo
-    GROUP BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
-    ORDER BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
+    WHERE c.startDate >= :windowStart
+    GROUP BY EXTRACT(YEAR FROM c.startDate), EXTRACT(MONTH FROM c.startDate)
+    ORDER BY EXTRACT(YEAR FROM c.startDate), EXTRACT(MONTH FROM c.startDate)
 """)
-    List<Object[]> countContractsByMonth(@Param("sixMonthsAgo") LocalDateTime sixMonthsAgo);
+    List<Object[]> countContractsByMonth(@Param("windowStart") LocalDate windowStart);
 
     @Query("""
     SELECT
-        EXTRACT(YEAR FROM c.createdAt),
-        EXTRACT(MONTH FROM c.createdAt),
+        EXTRACT(YEAR FROM c.startDate),
+        EXTRACT(MONTH FROM c.startDate),
         COUNT(c)
     FROM Contracts c
-    WHERE c.createdAt >= :sixMonthsAgo
+    WHERE c.startDate >= :windowStart
       AND c.organization.id = :orgId
-    GROUP BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
-    ORDER BY EXTRACT(YEAR FROM c.createdAt), EXTRACT(MONTH FROM c.createdAt)
+    GROUP BY EXTRACT(YEAR FROM c.startDate), EXTRACT(MONTH FROM c.startDate)
+    ORDER BY EXTRACT(YEAR FROM c.startDate), EXTRACT(MONTH FROM c.startDate)
 """)
     List<Object[]> countContractsByMonthAndOrg(
-            @Param("sixMonthsAgo") LocalDateTime sixMonthsAgo,
+            @Param("windowStart") LocalDate windowStart,
             @Param("orgId") Long orgId);
 
     /**
