@@ -1,7 +1,11 @@
 package com.donatodev.bcm_backend.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -127,6 +131,57 @@ class MlCacheServiceTest {
         void skipsWhenJsonNull() {
             mlCacheService.put(ORG, KEY, null);
             verifyNoInteractions(repository);
+        }
+    }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @DisplayName("evictAllForOrg()")
+    @SuppressWarnings("unused")
+    class EvictAllForOrg {
+
+        @Test
+        @Order(9)
+        @DisplayName("Deletes every cache key of the given organization in one call")
+        void deletesAllKeysForOrg() {
+            // deleteByOrgId is a bulk derived-delete: one call removes every
+            // cache_key row for that org_id (FORECAST_3, FORECAST_6, ANOMALIES, ...)
+            // without the service enumerating them individually.
+            doNothing().when(repository).deleteByOrgId(ORG);
+
+            mlCacheService.evictAllForOrg(ORG);
+
+            verify(repository, times(1)).deleteByOrgId(ORG);
+        }
+
+        @Test
+        @Order(10)
+        @DisplayName("Only targets the requested organization, not any other")
+        void doesNotTouchOtherOrganizations() {
+            Long otherOrg = 999L;
+            doNothing().when(repository).deleteByOrgId(ORG);
+
+            mlCacheService.evictAllForOrg(ORG);
+
+            verify(repository, times(1)).deleteByOrgId(eq(ORG));
+            verify(repository, org.mockito.Mockito.never()).deleteByOrgId(eq(otherOrg));
+        }
+
+        @Test
+        @Order(11)
+        @DisplayName("Does nothing and never queries the repository when orgId is null")
+        void doesNothingWhenOrgIdNull() {
+            mlCacheService.evictAllForOrg(null);
+            verifyNoInteractions(repository);
+        }
+
+        @Test
+        @Order(12)
+        @DisplayName("Does not throw when the organization has no cached rows")
+        void doesNotThrowWhenNoRowsExist() {
+            doNothing().when(repository).deleteByOrgId(ORG);
+
+            assertThatCode(() -> mlCacheService.evictAllForOrg(ORG)).doesNotThrowAnyException();
         }
     }
 }

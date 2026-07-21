@@ -22,8 +22,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -69,6 +74,9 @@ class FinancialValueServiceTest {
 
     @Mock
     private FinancialValueMapper mapper;
+
+    @Mock
+    private MlCacheService mlCacheService;
 
     @InjectMocks
     private FinancialValueService service;
@@ -878,6 +886,195 @@ class FinancialValueServiceTest {
             } finally {
                 com.donatodev.bcm_backend.config.TenantContext.clear();
             }
+        }
+
+        /*
+         * ML cache invalidation (evictAllForOrg). None of createValue/updateValue/
+         * deleteValue are @Transactional today, so each repository.save()/delete()
+         * call is already its own committed transaction by the time it returns —
+         * calling evictAllForOrg() right after is safe and equivalent to an
+         * after-commit hook. (MlCacheService.evictAllForOrg itself carries
+         * @Transactional, since the derived deleteByOrgId query needs an active
+         * EntityManager transaction that no caller here provides — verified by
+         * a real jakarta.persistence.TransactionRequiredException in end-to-end
+         * testing before that annotation was added. This is internal to
+         * MlCacheService and does not affect the transactionality of the three
+         * methods below.) IMPORTANT: if these methods are ever made
+         * @Transactional (e.g. to batch several writes atomically), the eviction
+         * call must move to a post-commit hook (e.g.
+         * TransactionSynchronizationManager.registerSynchronization(afterCommit))
+         * instead of running inline, otherwise a rollback would leave the cache
+         * wrongly invalidated for data that was never actually persisted.
+         */
+
+        @Test
+        @Order(31)
+        @DisplayName("createValue evicts the ML cache for the correct organization exactly once after save succeeds")
+        void shouldEvictCacheOnCreateValue() {
+            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValues entity = FinancialValues.builder().build();
+            FinancialValues saved = FinancialValues.builder().id(1L).build();
+            FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+
+            com.donatodev.bcm_backend.config.TenantContext.set(36L);
+            try {
+                when(mapper.toEntity(dto)).thenReturn(entity);
+                when(valuesRepository.save(entity)).thenReturn(saved);
+                when(mapper.toDTO(saved)).thenReturn(savedDTO);
+
+                service.createValue(dto);
+
+                verify(mlCacheService, times(1)).evictAllForOrg(36L);
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(32)
+        @DisplayName("updateValue evicts the ML cache for the correct organization exactly once after save succeeds")
+        void shouldEvictCacheOnUpdateValue() {
+            UserDetails userDetails = org.springframework.security.core.userdetails.User
+                    .withUsername("admin")
+                    .password(TEST_PASSWORD)
+                    .roles("ADMIN")
+                    .build();
+
+            FinancialValues entity = FinancialValues.builder()
+                    .id(1L)
+                    .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
+                    .build();
+            FinancialValues saved = FinancialValues.builder().id(1L).build();
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 3, 2025, 750.0, 2L, 2L, 2L, "Sales", "Area2", "Contract2");
+            FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 3, 2025, 750.0, 2L, 2L, 2L, "Sales", "Area2", "Contract2");
+            Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
+
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
+            );
+            com.donatodev.bcm_backend.config.TenantContext.set(36L);
+            try {
+                when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+                when(valuesRepository.findByIdAndOrganizationId(1L, 36L)).thenReturn(Optional.of(entity));
+                when(valuesRepository.save(entity)).thenReturn(saved);
+                when(mapper.toDTO(saved)).thenReturn(savedDTO);
+
+                service.updateValue(1L, dto);
+
+                verify(mlCacheService, times(1)).evictAllForOrg(36L);
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(33)
+        @DisplayName("deleteValue evicts the ML cache for the correct organization exactly once after delete succeeds")
+        void shouldEvictCacheOnDeleteValue() {
+            UserDetails userDetails = org.springframework.security.core.userdetails.User
+                    .withUsername("admin")
+                    .password(TEST_PASSWORD)
+                    .roles("ADMIN")
+                    .build();
+
+            FinancialValues entity = FinancialValues.builder()
+                    .id(1L)
+                    .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
+                    .build();
+            Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
+
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
+            );
+            com.donatodev.bcm_backend.config.TenantContext.set(36L);
+            try {
+                when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+                when(valuesRepository.findByIdAndOrganizationId(1L, 36L)).thenReturn(Optional.of(entity));
+
+                service.deleteValue(1L);
+
+                verify(mlCacheService, times(1)).evictAllForOrg(36L);
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(34)
+        @DisplayName("createValue does NOT evict the ML cache when the repository save fails")
+        void shouldNotEvictCacheWhenCreateSaveFails() {
+            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValues entity = FinancialValues.builder().build();
+
+            when(mapper.toEntity(dto)).thenReturn(entity);
+            when(valuesRepository.save(entity)).thenThrow(new RuntimeException("db unavailable"));
+
+            assertThrows(RuntimeException.class, () -> service.createValue(dto));
+
+            verify(mlCacheService, never()).evictAllForOrg(anyLong());
+        }
+
+        @Test
+        @Order(35)
+        @DisplayName("deleteValue does NOT evict the ML cache when the repository delete fails")
+        void shouldNotEvictCacheWhenDeleteFails() {
+            FinancialValues entity = FinancialValues.builder()
+                    .id(1L)
+                    .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
+                    .build();
+
+            when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            doThrow(new RuntimeException("db unavailable")).when(valuesRepository).delete(entity);
+
+            assertThrows(RuntimeException.class, () -> service.deleteValue(1L));
+
+            verify(mlCacheService, never()).evictAllForOrg(anyLong());
+        }
+
+        @Test
+        @Order(36)
+        @DisplayName("createValue does NOT evict the ML cache when access validation fails before the write")
+        void shouldNotEvictCacheWhenCreateAccessDenied() {
+            UserDetails userDetails = org.springframework.security.core.userdetails.User
+                    .withUsername("managerX")
+                    .password(TEST_PASSWORD)
+                    .roles("MANAGER")
+                    .build();
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities()));
+
+            Managers contractManager = Managers.builder().id(99L).build();
+            Managers userManager = Managers.builder().id(1L).build();
+            Users managerUser = Users.builder()
+                    .username("managerX")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(userManager)
+                    .build();
+
+            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValues entity = FinancialValues.builder()
+                    .contract(Contracts.builder().manager(contractManager).build())
+                    .build();
+
+            when(mapper.toEntity(dto)).thenReturn(entity);
+            when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
+
+            assertThrows(AccessDeniedException.class, () -> service.createValue(dto));
+
+            verify(valuesRepository, never()).save(org.mockito.ArgumentMatchers.any());
+            verifyNoInteractions(mlCacheService);
+        }
+
+        @Test
+        @Order(37)
+        @DisplayName("deleteValue does NOT evict the ML cache when the value lookup fails before the write")
+        void shouldNotEvictCacheWhenDeleteNotFound() {
+            when(valuesRepository.findById(999L)).thenReturn(Optional.empty());
+
+            assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(999L));
+
+            verify(valuesRepository, never()).delete(org.mockito.ArgumentMatchers.any());
+            verifyNoInteractions(mlCacheService);
         }
     }
 }

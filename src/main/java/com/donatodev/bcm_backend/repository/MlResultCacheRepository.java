@@ -11,4 +11,6 @@ import com.donatodev.bcm_backend.entity.MlResultCache;
 public interface MlResultCacheRepository extends JpaRepository<MlResultCache, Long> {
 
     Optional<MlResultCache> findByOrgIdAndCacheKey(Long orgId, String cacheKey);
+
+    void deleteByOrgId(Long orgId);
 }

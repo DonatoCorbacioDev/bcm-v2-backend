@@ -38,4 +38,21 @@ public class MlCacheService {
         entry.setComputedAt(LocalDateTime.now(ZoneId.systemDefault()));
         repository.save(entry);
     }
+
+    /**
+     * Evicts every cached ML result (forecast, anomalies, any horizon) for
+     * one organization, without enumerating individual cache keys. Callers
+     * must invoke this only after the underlying financial data write has
+     * already succeeded.
+     * <p>
+     * {@code @Transactional} is required here: the derived
+     * {@code deleteByOrgId} query needs an active EntityManager transaction
+     * to remove rows, and none of this method's callers (e.g.
+     * {@code FinancialValueService}) open one themselves.
+     */
+    @Transactional
+    public void evictAllForOrg(Long orgId) {
+        if (orgId == null) return;
+        repository.deleteByOrgId(orgId);
+    }
 }

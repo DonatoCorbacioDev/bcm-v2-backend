@@ -35,14 +35,17 @@ public class FinancialValueService {
     private final FinancialValuesRepository financialValuesRepository;
     private final FinancialValueMapper financialValueMapper;
     private final UsersRepository usersRepository;
+    private final MlCacheService mlCacheService;
 
     public FinancialValueService(
             FinancialValuesRepository financialValuesRepository,
             FinancialValueMapper financialValueMapper,
-            UsersRepository usersRepository) {
+            UsersRepository usersRepository,
+            MlCacheService mlCacheService) {
         this.financialValuesRepository = financialValuesRepository;
         this.financialValueMapper = financialValueMapper;
         this.usersRepository = usersRepository;
+        this.mlCacheService = mlCacheService;
     }
 
     /**
@@ -120,6 +123,7 @@ public class FinancialValueService {
         }
         checkAccessToFinancialValue(value);
         value = financialValuesRepository.save(value);
+        mlCacheService.evictAllForOrg(orgId);
         return financialValueMapper.toDTO(value);
     }
 
@@ -134,6 +138,7 @@ public class FinancialValueService {
      * @throws SecurityException if access is denied
      */
     public FinancialValueDTO updateValue(Long id, FinancialValueDTO dto) {
+        Long orgId = TenantContext.get();
         FinancialValues value = findValueInScope(id)
                 .orElseThrow(() -> new FinancialValueNotFoundException(FINANCIAL_VALUE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
@@ -142,6 +147,7 @@ public class FinancialValueService {
         financialValueMapper.updateEntity(value, dto);
 
         value = financialValuesRepository.save(value);
+        mlCacheService.evictAllForOrg(orgId);
         return financialValueMapper.toDTO(value);
     }
 
@@ -154,12 +160,14 @@ public class FinancialValueService {
      * @throws SecurityException if access is denied
      */
     public void deleteValue(Long id) {
+        Long orgId = TenantContext.get();
         FinancialValues value = findValueInScope(id)
                 .orElseThrow(() -> new FinancialValueNotFoundException(FINANCIAL_VALUE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
         checkAccessToFinancialValue(value);
 
         financialValuesRepository.delete(value);
+        mlCacheService.evictAllForOrg(orgId);
     }
 
     /**
