@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.donatodev.bcm_backend.entity.FinancialCategory;
 import com.donatodev.bcm_backend.entity.FinancialValues;
 
 @Repository
@@ -34,4 +35,18 @@ public interface FinancialValuesRepository extends JpaRepository<FinancialValues
             @Param("orgId") Long orgId,
             @Param("year") int year,
             @Param("month") int month);
+
+    @Query("""
+            SELECT COALESCE(SUM(fv.financialAmount), 0.0)
+            FROM FinancialValues fv
+            WHERE fv.organization.id = :orgId
+              AND fv.businessArea.id = :areaId
+              AND fv.financialType.category = :category
+              AND fv.year = :year
+            """)
+    double sumAmountByOrgAreaCategoryYear(
+            @Param("orgId") Long orgId,
+            @Param("areaId") Long areaId,
+            @Param("category") FinancialCategory category,
+            @Param("year") int year);
 }

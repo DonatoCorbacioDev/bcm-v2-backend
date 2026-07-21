@@ -25,6 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.donatodev.bcm_backend.dto.FinancialTypeDTO;
+import com.donatodev.bcm_backend.entity.FinancialCategory;
 import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.util.TestDataCleaner;
@@ -89,8 +90,9 @@ class FinancialTypeControllerTest {
         void shouldCreateFinancialType() throws Exception {
             FinancialTypeDTO dto = new FinancialTypeDTO(
                     null,
-                    "CAPEX", 
-                    "Capital Expenditure");
+                    "CAPEX",
+                    "Capital Expenditure",
+                    FinancialCategory.COST);
 
             mockMvc.perform(post("/financial-types")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -111,8 +113,8 @@ class FinancialTypeControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldGetAllFinancialTypes() throws Exception {
             repository.saveAll(List.of(
-                    FinancialTypes.builder().name("OPEX").description("Operational Expenditure").build(),
-                    FinancialTypes.builder().name("INVESTMENT").description("Investment Type").build()
+                    FinancialTypes.builder().name("OPEX").description("Operational Expenditure").category(FinancialCategory.COST).build(),
+                    FinancialTypes.builder().name("INVESTMENT").description("Investment Type").category(FinancialCategory.COST).build()
             ));
 
             mockMvc.perform(get("/financial-types"))
@@ -137,6 +139,7 @@ class FinancialTypeControllerTest {
                     FinancialTypes.builder()
                             .name("R&D")
                             .description("Research and Development")
+                            .category(FinancialCategory.COST)
                             .build());
 
             mockMvc.perform(get("/financial-types/{id}", savedEntity.getId()))
@@ -160,12 +163,14 @@ class FinancialTypeControllerTest {
                     FinancialTypes.builder()
                             .name("OLD_TYPE")
                             .description("Old description")
+                            .category(FinancialCategory.COST)
                             .build());
 
             FinancialTypeDTO updatedDTO = new FinancialTypeDTO(
                     original.getId(),
                     "NEW_TYPE",
-                    "Updated description");
+                    "Updated description",
+                    FinancialCategory.REVENUE);
 
             mockMvc.perform(put("/financial-types/{id}", original.getId())
                     .contentType(MediaType.APPLICATION_JSON)
@@ -189,6 +194,7 @@ class FinancialTypeControllerTest {
                     FinancialTypes.builder()
                             .name("DELETE_TYPE")
                             .description("Temporary type")
+                            .category(FinancialCategory.COST)
                             .build());
 
             mockMvc.perform(delete("/financial-types/{id}", typeToDelete.getId()))

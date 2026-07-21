@@ -26,6 +26,7 @@ import org.springframework.test.context.ActiveProfiles;
 import com.donatodev.bcm_backend.config.TenantContext;
 
 import com.donatodev.bcm_backend.dto.FinancialTypeDTO;
+import com.donatodev.bcm_backend.entity.FinancialCategory;
 import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.exception.FinancialTypeNotFoundException;
 import com.donatodev.bcm_backend.mapper.FinancialTypeMapper;
@@ -68,7 +69,7 @@ class FinancialTypeServiceTest {
         @DisplayName("Get all types returns list of DTOs")
         void shouldGetAllTypes() {
             FinancialTypes entity = FinancialTypes.builder().id(1L).name("Capex").description("Capital Expenses").build();
-            FinancialTypeDTO dto = new FinancialTypeDTO(1L, "Capex", "Capital Expenses");
+            FinancialTypeDTO dto = new FinancialTypeDTO(1L, "Capex", "Capital Expenses", FinancialCategory.COST);
 
             when(financialTypesRepository.findAll()).thenReturn(List.of(entity));
             when(financialTypeMapper.toDTO(entity)).thenReturn(dto);
@@ -87,7 +88,7 @@ class FinancialTypeServiceTest {
         @DisplayName("Get type by ID returns DTO")
         void shouldGetTypeById() {
             FinancialTypes entity = FinancialTypes.builder().id(1L).name("Opex").description("Operating Expenses").build();
-            FinancialTypeDTO dto = new FinancialTypeDTO(1L, "Opex", "Operating Expenses");
+            FinancialTypeDTO dto = new FinancialTypeDTO(1L, "Opex", "Operating Expenses", FinancialCategory.COST);
 
             when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(entity));
             when(financialTypeMapper.toDTO(entity)).thenReturn(dto);
@@ -118,10 +119,10 @@ class FinancialTypeServiceTest {
         @Order(4)
         @DisplayName("Create type returns saved DTO")
         void shouldCreateType() {
-            FinancialTypeDTO dto = new FinancialTypeDTO(null, "Investiments", "Description");
+            FinancialTypeDTO dto = new FinancialTypeDTO(null, "Investiments", "Description", FinancialCategory.COST);
             FinancialTypes entity = FinancialTypes.builder().name("Investiments").description("Description").build();
             FinancialTypes saved = FinancialTypes.builder().id(1L).name("Investiments").description("Description").build();
-            FinancialTypeDTO savedDTO = new FinancialTypeDTO(1L, "Investiments", "Description");
+            FinancialTypeDTO savedDTO = new FinancialTypeDTO(1L, "Investiments", "Description", FinancialCategory.COST);
 
             when(financialTypeMapper.toEntity(dto)).thenReturn(entity);
             when(financialTypesRepository.save(entity)).thenReturn(saved);
@@ -141,7 +142,7 @@ class FinancialTypeServiceTest {
         @DisplayName("Update type returns updated DTO")
         void shouldUpdateType() {
             FinancialTypes existing = FinancialTypes.builder().id(1L).name("Old").description("Old desc").build();
-            FinancialTypeDTO updateDTO = new FinancialTypeDTO(1L, "Updated", "Updated desc");
+            FinancialTypeDTO updateDTO = new FinancialTypeDTO(1L, "Updated", "Updated desc", FinancialCategory.COST);
             FinancialTypes updatedEntity = FinancialTypes.builder().id(1L).name("Updated").description("Updated desc").build();
 
             when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(existing));
@@ -192,7 +193,7 @@ class FinancialTypeServiceTest {
         @Order(7)
         @DisplayName("Update type throws if not found")
         void shouldThrowWhenUpdatingMissingType() {
-            FinancialTypeDTO updateDTO = new FinancialTypeDTO(999L, "Missing", "Does not exist");
+            FinancialTypeDTO updateDTO = new FinancialTypeDTO(999L, "Missing", "Does not exist", FinancialCategory.COST);
 
             when(financialTypesRepository.findById(999L)).thenReturn(Optional.empty());
 
@@ -207,7 +208,7 @@ class FinancialTypeServiceTest {
         @DisplayName("getAllTypes with TenantContext uses org-filtered repository")
         void shouldGetAllTypesWithTenantContext() {
             FinancialTypes type = FinancialTypes.builder().id(1L).name("SALES").build();
-            FinancialTypeDTO dto = new FinancialTypeDTO(1L, "SALES", "Revenue");
+            FinancialTypeDTO dto = new FinancialTypeDTO(1L, "SALES", "Revenue", FinancialCategory.COST);
 
             TenantContext.set(2L);
             try {
@@ -227,10 +228,10 @@ class FinancialTypeServiceTest {
         @Order(9)
         @DisplayName("createType with TenantContext sets organization on entity")
         void shouldCreateTypeWithTenantContext() {
-            FinancialTypeDTO dto = new FinancialTypeDTO(null, "COSTS", "Expenses");
+            FinancialTypeDTO dto = new FinancialTypeDTO(null, "COSTS", "Expenses", FinancialCategory.COST);
             FinancialTypes entity = FinancialTypes.builder().name("COSTS").build();
             FinancialTypes saved = FinancialTypes.builder().id(3L).name("COSTS").build();
-            FinancialTypeDTO savedDTO = new FinancialTypeDTO(3L, "COSTS", "Expenses");
+            FinancialTypeDTO savedDTO = new FinancialTypeDTO(3L, "COSTS", "Expenses", FinancialCategory.COST);
 
             TenantContext.set(7L);
             try {
@@ -253,7 +254,7 @@ class FinancialTypeServiceTest {
         @DisplayName("getTypeById with TenantContext uses org-scoped repository")
         void shouldGetTypeByIdWithTenantContext() {
             FinancialTypes type = FinancialTypes.builder().id(1L).name("SALES").build();
-            FinancialTypeDTO dto = new FinancialTypeDTO(1L, "SALES", "Revenue");
+            FinancialTypeDTO dto = new FinancialTypeDTO(1L, "SALES", "Revenue", FinancialCategory.COST);
 
             TenantContext.set(9L);
             try {

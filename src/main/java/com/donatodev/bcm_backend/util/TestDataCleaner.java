@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.util;
 
 import org.springframework.stereotype.Component;
 
+import com.donatodev.bcm_backend.repository.BudgetRepository;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
@@ -44,6 +45,7 @@ public class TestDataCleaner {
     private final RolesRepository rolesRepository;
     private final BusinessAreasRepository businessAreasRepository;
     private final FinancialTypesRepository financialTypesRepository;
+    private final BudgetRepository budgetRepository;
 
     public TestDataCleaner(
             VerificationTokenRepository verificationTokenRepository,
@@ -61,7 +63,8 @@ public class TestDataCleaner {
             ManagersRepository managersRepository,
             RolesRepository rolesRepository,
             BusinessAreasRepository businessAreasRepository,
-            FinancialTypesRepository financialTypesRepository
+            FinancialTypesRepository financialTypesRepository,
+            BudgetRepository budgetRepository
     ) {
         this.verificationTokenRepository = verificationTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
@@ -79,6 +82,7 @@ public class TestDataCleaner {
         this.rolesRepository = rolesRepository;
         this.businessAreasRepository = businessAreasRepository;
         this.financialTypesRepository = financialTypesRepository;
+        this.budgetRepository = budgetRepository;
     }
 
     /**
@@ -102,6 +106,7 @@ public class TestDataCleaner {
         usersRepository.deleteAll();
         managersRepository.deleteAll();
         rolesRepository.deleteAll();
+        budgetRepository.deleteAll(); // References business areas - delete before them
         businessAreasRepository.deleteAll();
         financialTypesRepository.deleteAll();
     }

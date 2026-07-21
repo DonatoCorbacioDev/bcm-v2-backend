@@ -63,6 +63,14 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles cases where a budget is not found.
+     */
+    @ExceptionHandler(BudgetNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleBudgetNotFound(BudgetNotFoundException ex) {
+        return buildErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    /**
      * Handles cases where a user is not found.
      */
     @ExceptionHandler(UserNotFoundException.class)

@@ -29,6 +29,7 @@ import com.donatodev.bcm_backend.dto.FinancialValueDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.FinancialCategory;
 import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.entity.FinancialValues;
 import com.donatodev.bcm_backend.entity.Managers;
@@ -176,7 +177,7 @@ class FinancialValueControllerTest {
 
             FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder()
                     .name("SALES")
-                    .description("Sales Revenue")
+                    .description("Sales Revenue").category(FinancialCategory.REVENUE)
                     .build());
 
             Managers manager = createManager();
@@ -224,7 +225,7 @@ class FinancialValueControllerTest {
 
             FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder()
                     .name("COSTS")
-                    .description("Operational Costs")
+                    .description("Operational Costs").category(FinancialCategory.COST)
                     .build());
 
             Managers manager = createManager();
@@ -263,7 +264,7 @@ class FinancialValueControllerTest {
 
             FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder()
                     .name("INVESTMENTS")
-                    .description("Capital Investments")
+                    .description("Capital Investments").category(FinancialCategory.COST)
                     .build());
 
             Managers manager = createManager();
@@ -307,7 +308,7 @@ class FinancialValueControllerTest {
 
             FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder()
                     .name("EXPENSES")
-                    .description("Monthly Expenses")
+                    .description("Monthly Expenses").category(FinancialCategory.COST)
                     .build());
 
             Managers manager = createManager();
@@ -353,7 +354,7 @@ class FinancialValueControllerTest {
 
             FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder()
                     .name("Revenue")
-                    .description("Revenue Type")
+                    .description("Revenue Type").category(FinancialCategory.REVENUE)
                     .build());
 
             // Create manager (needed for contract)

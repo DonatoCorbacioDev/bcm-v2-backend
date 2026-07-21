@@ -102,6 +102,7 @@ public class FinancialTypeService {
 
         type.setName(dto.name());
         type.setDescription(dto.description());
+        type.setCategory(dto.category());
 
         type = financialTypesRepository.save(type);
         return financialTypeMapper.toDTO(type);

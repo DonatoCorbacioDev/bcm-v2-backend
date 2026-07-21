@@ -97,6 +97,15 @@ class GlobalExceptionHandlerTest {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404));
         }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Should return 404 for unknown budget")
+        void shouldReturn404ForUnknownBudget() throws Exception {
+            mockMvc.perform(get("/budgets/999999"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.status").value(404));
+        }
     }
 
     @Nested

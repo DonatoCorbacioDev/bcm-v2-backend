@@ -25,7 +25,8 @@ public class FinancialTypeMapper {
         return new FinancialTypeDTO(
                 type.getId(),
                 type.getName(),
-                type.getDescription()
+                type.getDescription(),
+                type.getCategory()
         );
     }
 
@@ -40,6 +41,7 @@ public class FinancialTypeMapper {
                 .id(dto.id())
                 .name(dto.name())
                 .description(dto.description())
+                .category(dto.category())
                 .build();
     }
 }
