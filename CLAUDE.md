@@ -24,6 +24,9 @@ mvn test -Dtest=ContractServiceTest#shouldReturnContractWhenValidIdProvided
 # Run tests with coverage report (output: target/site/jacoco/index.html)
 mvn clean test jacoco:report
 
+# Run integration tests too (*IT.java: real MySQL via Testcontainers, needs Docker running)
+mvn verify
+
 # Static analysis
 mvn spotbugs:check
 
@@ -96,6 +99,7 @@ util/         JwtKeyGenerator, TestDataCleaner
 - Nested `@Nested` classes group related test cases within a test class.
 - `@ParameterizedTest` with `@CsvSource` for data-driven cases.
 - JaCoCo enforces a 75% minimum coverage threshold on every build; DTOs, entities, config, and the main app class are excluded from measurement.
+- `*IT.java` classes under `integration/` are real-MySQL Testcontainers integration tests, run by `mvn verify` (Failsafe), never by `mvn test` (Surefire only picks up `*Test.java`/`*Tests.java`). They extend `support.AbstractMySQLIntegrationTest`, which force-overrides the `test` profile's `spring.flyway.enabled`/`ddl-auto`/`defer-datasource-initialization` via `@DynamicPropertySource` — don't add those overrides again in a subclass, and don't assume `application-test.properties` describes their datasource config.
 
 ## API Surface
 

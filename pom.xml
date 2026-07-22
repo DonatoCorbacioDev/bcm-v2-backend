@@ -307,6 +307,11 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>mysql</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -437,7 +442,24 @@
                     </argLine>
                 </configuration>
             </plugin>
-			
+
+            <!-- Integration tests (*IT.java): real MySQL via Testcontainers, run
+                 separately from the fast H2-backed unit suite. `mvn test` never
+                 touches these; `mvn verify` (or `mvn failsafe:integration-test`)
+                 does, and requires a running Docker daemon. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- SonarQube Plugin -->
             <plugin>
                 <groupId>org.sonarsource.scanner.maven</groupId>

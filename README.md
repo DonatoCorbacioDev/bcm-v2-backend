@@ -192,7 +192,8 @@ sequenceDiagram
 - JUnit 5 (Jupiter)
 - Mockito for mocking
 - Spring Boot Test + MockMvc
-- H2 in-memory database (test environment) — fast, but doesn't catch MySQL-specific behavior (e.g. real Flyway migrations aren't run against it); Testcontainers-backed integration tests against real MySQL are on the roadmap, not yet implemented
+- H2 in-memory database for the fast unit suite (`mvn test`, no Docker needed)
+- Testcontainers + real MySQL 8.0 for integration tests (`*IT.java`, run via `mvn verify`) — real Flyway migrations, real schema constraints, real cross-tenant query behavior; see [Testing](#-testing)
 
 **Code Quality & Analysis:**
 
@@ -490,7 +491,7 @@ Once running, visit:
 ### Run Tests
 
 ```bash
-# Run all tests
+# Run the fast unit suite (H2, no Docker needed) — this is what CI/PRs gate on
 mvn test
 
 # Run tests with coverage report
@@ -507,7 +508,20 @@ mvn test -Dtest="com.donatodev.bcm_backend.service.*Test"
 
 # Skip tests during build
 mvn clean package -DskipTests
+
+# Run integration tests too (*IT.java) — real MySQL 8.0 via Testcontainers,
+# requires a running Docker daemon. Not part of `mvn test`; separate on
+# purpose because spinning up a container per class is much slower than the
+# H2 suite. See "Integration Tests" below for what these actually check.
+mvn verify
 ```
+
+### Integration Tests
+
+Two classes so far, both under `src/test/java/.../integration/`, both extending `AbstractMySQLIntegrationTest` (a shared, single Testcontainers MySQL instance, reused across classes in the same run):
+
+- **`FlywayMigrationIT`** — boots the full Spring context against real MySQL with `spring.flyway.enabled=true` and `spring.jpa.hibernate.ddl-auto=validate`. If any of the 31 migrations fails, or a JPA entity no longer matches the real schema, this test fails at context startup — something the H2 unit suite structurally can't catch (H2's "MySQL mode" is an approximation, not real MySQL; V27 exists specifically because a native `ENUM` mismatch slipped past it once).
+- **`CrossTenantIsolationIT`** — seeds two organizations with their own contracts and business areas, then asserts `ContractsRepository.findByIdAndOrganization_Id`/`findByOrganization_Id` never return another tenant's row. The service-layer guard that calls these methods (`ContractAccessGuard`) is unit-tested against a mocked repository elsewhere; this is what actually proves the isolation holds against a real query plan and real foreign keys.
 
 ### Test Coverage by Package
 
