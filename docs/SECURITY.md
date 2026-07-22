@@ -8,7 +8,49 @@ For personal-data-specific obligations (GDPR: data categories, sub-processors,
 retention, data-subject rights), see `docs/GDPR.md` — this document covers
 the technical security controls that back article 32.
 
-## Threat model (synthesis)
+## Threat model
+
+### Trust boundaries
+
+```mermaid
+flowchart TB
+    subgraph Internet["Untrusted — public internet"]
+        Browser["Browser"]
+    end
+
+    subgraph DockerNet["Trusted — bcm-network (Docker bridge, not published to the host except the ports below)"]
+        Frontend["frontend (Next.js)<br/>:3000"]
+        Backend["backend (Spring Boot)<br/>:8090"]
+        MySQL[("mysql 8.0<br/>:3306, internal only")]
+        ML["ml (FastAPI)<br/>:8000"]
+    end
+
+    subgraph HostBoundary["Host machine — reached via host.docker.internal, not this Docker network"]
+        Ollama["Ollama (LLM)<br/>:11434"]
+    end
+
+    Browser -- "1 HTTPS, CSP+nonce, no inline scripts" --> Frontend
+    Browser -- "2 HTTPS, JWT Bearer + HttpOnly refresh cookie (scoped /auth), called client-side (NEXT_PUBLIC_API_URL)" --> Backend
+    Backend -- "3 JPA, tenant-scoped queries (TenantContext)" --> MySQL
+    Backend -- "4 X-Internal-Api-Key header" --> ML
+    Backend -- "5 embeddings, no auth (same trust zone)" --> Ollama
+    ML -- "6 read-only forecast queries, no auth (same trust zone)" --> MySQL
+    ML -- "7 clause-risk analysis, no auth (same trust zone)" --> Ollama
+
+    style Internet fill:#3a1a1a,stroke:#b91c1c,color:#fff
+    style DockerNet fill:#1a2e1a,stroke:#15803d,color:#fff
+    style HostBoundary fill:#1a1a2e,stroke:#4338ca,color:#fff
+```
+
+**Where the real boundary crossings are, and what's missing:**
+
+1. **Browser → Frontend**: the only crossing with no authentication by design (login page must be reachable). CSP with a per-request nonce is the main control (`middleware.ts`).
+2. **Browser → Backend**: every state-changing or data-reading request crosses this boundary directly — the frontend is a single-page app that calls the backend API client-side (`NEXT_PUBLIC_API_URL`), not through a server-side proxy that could otherwise sit in front of it as a second choke point. JWT Bearer token + `HttpOnly`/`Secure`/`SameSite=Lax` refresh cookie scoped to `/auth` are the controls; see the table below for what's not yet covered (distributed rate limiting).
+3. **Backend → MySQL**: *not* a zero-trust boundary today — no network-level auth beyond the DB password, and the database has no idea what tenant a query is scoped to. All isolation is enforced in application code (`TenantContext` + explicit `findByOrganization_Id`-style queries), verified by `CrossTenantIsolationIT` against a real database. If that discipline ever lapses on a single query, MySQL itself won't stop it — this is the single most consequential trust assumption in the whole system.
+4. **Backend → ML**: the one internal hop that *does* carry its own credential (`X-Internal-Api-Key`), because the ML service is a separate deployable with its own attack surface, not just an internal library call.
+5–7. **ML/Backend → Ollama, ML → MySQL**: no auth at all, because they never leave the same trust zone (Docker network / host loopback). Acceptable *only* as long as that network boundary holds — the moment any of `mysql`, `ml`, or Ollama's port is published to the host or a public interface, this whole zone's "same trust zone, no auth needed" assumption breaks. `docker-compose.yml` already binds all host-published ports to `127.0.0.1` for exactly this reason; the production checklist below has the equivalent items for a real deployment.
+
+### Asset / threat matrix
 
 | Asset | Threat | Current mitigation | Residual risk |
 |---|---|---|---|
