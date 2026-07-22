@@ -11,22 +11,28 @@ import org.springframework.transaction.annotation.Transactional;
 import com.donatodev.bcm_backend.entity.MlResultCache;
 import com.donatodev.bcm_backend.repository.MlResultCacheRepository;
 
+import io.micrometer.core.instrument.MeterRegistry;
+
 @Service
 public class MlCacheService {
 
     static final Duration CACHE_TTL = Duration.ofHours(1);
 
     private final MlResultCacheRepository repository;
+    private final MeterRegistry meterRegistry;
 
-    public MlCacheService(MlResultCacheRepository repository) {
+    public MlCacheService(MlResultCacheRepository repository, MeterRegistry meterRegistry) {
         this.repository = repository;
+        this.meterRegistry = meterRegistry;
     }
 
     public Optional<String> get(Long orgId, String cacheKey) {
         if (orgId == null) return Optional.empty();
-        return repository.findByOrgIdAndCacheKey(orgId, cacheKey)
+        Optional<String> cached = repository.findByOrgIdAndCacheKey(orgId, cacheKey)
                 .filter(e -> e.getComputedAt().isAfter(LocalDateTime.now(ZoneId.systemDefault()).minus(CACHE_TTL)))
                 .map(MlResultCache::getJsonResult);
+        meterRegistry.counter("bcm.ml.cache.result", "outcome", cached.isPresent() ? "hit" : "miss").increment();
+        return cached;
     }
 
     @Transactional

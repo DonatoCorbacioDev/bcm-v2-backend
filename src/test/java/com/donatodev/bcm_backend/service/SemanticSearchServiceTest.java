@@ -5,11 +5,11 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,6 +27,8 @@ import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+
 @ExtendWith(MockitoExtension.class)
 class SemanticSearchServiceTest {
 
@@ -34,10 +36,17 @@ class SemanticSearchServiceTest {
     @Mock private EmbeddingModel embeddingModel;
     @Spy private ObjectMapper objectMapper = new ObjectMapper();
 
-    @InjectMocks
+    private SimpleMeterRegistry meterRegistry;
     private SemanticSearchService semanticSearchService;
 
     private static final long ORG_ID = 1L;
+
+    @BeforeEach
+    @SuppressWarnings("unused")
+    void setup() {
+        meterRegistry = new SimpleMeterRegistry();
+        semanticSearchService = new SemanticSearchService(documentRepository, embeddingModel, objectMapper, meterRegistry);
+    }
 
     @AfterEach
     void clearTenant() {
@@ -121,6 +130,7 @@ class SemanticSearchServiceTest {
 
             assertEquals("[0.1,0.2]", doc.getEmbedding());
             verify(documentRepository).save(doc);
+            assertEquals(1, meterRegistry.get("bcm.embedding.generate").tag("outcome", "success").timer().count());
         }
 
         @Test
@@ -142,6 +152,7 @@ class SemanticSearchServiceTest {
             semanticSearchService.generateAndStoreEmbedding(doc, "hello world");
 
             verify(documentRepository, never()).save(any());
+            assertEquals(1, meterRegistry.get("bcm.embedding.generate").tag("outcome", "error").timer().count());
         }
     }
 

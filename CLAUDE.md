@@ -106,6 +106,7 @@ util/         JwtKeyGenerator, TestDataCleaner
 - Swagger UI: `http://localhost:8090/api/v1/swagger-ui.html`
 - API docs JSON: `http://localhost:8090/api/v1/api-docs`
 - Health: `http://localhost:8090/api/v1/actuator/health`
+- Prometheus metrics: `http://localhost:8090/api/v1/actuator/prometheus` (custom metrics: `bcm.ml.call`, `bcm.ml.cache.result`, `bcm.embedding.generate` — instrumented via `MeterRegistry` injected into `MlProxyService`/`MlCacheService`/`SemanticSearchService`)
 
 ## Code Quality
 

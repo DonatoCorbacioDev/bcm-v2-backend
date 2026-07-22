@@ -59,7 +59,12 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(AUTH_WHITELIST, "/actuator/health").permitAll()
+                // /actuator/prometheus alongside /actuator/health: both are read-only,
+                // low-sensitivity ops endpoints meant to be polled by infra (a scraper
+                // has no JWT to present). Network-level restriction (reverse proxy /
+                // separate management port) is the real access control before public
+                // exposure — tracked in docs/SECURITY.md, not solved by JWT auth here.
+                .requestMatchers(AUTH_WHITELIST, "/actuator/health", "/actuator/prometheus").permitAll()
                 .requestMatchers(HttpMethod.POST, "/organizations/register").permitAll()
                 // Calendar apps subscribe to this URL directly and cannot send a bearer
                 // token; it is instead authenticated by the unguessable token in the path.

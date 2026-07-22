@@ -23,10 +23,15 @@
         </root>
     </springProfile>
 
+    <!-- JSON (Elastic Common Schema) to stdout, not a plain-text pattern: the
+         container's stdout is what a log-aggregation stack (Loki/ELK/etc.)
+         actually scrapes in production, and JSON is what those expect.
+         requestId/username/method/path are already in MDC (JwtAuthenticationFilter)
+         and are included automatically as ECS fields. -->
     <springProfile name="prod">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder>
-                <pattern>%d{yyyy-MM-dd HH:mm:ss} [%X{requestId:-       }] [%X{username:--}] [%X{method:-   }] [%X{path}] %-5level %logger{36} - %msg%n</pattern>
+            <encoder class="org.springframework.boot.logging.logback.StructuredLogEncoder">
+                <format>ecs</format>
             </encoder>
         </appender>
         <root level="INFO">

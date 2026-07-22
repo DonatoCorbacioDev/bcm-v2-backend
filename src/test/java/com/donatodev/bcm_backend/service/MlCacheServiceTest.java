@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
@@ -20,12 +21,13 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.donatodev.bcm_backend.entity.MlResultCache;
 import com.donatodev.bcm_backend.repository.MlResultCacheRepository;
+
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 @ExtendWith(MockitoExtension.class)
 class MlCacheServiceTest {
@@ -33,8 +35,15 @@ class MlCacheServiceTest {
     @Mock
     private MlResultCacheRepository repository;
 
-    @InjectMocks
+    private SimpleMeterRegistry meterRegistry;
     private MlCacheService mlCacheService;
+
+    @BeforeEach
+    @SuppressWarnings("unused")
+    void setup() {
+        meterRegistry = new SimpleMeterRegistry();
+        mlCacheService = new MlCacheService(repository, meterRegistry);
+    }
 
     private static final Long ORG = 1L;
     private static final String KEY = "FORECAST_3";
@@ -85,6 +94,21 @@ class MlCacheServiceTest {
         void returnsEmptyWhenOrgIdNull() {
             assertThat(mlCacheService.get(null, KEY)).isEmpty();
             verifyNoInteractions(repository);
+        }
+
+        @Test
+        @Order(5)
+        @DisplayName("Records a hit/miss metric matching the actual outcome")
+        void recordsHitAndMissMetrics() {
+            when(repository.findByOrgIdAndCacheKey(ORG, KEY))
+                    .thenReturn(Optional.of(entry(LocalDateTime.now().minusMinutes(1))))
+                    .thenReturn(Optional.empty());
+
+            mlCacheService.get(ORG, KEY);
+            mlCacheService.get(ORG, KEY);
+
+            assertThat(meterRegistry.counter("bcm.ml.cache.result", "outcome", "hit").count()).isEqualTo(1.0);
+            assertThat(meterRegistry.counter("bcm.ml.cache.result", "outcome", "miss").count()).isEqualTo(1.0);
         }
     }
 

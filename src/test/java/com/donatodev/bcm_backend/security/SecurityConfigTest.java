@@ -47,6 +47,13 @@ class SecurityConfigTest {
         }
 
         @Test
+        @DisplayName("GET /actuator/prometheus should be accessible without authentication (a scraper has no JWT)")
+        void actuatorPrometheusShouldBePublic() throws Exception {
+            mockMvc.perform(get("/actuator/prometheus"))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
         @DisplayName("OPTIONS preflight request should always be permitted")
         void optionsPreflightShouldBePermitted() throws Exception {
             mockMvc.perform(options("/contracts")

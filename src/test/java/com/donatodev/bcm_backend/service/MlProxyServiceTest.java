@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
@@ -19,7 +20,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpEntity;
@@ -32,6 +32,8 @@ import org.springframework.web.client.RestTemplate;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+
 @ExtendWith(MockitoExtension.class)
 class MlProxyServiceTest {
 
@@ -41,10 +43,17 @@ class MlProxyServiceTest {
     @Mock
     private MlCacheService mlCacheService;
 
-    @InjectMocks
+    private SimpleMeterRegistry meterRegistry;
     private MlProxyService mlProxyService;
 
     private static final String FASTAPI_URL = "http://localhost:8000";
+
+    @BeforeEach
+    @SuppressWarnings("unused")
+    void setup() {
+        meterRegistry = new SimpleMeterRegistry();
+        mlProxyService = new MlProxyService(restTemplate, mlCacheService, meterRegistry);
+    }
 
     @AfterEach
     void clearTenant() {
@@ -72,6 +81,8 @@ class MlProxyServiceTest {
             assertEquals(HttpStatus.OK, result.getStatusCode());
             verify(restTemplate).exchange(contains("months=6"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
             verify(restTemplate).exchange(contains("org_id=5"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            assertEquals(1, meterRegistry.get("bcm.ml.call").tag("endpoint", "forecast").tag("outcome", "success")
+                    .timer().count());
         }
 
         @Test
@@ -102,6 +113,8 @@ class MlProxyServiceTest {
 
             assertEquals(HttpStatus.SERVICE_UNAVAILABLE, result.getStatusCode());
             verify(mlCacheService, never()).put(any(), any(), any());
+            assertEquals(1, meterRegistry.get("bcm.ml.call").tag("endpoint", "forecast").tag("outcome", "error")
+                    .timer().count());
         }
 
         @Test

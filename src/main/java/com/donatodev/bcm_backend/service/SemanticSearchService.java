@@ -16,6 +16,9 @@ import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+
 /**
  * Semantic search over contract documents: an embedding is generated (via
  * Ollama, through Spring AI) once per document when its text is extracted,
@@ -39,13 +42,16 @@ public class SemanticSearchService {
     private final ContractDocumentRepository documentRepository;
     private final EmbeddingModel embeddingModel;
     private final ObjectMapper objectMapper;
+    private final MeterRegistry meterRegistry;
 
     public SemanticSearchService(ContractDocumentRepository documentRepository,
                                   EmbeddingModel embeddingModel,
-                                  ObjectMapper objectMapper) {
+                                  ObjectMapper objectMapper,
+                                  MeterRegistry meterRegistry) {
         this.documentRepository = documentRepository;
         this.embeddingModel = embeddingModel;
         this.objectMapper = objectMapper;
+        this.meterRegistry = meterRegistry;
     }
 
     /**
@@ -59,11 +65,14 @@ public class SemanticSearchService {
         String input = text.length() > MAX_EMBEDDING_INPUT_CHARS
                 ? text.substring(0, MAX_EMBEDDING_INPUT_CHARS)
                 : text;
+        Timer.Sample sample = Timer.start(meterRegistry);
         try {
             float[] embedding = embeddingModel.embed(input);
             document.setEmbedding(objectMapper.writeValueAsString(embedding));
             documentRepository.save(document);
+            sample.stop(Timer.builder("bcm.embedding.generate").tag("outcome", "success").register(meterRegistry));
         } catch (Exception e) {
+            sample.stop(Timer.builder("bcm.embedding.generate").tag("outcome", "error").register(meterRegistry));
             logger.warn("Embedding generation failed for document {}: {}", document.getId(), safeMessage(e));
         }
     }

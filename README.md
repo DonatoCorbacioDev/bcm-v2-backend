@@ -489,6 +489,7 @@ Once running, visit:
 - **Swagger UI:** http://localhost:8090/api/v1/swagger-ui.html
 - **OpenAPI JSON:** http://localhost:8090/api/v1/api-docs
 - **Health Check:** http://localhost:8090/api/v1/actuator/health
+- **Prometheus Metrics:** http://localhost:8090/api/v1/actuator/prometheus — standard JVM/HTTP metrics plus custom ones: `bcm_ml_call_seconds` (ML proxy call latency, tagged `endpoint`/`outcome`), `bcm_ml_cache_result_total` (cache hit/miss, tagged `outcome`), `bcm_embedding_generate_seconds` (Ollama embedding latency, tagged `outcome`)
 
 ---
 
