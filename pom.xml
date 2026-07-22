@@ -59,7 +59,7 @@
         <spring-ai.version>1.1.8</spring-ai.version>
 		
         <!-- Plugin Versions -->
-        <jacoco.version>0.8.13</jacoco.version>
+        <jacoco.version>0.8.15</jacoco.version>
         <spotbugs.version>4.8.6.0</spotbugs.version>
         <sonar.version>5.1.0.4751</sonar.version>
 		
