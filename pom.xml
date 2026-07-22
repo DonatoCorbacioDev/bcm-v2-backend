@@ -223,6 +223,13 @@
             <version>2.0.31</version>
         </dependency>
 
+        <!-- Line-level diff for document version comparison (redlining) -->
+        <dependency>
+            <groupId>io.github.java-diff-utils</groupId>
+            <artifactId>java-diff-utils</artifactId>
+            <version>4.12</version>
+        </dependency>
+
         <!-- Spring AI: Ollama embedding model for semantic document search -->
         <dependency>
             <groupId>org.springframework.ai</groupId>

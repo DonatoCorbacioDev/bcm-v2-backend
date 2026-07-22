@@ -23,6 +23,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -34,6 +35,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
 import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
+import com.donatodev.bcm_backend.dto.DocumentDiffDTO;
 import com.donatodev.bcm_backend.entity.ContractDocument;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
@@ -78,6 +80,8 @@ class ContractDocumentServiceTest {
         doc.setFileSize((long) VALID_PDF.length);
         doc.setContentType("application/pdf");
         doc.setUploadedAt(Instant.parse("2027-01-15T12:00:00Z"));
+        doc.setVersionGroupId(DOC_ID);
+        doc.setVersionNumber(1);
         return doc;
     }
 
@@ -473,6 +477,172 @@ class ContractDocumentServiceTest {
 
             assertThrows(ContractNotFoundException.class,
                     () -> contractDocumentService.analyzeClauseRisk(CONTRACT_ID, DOC_ID));
+        }
+
+        // ---- getDocuments: version collapsing ----
+
+        @Test
+        @Order(28)
+        @DisplayName("getDocuments: collapses multiple versions to the latest one per group, with versionCount")
+        void shouldCollapseVersionsToLatestInList() {
+            Contracts contract = fakeContract();
+            ContractDocument v2 = fakeDoc(contract);
+            v2.setId(20L);
+            v2.setVersionNumber(2);
+            ContractDocument v1 = fakeDoc(contract);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
+                    .thenReturn(List.of(v2, v1));
+
+            List<ContractDocumentDTO> result = contractDocumentService.getDocuments(CONTRACT_ID);
+
+            assertEquals(1, result.size());
+            assertEquals(20L, result.get(0).id());
+            assertEquals(2, result.get(0).versionCount());
+        }
+
+        // ---- uploadNewVersion ----
+
+        @Test
+        @Order(29)
+        @DisplayName("uploadNewVersion: returns DTO with incremented versionNumber and correct versionCount")
+        void shouldUploadNewVersionSuccessfully() throws IOException {
+            Contracts contract = fakeContract();
+            ContractDocument existing = fakeDoc(contract);
+            ContractDocument saved = fakeDoc(contract);
+            saved.setId(20L);
+            saved.setVersionNumber(2);
+            saved.setFileName("contract-v2.pdf");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(existing));
+            when(documentRepository.findByVersionGroupIdOrderByVersionNumberDesc(DOC_ID))
+                    .thenReturn(List.of(existing));
+            when(localStorageService.storeDocument(any(), eq(CONTRACT_ID), any()))
+                    .thenReturn("contracts/0/1/uuid-v2.pdf");
+            when(documentRepository.save(any(ContractDocument.class))).thenReturn(saved);
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "contract-v2.pdf", "application/pdf", VALID_PDF);
+
+            ContractDocumentDTO result = contractDocumentService.uploadNewVersion(CONTRACT_ID, DOC_ID, file);
+
+            assertEquals(2, result.versionNumber());
+            assertEquals(2, result.versionCount());
+            assertEquals(DOC_ID, result.versionGroupId());
+        }
+
+        @Test
+        @Order(30)
+        @DisplayName("uploadNewVersion: throws ContractNotFoundException when base document missing")
+        void shouldThrowWhenBaseDocumentMissingOnNewVersion() {
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.empty());
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "contract-v2.pdf", "application/pdf", VALID_PDF);
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> contractDocumentService.uploadNewVersion(CONTRACT_ID, DOC_ID, file));
+        }
+
+        // ---- getVersions ----
+
+        @Test
+        @Order(31)
+        @DisplayName("getVersions: returns full history newest first with versionCount")
+        void shouldReturnVersionHistory() {
+            Contracts contract = fakeContract();
+            ContractDocument v1 = fakeDoc(contract);
+            ContractDocument v2 = fakeDoc(contract);
+            v2.setId(20L);
+            v2.setVersionNumber(2);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(v1));
+            when(documentRepository.findByVersionGroupIdOrderByVersionNumberDesc(DOC_ID))
+                    .thenReturn(List.of(v2, v1));
+
+            List<ContractDocumentDTO> result = contractDocumentService.getVersions(CONTRACT_ID, DOC_ID);
+
+            assertEquals(2, result.size());
+            assertEquals(2, result.get(0).versionNumber());
+            assertEquals(1, result.get(1).versionNumber());
+            assertEquals(2, result.get(0).versionCount());
+        }
+
+        @Test
+        @Order(32)
+        @DisplayName("getVersions: throws ContractNotFoundException when document missing")
+        void shouldThrowWhenDocumentMissingOnGetVersions() {
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.empty());
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> contractDocumentService.getVersions(CONTRACT_ID, DOC_ID));
+        }
+
+        // ---- diffDocuments ----
+
+        @Test
+        @Order(33)
+        @DisplayName("diffDocuments: diffs using persisted extractedText, no re-read from storage")
+        void shouldDiffUsingPersistedText() {
+            Contracts contract = fakeContract();
+            ContractDocument from = fakeDoc(contract);
+            from.setExtractedText("Amount: 1000\nOther line");
+            ContractDocument to = fakeDoc(contract);
+            to.setId(20L);
+            to.setExtractedText("Amount: 2000\nOther line");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(from));
+            when(documentRepository.findByIdAndContractId(20L, CONTRACT_ID)).thenReturn(Optional.of(to));
+
+            DocumentDiffDTO result = contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L);
+
+            assertEquals(2, result.lines().size());
+            assertTrue(result.lines().stream().anyMatch(l -> "CHANGE".equals(l.tag())));
+            assertTrue(result.lines().stream().anyMatch(l -> "EQUAL".equals(l.tag())));
+            verify(localStorageService, never()).readDocument(any());
+        }
+
+        @Test
+        @Order(34)
+        @DisplayName("diffDocuments: lazily extracts and backfills text when extractedText is null")
+        void shouldBackfillMissingExtractedText() {
+            Contracts contract = fakeContract();
+            ContractDocument from = fakeDoc(contract);
+            ContractDocument to = fakeDoc(contract);
+            to.setId(20L);
+            to.setExtractedText("New text");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(from));
+            when(documentRepository.findByIdAndContractId(20L, CONTRACT_ID)).thenReturn(Optional.of(to));
+            when(localStorageService.readDocument(from.getStoragePath())).thenReturn(VALID_PDF);
+            when(pdfBoxService.extractRawText(VALID_PDF)).thenReturn("Old text");
+
+            contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L);
+
+            assertEquals("Old text", from.getExtractedText());
+            verify(documentRepository).save(from);
+        }
+
+        @Test
+        @Order(35)
+        @DisplayName("diffDocuments: throws ContractNotFoundException when the second document is missing")
+        void shouldThrowWhenSecondDocumentMissingOnDiff() {
+            Contracts contract = fakeContract();
+            ContractDocument from = fakeDoc(contract);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(from));
+            when(documentRepository.findByIdAndContractId(20L, CONTRACT_ID)).thenReturn(Optional.empty());
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L));
         }
     }
 }

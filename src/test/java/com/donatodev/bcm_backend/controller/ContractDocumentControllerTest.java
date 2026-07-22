@@ -74,7 +74,8 @@ class ContractDocumentControllerTest {
     private ContractDocumentDTO sampleDocDTO(Long contractId) {
         return new ContractDocumentDTO(1L, contractId, "contract.pdf", 1024L,
                 "application/pdf", Instant.parse("2027-01-15T12:00:00Z"),
-                "http://localhost:8090/api/v1/contracts/" + contractId + "/documents/1/download");
+                "http://localhost:8090/api/v1/contracts/" + contractId + "/documents/1/download",
+                1L, 1, 1);
     }
 
     @BeforeEach
@@ -198,6 +199,111 @@ class ContractDocumentControllerTest {
                     .andExpect(jsonPath("$", hasSize(1)))
                     .andExpect(jsonPath("$[0].fileName").value("contract.pdf"))
                     .andExpect(jsonPath("$[0].downloadUrl").exists());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /contracts/{id}/documents/{docId}/versions — upload new version")
+    @org.junit.jupiter.api.TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @SuppressWarnings("unused")
+    class UploadVersion {
+
+        @Test
+        @Order(1)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Admin uploads a new version — returns 201 with versionNumber 2")
+        void shouldUploadNewVersionSuccessfully() throws Exception {
+            ContractDocumentDTO versionTwo = new ContractDocumentDTO(2L, contractId, "contract-v2.pdf", 1024L,
+                    "application/pdf", Instant.parse("2027-02-01T12:00:00Z"),
+                    "http://localhost:8090/api/v1/contracts/" + contractId + "/documents/2/download",
+                    1L, 2, 2);
+            when(contractDocumentService.uploadNewVersion(anyLong(), anyLong(), any()))
+                    .thenReturn(versionTwo);
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "contract-v2.pdf", "application/pdf", VALID_PDF);
+
+            mockMvc.perform(multipart("/contracts/" + contractId + "/documents/1/versions").file(file))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.versionNumber").value(2))
+                    .andExpect(jsonPath("$.versionGroupId").value(1));
+        }
+
+        @Test
+        @Order(2)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Returns 404 when base document not found")
+        void shouldReturn404WhenBaseDocumentNotFound() throws Exception {
+            when(contractDocumentService.uploadNewVersion(anyLong(), anyLong(), any()))
+                    .thenThrow(new ContractNotFoundException("Document ID 999 not found"));
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "contract-v2.pdf", "application/pdf", VALID_PDF);
+
+            mockMvc.perform(multipart("/contracts/" + contractId + "/documents/999/versions").file(file))
+                    .andExpect(status().isNotFound());
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /contracts/{id}/documents/{docId}/versions — version history")
+    @org.junit.jupiter.api.TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @SuppressWarnings("unused")
+    class VersionHistory {
+
+        @Test
+        @Order(1)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Returns all versions in the group, newest first")
+        void shouldReturnVersionHistory() throws Exception {
+            ContractDocumentDTO v2 = new ContractDocumentDTO(2L, contractId, "contract-v2.pdf", 1024L,
+                    "application/pdf", Instant.parse("2027-02-01T12:00:00Z"),
+                    "http://localhost:8090/api/v1/contracts/" + contractId + "/documents/2/download",
+                    1L, 2, 2);
+            when(contractDocumentService.getVersions(anyLong(), anyLong()))
+                    .thenReturn(List.of(v2, sampleDocDTO(contractId)));
+
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/1/versions"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$", hasSize(2)))
+                    .andExpect(jsonPath("$[0].versionNumber").value(2))
+                    .andExpect(jsonPath("$[1].versionNumber").value(1));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /contracts/{id}/documents/{docId}/diff/{otherId} — redline diff")
+    @org.junit.jupiter.api.TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @SuppressWarnings("unused")
+    class Diff {
+
+        @Test
+        @Order(1)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Returns the diff rows between two versions")
+        void shouldReturnDiff() throws Exception {
+            com.donatodev.bcm_backend.dto.DocumentDiffDTO diff = new com.donatodev.bcm_backend.dto.DocumentDiffDTO(
+                    1L, "contract.pdf", 2L, "contract-v2.pdf",
+                    List.of(new com.donatodev.bcm_backend.dto.DiffLineDTO("CHANGE", "Amount: 1000", "Amount: 2000")));
+
+            when(contractDocumentService.diffDocuments(anyLong(), anyLong(), anyLong())).thenReturn(diff);
+
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/1/diff/2"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.lines", hasSize(1)))
+                    .andExpect(jsonPath("$.lines[0].tag").value("CHANGE"));
+        }
+
+        @Test
+        @Order(2)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Returns 404 when a compared document is missing")
+        void shouldReturn404WhenDocumentNotFound() throws Exception {
+            when(contractDocumentService.diffDocuments(anyLong(), anyLong(), anyLong()))
+                    .thenThrow(new ContractNotFoundException("Document ID 999 not found"));
+
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/1/diff/999"))
+                    .andExpect(status().isNotFound());
         }
     }
 

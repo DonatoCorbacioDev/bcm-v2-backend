@@ -20,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
 import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
+import com.donatodev.bcm_backend.dto.DocumentDiffDTO;
 import com.donatodev.bcm_backend.service.ContractDocumentService;
 import com.donatodev.bcm_backend.service.FileDownload;
 
@@ -46,6 +47,33 @@ public class ContractDocumentController {
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<List<ContractDocumentDTO>> getDocuments(@PathVariable Long contractId) {
         return ResponseEntity.ok(documentService.getDocuments(contractId));
+    }
+
+    @PostMapping(value = "/{documentId}/versions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public ResponseEntity<ContractDocumentDTO> uploadNewVersion(
+            @PathVariable Long contractId,
+            @PathVariable Long documentId,
+            @RequestParam("file") MultipartFile file) throws IOException {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(documentService.uploadNewVersion(contractId, documentId, file));
+    }
+
+    @GetMapping("/{documentId}/versions")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public ResponseEntity<List<ContractDocumentDTO>> getVersions(
+            @PathVariable Long contractId,
+            @PathVariable Long documentId) {
+        return ResponseEntity.ok(documentService.getVersions(contractId, documentId));
+    }
+
+    @GetMapping("/{documentId}/diff/{otherDocumentId}")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public ResponseEntity<DocumentDiffDTO> diffVersions(
+            @PathVariable Long contractId,
+            @PathVariable Long documentId,
+            @PathVariable Long otherDocumentId) {
+        return ResponseEntity.ok(documentService.diffDocuments(contractId, documentId, otherDocumentId));
     }
 
     @GetMapping("/{documentId}/download")

@@ -9,5 +9,8 @@ public record ContractDocumentDTO(
         Long fileSize,
         String contentType,
         Instant uploadedAt,
-        String downloadUrl
+        String downloadUrl,
+        Long versionGroupId,
+        Integer versionNumber,
+        int versionCount
 ) {}
