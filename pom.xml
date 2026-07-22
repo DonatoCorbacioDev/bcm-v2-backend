@@ -477,7 +477,13 @@
                 <version>2.9.1</version>
                 <executions>
                     <execution>
-                        <phase>package</phase>
+                        <!-- Must run before jar:jar/spring-boot:repackage (both bound to
+                             `package`), or the SBOM lands in target/classes on disk *after*
+                             the jar is already zipped up and never makes it into the
+                             artifact — which is exactly what happened the first time this
+                             was wired up: /actuator/sbom returned {"ids":[]} because the
+                             running jar had no SBOM inside it despite one existing on disk. -->
+                        <phase>prepare-package</phase>
                         <goals>
                             <goal>makeAggregateBom</goal>
                         </goals>
