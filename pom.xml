@@ -48,6 +48,13 @@
 		
         <!-- Dependency Versions -->
         <jjwt.version>0.13.0</jjwt.version>
+        <!-- Do not bump past 2.x: 3.0.3 targets Spring Boot 4's reorganized
+             autoconfigure packages (org.springframework.boot.webmvc.autoconfigure.*)
+             and collides with this project's Spring Boot 3.5.10 on a duplicate
+             'conventionErrorViewResolver' bean — confirmed by actually trying
+             it (BeanDefinitionOverrideException, ~350 test failures), not
+             inferred from the changelog. Same constraint as spring-ai.version
+             below. -->
         <springdoc.version>2.7.0</springdoc.version>
         <testcontainers.version>1.20.2</testcontainers.version>
         <findsecbugs.version>1.14.0</findsecbugs.version>
