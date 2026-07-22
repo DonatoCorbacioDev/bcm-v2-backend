@@ -136,6 +136,12 @@ A standard Spring layered architecture, not Clean/Hexagonal Architecture in the 
 - **Testability:** Each layer can be tested independently (services are unit-tested against mocked repositories; controllers against a mocked service layer)
 - **Maintainability:** Changes to persistence details (e.g. a new column) are localized to entity/mapper/migration, not scattered across controllers
 
+### Architecture Decisions
+
+The non-obvious calls — why a monolith except for ML, why shared-schema multi-tenancy, why a
+local LLM instead of a cloud API, why MySQL + in-memory search instead of a vector database —
+are written up with alternatives and trade-offs in [docs/adr/](./docs/adr/README.md).
+
 ### Request Flow Example
 
 ```mermaid
