@@ -635,7 +635,14 @@ mvn spotbugs:check
 
 # View security report
 open target/spotbugs.xml
+
+# Generate a CycloneDX SBOM (also runs automatically on `mvn package`)
+mvn package -DskipTests
+open target/classes/META-INF/sbom/application.cdx.json
 ```
+
+- **SBOM (Software Bill of Materials):** every `mvn package` generates a CycloneDX SBOM listing all ~180 direct + transitive dependencies with resolvable package URLs — the input a vulnerability scanner (Grype, Trivy, Dependency-Track) or an auditor needs, not itself a scanner. Uploaded as a CI artifact on every build (`.github/workflows/ci.yml`); available at runtime via `/actuator/sbom` (authenticated — deliberately not on the `prod` profile's exposed endpoint list, since it's a ready-made list of exact dependency versions to check against known CVEs).
+- **Dependabot:** weekly automated PRs for outdated/vulnerable Maven dependencies and GitHub Actions (`.github/dependabot.yml`) — this is what would have caught the Next.js DoS/SSRF/cache-poisoning CVEs patched on 2026-07-22 automatically, instead of a manual `npm audit` pass.
 
 ---
 

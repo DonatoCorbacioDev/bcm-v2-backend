@@ -87,6 +87,13 @@ class SecurityConfigTest {
             mockMvc.perform(get("/managers"))
                     .andExpect(status().isUnauthorized());
         }
+
+        @Test
+        @DisplayName("GET /actuator/sbom without token should return 401 — unlike health/prometheus, it lists exact dependency versions")
+        void actuatorSbomRequiresAuthentication() throws Exception {
+            mockMvc.perform(get("/actuator/sbom"))
+                    .andExpect(status().isUnauthorized());
+        }
     }
 
     @Nested

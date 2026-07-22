@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # Maven dependencies — weekly PRs for outdated/vulnerable packages.
+  # Security updates are opened immediately regardless of this schedule.
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+
+  # GitHub Actions used in ci.yml (checkout, setup-java, gitleaks-action, ...)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "ci"
+
+  # Base image in Dockerfile
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"

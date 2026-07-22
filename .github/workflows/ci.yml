@@ -49,6 +49,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: target/classes/META-INF/sbom/application.cdx.json
+          retention-days: 90
+
       - name: SonarCloud analysis
         run: |
           ./mvnw sonar:sonar --batch-mode -P test \

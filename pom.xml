@@ -466,6 +466,25 @@
                 </executions>
             </plugin>
 
+            <!-- CycloneDX SBOM: generates target/bom.xml on every `mvn package`,
+                 listing every dependency (direct + transitive) with version,
+                 license, and known-vulnerability-lookup coordinates (PURLs).
+                 Not itself a scanner — this is the artifact a scanner (Dependency-Track,
+                 Grype, GitHub's own SBOM-based alerts) or an auditor consumes. -->
+            <plugin>
+                <groupId>org.cyclonedx</groupId>
+                <artifactId>cyclonedx-maven-plugin</artifactId>
+                <version>2.9.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>makeAggregateBom</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- SonarQube Plugin -->
             <plugin>
                 <groupId>org.sonarsource.scanner.maven</groupId>
