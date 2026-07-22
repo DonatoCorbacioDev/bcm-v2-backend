@@ -6,14 +6,14 @@
 [![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.10-brightgreen?logo=spring)](https://spring.io/projects/spring-boot)
 [![Coverage](https://img.shields.io/badge/Coverage-99%25%20instructions-brightgreen?style=flat&logo=codecov)](./target/site/jacoco/index.html)
-[![Tests](https://img.shields.io/badge/Tests-926%20methods-success)](./target/site/jacoco/index.html)
+[![Tests](https://img.shields.io/badge/Tests-1%2C234%20methods-success)](./target/site/jacoco/index.html)
 [![License](https://img.shields.io/badge/License-Custom-blue)](./LICENSE)
 [![Database](https://img.shields.io/badge/Database-MySQL%208.0-blue?logo=mysql)](https://www.mysql.com/)
 [![Flyway](https://img.shields.io/badge/Migrations-Flyway-red?logo=flyway)](https://flywaydb.org/)
 
 ## 🎯 Overview
 
-BCM v2.0 is the second iteration of my Business Contract Manager system, representing a complete architectural redesign from the original version developed during my master's thesis. This version showcases modern Spring Boot best practices, high test coverage (99% instruction/branch, 100% line — see [Code Quality Metrics](#-code-quality-metrics)), JWT-based security hardening, and automated database versioning with Flyway. It is a portfolio/MVP project moving toward production readiness — see [Roadmap](#-roadmap) and [docs/SECURITY.md](./docs/SECURITY.md) for what's done and what's still open.
+BCM v2.0 is the second iteration of my Business Contract Manager system, representing a complete architectural redesign from the original version developed during my master's thesis. This version showcases modern Spring Boot best practices, high test coverage (99% instruction, 96% branch, 99% line — see [Code Quality Metrics](#-code-quality-metrics)), JWT-based security hardening, and automated database versioning with Flyway. It is a portfolio/MVP project moving toward production readiness — see [Roadmap](#-roadmap) and [docs/SECURITY.md](./docs/SECURITY.md) for what's done and what's still open. High coverage means the test suite exercises most branches, not that every test asserts meaningful business behavior — the cross-tenant isolation and auth tests are the ones worth reading first.
 
 **Project Type:** Portfolio Project | Full-Stack SaaS Backend  
 **Status:** Active Development  
@@ -55,9 +55,8 @@ This is the API for the [bcm-v2-frontend](https://github.com/DonatoCorbacioDev/b
 
 ### Database Management
 
-- Automated schema versioning with Flyway
-- Zero-downtime migrations
-- Rollback capabilities
+- Automated, versioned schema migrations with Flyway (31 migrations applied in sequence)
+- Forward-only by design — no automatic rollback; reverting a bad migration means writing and shipping a new corrective migration, not undoing the old one
 - Multi-environment consistency (dev/test/prod)
 
 ---
@@ -114,7 +113,7 @@ graph TB
     style L fill:#ffab91,stroke:#bf360c,stroke-width:3px,color:#000
 ```
 
-### Clean Architecture Pattern
+### Layered Architecture
 
 ```
 ┌─────────────────────────────────────────┐
@@ -130,11 +129,12 @@ graph TB
 └─────────────────────────────────────────┘
 ```
 
+A standard Spring layered architecture, not Clean/Hexagonal Architecture in the strict sense — entities are JPA-annotated and services depend directly on Spring Data repositories, so the domain layer is not framework-independent. That's a reasonable, common trade-off for this kind of CRUD-heavy business app, just worth naming accurately.
+
 **Key Principles:**
 - **Separation of Concerns:** Each layer has a single responsibility
-- **Dependency Rule:** Inner layers don't depend on outer layers
-- **Testability:** Each layer can be tested independently
-- **Maintainability:** Changes in one layer don't affect others
+- **Testability:** Each layer can be tested independently (services are unit-tested against mocked repositories; controllers against a mocked service layer)
+- **Maintainability:** Changes to persistence details (e.g. a new column) are localized to entity/mapper/migration, not scattered across controllers
 
 ### Request Flow Example
 
@@ -191,9 +191,8 @@ sequenceDiagram
 
 - JUnit 5 (Jupiter)
 - Mockito for mocking
-- Spring Boot Test
-- Testcontainers (for integration tests)
-- H2 in-memory database (test environment)
+- Spring Boot Test + MockMvc
+- H2 in-memory database (test environment) — fast, but doesn't catch MySQL-specific behavior (e.g. real Flyway migrations aren't run against it); Testcontainers-backed integration tests against real MySQL are on the roadmap, not yet implemented
 
 **Code Quality & Analysis:**
 
@@ -217,18 +216,17 @@ sequenceDiagram
 
 ## 📊 Code Quality Metrics
 
-| Metric                    | Value                         | Status              |
-| ------------------------- | ------------------------------ | ------------------- |
-| **Instruction Coverage**  | 99% (11,755 / 11,760)          | ✅ High             |
-| **Branch Coverage**       | 100% (718 / 718)               | ✅ Full coverage    |
-| **Line Coverage**         | 100% (2,724 / 2,724)           | ✅ Full coverage    |
-| **Test Classes**          | 76 classes                     | ✅ Comprehensive    |
-| **Test Methods**          | 926 methods                    | ✅ Extensive        |
-| **Cyclomatic Complexity** | 949 (1 missed)                 | ✅ Well tested      |
+| Metric                    | Value                          | Status              |
+| ------------------------- | ------------------------------- | ------------------- |
+| **Instruction Coverage**  | 99% (17,241 / 17,415)          | ✅ High             |
+| **Branch Coverage**       | 96% (1,090 / 1,135)            | ✅ High             |
+| **Line Coverage**         | 99% (3,908 / 3,941)            | ✅ High             |
+| **Test Classes**          | 98 classes                     | ✅ Comprehensive    |
+| **Test Methods**          | ~1,234 methods                 | ✅ Extensive        |
 | **Security Scan**         | No issues                      | ✅ FindSecBugs pass |
-| **Package Coverage**      | 95 classes, 1 with a small gap | ✅ High             |
+| **Package Coverage**      | 122 classes total, `service` package trails the rest at 98%/96% | ✅ High |
 
-Numbers above are from the last local `mvn clean test jacoco:report` run (2026-07-06); regenerate with the same command to verify — see [target/site/jacoco/index.html](./target/site/jacoco/index.html).
+Numbers above are from the last local `mvn clean test jacoco:report` run (2026-07-22); regenerate with the same command to verify — see [target/site/jacoco/index.html](./target/site/jacoco/index.html). High coverage is a signal that the suite exercises the code, not proof the assertions are meaningful — see the note in [Overview](#-overview).
 
 ---
 
@@ -254,7 +252,7 @@ src/main/resources/
 ├── application.properties           # Main configuration
 ├── application-dev.properties       # Development profile
 ├── application-prod.properties      # Production profile
-└── db/migration/                    # Flyway migration scripts (V1–V18, see below)
+└── db/migration/                    # Flyway migration scripts (V1–V31, see below)
 
 sql/                   # Legacy SQL files (reference only, deprecated)
 ```
@@ -267,7 +265,7 @@ This project uses **Flyway** for automatic database version control and migratio
 
 ### Migration Files
 
-Located in `src/main/resources/db/migration/` — 18 migrations (V1–V18), 20 tables total:
+Located in `src/main/resources/db/migration/` — 31 migrations (V1–V31), 26 tables total:
 
 | File                                        | Description                                              |
 | -------------------------------------------- | --------------------------------------------------------- |
@@ -289,6 +287,19 @@ Located in `src/main/resources/db/migration/` — 18 migrations (V1–V18), 20 t
 | **V16\_\_ml_result_cache.sql**               | Adds `ml_result_cache`                                       |
 | **V17\_\_hash_refresh_tokens.sql**           | Migrates refresh tokens to SHA-256 hashed storage             |
 | **V18\_\_create_contract_templates.sql**     | Adds `contract_templates`                                    |
+| **V19\_\_translate_reference_data_to_italian.sql** | Translates seeded business areas/financial types to Italian |
+| **V20\_\_create_risk_feedback.sql**          | Adds `risk_feedback` (user feedback loop on ML risk scores)   |
+| **V21\_\_add_organization_bank_details.sql** | Adds `iban`/`bic` to `organizations`                          |
+| **V22\_\_add_invoice_payment_details.sql**   | Adds supplier IBAN/BIC to `electronic_invoices`               |
+| **V23\_\_create_sepa_payment_batches.sql**   | Adds `sepa_payment_batches` (pain.001 SEPA payments)           |
+| **V24\_\_add_user_calendar_token.sql**       | Adds `calendar_token` to `users` (ICS calendar export)         |
+| **V25\_\_add_totp_two_factor_auth.sql**      | Adds TOTP secret/enabled columns to `users` (2FA)              |
+| **V26\_\_add_contract_workflow.sql**         | Adds `workflow_stage` to `contracts` (approval workflow)       |
+| **V27\_\_widen_contract_status_enum_for_draft.sql** | Widens the native `contracts.status` ENUM to include `DRAFT` |
+| **V28\_\_backfill_orphaned_draft_workflow_stage.sql** | Data-fix migration for a workflow-stage backfill bug     |
+| **V29\_\_add_document_embedding.sql**        | Adds `embedding` to `contract_documents` (semantic search)     |
+| **V30\_\_add_budgets_and_financial_type_category.sql** | Adds `budgets` and REVENUE/COST category on financial types |
+| **V31\_\_add_document_versioning.sql**       | Adds document version grouping + cached extracted text (redlining) |
 
 ### How It Works
 
@@ -302,8 +313,7 @@ Located in `src/main/resources/db/migration/` — 18 migrations (V1–V18), 20 t
 - ✅ **Zero manual SQL execution** - Fully automated
 - ✅ **Environment consistency** - Same schema in dev/test/prod
 - ✅ **Team collaboration** - Everyone shares the same DB version
-- ✅ **Rollback support** - Track and revert changes safely
-- ✅ **Production-ready** - Enterprise-grade versioning
+- ⚠️ **No automatic rollback** - Flyway (open-source edition) only moves forward; undoing a bad migration means writing a new corrective one, not reverting the old
 
 ### Flyway Commands
 
@@ -328,7 +338,7 @@ mvn flyway:clean
 
 When you need to modify the database:
 
-1. Create new file with incremented version: `V19__your_description.sql`
+1. Create new file with incremented version: `V32__your_description.sql` (check the highest existing version first)
 2. Write your SQL DDL/DML changes
 3. Restart application → Flyway detects and applies automatically
 4. Commit migration file to Git
@@ -336,13 +346,12 @@ When you need to modify the database:
 **Example:**
 
 ```sql
--- V19__add_example_table.sql
-CREATE TABLE contract_documents (
+-- V32__add_example_table.sql
+CREATE TABLE example_table (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     contract_id BIGINT NOT NULL,
-    file_name VARCHAR(255) NOT NULL,
-    file_url VARCHAR(500) NOT NULL,
-    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    note VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE CASCADE
 );
 ```
@@ -384,7 +393,7 @@ exit
 
 **That's it!** On application startup, Flyway will:
 
-- ✅ Create the full schema (20 tables across 18 migrations)
+- ✅ Create the full schema (26 tables across 31 migrations)
 - ✅ Insert system roles (ADMIN, MANAGER)
 - ✅ Add business areas and financial types
 - ✅ Create performance indexes
@@ -459,8 +468,8 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 [INFO] Flyway: Migrating schema `bcm` to version "1 - initial schema"
 [INFO] Flyway: Migrating schema `bcm` to version "2 - seed reference data"
 ...
-[INFO] Flyway: Migrating schema `bcm` to version "18 - create contract templates"
-[INFO] Flyway: Successfully applied 18 migrations to schema `bcm`, now at version v18
+[INFO] Flyway: Migrating schema `bcm` to version "31 - add document versioning"
+[INFO] Flyway: Successfully applied 31 migrations to schema `bcm`, now at version v31
 [INFO] Started BcmBackendApplication in 7.873 seconds
 ```
 
@@ -502,25 +511,27 @@ mvn clean package -DskipTests
 
 ### Test Coverage by Package
 
-| Package    | Coverage | Key Tests                        |
-| ---------- | -------- | -------------------------------- |
-| service    | 99%      | Business logic (all services)    |
-| controller | 100%     | REST endpoints (all controllers) |
-| mapper     | 100%     | All DTO mappings                 |
-| auth       | 100%     | AuthService, AuthController      |
-| jwt        | 100%     | Token generation/validation      |
-| exception  | 100%     | Global exception handling        |
-| aspect     | 100%     | Audit aspect                     |
-| security   | 100%     | SecurityConfig                   |
-| util       | 100%     | Utility classes                  |
+| Package    | Instruction / Branch | Key Tests                        |
+| ---------- | --------------------- | -------------------------------- |
+| service    | 98% / 96%              | Business logic (all services)    |
+| controller | 100% / 100%            | REST endpoints (all controllers) |
+| mapper     | 100% / 100%            | All DTO mappings                 |
+| auth       | 100% / 100%            | AuthService, AuthController      |
+| jwt        | 100% / 100%            | Token generation/validation      |
+| exception  | 100% / n/a             | Global exception handling        |
+| aspect     | 99% / 96%              | Audit aspect                     |
+| security   | 100% / n/a             | SecurityConfig                   |
+| util       | 100% / 100%            | Utility classes                  |
 
-Most packages are at 100% instruction/branch coverage; `service` sits at 99% (2 missed instructions). DTOs, entities, config, and the main application class are excluded from measurement (see [CLAUDE.md](./CLAUDE.md)).
+`service` is the largest package by far (2,875 of 3,941 total lines) and trails slightly on branch coverage — mostly best-effort error-handling branches (e.g. OCR/embedding failures that degrade gracefully rather than fail the request) that are harder to trigger deterministically in a unit test. DTOs, entities, config, and the main application class are excluded from measurement (see [CLAUDE.md](./CLAUDE.md)).
 
 **Note:** Tests use H2 in-memory database with Flyway disabled for speed.
 
 ---
 
 ## 📚 API Endpoints
+
+Non-exhaustive — covers the core resources below. There are 8 controllers total, including several not listed here (documents, budgets, financial types, contract templates, SEPA payments, electronic invoices, semantic search, audit logs). For the complete, always-current list, see Swagger UI or the OpenAPI JSON at runtime (links in [Setup Instructions](#5-access-api-documentation)).
 
 ### Authentication
 
@@ -649,7 +660,8 @@ mvn clean package -Pprod
 # Run with production profile
 java -jar target/bcm-backend-1.0.0-SNAPSHOT.jar --spring.profiles.active=prod
 
-# Or with Docker (future)
+# Or with Docker (already available — see the bcm-v2-docker repo for the full
+# multi-service compose; this is just the backend image standalone)
 docker build -t bcm-backend:1.0.0 .
 docker run -p 8090:8090 --env-file .env.prod bcm-backend:1.0.0
 ```
@@ -658,22 +670,18 @@ docker run -p 8090:8090 --env-file .env.prod bcm-backend:1.0.0
 
 ## 📝 Version History
 
-### Version 2.0 (Current - 2025)
-
-**Major Rewrite:**
+### Version 2.0 (2025) — Initial Rewrite
 
 - ✨ Migrated to Spring Boot 3.5.10 + Java 21
-- ✨ Redesigned architecture with clean layers
+- ✨ Redesigned architecture with layered Spring services
 - ✨ JWT-based authentication
-- ✨ Comprehensive test suite (~99% instruction/branch coverage, 75% minimum enforced)
-- ✨ Role-based access control
-- ✨ Email verification system
-- ✨ Multi-manager support per contract
-- ✨ Advanced search and pagination
+- ✨ Role-based access control, email verification, multi-manager support
+- ✨ Flyway database migrations, multi-environment configuration (dev/test/prod)
 - ✨ OpenAPI 3 documentation
-- ✨ JWT/RBAC security hardening (see [docs/SECURITY.md](./docs/SECURITY.md) for what's production-ready vs. still open)
-- ✨ **Flyway database migrations (automatic versioning)**
-- ✨ **Multi-environment configuration (dev/test/prod)**
+
+### Since then (2025–2026) — Ongoing Development
+
+The rewrite above was the starting point, not the finish line. Since then: multi-tenancy with organization-scoped data isolation, refresh-token rotation with reuse detection, TOTP 2FA, an approval workflow for contracts, FatturaPA (Italian e-invoicing) parsing, SEPA pain.001 payment batches, document OCR + AI-assisted clause risk analysis, semantic document search (Spring AI + Ollama embeddings), an ML microservice for forecasting/anomaly detection/risk scoring (see [bcm-v2-ml](https://github.com/DonatoCorbacioDev/bcm-v2-ml)), budget tracking per business area, and document version history with a redline diff view. Several rounds of security hardening (SpotBugs/FindSecBugs, cross-tenant regression tests, secret scanning) happened alongside, not as an afterthought — see [docs/SECURITY.md](./docs/SECURITY.md) for what's production-ready vs. still open.
 
 ### Version 1.0 (2024)
 
