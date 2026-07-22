@@ -9,6 +9,13 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
+    ignore:
+      # 3.x targets Spring Boot 4 (org.springframework.boot.webmvc.autoconfigure
+      # package reorg) and collides with this project's Spring Boot 3.5.10 —
+      # confirmed by actually trying it, see the comment on springdoc.version
+      # in pom.xml. Revisit only alongside a deliberate Spring Boot 4 migration.
+      - dependency-name: "org.springdoc:springdoc-openapi-starter-webmvc-ui"
+        versions: [">=3.0.0"]
 
   # GitHub Actions used in ci.yml (checkout, setup-java, gitleaks-action, ...)
   - package-ecosystem: "github-actions"
