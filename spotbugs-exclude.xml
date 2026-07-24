@@ -95,6 +95,16 @@
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
 
+    <!-- CRLF_INJECTION_LOGS in OcrService: same already-sanitized safeMessage()
+         pattern as above, on the second log.warn call site in the same method
+         (temp file cleanup) — FindSecBugs resolves the first call site on its
+         own but not this one, the same analysis-depth quirk noted for
+         MlCacheRefresher. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.OcrService"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
     <!-- COMMAND_INJECTION in OcrService: ProcessBuilder is used with its
          List<String> constructor (no shell involved, so no metacharacter
          injection is possible regardless of content). Every argument is

@@ -171,6 +171,9 @@ public class ContractService {
      */
     public ContractDTO createContract(ContractDTO contractDTO) {
         Contracts contract = contractMapper.toEntity(contractDTO);
+        if (contract == null) {
+            throw new IllegalArgumentException("Contract data is required");
+        }
         Long orgId = TenantContext.get();
         if (orgId != null) {
             Organization org = new Organization();

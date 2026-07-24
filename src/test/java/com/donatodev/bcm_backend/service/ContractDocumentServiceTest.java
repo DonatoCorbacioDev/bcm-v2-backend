@@ -8,6 +8,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -547,6 +548,34 @@ class ContractDocumentServiceTest {
                     () -> contractDocumentService.uploadNewVersion(CONTRACT_ID, DOC_ID, file));
         }
 
+        @Test
+        @Order(31)
+        @DisplayName("uploadNewVersion: falls back to the base document's own versionNumber when no siblings are recorded yet")
+        void shouldIncrementFromBaseVersionWhenNoSiblings() throws IOException {
+            Contracts contract = fakeContract();
+            ContractDocument existing = fakeDoc(contract);
+            existing.setVersionNumber(3);
+            ContractDocument saved = fakeDoc(contract);
+            saved.setId(20L);
+            saved.setVersionNumber(4);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(existing));
+            when(documentRepository.findByVersionGroupIdOrderByVersionNumberDesc(DOC_ID))
+                    .thenReturn(List.of());
+            when(localStorageService.storeDocument(any(), eq(CONTRACT_ID), any()))
+                    .thenReturn("contracts/0/1/uuid-v4.pdf");
+            when(documentRepository.save(any(ContractDocument.class))).thenReturn(saved);
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "contract-v4.pdf", "application/pdf", VALID_PDF);
+
+            ContractDocumentDTO result = contractDocumentService.uploadNewVersion(CONTRACT_ID, DOC_ID, file);
+
+            assertEquals(4, result.versionNumber());
+            assertEquals(1, result.versionCount());
+        }
+
         // ---- getVersions ----
 
         @Test
@@ -643,6 +672,86 @@ class ContractDocumentServiceTest {
 
             assertThrows(ContractNotFoundException.class,
                     () -> contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L));
+        }
+
+        @Test
+        @Order(36)
+        @DisplayName("diffDocuments: throws ContractNotFoundException when the first document is missing")
+        void shouldThrowWhenFirstDocumentMissingOnDiff() {
+            Contracts contract = fakeContract();
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.empty());
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L));
+        }
+
+        @Test
+        @Order(37)
+        @DisplayName("diffDocuments: treats extraction failure as empty text instead of propagating")
+        void shouldTreatExtractionFailureAsEmptyText() {
+            Contracts contract = fakeContract();
+            ContractDocument from = fakeDoc(contract);
+            ContractDocument to = fakeDoc(contract);
+            to.setId(20L);
+            to.setExtractedText("Some text");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(from));
+            when(documentRepository.findByIdAndContractId(20L, CONTRACT_ID)).thenReturn(Optional.of(to));
+            when(localStorageService.readDocument(from.getStoragePath())).thenReturn(VALID_PDF);
+            when(pdfBoxService.extractRawText(VALID_PDF)).thenThrow(new RuntimeException());
+
+            DocumentDiffDTO result = contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L);
+
+            assertNull(from.getExtractedText());
+            verify(documentRepository, never()).save(from);
+            assertTrue(result.lines().stream().allMatch(l -> "INSERT".equals(l.tag())));
+        }
+
+        @Test
+        @Order(38)
+        @DisplayName("diffDocuments: sanitizes CRLF in a logged extraction failure message")
+        void shouldSanitizeExtractionFailureMessage() {
+            Contracts contract = fakeContract();
+            ContractDocument from = fakeDoc(contract);
+            ContractDocument to = fakeDoc(contract);
+            to.setId(20L);
+            to.setExtractedText("Some text");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(from));
+            when(documentRepository.findByIdAndContractId(20L, CONTRACT_ID)).thenReturn(Optional.of(to));
+            when(localStorageService.readDocument(from.getStoragePath())).thenReturn(VALID_PDF);
+            when(pdfBoxService.extractRawText(VALID_PDF)).thenThrow(new RuntimeException("disk read error"));
+
+            contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L);
+
+            assertNull(from.getExtractedText());
+        }
+
+        @Test
+        @Order(38)
+        @DisplayName("diffDocuments: reports INSERT and DELETE rows for lines unique to one side")
+        void shouldReportInsertAndDeleteRows() {
+            Contracts contract = fakeContract();
+            ContractDocument from = fakeDoc(contract);
+            from.setExtractedText("Line1\nRemoved line\nLine3");
+            ContractDocument to = fakeDoc(contract);
+            to.setId(20L);
+            to.setExtractedText("Line1\nLine3\nAdded line");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(from));
+            when(documentRepository.findByIdAndContractId(20L, CONTRACT_ID)).thenReturn(Optional.of(to));
+
+            DocumentDiffDTO result = contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L);
+
+            assertTrue(result.lines().stream()
+                    .anyMatch(l -> "DELETE".equals(l.tag()) && l.newText() == null));
+            assertTrue(result.lines().stream()
+                    .anyMatch(l -> "INSERT".equals(l.tag()) && l.oldText() == null));
         }
     }
 }

@@ -17,7 +17,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
@@ -25,6 +24,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -43,6 +43,7 @@ class PdfBoxServiceTest {
     @Mock
     private OcrService ocrService;
 
+    @InjectMocks
     private PdfBoxService pdfBoxService;
 
     private static byte[] pdfWithFields;
@@ -55,11 +56,6 @@ class PdfBoxServiceTest {
     private static byte[] pdfKeywordEmptyColon;
     private static byte[] scannedSinglePagePdf;
     private static byte[] scannedTwelvePagePdf;
-
-    @BeforeEach
-    void setUp() {
-        pdfBoxService = new PdfBoxService(ocrService);
-    }
 
     @BeforeAll
     static void createTestPdfs() throws IOException {

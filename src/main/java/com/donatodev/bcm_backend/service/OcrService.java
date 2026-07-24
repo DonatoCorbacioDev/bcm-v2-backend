@@ -5,8 +5,15 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
@@ -42,24 +49,38 @@ public class OcrService {
     private String language = "ita";
 
     public String extractText(BufferedImage image) {
-        File tempImage;
+        Path tempImage;
         try {
-            tempImage = File.createTempFile("ocr-page-", ".png");
+            tempImage = createSecureTempFile();
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to create temp file for OCR", e);
         }
 
         try {
-            ImageIO.write(image, "png", tempImage);
-            return runTesseract(tempImage);
+            ImageIO.write(image, "png", tempImage.toFile());
+            return runTesseract(tempImage.toFile());
         } catch (IOException e) {
             log.warn("OCR failed: {}", safeMessage(e));
             return "";
         } finally {
-            if (!tempImage.delete()) {
-                tempImage.deleteOnExit();
+            try {
+                Files.delete(tempImage);
+            } catch (IOException e) {
+                log.warn("Could not delete OCR temp file: {}", safeMessage(e));
+                tempImage.toFile().deleteOnExit();
             }
         }
+    }
+
+    // Rendered contract pages can contain sensitive business content, so the
+    // temp file must not be world-readable on shared/multi-tenant hosts.
+    private static Path createSecureTempFile() throws IOException {
+        if (FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
+            FileAttribute<Set<PosixFilePermission>> ownerOnly =
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"));
+            return Files.createTempFile("ocr-page-", ".png", ownerOnly);
+        }
+        return Files.createTempFile("ocr-page-", ".png");
     }
 
     private String runTesseract(File imageFile) throws IOException {

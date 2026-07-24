@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -187,8 +188,8 @@ class MlCacheServiceTest {
 
             mlCacheService.evictAllForOrg(ORG);
 
-            verify(repository, times(1)).deleteByOrgId(eq(ORG));
-            verify(repository, org.mockito.Mockito.never()).deleteByOrgId(eq(otherOrg));
+            verify(repository, times(1)).deleteByOrgId(ORG);
+            verify(repository, never()).deleteByOrgId(otherOrg);
         }
 
         @Test

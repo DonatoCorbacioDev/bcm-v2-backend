@@ -3,13 +3,13 @@ package com.donatodev.bcm_backend.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -41,15 +41,10 @@ class ContractWorkflowServiceTest {
     @Mock private ContractsRepository contractsRepository;
     @Mock private AgentNotificationService agentNotificationService;
 
+    @InjectMocks
     private ContractWorkflowService workflowService;
 
     private static final long CONTRACT_ID = 1L;
-
-    @BeforeEach
-    void setup() {
-        workflowService = new ContractWorkflowService(
-                contractAccessGuard, currentUserResolver, eventRepository, contractsRepository, agentNotificationService);
-    }
 
     private Contracts contractWithStage(WorkflowStage stage) {
         Contracts c = new Contracts();

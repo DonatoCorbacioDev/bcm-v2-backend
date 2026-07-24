@@ -52,7 +52,7 @@ public class ElectronicInvoiceService {
         this.objectMapper = objectMapper;
     }
 
-    @Transactional
+    @Transactional(rollbackFor = IOException.class)
     public ElectronicInvoiceDTO uploadInvoice(Long contractId, MultipartFile file) throws IOException {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);

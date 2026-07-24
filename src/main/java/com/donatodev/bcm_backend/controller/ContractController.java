@@ -53,6 +53,7 @@ import org.openpdf.text.DocumentException;
 public class ContractController {
 
     private static final Logger logger = LoggerFactory.getLogger(ContractController.class);
+    private static final String CONTENT_DISPOSITION_ATTACHMENT = "attachment";
 
     private final ContractService contractService;
     private final ExportService exportService;
@@ -236,7 +237,7 @@ public class ContractController {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-            headers.setContentDispositionFormData("attachment", "contracts_export.xlsx");
+            headers.setContentDispositionFormData(CONTENT_DISPOSITION_ATTACHMENT,"contracts_export.xlsx");
 
             return ResponseEntity.ok()
                     .headers(headers)
@@ -261,7 +262,7 @@ public class ContractController {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDispositionFormData("attachment", "contracts_export.pdf");
+            headers.setContentDispositionFormData(CONTENT_DISPOSITION_ATTACHMENT,"contracts_export.pdf");
 
             return ResponseEntity.ok()
                     .headers(headers)
@@ -351,7 +352,7 @@ public class ContractController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentDispositionFormData("attachment", "contract_import_template.xlsx");
+        headers.setContentDispositionFormData(CONTENT_DISPOSITION_ATTACHMENT,"contract_import_template.xlsx");
 
         return ResponseEntity.ok()
                 .headers(headers)

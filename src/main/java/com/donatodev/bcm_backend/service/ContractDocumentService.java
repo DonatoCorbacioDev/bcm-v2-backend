@@ -62,7 +62,7 @@ public class ContractDocumentService {
         this.semanticSearchService = semanticSearchService;
     }
 
-    @Transactional
+    @Transactional(rollbackFor = IOException.class)
     public ContractDocumentDTO uploadDocument(Long contractId, MultipartFile file) throws IOException {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
@@ -73,7 +73,7 @@ public class ContractDocumentService {
         return toDTO(doc, 1);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = IOException.class)
     public ContractDocumentDTO uploadNewVersion(Long contractId, Long documentId, MultipartFile file) throws IOException {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);

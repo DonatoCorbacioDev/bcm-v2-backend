@@ -25,6 +25,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -63,12 +64,11 @@ class SepaPaymentServiceTest {
     @Mock private SepaPaymentBatchRepository batchRepository;
     @Mock private LocalStorageService localStorageService;
 
+    @InjectMocks
     private SepaPaymentService sepaPaymentService;
 
     @BeforeEach
     void setup() {
-        sepaPaymentService = new SepaPaymentService(
-                contractAccessGuard, invoiceRepository, organizationRepository, batchRepository, localStorageService);
         TenantContext.set(ORG_ID);
     }
 

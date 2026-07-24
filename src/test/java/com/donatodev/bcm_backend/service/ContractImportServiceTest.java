@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.service;
 
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import org.apache.poi.ss.usermodel.Row;
@@ -137,7 +138,7 @@ class ContractImportServiceTest {
             org.mockito.ArgumentCaptor<ContractDTO> captor = org.mockito.ArgumentCaptor.forClass(ContractDTO.class);
             verify(contractService).createContract(captor.capture());
             assertEquals(com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE, captor.getValue().status());
-            assertEquals(LocalDate.of(2024, 1, 1), captor.getValue().startDate());
+            assertEquals(LocalDate.of(2024, Month.JANUARY, 1), captor.getValue().startDate());
         }
 
         @Test
@@ -380,7 +381,7 @@ class ContractImportServiceTest {
                 org.apache.poi.ss.usermodel.CellStyle dateStyle = workbook.createCellStyle();
                 dateStyle.setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat("m/d/yy"));
                 org.apache.poi.ss.usermodel.Cell startCell = dataRow.createCell(4);
-                startCell.setCellValue(LocalDate.of(2024, 1, 1));
+                startCell.setCellValue(LocalDate.of(2024, Month.JANUARY, 1));
                 startCell.setCellStyle(dateStyle);
                 dataRow.createCell(5).setCellValue("31/12/2024");
                 dataRow.createCell(7).setCellValue("IT");
@@ -392,7 +393,7 @@ class ContractImportServiceTest {
 
             org.mockito.ArgumentCaptor<ContractDTO> captor = org.mockito.ArgumentCaptor.forClass(ContractDTO.class);
             verify(contractService).createContract(captor.capture());
-            assertEquals(LocalDate.of(2024, 1, 1), captor.getValue().startDate());
+            assertEquals(LocalDate.of(2024, Month.JANUARY, 1), captor.getValue().startDate());
         }
 
         @Test
@@ -426,6 +427,248 @@ class ContractImportServiceTest {
             org.mockito.ArgumentCaptor<ContractDTO> captor = org.mockito.ArgumentCaptor.forClass(ContractDTO.class);
             verify(contractService).createContract(captor.capture());
             assertEquals("12345.0", captor.getValue().projectName());
+        }
+
+        @Test
+        @DisplayName("stringifies a formula cell for an optional text field")
+        void stringifiesFormulaCell() throws Exception {
+            setupImportService();
+            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
+            when(managersRepository.findAll()).thenReturn(List.of());
+            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+
+            byte[] bytes;
+            try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                Sheet sheet = workbook.createSheet("Contratti");
+                Row header = sheet.createRow(0);
+                for (int c = 0; c < HEADER.length; c++) {
+                    header.createCell(c).setCellValue(HEADER[c]);
+                }
+                Row dataRow = sheet.createRow(1);
+                dataRow.createCell(0).setCellValue("C-1");
+                dataRow.createCell(1).setCellValue("Cliente A");
+                dataRow.createCell(2).setCellFormula("1+1");
+                dataRow.createCell(4).setCellValue("01/01/2024");
+                dataRow.createCell(5).setCellValue("31/12/2024");
+                dataRow.createCell(7).setCellValue("IT");
+                workbook.write(out);
+                bytes = out.toByteArray();
+            }
+
+            importService.importFromExcel(toFile(bytes));
+
+            org.mockito.ArgumentCaptor<ContractDTO> captor = org.mockito.ArgumentCaptor.forClass(ContractDTO.class);
+            verify(contractService).createContract(captor.capture());
+            assertEquals("1+1", captor.getValue().projectName());
+        }
+
+        @Test
+        @DisplayName("stringifies a boolean cell for an optional text field")
+        void stringifiesBooleanCell() throws Exception {
+            setupImportService();
+            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
+            when(managersRepository.findAll()).thenReturn(List.of());
+            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+
+            byte[] bytes;
+            try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                Sheet sheet = workbook.createSheet("Contratti");
+                Row header = sheet.createRow(0);
+                for (int c = 0; c < HEADER.length; c++) {
+                    header.createCell(c).setCellValue(HEADER[c]);
+                }
+                Row dataRow = sheet.createRow(1);
+                dataRow.createCell(0).setCellValue("C-1");
+                dataRow.createCell(1).setCellValue("Cliente A");
+                dataRow.createCell(2).setCellValue(true);
+                dataRow.createCell(4).setCellValue("01/01/2024");
+                dataRow.createCell(5).setCellValue("31/12/2024");
+                dataRow.createCell(7).setCellValue("IT");
+                workbook.write(out);
+                bytes = out.toByteArray();
+            }
+
+            importService.importFromExcel(toFile(bytes));
+
+            org.mockito.ArgumentCaptor<ContractDTO> captor = org.mockito.ArgumentCaptor.forClass(ContractDTO.class);
+            verify(contractService).createContract(captor.capture());
+            assertEquals("true", captor.getValue().projectName());
+        }
+
+        @Test
+        @DisplayName("treats a whitespace-only cell as blank for optional fields")
+        void treatsWhitespaceOnlyCellAsBlankForOptionalField() throws Exception {
+            setupImportService();
+            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
+            when(managersRepository.findAll()).thenReturn(List.of());
+            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+
+            byte[] bytes = buildWorkbook(HEADER,
+                    new String[]{"C-1", "Cliente A", "   ", null, "01/01/2024", "31/12/2024", null, "IT"});
+
+            importService.importFromExcel(toFile(bytes));
+
+            org.mockito.ArgumentCaptor<ContractDTO> captor = org.mockito.ArgumentCaptor.forClass(ContractDTO.class);
+            verify(contractService).createContract(captor.capture());
+            assertEquals(null, captor.getValue().projectName());
+        }
+
+        @Test
+        @DisplayName("treats an explicitly created but empty cell as blank")
+        void treatsExplicitBlankCellAsBlank() throws Exception {
+            setupImportService();
+            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
+            when(managersRepository.findAll()).thenReturn(List.of());
+            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+
+            byte[] bytes;
+            try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                Sheet sheet = workbook.createSheet("Contratti");
+                Row header = sheet.createRow(0);
+                for (int c = 0; c < HEADER.length; c++) {
+                    header.createCell(c).setCellValue(HEADER[c]);
+                }
+                Row dataRow = sheet.createRow(1);
+                dataRow.createCell(0).setCellValue("C-1");
+                dataRow.createCell(1).setCellValue("Cliente A");
+                dataRow.createCell(2); // explicitly created, no value: CellType.BLANK
+                dataRow.createCell(4).setCellValue("01/01/2024");
+                dataRow.createCell(5).setCellValue("31/12/2024");
+                dataRow.createCell(7).setCellValue("IT");
+                workbook.write(out);
+                bytes = out.toByteArray();
+            }
+
+            importService.importFromExcel(toFile(bytes));
+
+            org.mockito.ArgumentCaptor<ContractDTO> captor = org.mockito.ArgumentCaptor.forClass(ContractDTO.class);
+            verify(contractService).createContract(captor.capture());
+            assertEquals(null, captor.getValue().projectName());
+        }
+
+        @Test
+        @DisplayName("treats a whitespace-only cell as blank for required fields")
+        void treatsWhitespaceOnlyCellAsBlank() throws Exception {
+            setupImportService();
+            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
+            when(managersRepository.findAll()).thenReturn(List.of());
+
+            byte[] bytes = buildWorkbook(HEADER,
+                    new String[]{"   ", "Cliente A", null, null, "01/01/2024", "31/12/2024", null, "IT"});
+
+            ContractImportResultDTO result = importService.importFromExcel(toFile(bytes));
+
+            assertEquals(1, result.errors().size());
+            assertTrue(result.errors().get(0).message().contains("Numero contratto mancante"));
+        }
+
+        @Test
+        @DisplayName("skips rows where every cell is whitespace-only, same as a fully blank row")
+        void skipsRowsWithOnlyWhitespaceCells() throws Exception {
+            setupImportService();
+
+            byte[] bytes = buildWorkbook(HEADER,
+                    new String[]{" ", " ", " ", " ", " ", " ", " ", " "});
+
+            ContractImportResultDTO result = importService.importFromExcel(toFile(bytes));
+
+            assertEquals(0, result.totalRows());
+            verify(contractService, never()).createContract(any());
+        }
+
+        @Test
+        @DisplayName("rejects a date column holding a plain (non-date-formatted) number")
+        void rejectsNonDateFormattedNumericDateCell() throws Exception {
+            setupImportService();
+            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
+            when(managersRepository.findAll()).thenReturn(List.of());
+
+            byte[] bytes;
+            try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                Sheet sheet = workbook.createSheet("Contratti");
+                Row header = sheet.createRow(0);
+                for (int c = 0; c < HEADER.length; c++) {
+                    header.createCell(c).setCellValue(HEADER[c]);
+                }
+                Row dataRow = sheet.createRow(1);
+                dataRow.createCell(0).setCellValue("C-1");
+                dataRow.createCell(1).setCellValue("Cliente A");
+                dataRow.createCell(4).setCellValue(45000.0);
+                dataRow.createCell(5).setCellValue("31/12/2024");
+                dataRow.createCell(7).setCellValue("IT");
+                workbook.write(out);
+                bytes = out.toByteArray();
+            }
+
+            ContractImportResultDTO result = importService.importFromExcel(toFile(bytes));
+
+            assertEquals(1, result.errors().size());
+            assertTrue(result.errors().get(0).message().contains("Data inizio non valida"));
+        }
+
+        @Test
+        @DisplayName("rejects a date column that is a whitespace-only string")
+        void rejectsWhitespaceOnlyDateCell() throws Exception {
+            setupImportService();
+            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
+            when(managersRepository.findAll()).thenReturn(List.of());
+
+            byte[] bytes = buildWorkbook(HEADER,
+                    new String[]{"C-1", "Cliente A", null, null, "   ", "31/12/2024", null, "IT"});
+
+            ContractImportResultDTO result = importService.importFromExcel(toFile(bytes));
+
+            assertEquals(1, result.errors().size());
+            assertTrue(result.errors().get(0).message().contains("Data inizio mancante"));
+        }
+
+        @Test
+        @DisplayName("rejects a date column that is an explicitly created but empty cell")
+        void rejectsExplicitBlankDateCell() throws Exception {
+            setupImportService();
+            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
+            when(managersRepository.findAll()).thenReturn(List.of());
+
+            byte[] bytes;
+            try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                Sheet sheet = workbook.createSheet("Contratti");
+                Row header = sheet.createRow(0);
+                for (int c = 0; c < HEADER.length; c++) {
+                    header.createCell(c).setCellValue(HEADER[c]);
+                }
+                Row dataRow = sheet.createRow(1);
+                dataRow.createCell(0).setCellValue("C-1");
+                dataRow.createCell(1).setCellValue("Cliente A");
+                dataRow.createCell(4); // explicitly created, no value: CellType.BLANK
+                dataRow.createCell(5).setCellValue("31/12/2024");
+                dataRow.createCell(7).setCellValue("IT");
+                workbook.write(out);
+                bytes = out.toByteArray();
+            }
+
+            ContractImportResultDTO result = importService.importFromExcel(toFile(bytes));
+
+            assertEquals(1, result.errors().size());
+            assertTrue(result.errors().get(0).message().contains("Data inizio mancante"));
+        }
+
+        @Test
+        @DisplayName("skips business areas with a null name while resolving a match")
+        void skipsAreasWithNullNameWhenResolving() throws Exception {
+            setupImportService();
+            BusinessAreas unnamed = BusinessAreas.builder().id(99L).name(null).build();
+            when(businessAreasRepository.findAll()).thenReturn(List.of(unnamed, area));
+            when(managersRepository.findAll()).thenReturn(List.of());
+            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+
+            byte[] bytes = buildWorkbook(HEADER,
+                    new String[]{"C-1", "Cliente A", null, null, "01/01/2024", "31/12/2024", null, "IT"});
+
+            importService.importFromExcel(toFile(bytes));
+
+            org.mockito.ArgumentCaptor<ContractDTO> captor = org.mockito.ArgumentCaptor.forClass(ContractDTO.class);
+            verify(contractService).createContract(captor.capture());
+            assertEquals(area.getId(), captor.getValue().areaId());
         }
     }
 
@@ -485,8 +728,9 @@ class ContractImportServiceTest {
                 workbook.write(out);
                 bytes = out.toByteArray();
             }
+            MockMultipartFile file = toFile(bytes);
 
-            assertThrows(IllegalArgumentException.class, () -> importService.importFromExcel(toFile(bytes)));
+            assertThrows(IllegalArgumentException.class, () -> importService.importFromExcel(file));
         }
 
         @Test

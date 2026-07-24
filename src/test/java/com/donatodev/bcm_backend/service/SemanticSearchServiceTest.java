@@ -107,6 +107,14 @@ class SemanticSearchServiceTest {
         }
 
         @Test
+        @DisplayName("a zero-magnitude second vector scores 0.0 instead of NaN")
+        void zeroSecondVectorScoresZero() {
+            float[] a = {1f, 1f};
+            float[] b = {0f, 0f};
+            assertEquals(0.0, SemanticSearchService.cosineSimilarity(a, b), 1e-9);
+        }
+
+        @Test
         @DisplayName("mismatched dimensions throw")
         void mismatchedDimensionsThrow() {
             float[] a = {1f, 2f};
@@ -122,7 +130,7 @@ class SemanticSearchServiceTest {
 
         @Test
         @DisplayName("stores the embedding as JSON on success")
-        void storesEmbeddingOnSuccess() throws Exception {
+        void storesEmbeddingOnSuccess() {
             ContractDocument doc = fakeDoc(null);
             when(embeddingModel.embed("hello world")).thenReturn(new float[]{0.1f, 0.2f});
 
@@ -154,6 +162,41 @@ class SemanticSearchServiceTest {
             verify(documentRepository, never()).save(any());
             assertEquals(1, meterRegistry.get("bcm.embedding.generate").tag("outcome", "error").timer().count());
         }
+
+        @Test
+        @DisplayName("does nothing for null text")
+        void doesNothingForNullText() {
+            ContractDocument doc = fakeDoc(null);
+
+            semanticSearchService.generateAndStoreEmbedding(doc, null);
+
+            verify(documentRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("truncates text longer than the embedding model's input limit")
+        void truncatesOverlyLongText() {
+            ContractDocument doc = fakeDoc(null);
+            String longText = "a".repeat(6100);
+            String truncated = "a".repeat(6000);
+            when(embeddingModel.embed(truncated)).thenReturn(new float[]{0.1f});
+
+            semanticSearchService.generateAndStoreEmbedding(doc, longText);
+
+            verify(embeddingModel).embed(truncated);
+            verify(documentRepository).save(doc);
+        }
+
+        @Test
+        @DisplayName("does not propagate a failure that carries no message")
+        void doesNotPropagateFailureWithNullMessage() {
+            ContractDocument doc = fakeDoc(null);
+            when(embeddingModel.embed(anyString())).thenThrow(new RuntimeException());
+
+            semanticSearchService.generateAndStoreEmbedding(doc, "hello world");
+
+            verify(documentRepository, never()).save(any());
+        }
     }
 
     @Nested
@@ -169,6 +212,12 @@ class SemanticSearchServiceTest {
         @DisplayName("returns empty list for a blank query")
         void blankQueryReturnsEmpty() {
             assertTrue(semanticSearchService.search("  ", 10).isEmpty());
+        }
+
+        @Test
+        @DisplayName("returns empty list for a null query")
+        void nullQueryReturnsEmpty() {
+            assertTrue(semanticSearchService.search(null, 10).isEmpty());
         }
 
         @Test

@@ -175,5 +175,13 @@ class LocalStorageServiceTest {
 
             assertTrue(path.startsWith("sepa/0/42/"));
         }
+
+        @Test
+        @Order(14)
+        @DisplayName("readDocument: rejects a path that escapes the upload root")
+        void shouldRejectPathEscapingUploadRoot() {
+            assertThrows(SecurityException.class,
+                    () -> localStorageService.readDocument("../../../../etc/passwd"));
+        }
     }
 }

@@ -46,6 +46,7 @@ public class DevDataSeeder implements ApplicationRunner {
     private static final Logger logger = LoggerFactory.getLogger(DevDataSeeder.class);
 
     static final String DEMO_USERNAME = "demo";
+    @SuppressWarnings("java:S2068") // dev-profile-only demo credential, intentionally documented in the log line below
     static final String DEMO_PASSWORD = "Demo12345!";
     private static final String ADMIN_ROLE = "ADMIN";
     private static final String DEMO_MANAGER_EMAIL = "demo@bcm-demo.local";
@@ -69,6 +70,7 @@ public class DevDataSeeder implements ApplicationRunner {
     }
 
     @Override
+    @SuppressWarnings("java:S6437") // same dev-only demo credential as DEMO_PASSWORD above, not a real secret
     public void run(ApplicationArguments args) {
         if (usersRepository.findByUsername(DEMO_USERNAME).isPresent()) {
             return;

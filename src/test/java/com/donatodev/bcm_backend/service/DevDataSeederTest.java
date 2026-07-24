@@ -46,7 +46,7 @@ class DevDataSeederTest {
 
         @Test
         @DisplayName("does nothing when the demo account already exists")
-        void skipsWhenAlreadySeeded() throws Exception {
+        void skipsWhenAlreadySeeded() {
             when(usersRepository.findByUsername(DevDataSeeder.DEMO_USERNAME))
                     .thenReturn(Optional.of(new Users()));
 
@@ -58,7 +58,7 @@ class DevDataSeederTest {
 
         @Test
         @DisplayName("does nothing when there is no organization to attach the account to")
-        void skipsWhenOrgMissing() throws Exception {
+        void skipsWhenOrgMissing() {
             when(usersRepository.findByUsername(DevDataSeeder.DEMO_USERNAME)).thenReturn(Optional.empty());
             when(organizationRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.empty());
             when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.of(new Roles()));
@@ -70,7 +70,7 @@ class DevDataSeederTest {
 
         @Test
         @DisplayName("does nothing when the ADMIN role is missing")
-        void skipsWhenRoleMissing() throws Exception {
+        void skipsWhenRoleMissing() {
             when(usersRepository.findByUsername(DevDataSeeder.DEMO_USERNAME)).thenReturn(Optional.empty());
             when(organizationRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(new Organization()));
             when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.empty());
@@ -82,7 +82,7 @@ class DevDataSeederTest {
 
         @Test
         @DisplayName("creates a verified admin user (with its required manager row) in the default organization")
-        void seedsDemoAccount() throws Exception {
+        void seedsDemoAccount() {
             Organization defaultOrg = Organization.builder().id(1L).name("Default Organization").slug("default").build();
             Roles adminRole = Roles.builder().id(1L).role("ADMIN").build();
             Managers savedManager = Managers.builder().id(1L).firstName("Demo").lastName("Admin").build();
