@@ -108,23 +108,35 @@ public class OcrService {
             command.add(tessdataDir);
         }
 
-        Process process = new ProcessBuilder(command).start();
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-
+        // Output is redirected to a file rather than read from the process's
+        // stdout pipe: reading a pipe blocks until the child closes it (i.e.
+        // exits), which would defeat the timeout below entirely — a hung
+        // Tesseract would block here forever, before waitFor ever got a
+        // chance to apply the timeout and kill it.
+        Path outputFile = Files.createTempFile("ocr-output-", ".txt");
         try {
-            boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
-            if (!finished) {
+            Process process = new ProcessBuilder(command)
+                    .redirectOutput(outputFile.toFile())
+                    .redirectErrorStream(true)
+                    .start();
+
+            try {
+                boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+                if (!finished) {
+                    process.destroyForcibly();
+                    log.warn("OCR timed out after {}s", timeoutSeconds);
+                    return "";
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
                 process.destroyForcibly();
-                log.warn("OCR timed out after {}s", timeoutSeconds);
                 return "";
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            process.destroyForcibly();
-            return "";
-        }
 
-        return output.trim();
+            return Files.readString(outputFile, StandardCharsets.UTF_8).trim();
+        } finally {
+            Files.deleteIfExists(outputFile);
+        }
     }
 
     private static String safeMessage(Exception e) {

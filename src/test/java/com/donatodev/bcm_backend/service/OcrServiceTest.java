@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -67,16 +68,36 @@ class OcrServiceTest {
     @DisplayName("extractText: returns empty string when Tesseract exceeds the configured timeout")
     @DisabledOnOs(OS.WINDOWS) // needs a real slow-running executable; POSIX-only shell script below
     void shouldReturnEmptyWhenTimeoutExceeded() throws IOException {
-        Path script = Files.createTempFile("slow-ocr-", ".sh");
-        Files.writeString(script, "#!/bin/sh\nsleep 3\n", StandardCharsets.UTF_8);
-        script.toFile().setExecutable(true);
-        script.toFile().deleteOnExit();
-
-        ReflectionTestUtils.setField(ocrService, "tesseractCommand", script.toString());
+        ReflectionTestUtils.setField(ocrService, "tesseractCommand", slowShellScript(3).toString());
         ReflectionTestUtils.setField(ocrService, "timeoutSeconds", 1L);
 
         String result = ocrService.extractText(textImage("irrelevant"));
 
         assertEquals("", result);
+    }
+
+    @Test
+    @DisplayName("extractText: returns empty string when interrupted while waiting for Tesseract")
+    @DisabledOnOs(OS.WINDOWS) // needs a real slow-running executable; POSIX-only shell script below
+    void shouldReturnEmptyWhenInterruptedWhileWaiting() throws Exception {
+        ReflectionTestUtils.setField(ocrService, "tesseractCommand", slowShellScript(5).toString());
+        ReflectionTestUtils.setField(ocrService, "timeoutSeconds", 30L);
+
+        AtomicReference<String> result = new AtomicReference<>();
+        Thread worker = new Thread(() -> result.set(ocrService.extractText(textImage("irrelevant"))));
+        worker.start();
+        Thread.sleep(300); // let the process actually start before interrupting
+        worker.interrupt();
+        worker.join(5000);
+
+        assertEquals("", result.get());
+    }
+
+    private static Path slowShellScript(int sleepSeconds) throws IOException {
+        Path script = Files.createTempFile("slow-ocr-", ".sh");
+        Files.writeString(script, "#!/bin/sh\nsleep " + sleepSeconds + "\n", StandardCharsets.UTF_8);
+        script.toFile().setExecutable(true);
+        script.toFile().deleteOnExit();
+        return script;
     }
 }
