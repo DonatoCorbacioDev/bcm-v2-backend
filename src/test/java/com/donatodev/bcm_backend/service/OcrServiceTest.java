@@ -45,4 +45,15 @@ class OcrServiceTest {
 
         assertEquals("", result);
     }
+
+    @Test
+    @DisplayName("extractText: includes --tessdata-dir in the command when configured")
+    void shouldIncludeTessdataDirWhenConfigured() {
+        ReflectionTestUtils.setField(ocrService, "tesseractCommand", "no-such-binary-xyz");
+        ReflectionTestUtils.setField(ocrService, "tessdataDir", "/opt/tessdata");
+
+        String result = ocrService.extractText(textImage("irrelevant"));
+
+        assertEquals("", result);
+    }
 }

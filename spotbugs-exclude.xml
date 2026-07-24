@@ -105,6 +105,17 @@
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
 
+    <!-- RV_RETURN_VALUE_IGNORED_BAD_PRACTICE in OcrService.createSecureTempFile():
+         the return values of setReadable/setWritable ARE checked, combined
+         into a single `restricted` boolean via a chained && — SpotBugs's
+         dataflow analysis doesn't track the return value being consumed by
+         a later operand in a boolean AND chain, a known limitation with this
+         specific check. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.OcrService"/>
+        <Bug pattern="RV_RETURN_VALUE_IGNORED_BAD_PRACTICE"/>
+    </Match>
+
     <!-- COMMAND_INJECTION in OcrService: ProcessBuilder is used with its
          List<String> constructor (no shell involved, so no metacharacter
          injection is possible regardless of content). Every argument is
