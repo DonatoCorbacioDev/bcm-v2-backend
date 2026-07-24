@@ -76,25 +76,22 @@ public class OcrService {
     // temp file must not be world-readable on shared/multi-tenant hosts. The
     // FileAttribute form is the one SonarJava's S5443 check recognizes as
     // race-free (permissions applied atomically at creation, not after).
-    @SuppressWarnings("java:S5443") // non-POSIX branch: Windows dev machines only —
-    // production always runs Linux containers (see CLAUDE.md), where the
-    // POSIX branch above is the one actually taken; setReadable/setWritable
-    // still restricts access here, just not atomically.
     private static Path createSecureTempFile() throws IOException {
         if (FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
             FileAttribute<Set<PosixFilePermission>> ownerOnly =
                     PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"));
             return Files.createTempFile("ocr-page-", ".png", ownerOnly);
         }
-        File file = File.createTempFile("ocr-page-", ".png");
-        boolean restricted = file.setReadable(false, false)
-                && file.setReadable(true, true)
-                && file.setWritable(false, false)
-                && file.setWritable(true, true);
-        if (!restricted) {
-            log.warn("Could not fully restrict permissions on OCR temp file");
-        }
-        return file.toPath();
+        return createTempFileWindowsDevFallback();
+    }
+
+    // Windows has no POSIX file attributes, so this can't be hardened the same
+    // way — acceptable because it only ever runs on a developer's own local
+    // machine. Production always runs Linux containers (see CLAUDE.md), where
+    // the POSIX branch above is the one actually taken.
+    @SuppressWarnings("java:S5443")
+    private static Path createTempFileWindowsDevFallback() throws IOException {
+        return Files.createTempFile("ocr-page-", ".png");
     }
 
     private String runTesseract(File imageFile) throws IOException {

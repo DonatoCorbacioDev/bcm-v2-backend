@@ -496,6 +496,76 @@ class ContractImportServiceTest {
         }
 
         @Test
+        @DisplayName("stringifies a date-formatted numeric cell used in a non-date optional field")
+        void stringifiesDateFormattedCellInNonDateField() throws Exception {
+            setupImportService();
+            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
+            when(managersRepository.findAll()).thenReturn(List.of());
+            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+
+            byte[] bytes;
+            try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                Sheet sheet = workbook.createSheet("Contratti");
+                Row header = sheet.createRow(0);
+                for (int c = 0; c < HEADER.length; c++) {
+                    header.createCell(c).setCellValue(HEADER[c]);
+                }
+                Row dataRow = sheet.createRow(1);
+                dataRow.createCell(0).setCellValue("C-1");
+                dataRow.createCell(1).setCellValue("Cliente A");
+                org.apache.poi.ss.usermodel.CellStyle dateStyle = workbook.createCellStyle();
+                dateStyle.setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat("m/d/yy"));
+                org.apache.poi.ss.usermodel.Cell projectCell = dataRow.createCell(2);
+                projectCell.setCellValue(LocalDate.of(2024, Month.MARCH, 1));
+                projectCell.setCellStyle(dateStyle);
+                dataRow.createCell(4).setCellValue("01/01/2024");
+                dataRow.createCell(5).setCellValue("31/12/2024");
+                dataRow.createCell(7).setCellValue("IT");
+                workbook.write(out);
+                bytes = out.toByteArray();
+            }
+
+            importService.importFromExcel(toFile(bytes));
+
+            org.mockito.ArgumentCaptor<ContractDTO> captor = org.mockito.ArgumentCaptor.forClass(ContractDTO.class);
+            verify(contractService).createContract(captor.capture());
+            assertEquals("2024-03-01", captor.getValue().projectName());
+        }
+
+        @Test
+        @DisplayName("stringifies an error cell as blank for optional fields")
+        void treatsErrorCellAsBlankForOptionalField() throws Exception {
+            setupImportService();
+            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
+            when(managersRepository.findAll()).thenReturn(List.of());
+            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+
+            byte[] bytes;
+            try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                Sheet sheet = workbook.createSheet("Contratti");
+                Row header = sheet.createRow(0);
+                for (int c = 0; c < HEADER.length; c++) {
+                    header.createCell(c).setCellValue(HEADER[c]);
+                }
+                Row dataRow = sheet.createRow(1);
+                dataRow.createCell(0).setCellValue("C-1");
+                dataRow.createCell(1).setCellValue("Cliente A");
+                dataRow.createCell(2).setCellErrorValue(org.apache.poi.ss.usermodel.FormulaError.DIV0.getCode());
+                dataRow.createCell(4).setCellValue("01/01/2024");
+                dataRow.createCell(5).setCellValue("31/12/2024");
+                dataRow.createCell(7).setCellValue("IT");
+                workbook.write(out);
+                bytes = out.toByteArray();
+            }
+
+            importService.importFromExcel(toFile(bytes));
+
+            org.mockito.ArgumentCaptor<ContractDTO> captor = org.mockito.ArgumentCaptor.forClass(ContractDTO.class);
+            verify(contractService).createContract(captor.capture());
+            assertEquals(null, captor.getValue().projectName());
+        }
+
+        @Test
         @DisplayName("treats a whitespace-only cell as blank for optional fields")
         void treatsWhitespaceOnlyCellAsBlankForOptionalField() throws Exception {
             setupImportService();
