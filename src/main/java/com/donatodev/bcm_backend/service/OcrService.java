@@ -5,15 +5,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.FileAttribute;
-import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
@@ -74,13 +69,18 @@ public class OcrService {
 
     // Rendered contract pages can contain sensitive business content, so the
     // temp file must not be world-readable on shared/multi-tenant hosts.
+    // setReadable/setWritable (rather than a POSIX-only FileAttribute) works
+    // on every platform the app runs on.
     private static Path createSecureTempFile() throws IOException {
-        if (FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
-            FileAttribute<Set<PosixFilePermission>> ownerOnly =
-                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"));
-            return Files.createTempFile("ocr-page-", ".png", ownerOnly);
+        File file = File.createTempFile("ocr-page-", ".png");
+        boolean restricted = file.setReadable(false, false)
+                && file.setReadable(true, true)
+                && file.setWritable(false, false)
+                && file.setWritable(true, true);
+        if (!restricted) {
+            log.warn("Could not fully restrict permissions on OCR temp file");
         }
-        return Files.createTempFile("ocr-page-", ".png");
+        return file.toPath();
     }
 
     private String runTesseract(File imageFile) throws IOException {

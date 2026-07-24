@@ -235,5 +235,17 @@ class AuditAspectTest {
 
             assertDoesNotThrow(() -> auditAspect.auditServiceMethod(joinPoint));
         }
+
+        @Test
+        @Order(11)
+        @DisplayName("Does not propagate exception with no message when auditLogService throws")
+        void shouldNotPropagateAuditExceptionWithNullMessage() throws Throwable {
+            when(joinPoint.proceed()).thenReturn(null);
+            when(signature.getName()).thenReturn("deleteItem");
+            doThrow(new RuntimeException())
+                    .when(auditLogService).save(any(), any(), any(), any(), any(), any());
+
+            assertDoesNotThrow(() -> auditAspect.auditServiceMethod(joinPoint));
+        }
     }
 }

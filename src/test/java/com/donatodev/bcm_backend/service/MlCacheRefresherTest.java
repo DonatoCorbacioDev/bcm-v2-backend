@@ -124,6 +124,16 @@ class MlCacheRefresherTest {
         }
 
         @Test
+        @Order(41)
+        @DisplayName("Returns false when FastAPI throws with no message")
+        void returnsFalseOnExceptionWithNullMessage() {
+            when(mlProxyService.fetchForecastRaw(anyInt(), eq(9L)))
+                    .thenThrow(new RuntimeException());
+
+            assertFalse(mlCacheRefresher.refreshForOrg(9L));
+        }
+
+        @Test
         @Order(5)
         @DisplayName("Does not save to cache when FastAPI returns 503")
         void doesNotCacheOnServiceUnavailable() {

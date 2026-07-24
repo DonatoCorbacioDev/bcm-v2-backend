@@ -138,6 +138,28 @@ class RiskScoreRefresherTest {
         }
 
         @Test
+        @Order(7)
+        @DisplayName("Should continue processing when a contract lookup throws with no message")
+        void shouldContinueWhenContractLookupFailsWithNullMessage() {
+            ReflectionTestUtils.setField(riskScoreRefresher, "fastApiUrl", FASTAPI_URL);
+
+            RiskScoreEntry[] scores = {
+                new RiskScoreEntry(1L, 0.9),
+                new RiskScoreEntry(2L, 0.8)
+            };
+
+            Contracts contract2 = Contracts.builder().id(2L).contractNumber("CNT-002").build();
+
+            when(restTemplate.getForObject(anyString(), any(Class.class))).thenReturn(scores);
+            when(contractsRepository.findById(1L)).thenThrow(new RuntimeException());
+            when(contractsRepository.findById(2L)).thenReturn(Optional.of(contract2));
+
+            assertDoesNotThrow(() -> riskScoreRefresher.refreshRiskScores());
+
+            verify(agentNotificationService).notifyHighRisk(contract2, 0.8);
+        }
+
+        @Test
         @Order(6)
         @DisplayName("Should skip notification when contract not found in DB")
         void shouldSkipWhenContractNotFound() {

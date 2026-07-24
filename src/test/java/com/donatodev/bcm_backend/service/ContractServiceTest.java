@@ -379,6 +379,34 @@ class ContractServiceTest {
             verify(contractsRepository, never()).save(any());
         }
 
+        @Test
+        @Order(102)
+        @DisplayName("Update contract allowed while IN_REVIEW when the status is unchanged")
+        void shouldAllowNonStatusUpdateWhileInReview() {
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .customerName("Client")
+                    .contractNumber("CNTR-WF2")
+                    .status(ContractStatus.DRAFT)
+                    .workflowStage(com.donatodev.bcm_backend.entity.WorkflowStage.IN_REVIEW)
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
+                    .build();
+
+            ContractDTO updateDTO = new ContractDTO(1L, "Client Renamed", "CNTR-WF2", null, null,
+                    ContractStatus.DRAFT, LocalDate.of(2027, Month.JUNE, 15),
+                    LocalDate.of(2027, Month.JUNE, 15).plusDays(5), null, null, null, null, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.save(existing)).thenReturn(existing);
+            when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
+
+            ContractDTO result = contractService.updateContract(1L, updateDTO);
+
+            assertEquals("Client Renamed", result.customerName());
+            verify(contractsRepository).save(existing);
+        }
+
         /**
          * Tests that editing a non-DRAFT contract into DRAFT starts the
          * approval workflow, mirroring what happens on creation.
@@ -1776,6 +1804,16 @@ class ContractServiceTest {
             } finally {
                 TenantContext.clear();
             }
+        }
+
+        @Test
+        @Order(58)
+        @DisplayName("createContract throws IllegalArgumentException when the mapped entity is null")
+        void shouldRejectNullContractData() {
+            when(contractMapper.toEntity(null)).thenReturn(null);
+
+            assertThrows(IllegalArgumentException.class, () -> contractService.createContract(null));
+            verify(contractsRepository, never()).save(any());
         }
 
         @Test

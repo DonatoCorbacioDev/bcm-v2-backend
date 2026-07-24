@@ -306,6 +306,24 @@ class MlProxyServiceTest {
         }
 
         @Test
+        @Order(21)
+        @DisplayName("Omits X-Internal-Api-Key header when key is blank")
+        void shouldOmitInternalApiKeyHeaderWhenBlank() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            ReflectionTestUtils.setField(mlProxyService, "internalApiKey", "  ");
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"clauses\":[]}"));
+
+            mlProxyService.analyzeClauseRisk("some text");
+
+            verify(restTemplate).exchange(
+                    anyString(), eq(HttpMethod.POST),
+                    org.mockito.ArgumentMatchers.argThat((HttpEntity<?> e) ->
+                            e.getHeaders().getFirst("X-Internal-Api-Key") == null),
+                    eq(String.class));
+        }
+
+        @Test
         @Order(3)
         @DisplayName("Returns 503 when the ML service is unreachable")
         void shouldReturn503WhenMlUnreachable() {
