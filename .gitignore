@@ -35,6 +35,9 @@ build/
 ### Claude Code ###
 .claude/
 
+### Playwright MCP (session artifacts, screenshots, downloads) ###
+.playwright-mcp/
+
 ### Env files ###
 .env
 .env.local
