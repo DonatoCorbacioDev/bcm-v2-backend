@@ -33,12 +33,14 @@ import org.springframework.stereotype.Service;
 public class OcrService {
 
     private static final Logger log = LoggerFactory.getLogger(OcrService.class);
-    private static final long TIMEOUT_SECONDS = 30;
     private static final String CRLF_REGEX = "[\r\n]";
 
     // Field initializers double as defaults for plain `new OcrService()`
     // construction (tests) — @Value only overwrites them when Spring manages
     // the bean.
+    @Value("${app.ocr.timeout-seconds:30}")
+    private long timeoutSeconds = 30;
+
     @Value("${app.ocr.tesseract-command:tesseract}")
     private String tesseractCommand = "tesseract";
 
@@ -110,10 +112,10 @@ public class OcrService {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 
         try {
-            boolean finished = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
-                log.warn("OCR timed out after {}s", TIMEOUT_SECONDS);
+                log.warn("OCR timed out after {}s", timeoutSeconds);
                 return "";
             }
         } catch (InterruptedException e) {

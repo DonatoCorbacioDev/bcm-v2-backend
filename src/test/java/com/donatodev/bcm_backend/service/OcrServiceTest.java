@@ -4,11 +4,17 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class OcrServiceTest {
@@ -51,6 +57,23 @@ class OcrServiceTest {
     void shouldIncludeTessdataDirWhenConfigured() {
         ReflectionTestUtils.setField(ocrService, "tesseractCommand", "no-such-binary-xyz");
         ReflectionTestUtils.setField(ocrService, "tessdataDir", "/opt/tessdata");
+
+        String result = ocrService.extractText(textImage("irrelevant"));
+
+        assertEquals("", result);
+    }
+
+    @Test
+    @DisplayName("extractText: returns empty string when Tesseract exceeds the configured timeout")
+    @DisabledOnOs(OS.WINDOWS) // needs a real slow-running executable; POSIX-only shell script below
+    void shouldReturnEmptyWhenTimeoutExceeded() throws IOException {
+        Path script = Files.createTempFile("slow-ocr-", ".sh");
+        Files.writeString(script, "#!/bin/sh\nsleep 3\n", StandardCharsets.UTF_8);
+        script.toFile().setExecutable(true);
+        script.toFile().deleteOnExit();
+
+        ReflectionTestUtils.setField(ocrService, "tesseractCommand", script.toString());
+        ReflectionTestUtils.setField(ocrService, "timeoutSeconds", 1L);
 
         String result = ocrService.extractText(textImage("irrelevant"));
 
