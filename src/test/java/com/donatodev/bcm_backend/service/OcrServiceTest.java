@@ -5,6 +5,7 @@ import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,11 +14,16 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.MockedStatic;
+import static org.mockito.Mockito.mockStatic;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class OcrServiceTest {
@@ -107,6 +113,35 @@ class OcrServiceTest {
         worker.join(5000);
 
         assertEquals("", result.get());
+    }
+
+    @Test
+    @DisplayName("extractText: throws UncheckedIOException when the temp image file cannot be created")
+    void shouldThrowWhenTempImageCreationFails() {
+        try (MockedStatic<Files> filesMock = mockStatic(Files.class, invocation -> invocation.callRealMethod())) {
+            // Stub both overloads: the 3-arg (POSIX attributes) form is used on
+            // Linux CI, the 2-arg Windows-fallback form is used on a dev machine.
+            filesMock.when(() -> Files.createTempFile(eq("ocr-page-"), eq(".png"), any()))
+                    .thenThrow(new IOException("simulated disk failure"));
+            filesMock.when(() -> Files.createTempFile(eq("ocr-page-"), eq(".png")))
+                    .thenThrow(new IOException("simulated disk failure"));
+
+            assertThrows(UncheckedIOException.class, () -> ocrService.extractText(textImage("irrelevant")));
+        }
+    }
+
+    @Test
+    @DisplayName("extractText: swallows a null-message IOException when the temp image cannot be deleted")
+    void shouldSwallowDeleteFailureWithNullMessage() {
+        ReflectionTestUtils.setField(ocrService, "tesseractCommand", "no-such-binary-xyz");
+
+        try (MockedStatic<Files> filesMock = mockStatic(Files.class, invocation -> invocation.callRealMethod())) {
+            filesMock.when(() -> Files.delete(any(Path.class))).thenThrow(new IOException());
+
+            String result = ocrService.extractText(textImage("irrelevant"));
+
+            assertEquals("", result);
+        }
     }
 
     private static Path slowShellScript(int sleepSeconds) throws IOException {
