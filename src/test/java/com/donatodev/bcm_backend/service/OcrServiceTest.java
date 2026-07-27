@@ -8,8 +8,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
@@ -86,7 +88,10 @@ class OcrServiceTest {
         AtomicReference<String> result = new AtomicReference<>();
         Thread worker = new Thread(() -> result.set(ocrService.extractText(textImage("irrelevant"))));
         worker.start();
-        Thread.sleep(300); // let the process actually start before interrupting
+        // Wait until the worker is actually blocked in Process.waitFor before
+        // interrupting it, instead of a fixed sleep guessing how long that takes.
+        await().atMost(Duration.ofSeconds(5))
+                .until(() -> worker.getState() == Thread.State.TIMED_WAITING);
         worker.interrupt();
         worker.join(5000);
 
