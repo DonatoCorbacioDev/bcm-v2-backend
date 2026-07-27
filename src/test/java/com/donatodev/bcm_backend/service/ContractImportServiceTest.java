@@ -19,12 +19,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import org.mockito.Mock;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractDTO;
@@ -793,8 +795,7 @@ class ContractImportServiceTest {
             // rejectsNonXlsx — a real MultipartFile mock is needed to actually
             // trigger the `filename == null` branch.
             setupImportService();
-            org.springframework.web.multipart.MultipartFile file =
-                    org.mockito.Mockito.mock(org.springframework.web.multipart.MultipartFile.class);
+            MultipartFile file = mock(MultipartFile.class);
             when(file.getOriginalFilename()).thenReturn(null);
 
             assertThrows(IllegalArgumentException.class, () -> importService.importFromExcel(file));

@@ -67,6 +67,17 @@ class OcrServiceTest {
     }
 
     @Test
+    @DisplayName("extractText: tolerates a null tessdata-dir (only the blank default is set via @Value)")
+    void shouldTolerateNullTessdataDir() {
+        ReflectionTestUtils.setField(ocrService, "tesseractCommand", "no-such-binary-xyz");
+        ReflectionTestUtils.setField(ocrService, "tessdataDir", null);
+
+        String result = ocrService.extractText(textImage("irrelevant"));
+
+        assertEquals("", result);
+    }
+
+    @Test
     @DisplayName("extractText: returns empty string when Tesseract exceeds the configured timeout")
     @DisabledOnOs(OS.WINDOWS) // needs a real slow-running executable; POSIX-only shell script below
     void shouldReturnEmptyWhenTimeoutExceeded() throws IOException {
