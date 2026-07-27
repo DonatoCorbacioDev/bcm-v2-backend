@@ -693,6 +693,36 @@ class ContractImportServiceTest {
         }
 
         @Test
+        @DisplayName("rejects a date column that is an error-type cell (cellToString returns null)")
+        void rejectsErrorTypeDateCell() throws Exception {
+            setupImportService();
+            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
+            when(managersRepository.findAll()).thenReturn(List.of());
+
+            byte[] bytes;
+            try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                Sheet sheet = workbook.createSheet("Contratti");
+                Row header = sheet.createRow(0);
+                for (int c = 0; c < HEADER.length; c++) {
+                    header.createCell(c).setCellValue(HEADER[c]);
+                }
+                Row dataRow = sheet.createRow(1);
+                dataRow.createCell(0).setCellValue("C-1");
+                dataRow.createCell(1).setCellValue("Cliente A");
+                dataRow.createCell(4).setCellErrorValue(org.apache.poi.ss.usermodel.FormulaError.DIV0.getCode());
+                dataRow.createCell(5).setCellValue("31/12/2024");
+                dataRow.createCell(7).setCellValue("IT");
+                workbook.write(out);
+                bytes = out.toByteArray();
+            }
+
+            ContractImportResultDTO result = importService.importFromExcel(toFile(bytes));
+
+            assertEquals(1, result.errors().size());
+            assertTrue(result.errors().get(0).message().contains("Data inizio mancante"));
+        }
+
+        @Test
         @DisplayName("rejects a date column that is an explicitly created but empty cell")
         void rejectsExplicitBlankDateCell() throws Exception {
             setupImportService();
@@ -758,8 +788,14 @@ class ContractImportServiceTest {
         @Test
         @DisplayName("rejects files with no original filename")
         void rejectsMissingFilename() {
+            // MockMultipartFile coerces a null originalFilename to "", which would
+            // only exercise the same "doesn't end with .xlsx" branch as
+            // rejectsNonXlsx — a real MultipartFile mock is needed to actually
+            // trigger the `filename == null` branch.
             setupImportService();
-            MockMultipartFile file = new MockMultipartFile("file", null, "text/csv", "a,b,c".getBytes());
+            org.springframework.web.multipart.MultipartFile file =
+                    org.mockito.Mockito.mock(org.springframework.web.multipart.MultipartFile.class);
+            when(file.getOriginalFilename()).thenReturn(null);
 
             assertThrows(IllegalArgumentException.class, () -> importService.importFromExcel(file));
         }

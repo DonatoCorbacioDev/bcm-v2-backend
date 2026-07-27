@@ -265,8 +265,10 @@ public class ContractDocumentService {
         }
     }
 
+    // Only ever called with getOrExtractText()'s result, which is guaranteed
+    // non-null (see its own null-to-"" fallback) — no null check needed here.
     private List<String> splitLines(String text) {
-        return text == null || text.isEmpty() ? List.of() : Arrays.asList(text.split(LINE_SPLIT_REGEX, -1));
+        return text.isEmpty() ? List.of() : Arrays.asList(text.split(LINE_SPLIT_REGEX, -1));
     }
 
     private static String safeMessage(Exception e) {

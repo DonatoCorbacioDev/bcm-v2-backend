@@ -29,13 +29,13 @@ public class LocalStorageService {
         return target;
     }
 
+    // Every caller builds relativePath with at least one subdirectory segment
+    // (see storeDocument/storeInvoice/storeSepaPayment below), so target always
+    // has a parent under uploadDir.
     private String store(String relativePath, byte[] content) {
         Path target = resolveWithinRoot(relativePath);
-        Path parent = target.getParent();
         try {
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
+            Files.createDirectories(target.getParent());
             Files.write(target, content);
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to store document", e);

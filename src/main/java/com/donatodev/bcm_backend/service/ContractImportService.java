@@ -230,8 +230,10 @@ public class ContractImportService {
         return true;
     }
 
+    // row is always non-null here: every caller reaches this only after
+    // isRowBlank(row) has already returned false, which itself rejects null rows.
     private Cell getCell(Row row, int idx) {
-        return row == null ? null : row.getCell(idx);
+        return row.getCell(idx);
     }
 
     private String getRequiredString(Row row, int idx, String fieldName) {

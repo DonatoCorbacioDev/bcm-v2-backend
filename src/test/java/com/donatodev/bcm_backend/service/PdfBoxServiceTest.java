@@ -218,6 +218,14 @@ class PdfBoxServiceTest {
         }
 
         @Test
+        @Order(15)
+        @DisplayName("extractField: colon present but value empty — falls through to the next keyword instead of returning")
+        void shouldFallThroughWhenValueAfterColonIsEmpty() {
+            String result = pdfBoxService.extractField("customer:", "customer");
+            assertNull(result);
+        }
+
+        @Test
         @Order(9)
         @DisplayName("analyzeDocument: throws UncheckedIOException on invalid PDF bytes")
         void shouldThrowOnInvalidPdfBytes() {
