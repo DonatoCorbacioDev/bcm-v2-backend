@@ -22,14 +22,14 @@ import jakarta.validation.constraints.Size;
  */
 public record UserDTO(
         Long id,
-        @NotBlank(message = "Username is required")
-        @Size(min = 4, max = 30, message = "Username must be between 4 and 30 characters")
+        @NotBlank(message = "Username obbligatorio")
+        @Size(min = 4, max = 30, message = "Lo username deve avere tra 4 e 30 caratteri")
         String username,
-        @NotBlank(message = "Password is required")
-        @Size(min = 6, message = "Password must be at least 6 characters")
+        @NotBlank(message = "Password obbligatoria")
+        @Size(min = 6, message = "La password deve contenere almeno 6 caratteri")
         String password,
         Long managerId,
-        @NotNull(message = "Role ID is required")
+        @NotNull(message = "ID ruolo obbligatorio")
         Long roleId,
         Boolean verified,
         LocalDateTime createdAt,

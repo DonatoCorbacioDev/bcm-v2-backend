@@ -10,16 +10,16 @@ import jakarta.validation.constraints.NotNull;
  */
 public record RiskFeedbackRequest(
 
-        @NotNull(message = "Risk score is required")
+        @NotNull(message = "Punteggio di rischio obbligatorio")
         Double riskScore,
 
-        @NotBlank(message = "Risk level is required")
+        @NotBlank(message = "Livello di rischio obbligatorio")
         String level,
 
         Double mlScore,
 
         String mlLevel,
 
-        @NotNull(message = "Agree flag is required")
+        @NotNull(message = "Conferma obbligatoria")
         Boolean agree
 ) {}

@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 
 public record ContractTemplateDTO(
         Long id,
-        @NotBlank(message = "Template name is required") String name,
+        @NotBlank(message = "Nome modello obbligatorio") String name,
         String description,
         ContractStatus defaultStatus,
         Integer defaultDurationDays,

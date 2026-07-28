@@ -11,7 +11,7 @@ import jakarta.validation.constraints.NotBlank;
  * @param email the user's email address
  */
 public record ForgotPasswordRequestDTO(
-        @Email(message = "Invalid email format")
-        @NotBlank(message = "Email is required")
+        @Email(message = "Formato email non valido")
+        @NotBlank(message = "Email obbligatoria")
         String email
 ) {}

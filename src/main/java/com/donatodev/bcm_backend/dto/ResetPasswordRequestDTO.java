@@ -11,9 +11,9 @@ import jakarta.validation.constraints.NotBlank;
  * @param newPassword  the new password to be set for the user account
  */
 public record ResetPasswordRequestDTO(
-        @NotBlank(message = "Token is required")
+        @NotBlank(message = "Token obbligatorio")
         String token,
 
-        @NotBlank(message = "New password is required")
+        @NotBlank(message = "Nuova password obbligatoria")
         String newPassword
 ) {}

@@ -6,7 +6,7 @@ import java.util.List;
 import jakarta.validation.constraints.NotEmpty;
 
 public record CreateSepaPaymentRequest(
-        @NotEmpty(message = "At least one invoice must be selected")
+        @NotEmpty(message = "Selezionare almeno una fattura")
         List<Long> invoiceIds,
 
         LocalDate executionDate

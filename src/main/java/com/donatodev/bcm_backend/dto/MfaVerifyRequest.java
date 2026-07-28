@@ -3,9 +3,9 @@ package com.donatodev.bcm_backend.dto;
 import jakarta.validation.constraints.NotBlank;
 
 public record MfaVerifyRequest(
-        @NotBlank(message = "MFA token is required")
+        @NotBlank(message = "Token MFA obbligatorio")
         String mfaToken,
 
-        @NotBlank(message = "Code is required")
+        @NotBlank(message = "Codice obbligatorio")
         String code
 ) {}

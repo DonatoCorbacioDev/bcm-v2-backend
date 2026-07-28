@@ -103,7 +103,7 @@ public class GlobalExceptionHandler {
                 .stream()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .findFirst()
-                .orElse("Validation error");
+                .orElse("Errore di validazione");
 
         return buildErrorResponse(HttpStatus.BAD_REQUEST, message);
     }
@@ -130,17 +130,17 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiErrorResponse> handleAuthenticationException(AuthenticationException ex) {
-        return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Unauthorized: " + ex.getMessage());
+        return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Non autorizzato: " + ex.getMessage());
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiErrorResponse> handleAccessDeniedException(AccessDeniedException ex) {
-        return buildErrorResponse(HttpStatus.FORBIDDEN, "Forbidden: " + ex.getMessage());
+        return buildErrorResponse(HttpStatus.FORBIDDEN, "Accesso negato: " + ex.getMessage());
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        return buildErrorResponse(HttpStatus.CONFLICT, "Data conflict: a record with the same unique value already exists");
+        return buildErrorResponse(HttpStatus.CONFLICT, "Conflitto: esiste già un record con lo stesso valore univoco");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -150,7 +150,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
-        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Malformed or unreadable request body");
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Corpo della richiesta malformato o illeggibile");
     }
 
     /**

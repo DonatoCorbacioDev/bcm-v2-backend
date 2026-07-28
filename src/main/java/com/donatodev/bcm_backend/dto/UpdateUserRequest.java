@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UpdateUserRequest {
 
-    @Size(min = 4, max = 30, message = "Username must be between 4 and 30 characters")
+    @Size(min = 4, max = 30, message = "Lo username deve avere tra 4 e 30 caratteri")
     private String username;
 
     private String role;

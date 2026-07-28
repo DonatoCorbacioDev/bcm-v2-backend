@@ -8,7 +8,7 @@ public class CompleteInviteRequest {
     @NotBlank
     private String token;
 
-    @NotBlank @Size(min = 8, message = "Password must be at least 8 chars")
+    @NotBlank @Size(min = 8, message = "La password deve contenere almeno 8 caratteri")
     private String password;
 
     public String getToken() {

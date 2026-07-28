@@ -6,25 +6,25 @@ import jakarta.validation.constraints.Size;
 
 public record OrganizationRegistrationRequest(
 
-        @NotBlank(message = "Organization name is required")
-        @Size(max = 255, message = "Organization name must not exceed 255 characters")
+        @NotBlank(message = "Nome organizzazione obbligatorio")
+        @Size(max = 255, message = "Il nome organizzazione non può superare 255 caratteri")
         String organizationName,
 
-        @NotBlank(message = "Admin username is required")
-        @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
+        @NotBlank(message = "Username amministratore obbligatorio")
+        @Size(min = 3, max = 50, message = "Lo username deve avere tra 3 e 50 caratteri")
         String adminUsername,
 
-        @NotBlank(message = "Admin password is required")
-        @Size(min = 6, message = "Password must be at least 6 characters")
+        @NotBlank(message = "Password amministratore obbligatoria")
+        @Size(min = 6, message = "La password deve contenere almeno 6 caratteri")
         String adminPassword,
 
-        @NotBlank(message = "Admin email is required")
-        @Email(message = "Admin email must be a valid email address")
+        @NotBlank(message = "Email amministratore obbligatoria")
+        @Email(message = "L'email amministratore non è valida")
         String adminEmail,
 
-        @NotBlank(message = "Admin first name is required")
+        @NotBlank(message = "Nome amministratore obbligatorio")
         String adminFirstName,
 
-        @NotBlank(message = "Admin last name is required")
+        @NotBlank(message = "Cognome amministratore obbligatorio")
         String adminLastName
 ) {}
