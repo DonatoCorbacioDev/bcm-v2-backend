@@ -7,10 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -31,11 +33,11 @@ class CurrentUserResolverTest {
     @Mock
     private UsersRepository usersRepository;
 
+    @InjectMocks
     private CurrentUserResolver resolver;
 
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void setup() {
-        resolver = new CurrentUserResolver(usersRepository);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(USERNAME, null, List.of()));
     }
