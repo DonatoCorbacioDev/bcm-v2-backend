@@ -77,11 +77,11 @@ public class AuthService {
         Users user = findUser(username, organizationSlug);
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new BadCredentialsException("Invalid username or password");
+            throw new BadCredentialsException("Nome utente o password non validi");
         }
 
         if (!user.isVerified()) {
-            throw new AccountNotVerifiedException("Account not verified. Please check your email");
+            throw new AccountNotVerifiedException("Account non verificato. Controlla la tua email");
         }
 
         if (user.isTotpEnabled()) {
@@ -110,16 +110,16 @@ public class AuthService {
     private Users findUser(String username, String organizationSlug) {
         if (organizationSlug != null && !organizationSlug.isBlank()) {
             return usersRepository.findByUsernameAndOrganizationSlug(username, organizationSlug)
-                    .orElseThrow(() -> new UsernameNotFoundException("Invalid username or password"));
+                    .orElseThrow(() -> new UsernameNotFoundException("Nome utente o password non validi"));
         }
 
         List<Users> matches = usersRepository.findAllByUsername(username);
         if (matches.isEmpty()) {
-            throw new UsernameNotFoundException("Invalid username or password");
+            throw new UsernameNotFoundException("Nome utente o password non validi");
         }
         if (matches.size() > 1) {
             throw new AmbiguousUsernameException(
-                    "Multiple accounts found for this username. Please specify your organization.");
+                    "Trovati più account con questo username. Specifica la tua organizzazione.");
         }
         return matches.get(0);
     }

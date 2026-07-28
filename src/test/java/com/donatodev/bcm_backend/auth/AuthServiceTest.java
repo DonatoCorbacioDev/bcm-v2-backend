@@ -99,7 +99,7 @@ class AuthServiceTest {
 
             UsernameNotFoundException ex =
                     assertThrows(UsernameNotFoundException.class, () -> authService.authenticate("ghost", "password"));
-            assertEquals("Invalid username or password", ex.getMessage());
+            assertEquals("Nome utente o password non validi", ex.getMessage());
         }
 
         /**
@@ -120,7 +120,7 @@ class AuthServiceTest {
 
             BadCredentialsException ex =
                     assertThrows(BadCredentialsException.class, () -> authService.authenticate("admin", "wrongpass"));
-            assertEquals("Invalid username or password", ex.getMessage());
+            assertEquals("Nome utente o password non validi", ex.getMessage());
         }
 
         /**
@@ -140,7 +140,7 @@ class AuthServiceTest {
             when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
 
             RuntimeException ex = assertThrows(RuntimeException.class, () -> authService.authenticate("admin", "password"));
-            assertTrue(ex.getMessage().contains("not verified"));
+            assertTrue(ex.getMessage().contains("non verificato"));
         }
 
         /**
@@ -158,7 +158,7 @@ class AuthServiceTest {
 
             AmbiguousUsernameException ex = assertThrows(AmbiguousUsernameException.class,
                     () -> authService.authenticate("admin", "password"));
-            assertTrue(ex.getMessage().contains("Multiple accounts"));
+            assertTrue(ex.getMessage().contains("più account"));
         }
 
         /**
@@ -197,7 +197,7 @@ class AuthServiceTest {
 
             UsernameNotFoundException ex = assertThrows(UsernameNotFoundException.class,
                     () -> authService.authenticate("admin", "password", "unknown-org"));
-            assertEquals("Invalid username or password", ex.getMessage());
+            assertEquals("Nome utente o password non validi", ex.getMessage());
         }
 
         /**

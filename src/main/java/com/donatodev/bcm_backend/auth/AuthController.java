@@ -86,7 +86,7 @@ public class AuthController {
 
             if (verificationToken.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.systemDefault()))) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body("Verification token expired. Please register again.");
+                        .body("Token di verifica scaduto. Registrati di nuovo.");
             }
 
             Users user = verificationToken.getUser();
@@ -94,10 +94,10 @@ public class AuthController {
             userService.save(user);
             verificationTokenService.deleteToken(verificationToken);
 
-            return ResponseEntity.ok("Email verified successfully. You can now log in.");
+            return ResponseEntity.ok("Email verificata con successo. Ora puoi accedere.");
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Invalid or expired verification token.");
+                    .body("Token di verifica non valido o scaduto.");
         }
     }
 
@@ -115,9 +115,9 @@ public class AuthController {
             String verificationLink = backendBaseUrl + "/auth/verify?token=" + token.getToken();
             emailService.sendVerificationEmail(createdUser.getManager().getEmail(), verificationLink);
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body("Registered user. Check your email to confirm your account.");
+                    .body("Utente registrato. Controlla la tua email per confermare l'account.");
         } catch (Exception e) {
-        	throw new RegistrationException("Internal error: " + e.getMessage(), e);
+        	throw new RegistrationException("Errore interno: " + e.getMessage(), e);
         }
     }
 
@@ -169,7 +169,7 @@ public class AuthController {
     public ResponseEntity<AccessTokenResponse> refresh(
             @CookieValue(name = RefreshCookieFactory.COOKIE_NAME, required = false) String refreshToken) {
         if (refreshToken == null || refreshToken.isBlank()) {
-            throw new RefreshTokenException("Refresh token not found");
+            throw new RefreshTokenException("Refresh token non trovato");
         }
         RefreshTokenService.RotatedTokens rotated = refreshTokenService.refreshAccessToken(refreshToken);
         return ResponseEntity.ok()
@@ -204,7 +204,7 @@ public class AuthController {
             String resetLink = frontendBaseUrl + "/reset-password?token=" + token.getToken();
             emailService.sendResetPasswordEmail(request.email(), resetLink);
         });
-        return ResponseEntity.ok("If an account with that email exists, a password reset link has been sent.");
+        return ResponseEntity.ok("Se esiste un account con questa email, è stato inviato un link per reimpostare la password.");
     }
 
     /**
@@ -219,16 +219,16 @@ public class AuthController {
             PasswordResetToken token = passwordResetTokenService.getByToken(request.token());
 
             if (token.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.systemDefault()))) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token expired.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token scaduto.");
             }
 
             Users user = token.getUser();
             userService.updatePassword(user, request.newPassword());
             passwordResetTokenService.deleteToken(token);
 
-            return ResponseEntity.ok("Password successfully reset.");
+            return ResponseEntity.ok("Password reimpostata con successo.");
         } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid token.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token non valido.");
         }
     }
 

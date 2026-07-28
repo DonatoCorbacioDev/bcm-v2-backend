@@ -136,7 +136,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isCreated())
-                .andExpect(content().string(containsString("Registered user")));
+                .andExpect(content().string(containsString("Utente registrato")));
     }
 
     /**
@@ -156,7 +156,7 @@ class AuthControllerTest {
 
         mockMvc.perform(get("/auth/verify?token=verify-token"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Email verified successfully")));
+                .andExpect(content().string(containsString("Email verificata con successo")));
     }
 
     /**
@@ -206,7 +206,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("password reset link has been sent")));
+                .andExpect(content().string(containsString("è stato inviato un link per reimpostare la password")));
     }
 
     /**
@@ -222,7 +222,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("password reset link has been sent")));
+                .andExpect(content().string(containsString("è stato inviato un link per reimpostare la password")));
     }
 
     /**
@@ -246,7 +246,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Password successfully reset")));
+                .andExpect(content().string(containsString("Password reimpostata con successo")));
     }
 
     /**
@@ -284,7 +284,7 @@ class AuthControllerTest {
 
         mockMvc.perform(get("/auth/verify?token=expired-verify-token"))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString("Verification token expired")));
+                .andExpect(content().string(containsString("Token di verifica scaduto")));
     }
 
     /**
@@ -308,7 +308,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString("Token expired")));
+                .andExpect(content().string(containsString("Token scaduto")));
     }
 
     /**
@@ -339,7 +339,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString("Invalid token")));
+                .andExpect(content().string(containsString("Token non valido")));
     }
 
     /**
@@ -351,7 +351,7 @@ class AuthControllerTest {
         // Non esiste alcun token "invalid-token" nel DB
         mockMvc.perform(get("/auth/verify?token=invalid-token"))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString("Invalid or expired verification token.")));
+                .andExpect(content().string(containsString("Token di verifica non valido o scaduto.")));
     }
 
     /**
@@ -367,7 +367,7 @@ class AuthControllerTest {
                 .content(objectMapper.writeValueAsString(invalidDto)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists())
-                .andExpect(jsonPath("$.message").value(containsString("Password must be at least 6 characters")));
+                .andExpect(jsonPath("$.message").value(containsString("La password deve contenere almeno 6 caratteri")));
     }
 
     /**
@@ -390,7 +390,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.message").value(containsString("Internal error")));
+                .andExpect(jsonPath("$.message").value(containsString("Errore interno")));
     }
 
     /**
@@ -511,7 +511,7 @@ class AuthControllerTest {
                 .content(objectMapper.writeValueAsString(invalidLogin)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401))
-                .andExpect(jsonPath("$.message").value(containsString("Unauthorized")));
+                .andExpect(jsonPath("$.message").value(containsString("Non autorizzato")));
     }
 
     /**
@@ -585,7 +585,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/auth/refresh")
                 .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, originalRefreshToken)))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value(containsString("reuse detected")));
+                .andExpect(jsonPath("$.message").value(containsString("Riutilizzo del refresh token rilevato")));
 
         mockMvc.perform(post("/auth/refresh")
                 .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, rotatedRefreshToken)))
@@ -601,7 +601,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/auth/refresh")
                 .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, "nonexistent-token")))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value(containsString("Refresh token not found")));
+                .andExpect(jsonPath("$.message").value(containsString("Refresh token non trovato")));
     }
 
     /**
@@ -612,7 +612,7 @@ class AuthControllerTest {
     void shouldReturnUnauthorizedWhenRefreshCookieMissing() throws Exception {
         mockMvc.perform(post("/auth/refresh"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value(containsString("Refresh token not found")));
+                .andExpect(jsonPath("$.message").value(containsString("Refresh token non trovato")));
     }
 
     /**
@@ -625,7 +625,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/auth/refresh")
                 .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, "")))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value(containsString("Refresh token not found")));
+                .andExpect(jsonPath("$.message").value(containsString("Refresh token non trovato")));
     }
 
     /**
