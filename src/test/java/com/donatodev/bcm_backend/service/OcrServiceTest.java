@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.MockedStatic;
 import static org.mockito.Mockito.mockStatic;
+import org.mockito.invocation.InvocationOnMock;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class OcrServiceTest {
@@ -118,7 +119,7 @@ class OcrServiceTest {
     @Test
     @DisplayName("extractText: throws UncheckedIOException when the temp image file cannot be created")
     void shouldThrowWhenTempImageCreationFails() {
-        try (MockedStatic<Files> filesMock = mockStatic(Files.class, invocation -> invocation.callRealMethod())) {
+        try (MockedStatic<Files> filesMock = mockStatic(Files.class, InvocationOnMock::callRealMethod)) {
             // Stub both overloads: the 3-arg (POSIX attributes) form is used on
             // Linux CI, the 2-arg Windows-fallback form is used on a dev machine.
             filesMock.when(() -> Files.createTempFile(eq("ocr-page-"), eq(".png"), any()))
@@ -126,7 +127,8 @@ class OcrServiceTest {
             filesMock.when(() -> Files.createTempFile(eq("ocr-page-"), eq(".png")))
                     .thenThrow(new IOException("simulated disk failure"));
 
-            assertThrows(UncheckedIOException.class, () -> ocrService.extractText(textImage("irrelevant")));
+            BufferedImage image = textImage("irrelevant");
+            assertThrows(UncheckedIOException.class, () -> ocrService.extractText(image));
         }
     }
 
@@ -135,7 +137,7 @@ class OcrServiceTest {
     void shouldSwallowDeleteFailureWithNullMessage() {
         ReflectionTestUtils.setField(ocrService, "tesseractCommand", "no-such-binary-xyz");
 
-        try (MockedStatic<Files> filesMock = mockStatic(Files.class, invocation -> invocation.callRealMethod())) {
+        try (MockedStatic<Files> filesMock = mockStatic(Files.class, InvocationOnMock::callRealMethod)) {
             filesMock.when(() -> Files.delete(any(Path.class))).thenThrow(new IOException());
 
             String result = ocrService.extractText(textImage("irrelevant"));
