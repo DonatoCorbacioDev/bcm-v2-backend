@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -34,6 +36,7 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.apache.pdfbox.text.PDFTextStripper;
 
 import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 
@@ -233,6 +236,19 @@ class PdfBoxServiceTest {
 
             assertThrows(java.io.UncheckedIOException.class,
                     () -> pdfBoxService.analyzeDocument(6L, invalid));
+        }
+
+        @Test
+        @Order(16)
+        @DisplayName("extractRawText: wraps IOException thrown by the try body after the document was already open "
+                + "(try-with-resources primaryExc branch — distinct from load() failing before doc exists)")
+        void shouldThrowWhenTextExtractionFailsAfterDocumentOpened() {
+            try (MockedConstruction<PDFTextStripper> stripperMock = mockConstruction(PDFTextStripper.class,
+                    (mock, context) -> when(mock.getText(any())).thenThrow(new IOException("simulated stripper failure")))) {
+
+                assertThrows(java.io.UncheckedIOException.class,
+                        () -> pdfBoxService.extractRawText(pdfWithFields));
+            }
         }
 
         @Test
