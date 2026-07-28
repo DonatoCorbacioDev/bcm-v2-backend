@@ -56,9 +56,9 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username, Long organizationId) throws UsernameNotFoundException {
         Users user = (organizationId != null)
                 ? usersRepository.findByUsernameAndOrganizationId(username, organizationId)
-                        .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username))
+                        .orElseThrow(() -> new UsernameNotFoundException("Utente non trovato: " + username))
                 : usersRepository.findByUsername(username)
-                        .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+                        .orElseThrow(() -> new UsernameNotFoundException("Utente non trovato: " + username));
 
         // Converts the role string to Spring Security authority format, e.g., "ADMIN" -> "ROLE_ADMIN"
         SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().getRole());

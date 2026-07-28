@@ -204,7 +204,7 @@ class FinancialValueServiceTest {
             when(valuesRepository.findById(id)).thenReturn(Optional.empty());
             FinancialValueNotFoundException ex
                     = assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(id));
-            assertEquals("Financial value ID " + id + " not found", ex.getMessage());
+            assertEquals("ID valore finanziario " + id + " non trovato", ex.getMessage());
         }
 
         /**
@@ -336,7 +336,7 @@ class FinancialValueServiceTest {
             when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
 
             AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.getValueById(1L));
-            assertTrue(ex.getMessage().contains("Access denied"));
+            assertTrue(ex.getMessage().contains("non sei assegnato"));
         }
 
         @Test
@@ -345,7 +345,7 @@ class FinancialValueServiceTest {
         void shouldReturnNullIfAuthenticationIsNull() {
             SecurityContextHolder.clearContext();
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> service.getAllValues());
-            assertEquals("User not found", ex.getMessage());
+            assertEquals("Utente non trovato", ex.getMessage());
         }
 
         /**
@@ -384,7 +384,7 @@ class FinancialValueServiceTest {
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> service.getAllValues());
-            assertEquals("User not found", ex.getMessage());
+            assertEquals("Utente non trovato", ex.getMessage());
         }
 
         /**
@@ -399,7 +399,7 @@ class FinancialValueServiceTest {
 
             FinancialValueNotFoundException ex
                     = assertThrows(FinancialValueNotFoundException.class, () -> service.getValueById(999L));
-            assertEquals("Financial value ID 999 not found", ex.getMessage());
+            assertEquals("ID valore finanziario 999 non trovato", ex.getMessage());
         }
 
         /**
@@ -435,7 +435,7 @@ class FinancialValueServiceTest {
             when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
 
             AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.deleteValue(1L));
-            assertTrue(ex.getMessage().contains("Access denied"));
+            assertTrue(ex.getMessage().contains("non sei assegnato"));
         }
 
         /**
@@ -452,7 +452,7 @@ class FinancialValueServiceTest {
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> service.getAllValues());
-            assertEquals("User not found", ex.getMessage());
+            assertEquals("Utente non trovato", ex.getMessage());
         }
 
         /**
@@ -561,7 +561,7 @@ class FinancialValueServiceTest {
             when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
 
             AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.updateValue(1L, dto));
-            assertTrue(ex.getMessage().contains("Access denied"));
+            assertTrue(ex.getMessage().contains("non sei assegnato"));
         }
 
         /**
@@ -578,7 +578,7 @@ class FinancialValueServiceTest {
 
             FinancialValueNotFoundException ex
                     = assertThrows(FinancialValueNotFoundException.class, () -> service.updateValue(999L, dto));
-            assertEquals("Financial value ID 999 not found", ex.getMessage());
+            assertEquals("ID valore finanziario 999 non trovato", ex.getMessage());
         }
 
         /**
@@ -593,7 +593,7 @@ class FinancialValueServiceTest {
 
             FinancialValueNotFoundException ex
                     = assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(999L));
-            assertEquals("Financial value ID 999 not found", ex.getMessage());
+            assertEquals("ID valore finanziario 999 non trovato", ex.getMessage());
         }
 
         /**
@@ -617,7 +617,7 @@ class FinancialValueServiceTest {
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> service.getAllValues());
-            assertTrue(ex.getMessage().contains("User not found"));
+            assertTrue(ex.getMessage().contains("Utente non trovato"));
         }
 
         /**
@@ -684,7 +684,7 @@ class FinancialValueServiceTest {
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> service.getAllValues());
-            assertEquals("User not found", ex.getMessage());
+            assertEquals("Utente non trovato", ex.getMessage());
         }
 
         @Test
@@ -848,7 +848,7 @@ class FinancialValueServiceTest {
 
                 FinancialValueNotFoundException ex = assertThrows(FinancialValueNotFoundException.class,
                         () -> service.getValueById(999L));
-                assertEquals("Financial value ID 999 not found", ex.getMessage());
+                assertEquals("ID valore finanziario 999 non trovato", ex.getMessage());
             } finally {
                 com.donatodev.bcm_backend.config.TenantContext.clear();
             }

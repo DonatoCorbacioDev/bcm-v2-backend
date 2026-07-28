@@ -31,7 +31,7 @@ public class NotificationService {
     @Transactional
     public void createForUser(Long userId, Long orgId, String title, String message, NotificationType type) {
         Users user = usersRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
+                .orElseThrow(() -> new UserNotFoundException("Utente non trovato: " + userId));
 
         notificationRepository.save(Notification.builder()
                 .user(user)
@@ -48,10 +48,10 @@ public class NotificationService {
         Long orgId = TenantContext.get();
 
         Notification n = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new NotificationNotFoundException("Notification not found: " + notificationId));
+                .orElseThrow(() -> new NotificationNotFoundException("Notifica non trovata: " + notificationId));
 
         if (!n.getUser().getId().equals(user.getId()) || !n.getOrgId().equals(orgId)) {
-            throw new AccessDeniedException("Not authorized to access notification: " + notificationId);
+            throw new AccessDeniedException("non autorizzato ad accedere alla notifica: " + notificationId);
         }
 
         n.setRead(true);
@@ -95,7 +95,7 @@ public class NotificationService {
     private Users resolveCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return usersRepository.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException("User not found: " + username));
+                .orElseThrow(() -> new UserNotFoundException("Utente non trovato: " + username));
     }
 
     private NotificationDTO toDTO(Notification n) {

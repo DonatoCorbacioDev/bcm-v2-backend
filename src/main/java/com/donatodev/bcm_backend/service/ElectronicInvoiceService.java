@@ -29,7 +29,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class ElectronicInvoiceService {
 
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024L;
-    private static final String INVOICE_NOT_FOUND = "Invoice ID %d not found for contract %d";
+    private static final String INVOICE_NOT_FOUND = "Fattura ID %d non trovata per il contratto %d";
 
     @Value("${app.backend-base-url:http://localhost:8090/api/v1}")
     private String backendBaseUrl;
@@ -143,12 +143,12 @@ public class ElectronicInvoiceService {
                         String.format(INVOICE_NOT_FOUND, invoiceId, contractId)));
 
         if (invoice.getSepaBatch() != null) {
-            throw new IllegalArgumentException("Invoice was already included in a SEPA payment and can no longer be edited");
+            throw new IllegalArgumentException("La fattura è già inclusa in un pagamento SEPA e non può più essere modificata");
         }
 
         String normalizedIban = request.supplierIban().replace(" ", "").toUpperCase(Locale.ROOT);
         if (!IbanValidator.isValid(normalizedIban)) {
-            throw new IllegalArgumentException("Invalid IBAN");
+            throw new IllegalArgumentException("IBAN non valido");
         }
         invoice.setSupplierIban(normalizedIban);
         invoice.setSupplierBic(request.supplierBic() != null
@@ -161,14 +161,14 @@ public class ElectronicInvoiceService {
 
     private void validateFile(MultipartFile file) throws IOException {
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("File is empty");
+            throw new IllegalArgumentException("Il file è vuoto");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("File exceeds the 5 MB limit");
+            throw new IllegalArgumentException("Il file supera il limite di 5 MB");
         }
         String content = new String(file.getBytes(), StandardCharsets.UTF_8).trim();
         if (!content.startsWith("<?xml") && !content.startsWith("<")) {
-            throw new IllegalArgumentException("Only XML files are accepted");
+            throw new IllegalArgumentException("Sono supportati solo file XML");
         }
     }
 

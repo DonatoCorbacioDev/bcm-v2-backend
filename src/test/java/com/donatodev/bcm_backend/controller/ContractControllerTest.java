@@ -1047,7 +1047,7 @@ class ContractControllerTest {
                     .content("{invalid-json"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.status").value(400))
-                    .andExpect(jsonPath("$.message").value("Malformed or unreadable request body"));
+                    .andExpect(jsonPath("$.message").value("Corpo della richiesta malformato o illeggibile"));
         }
 
         @Test

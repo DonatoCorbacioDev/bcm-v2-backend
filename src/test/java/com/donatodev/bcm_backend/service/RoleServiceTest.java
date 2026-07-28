@@ -107,7 +107,7 @@ class RoleServiceTest {
             when(rolesRepository.findById(999L)).thenReturn(Optional.empty());
             RoleNotFoundException ex =
                 assertThrows(RoleNotFoundException.class, () -> roleService.getRoleById(999L));
-            assertEquals("Role ID 999 not found", ex.getMessage());
+            assertEquals("Ruolo ID 999 non trovato", ex.getMessage());
         }
 
         /**
@@ -165,7 +165,7 @@ class RoleServiceTest {
 
             RoleNotFoundException ex =
                 assertThrows(RoleNotFoundException.class, () -> roleService.updateRole(1L, dto));
-            assertEquals("Role ID 1 not found", ex.getMessage());
+            assertEquals("Ruolo ID 1 non trovato", ex.getMessage());
         }
 
         /**

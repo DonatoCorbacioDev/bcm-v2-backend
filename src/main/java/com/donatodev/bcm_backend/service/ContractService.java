@@ -59,9 +59,9 @@ public class ContractService {
     private static final Logger logger = LoggerFactory.getLogger(ContractService.class);
 
     private static final String CRLF_REGEX = "[\r\n]";
-    private static final String MSG_USER_NOT_FOUND = "User not found";
-    private static final String MSG_NO_AUTH_USER = "No authenticated user";
-    private static final String MSG_CONTRACT_NOT_FOUND_PREFIX = "Contract not found: ";
+    private static final String MSG_USER_NOT_FOUND = "Utente non trovato";
+    private static final String MSG_NO_AUTH_USER = "Nessun utente autenticato";
+    private static final String MSG_CONTRACT_NOT_FOUND_PREFIX = "Contratto non trovato: ";
     private static final String ROLE_ADMIN = "ADMIN";
 
     private final ContractsRepository contractsRepository;
@@ -120,13 +120,13 @@ public class ContractService {
      */
     public ContractDTO getContractById(Long id) {
         Contracts contract = findContractInScope(id)
-                .orElseThrow(() -> new ContractNotFoundException("Contract ID " + id + " not found"));
+                .orElseThrow(() -> new ContractNotFoundException("Contratto ID " + id + " non trovato"));
 
         AuthCtx auth = getAuthCtx();
         if (!ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
             Long contractManagerId = contract.getManager() != null ? contract.getManager().getId() : null;
             if (auth.managerId() == null || !auth.managerId().equals(contractManagerId)) {
-                throw new AccessDeniedException("Not authorized to access contract: " + id);
+                throw new AccessDeniedException("non autorizzato ad accedere al contratto: " + id);
             }
         }
 
@@ -172,7 +172,7 @@ public class ContractService {
     public ContractDTO createContract(ContractDTO contractDTO) {
         Contracts contract = contractMapper.toEntity(contractDTO);
         if (contract == null) {
-            throw new IllegalArgumentException("Contract data is required");
+            throw new IllegalArgumentException("Dati contratto obbligatori");
         }
         Long orgId = TenantContext.get();
         if (orgId != null) {
@@ -190,14 +190,14 @@ public class ContractService {
      */
     public ContractDTO updateContract(Long id, ContractDTO contractDTO) {
         Contracts contract = findContractInScope(id)
-                .orElseThrow(() -> new ContractNotFoundException("Contract not found"));
+                .orElseThrow(() -> new ContractNotFoundException("Contratto non trovato"));
 
         // Save previous status for history tracking
         ContractStatus previousStatus = contract.getStatus();
 
         if (contract.getWorkflowStage() == WorkflowStage.IN_REVIEW && contractDTO.status() != previousStatus) {
             throw new IllegalArgumentException(
-                    "Cannot change status while the contract is under review; approve or reject it instead");
+                    "Impossibile cambiare stato mentre il contratto è in revisione; approvarlo o respingerlo");
         }
 
         contract.setCustomerName(contractDTO.customerName());
@@ -210,7 +210,7 @@ public class ContractService {
 
         if (contractDTO.areaId() != null) {
             BusinessAreas area = businessAreasRepository.findById(contractDTO.areaId())
-                    .orElseThrow(() -> new BusinessAreaNotFoundException("Business area not found: " + contractDTO.areaId()));
+                    .orElseThrow(() -> new BusinessAreaNotFoundException("Area aziendale non trovata: " + contractDTO.areaId()));
             contract.setBusinessArea(area);
         }
         contract.setManager(contractDTO.managerId() != null
@@ -380,7 +380,7 @@ public class ContractService {
 
         Managers m = managerService.getManagerEntity(managerId);
         if (m == null) {
-            throw new ManagerNotFoundException("Manager not found: " + managerId);
+            throw new ManagerNotFoundException("Manager non trovato: " + managerId);
         }
 
         c.setManager(m);

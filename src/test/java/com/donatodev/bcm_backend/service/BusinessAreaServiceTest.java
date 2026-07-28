@@ -123,7 +123,7 @@ class BusinessAreaServiceTest {
 
             BusinessAreaNotFoundException ex =
                 assertThrows(BusinessAreaNotFoundException.class, () -> service.getAreaById(999L));
-            assertEquals("Business area ID 999 not found", ex.getMessage());
+            assertEquals("ID area aziendale 999 non trovata", ex.getMessage());
         }
 
         /**
@@ -180,7 +180,7 @@ class BusinessAreaServiceTest {
 
             BusinessAreaNotFoundException ex =
                 assertThrows(BusinessAreaNotFoundException.class, () -> service.updateArea(1L, updatedDTO));
-            assertEquals("Business area ID 1 not found", ex.getMessage());
+            assertEquals("ID area aziendale 1 non trovata", ex.getMessage());
         }
 
 
@@ -211,7 +211,7 @@ class BusinessAreaServiceTest {
 
             BusinessAreaNotFoundException ex = assertThrows(BusinessAreaNotFoundException.class,
                     () -> service.deleteArea(999L));
-            assertEquals("Business area ID 999 not found", ex.getMessage());
+            assertEquals("ID area aziendale 999 non trovata", ex.getMessage());
             verify(repository, never()).delete(any(BusinessAreas.class));
         }
 

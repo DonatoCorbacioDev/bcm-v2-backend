@@ -26,7 +26,7 @@ import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 @Service
 public class ContractHistoryService {
 	
-	private static final String USER_NOT_FOUND_MSG = "User not found";
+	private static final String USER_NOT_FOUND_MSG = "Utente non trovato";
 	private static final String ADMIN_ROLE = "ADMIN"; 
 
 	private final ContractHistoryRepository historyRepository;
@@ -84,7 +84,7 @@ public class ContractHistoryService {
 	 */
 	public ContractHistoryDTO getById(Long id) {
 		ContractHistory history = findHistoryInScope(id)
-				.orElseThrow(() -> new ContractHistoryNotFoundException("History ID " + id + " not found"));
+				.orElseThrow(() -> new ContractHistoryNotFoundException("Voce storico ID " + id + " non trovata"));
 
 		String username = AuthenticatedUserUtils.getUsernameOrNull();
 		Users user = usersRepository.findByUsername(username)
@@ -93,7 +93,7 @@ public class ContractHistoryService {
 		if (!user.getRole().getRole().equals(ADMIN_ROLE)) { 
 			Long managerId = user.getManager().getId();
 			if (!history.getContract().getManager().getId().equals(managerId)) {
-				throw new AccessDeniedException("Access denied: not authorized to view this history record");
+				throw new AccessDeniedException("non autorizzato a visualizzare questa voce dello storico");
 			}
 		}
 
@@ -129,7 +129,7 @@ public class ContractHistoryService {
 					.allMatch(h -> h.getContract().getManager().getId().equals(managerId));
 
 			if (!isOwner) {
-				throw new AccessDeniedException("Access denied: not authorized to view this contract history");
+				throw new AccessDeniedException("non autorizzato a visualizzare lo storico di questo contratto");
 			}
 
 			return all.stream()
@@ -158,7 +158,7 @@ public class ContractHistoryService {
 	 */
 	public void delete(Long id) {
 		ContractHistory history = findHistoryInScope(id)
-				.orElseThrow(() -> new ContractHistoryNotFoundException("History ID " + id + " not found"));
+				.orElseThrow(() -> new ContractHistoryNotFoundException("Voce storico ID " + id + " non trovata"));
 		historyRepository.delete(history);
 	}
 

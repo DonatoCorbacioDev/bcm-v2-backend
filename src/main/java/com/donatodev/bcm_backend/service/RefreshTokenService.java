@@ -47,17 +47,17 @@ public class RefreshTokenService {
     @Transactional(noRollbackFor = RefreshTokenException.class)
     public RotatedTokens refreshAccessToken(String tokenValue) {
         RefreshToken refreshToken = refreshTokenRepository.findByToken(hashToken(tokenValue))
-                .orElseThrow(() -> new RefreshTokenException("Refresh token not found"));
+                .orElseThrow(() -> new RefreshTokenException("Refresh token non trovato"));
 
         if (refreshToken.isRevoked()) {
             refreshTokenRepository.revokeAllByUser(refreshToken.getUser());
-            throw new RefreshTokenException("Refresh token reuse detected; all sessions revoked");
+            throw new RefreshTokenException("Riutilizzo del refresh token rilevato; tutte le sessioni sono state revocate");
         }
 
         if (refreshToken.getExpiryDate().isBefore(Instant.now())) {
             refreshToken.setRevoked(true);
             refreshTokenRepository.save(refreshToken);
-            throw new RefreshTokenException("Refresh token has expired");
+            throw new RefreshTokenException("Il refresh token è scaduto");
         }
 
         refreshToken.setRevoked(true);

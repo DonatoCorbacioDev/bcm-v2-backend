@@ -29,8 +29,8 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 @Service
 public class FinancialValueService {
 
-    private static final String NOT_FOUND_SUFFIX = " not found";
-    private static final String FINANCIAL_VALUE_ID_PREFIX = "Financial value ID ";
+    private static final String NOT_FOUND_SUFFIX = " non trovato";
+    private static final String FINANCIAL_VALUE_ID_PREFIX = "ID valore finanziario ";
 
     private final FinancialValuesRepository financialValuesRepository;
     private final FinancialValueMapper financialValueMapper;
@@ -60,7 +60,7 @@ public class FinancialValueService {
     public List<FinancialValueDTO> getAllValues() {
         String username = getAuthenticatedUsername();
         Users user = usersRepository.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException("User" + NOT_FOUND_SUFFIX));
+                .orElseThrow(() -> new UserNotFoundException("Utente" + NOT_FOUND_SUFFIX));
 
         Long orgId = TenantContext.get();
 
@@ -203,14 +203,14 @@ public class FinancialValueService {
         if (username == null) return;
 
         Users user = usersRepository.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException("User" + NOT_FOUND_SUFFIX));
+                .orElseThrow(() -> new UserNotFoundException("Utente" + NOT_FOUND_SUFFIX));
 
         if ("MANAGER".equals(user.getRole().getRole())) {
             Long managerId = user.getManager().getId();
             Long valueManagerId = value.getContract().getManager().getId();
 
             if (!managerId.equals(valueManagerId)) {
-                throw new AccessDeniedException("Access denied: you are not assigned to this contract");
+                throw new AccessDeniedException("non sei assegnato a questo contratto");
             }
         }
     }

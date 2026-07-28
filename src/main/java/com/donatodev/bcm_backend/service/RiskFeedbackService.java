@@ -31,7 +31,7 @@ import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 @Service
 public class RiskFeedbackService {
 
-    private static final String USER_NOT_FOUND_MSG = "User not found";
+    private static final String USER_NOT_FOUND_MSG = "Utente non trovato";
     private static final String ADMIN_ROLE = "ADMIN";
 
     private final RiskFeedbackRepository riskFeedbackRepository;
@@ -63,10 +63,10 @@ public class RiskFeedbackService {
     public RiskFeedbackDTO create(Long contractId, RiskFeedbackRequest request) {
         Users user = getAuthenticatedUser();
         Contracts contract = findContractInScope(contractId)
-                .orElseThrow(() -> new ContractNotFoundException("Contract not found: " + contractId));
+                .orElseThrow(() -> new ContractNotFoundException("Contratto non trovato: " + contractId));
 
         if (!isAdmin(user) && !isOwnedByManager(contract, user)) {
-            throw new AccessDeniedException("Access denied: not authorized to submit feedback for this contract");
+            throw new AccessDeniedException("non autorizzato a inviare feedback per questo contratto");
         }
 
         Long orgId = contract.getOrganization() != null ? contract.getOrganization().getId() : TenantContext.get();

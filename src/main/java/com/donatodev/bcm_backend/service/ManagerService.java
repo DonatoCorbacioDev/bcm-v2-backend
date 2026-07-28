@@ -25,8 +25,8 @@ import com.donatodev.bcm_backend.repository.ManagersRepository;
 @Service
 public class ManagerService {
 
-    private static final String MANAGER_ID_PREFIX = "Manager ID ";
-	private static final String NOT_FOUND_SUFFIX = " not found";
+    private static final String MANAGER_ID_PREFIX = "ID manager ";
+	private static final String NOT_FOUND_SUFFIX = " non trovato";
 
 
 	private final ManagersRepository managersRepository;

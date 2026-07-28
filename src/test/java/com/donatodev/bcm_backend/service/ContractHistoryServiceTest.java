@@ -644,7 +644,7 @@ class ContractHistoryServiceTest {
 
                 ContractHistoryNotFoundException ex = assertThrows(ContractHistoryNotFoundException.class,
                         () -> historyService.getById(999L));
-                assertEquals("History ID 999 not found", ex.getMessage());
+                assertEquals("Voce storico ID 999 non trovata", ex.getMessage());
             } finally {
                 TenantContext.clear();
             }

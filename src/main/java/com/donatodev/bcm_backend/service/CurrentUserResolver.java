@@ -26,9 +26,9 @@ public class CurrentUserResolver {
         Long orgId = TenantContext.get();
         if (orgId != null) {
             return usersRepository.findByUsernameAndOrganizationId(username, orgId)
-                    .orElseThrow(() -> new UserNotFoundException("User not found"));
+                    .orElseThrow(() -> new UserNotFoundException("Utente non trovato"));
         }
         return usersRepository.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("Utente non trovato"));
     }
 }

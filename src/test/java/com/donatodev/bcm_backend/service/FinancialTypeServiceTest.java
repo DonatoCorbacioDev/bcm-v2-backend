@@ -109,7 +109,7 @@ class FinancialTypeServiceTest {
 
             FinancialTypeNotFoundException ex =
                 assertThrows(FinancialTypeNotFoundException.class, () -> financialTypeService.getTypeById(999L));
-            assertEquals("Financial type ID 999 not found", ex.getMessage());
+            assertEquals("ID tipo finanziario 999 non trovato", ex.getMessage());
         }
 
         /**
@@ -182,7 +182,7 @@ class FinancialTypeServiceTest {
             FinancialTypeNotFoundException ex = assertThrows(FinancialTypeNotFoundException.class,
                     () -> financialTypeService.deleteType(999L));
 
-            assertEquals("Financial type ID 999 not found", ex.getMessage());
+            assertEquals("ID tipo finanziario 999 non trovato", ex.getMessage());
             verify(financialTypesRepository, never()).delete(any(FinancialTypes.class));
         }
         
@@ -200,7 +200,7 @@ class FinancialTypeServiceTest {
             FinancialTypeNotFoundException ex =
                 assertThrows(FinancialTypeNotFoundException.class,
                     () -> financialTypeService.updateType(999L, updateDTO));
-            assertEquals("Financial type ID 999 not found", ex.getMessage());
+            assertEquals("ID tipo finanziario 999 non trovato", ex.getMessage());
         }
 
         @Test

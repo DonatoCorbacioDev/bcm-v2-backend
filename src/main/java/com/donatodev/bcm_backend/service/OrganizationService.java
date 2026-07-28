@@ -58,10 +58,10 @@ public class OrganizationService {
     @Transactional
     public AuthResponseDTO registerOrganization(OrganizationRegistrationRequest request) {
         if (usersRepository.existsByUsername(request.adminUsername())) {
-            throw new IllegalArgumentException("Username already exists.");
+            throw new IllegalArgumentException("Username già esistente.");
         }
         if (managersRepository.existsByEmail(request.adminEmail())) {
-            throw new IllegalArgumentException("Email already in use.");
+            throw new IllegalArgumentException("Email già in uso.");
         }
 
         String slug = generateUniqueSlug(request.organizationName());
@@ -80,7 +80,7 @@ public class OrganizationService {
                 .build());
 
         Roles adminRole = rolesRepository.findByRole("ADMIN")
-                .orElseThrow(() -> new IllegalStateException("ADMIN role not found in database"));
+                .orElseThrow(() -> new IllegalStateException("Ruolo ADMIN non trovato nel database"));
 
         Users admin = usersRepository.save(Users.builder()
                 .username(request.adminUsername())
@@ -115,7 +115,7 @@ public class OrganizationService {
         if (request.iban() != null) {
             String normalizedIban = request.iban().replace(" ", "").toUpperCase(Locale.ROOT);
             if (!normalizedIban.isEmpty() && !IbanValidator.isValid(normalizedIban)) {
-                throw new IllegalArgumentException("Invalid IBAN");
+                throw new IllegalArgumentException("IBAN non valido");
             }
             org.setIban(normalizedIban.isEmpty() ? null : normalizedIban);
         }
@@ -131,18 +131,18 @@ public class OrganizationService {
         Long orgId = TenantContext.get();
         if (orgId != null) {
             return organizationRepository.findById(orgId)
-                    .orElseThrow(() -> new OrganizationNotFoundException("Organization not found"));
+                    .orElseThrow(() -> new OrganizationNotFoundException("Organizzazione non trovata"));
         }
         // Fallback when TenantContext is absent (e.g. test context with @WithMockUser)
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return usersRepository.findByUsername(username)
                 .map(u -> {
                     if (u.getOrganization() == null) {
-                        throw new OrganizationNotFoundException("User has no organization");
+                        throw new OrganizationNotFoundException("L'utente non ha un'organizzazione");
                     }
                     return u.getOrganization();
                 })
-                .orElseThrow(() -> new OrganizationNotFoundException("Authenticated user not found"));
+                .orElseThrow(() -> new OrganizationNotFoundException("Utente autenticato non trovato"));
     }
 
     private String generateUniqueSlug(String name) {

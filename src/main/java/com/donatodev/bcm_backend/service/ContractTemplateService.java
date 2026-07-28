@@ -102,7 +102,7 @@ public class ContractTemplateService {
         }
         if (areaId == null) {
             throw new IllegalArgumentException(
-                    "Business area is required: not defined in template and not provided in request");
+                    "Area aziendale obbligatoria: non definita nel modello e non fornita nella richiesta");
         }
 
         Long managerId = req.managerId();
@@ -129,7 +129,7 @@ public class ContractTemplateService {
         if (businessAreaId != null) {
             BusinessAreas area = businessAreasRepository.findById(businessAreaId)
                     .orElseThrow(() -> new BusinessAreaNotFoundException(
-                            "Business area not found: " + businessAreaId));
+                            "Area aziendale non trovata: " + businessAreaId));
             template.setBusinessArea(area);
         } else {
             template.setBusinessArea(null);
@@ -137,7 +137,7 @@ public class ContractTemplateService {
         if (defaultManagerId != null) {
             Managers manager = managersRepository.findById(defaultManagerId)
                     .orElseThrow(() -> new ManagerNotFoundException(
-                            "Manager not found: " + defaultManagerId));
+                            "Manager non trovato: " + defaultManagerId));
             template.setDefaultManager(manager);
         } else {
             template.setDefaultManager(null);
@@ -146,7 +146,7 @@ public class ContractTemplateService {
 
     private ContractTemplate findInScope(Long id, Long orgId) {
         return templateRepository.findByIdAndOrgId(id, orgId)
-                .orElseThrow(() -> new ContractNotFoundException("Contract template not found: " + id));
+                .orElseThrow(() -> new ContractNotFoundException("Modello di contratto non trovato: " + id));
     }
 
     private Long requireOrgId() {

@@ -21,8 +21,8 @@ import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 @Service
 public class FinancialTypeService {
 
-	private static final String FINANCIAL_TYPE_ID_PREFIX = "Financial type ID ";
-	private static final String NOT_FOUND_SUFFIX = " not found";
+	private static final String FINANCIAL_TYPE_ID_PREFIX = "ID tipo finanziario ";
+	private static final String NOT_FOUND_SUFFIX = " non trovato";
 
 	private final FinancialTypesRepository financialTypesRepository;
     private final FinancialTypeMapper financialTypeMapper;

@@ -96,7 +96,7 @@ class BudgetServiceTest {
 
             BudgetNotFoundException ex =
                 assertThrows(BudgetNotFoundException.class, () -> budgetService.getBudgetById(999L));
-            assertEquals("Budget ID 999 not found", ex.getMessage());
+            assertEquals("Budget ID 999 non trovato", ex.getMessage());
         }
 
         @Test
@@ -146,7 +146,7 @@ class BudgetServiceTest {
 
             BudgetNotFoundException ex =
                 assertThrows(BudgetNotFoundException.class, () -> budgetService.updateBudget(999L, updateDTO));
-            assertEquals("Budget ID 999 not found", ex.getMessage());
+            assertEquals("Budget ID 999 non trovato", ex.getMessage());
         }
 
         @Test
@@ -170,7 +170,7 @@ class BudgetServiceTest {
             BudgetNotFoundException ex = assertThrows(BudgetNotFoundException.class,
                     () -> budgetService.deleteBudget(999L));
 
-            assertEquals("Budget ID 999 not found", ex.getMessage());
+            assertEquals("Budget ID 999 non trovato", ex.getMessage());
             verify(budgetRepository, never()).delete(any(Budget.class));
         }
 

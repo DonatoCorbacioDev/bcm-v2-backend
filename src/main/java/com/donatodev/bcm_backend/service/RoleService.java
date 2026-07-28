@@ -48,7 +48,7 @@ public class RoleService {
     public RoleDTO getRoleById(Long id) {
         return rolesRepository.findById(id)
                 .map(roleMapper::toDTO)
-                .orElseThrow(() -> new RoleNotFoundException("Role ID " + id + " not found"));
+                .orElseThrow(() -> new RoleNotFoundException("Ruolo ID " + id + " non trovato"));
     }
 
     /**
@@ -73,7 +73,7 @@ public class RoleService {
      */
     public RoleDTO updateRole(Long id, RoleDTO dto) {
         Roles role = rolesRepository.findById(id)
-                .orElseThrow(() -> new RoleNotFoundException("Role ID " + id + " not found"));
+                .orElseThrow(() -> new RoleNotFoundException("Ruolo ID " + id + " non trovato"));
 
         role.setRole(dto.role());
         role = rolesRepository.save(role);

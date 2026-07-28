@@ -22,7 +22,7 @@ public class AgentNotificationService {
 
     private static final Logger logger = LoggerFactory.getLogger(AgentNotificationService.class);
     private static final String CRLF_REGEX = "[\r\n]";
-    private static final String CONTRACT_PREFIX = "Contract ";
+    private static final String CONTRACT_PREFIX = "Contratto ";
 
     private final NotificationService notificationService;
     private final UsersRepository usersRepository;
@@ -42,9 +42,9 @@ public class AgentNotificationService {
             notificationService.createForUser(
                     user.getId(),
                     user.getOrganization().getId(),
-                    "Contract Expiring Soon",
-                    CONTRACT_PREFIX + contract.getContractNumber() + " expires in " + daysLeft
-                            + " days (" + contract.getCustomerName() + ")",
+                    "Contratto in scadenza",
+                    CONTRACT_PREFIX + contract.getContractNumber() + " scade tra " + daysLeft
+                            + " giorni (" + contract.getCustomerName() + ")",
                     NotificationType.WARNING
             );
         });
@@ -61,8 +61,8 @@ public class AgentNotificationService {
             notificationService.createForUser(
                     user.getId(),
                     user.getOrganization().getId(),
-                    "High Risk Contract Detected",
-                    CONTRACT_PREFIX + contract.getContractNumber() + " has a risk score of "
+                    "Contratto ad alto rischio rilevato",
+                    CONTRACT_PREFIX + contract.getContractNumber() + " ha un punteggio di rischio del "
                             + String.format("%.0f%%", riskScore * 100),
                     NotificationType.ERROR
             );
@@ -78,7 +78,7 @@ public class AgentNotificationService {
             notificationService.createForUser(
                     user.getId(),
                     user.getOrganization().getId(),
-                    "Anomaly Detected",
+                    "Anomalia rilevata",
                     CONTRACT_PREFIX + contract.getContractNumber() + ": " + anomalyMessage,
                     NotificationType.WARNING
             );
@@ -98,9 +98,9 @@ public class AgentNotificationService {
             notificationService.createForUser(
                     approver.getId(),
                     orgId,
-                    "Contract Awaiting Review",
+                    "Contratto in attesa di revisione",
                     CONTRACT_PREFIX + contract.getContractNumber() + " (" + contract.getCustomerName()
-                            + ") was submitted for review",
+                            + ") è stato inviato per la revisione",
                     NotificationType.INFO
             );
         }
@@ -110,8 +110,8 @@ public class AgentNotificationService {
      * Notifies the contract's manager that it was approved and is now active.
      */
     public void notifyWorkflowApproved(Contracts contract) {
-        notifySubmitter(contract, "Contract Approved",
-                CONTRACT_PREFIX + contract.getContractNumber() + " was approved and is now active",
+        notifySubmitter(contract, "Contratto approvato",
+                CONTRACT_PREFIX + contract.getContractNumber() + " è stato approvato ed è ora attivo",
                 NotificationType.INFO);
     }
 
@@ -120,8 +120,8 @@ public class AgentNotificationService {
      * reviewer's comment.
      */
     public void notifyWorkflowRejected(Contracts contract, String comment) {
-        notifySubmitter(contract, "Contract Rejected",
-                CONTRACT_PREFIX + contract.getContractNumber() + " was sent back to draft: " + comment,
+        notifySubmitter(contract, "Contratto respinto",
+                CONTRACT_PREFIX + contract.getContractNumber() + " è stato riportato in bozza: " + comment,
                 NotificationType.WARNING);
     }
 

@@ -68,7 +68,7 @@ public class CalendarFeedService {
     @Transactional(readOnly = true)
     public String buildIcsFeed(String token) {
         Users user = usersRepository.findByCalendarToken(token)
-                .orElseThrow(() -> new UserNotFoundException("Invalid calendar feed token"));
+                .orElseThrow(() -> new UserNotFoundException("Token feed calendario non valido"));
 
         List<Contracts> contracts = resolveContracts(user);
         String dtstamp = ICS_DATETIME.format(Instant.now());

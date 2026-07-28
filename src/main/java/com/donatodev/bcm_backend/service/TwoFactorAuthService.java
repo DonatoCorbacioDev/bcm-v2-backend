@@ -32,7 +32,7 @@ public class TwoFactorAuthService {
     private static final int RECOVERY_CODE_COUNT = 10;
     private static final String RECOVERY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no O/0/I/1
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-    private static final String INVALID_MFA_SESSION = "Invalid or expired MFA session";
+    private static final String INVALID_MFA_SESSION = "Sessione MFA non valida o scaduta";
 
     private final UsersRepository usersRepository;
     private final TotpRecoveryCodeRepository recoveryCodeRepository;
@@ -73,12 +73,12 @@ public class TwoFactorAuthService {
     public TotpConfirmResponse confirm(String code) {
         Users user = currentUserResolver.resolve();
         if (user.getTotpSecretEncrypted() == null) {
-            throw new IllegalArgumentException("Call setup before confirming 2FA");
+            throw new IllegalArgumentException("Eseguire prima il setup per confermare la 2FA");
         }
 
         String secret = totpEncryptionService.decrypt(user.getTotpSecretEncrypted());
         if (!TotpUtil.verifyCode(secret, code)) {
-            throw new IllegalArgumentException("Invalid verification code");
+            throw new IllegalArgumentException("Codice di verifica non valido");
         }
 
         user.setTotpEnabled(true);
@@ -98,12 +98,12 @@ public class TwoFactorAuthService {
     public void disable(String code) {
         Users user = currentUserResolver.resolve();
         if (!user.isTotpEnabled() || user.getTotpSecretEncrypted() == null) {
-            throw new IllegalArgumentException("2FA is not enabled");
+            throw new IllegalArgumentException("La 2FA non è attiva");
         }
 
         String secret = totpEncryptionService.decrypt(user.getTotpSecretEncrypted());
         if (!TotpUtil.verifyCode(secret, code) && !consumeRecoveryCodeIfValid(user, code)) {
-            throw new IllegalArgumentException("Invalid verification code");
+            throw new IllegalArgumentException("Codice di verifica non valido");
         }
 
         user.setTotpEnabled(false);
@@ -142,7 +142,7 @@ public class TwoFactorAuthService {
         String secret = totpEncryptionService.decrypt(user.getTotpSecretEncrypted());
         boolean valid = TotpUtil.verifyCode(secret, code) || consumeRecoveryCodeIfValid(user, code);
         if (!valid) {
-            throw new BadCredentialsException("Invalid verification code");
+            throw new BadCredentialsException("Codice di verifica non valido");
         }
 
         String accessToken = jwtUtils.generateToken(user);

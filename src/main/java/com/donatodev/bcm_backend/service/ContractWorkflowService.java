@@ -52,7 +52,7 @@ public class ContractWorkflowService {
     public void submitForReview(Long contractId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
-        requireStage(contract, WorkflowStage.DRAFT, "Contract must be in DRAFT to submit for review");
+        requireStage(contract, WorkflowStage.DRAFT, "Il contratto deve essere in bozza per essere inviato in revisione");
 
         Users actor = currentUserResolver.resolve();
         recordAndApply(contract, WorkflowStage.IN_REVIEW, WorkflowAction.SUBMIT, actor, null);
@@ -66,7 +66,7 @@ public class ContractWorkflowService {
     public void approve(Long contractId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         Users actor = requireApprover();
-        requireStage(contract, WorkflowStage.IN_REVIEW, "Contract must be under review to approve");
+        requireStage(contract, WorkflowStage.IN_REVIEW, "Il contratto deve essere in revisione per poter essere approvato");
 
         contract.setStatus(ContractStatus.ACTIVE);
         recordAndApply(contract, WorkflowStage.APPROVED, WorkflowAction.APPROVE, actor, null);
@@ -79,11 +79,11 @@ public class ContractWorkflowService {
      */
     public void reject(Long contractId, String comment) {
         if (comment == null || comment.isBlank()) {
-            throw new IllegalArgumentException("A comment is required to reject a contract");
+            throw new IllegalArgumentException("Un commento è obbligatorio per respingere un contratto");
         }
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         Users actor = requireApprover();
-        requireStage(contract, WorkflowStage.IN_REVIEW, "Contract must be under review to reject");
+        requireStage(contract, WorkflowStage.IN_REVIEW, "Il contratto deve essere in revisione per poter essere respinto");
 
         recordAndApply(contract, WorkflowStage.DRAFT, WorkflowAction.REJECT, actor, comment);
         agentNotificationService.notifyWorkflowRejected(contract, comment);
@@ -116,7 +116,7 @@ public class ContractWorkflowService {
         Users actor = currentUserResolver.resolve();
         boolean isAdmin = ROLE_ADMIN.equals(actor.getRole().getRole());
         if (!isAdmin && !actor.isCanApproveContracts()) {
-            throw new AccessDeniedException("Not authorized to approve or reject contracts");
+            throw new AccessDeniedException("non autorizzato ad approvare o respingere contratti");
         }
         return actor;
     }

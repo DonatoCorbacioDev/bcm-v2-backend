@@ -21,8 +21,8 @@ import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 @Service
 public class BusinessAreaService {
 
-	private static final String BUSINESS_AREA_ID_PREFIX = "Business area ID ";
-	private static final String NOT_FOUND_SUFFIX = " not found";
+	private static final String BUSINESS_AREA_ID_PREFIX = "ID area aziendale ";
+	private static final String NOT_FOUND_SUFFIX = " non trovata";
 
 	private final BusinessAreasRepository businessAreasRepository;
     private final BusinessAreaMapper businessAreaMapper;

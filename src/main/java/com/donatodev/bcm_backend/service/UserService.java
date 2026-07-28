@@ -35,8 +35,8 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 @Service
 public class UserService {
 
-	private static final String ERR_USER_ID = "User ID ";
-	private static final String ERR_NOT_FOUND = " not found";
+	private static final String ERR_USER_ID = "Utente ID ";
+	private static final String ERR_NOT_FOUND = " non trovato";
 
 	private final UsersRepository usersRepository;
 	private final UserMapper userMapper;
@@ -131,11 +131,11 @@ public class UserService {
 	 */
 	public Users registerUser(UserDTO dto) {
 		if (usersRepository.existsByUsername(dto.username())) {
-			throw new IllegalArgumentException("Username already exists.");
+			throw new IllegalArgumentException("Username già esistente.");
 		}
 
 		if (dto.managerId() != null && usersRepository.existsByManagerId(dto.managerId())) {
-			throw new IllegalArgumentException("This manager is already associated with another user.");
+			throw new IllegalArgumentException("Questo manager è già associato a un altro utente.");
 		}
 
 		Users user = userMapper.toEntity(dto);
@@ -171,10 +171,10 @@ public class UserService {
 		user.setPasswordHash(passwordEncoder.encode(dto.password()));
 
 		user.setManager(findManagerInScope(dto.managerId())
-				.orElseThrow(() -> new IllegalArgumentException("Manager ID not found")));
+				.orElseThrow(() -> new IllegalArgumentException("ID manager non trovato")));
 
 		user.setRole(rolesRepository.findById(dto.roleId())
-				.orElseThrow(() -> new IllegalArgumentException("Role ID not found")));
+				.orElseThrow(() -> new IllegalArgumentException("ID ruolo non trovato")));
 
 		user.setCanApproveContracts(Boolean.TRUE.equals(dto.canApproveContracts()));
 
@@ -233,7 +233,7 @@ public class UserService {
 	public UserProfileDTO getCurrentUserProfile() {
 		String username = SecurityContextHolder.getContext().getAuthentication().getName();
 		Users user = usersRepository.findByUsername(username)
-				.orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+				.orElseThrow(() -> new UsernameNotFoundException("Utente non trovato: " + username));
 
 		return new UserProfileDTO(
 				user.getId(),
@@ -247,14 +247,14 @@ public class UserService {
 	public String inviteUser(String username, String role, Long managerId) {
 
 		if (usersRepository.existsByUsername(username)) {
-			throw new IllegalArgumentException("Username already exists.");
+			throw new IllegalArgumentException("Username già esistente.");
 		}
 
 		if (!"MANAGER".equals(Normalizer.normalize(role, Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
-			throw new IllegalArgumentException("Only MANAGER role allowed via invite.");
+			throw new IllegalArgumentException("Solo il ruolo MANAGER è consentito tramite invito.");
 		}
 		Managers manager = managersRepository.findById(managerId)
-				.orElseThrow(() -> new IllegalArgumentException("Manager not found"));
+				.orElseThrow(() -> new IllegalArgumentException("Manager non trovato"));
 
 		String token = UUID.randomUUID().toString();
 
@@ -272,24 +272,24 @@ public class UserService {
 
 	public void completeInvite(String token, String rawPassword) {
 		InviteToken it = inviteTokenRepository.findByToken(token)
-			.orElseThrow(() -> new IllegalArgumentException("Invalid invite token"));
+			.orElseThrow(() -> new IllegalArgumentException("Token di invito non valido"));
 
 		if (it.isUsed() || it.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.systemDefault()))) {
-			throw new IllegalArgumentException("Invite token used or expired");
+			throw new IllegalArgumentException("Token di invito già usato o scaduto");
 		}
 
 		if (usersRepository.existsByUsername(it.getUsername())) {
-			throw new IllegalArgumentException("User already exists.");
+			throw new IllegalArgumentException("Utente già esistente.");
 		}
 
 		if (usersRepository.existsByManagerId(it.getManagerId())) {
-			throw new IllegalArgumentException("This manager is already associated with another user.");
+			throw new IllegalArgumentException("Questo manager è già associato a un altro utente.");
 		}
 
 		Managers manager = managersRepository.findById(it.getManagerId())
-			.orElseThrow(() -> new IllegalArgumentException("Manager not found"));
+			.orElseThrow(() -> new IllegalArgumentException("Manager non trovato"));
 		Roles role = rolesRepository.findByRole(it.getRole())
-			.orElseThrow(() -> new IllegalArgumentException("Role not found: " + it.getRole()));
+			.orElseThrow(() -> new IllegalArgumentException("Ruolo non trovato: " + it.getRole()));
 
 		Users user = new Users();
 		user.setUsername(it.getUsername());
@@ -310,20 +310,20 @@ public class UserService {
 
 		if (username != null && !username.isBlank()) {
 			if (!username.equals(user.getUsername()) && usersRepository.existsByUsername(username)) {
-				throw new IllegalArgumentException("Username already exists.");
+				throw new IllegalArgumentException("Username già esistente.");
 			}
 			user.setUsername(username);
 		}
 
 		if (role != null && !role.isBlank()) {
 			Roles r = rolesRepository.findByRole(role)
-					.orElseThrow(() -> new IllegalArgumentException("Role not found: " + role));
+					.orElseThrow(() -> new IllegalArgumentException("Ruolo non trovato: " + role));
 			user.setRole(r);
 		}
 
 		if (managerId != null) {
 			Managers m = findManagerInScope(managerId)
-					.orElseThrow(() -> new IllegalArgumentException("Manager ID not found"));
+					.orElseThrow(() -> new IllegalArgumentException("ID manager non trovato"));
 			user.setManager(m);
 		}
 

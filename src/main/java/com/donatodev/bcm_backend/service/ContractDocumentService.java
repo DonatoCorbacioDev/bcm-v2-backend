@@ -34,7 +34,7 @@ public class ContractDocumentService {
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024L;
     private static final byte[] PDF_MAGIC = new byte[]{'%', 'P', 'D', 'F'};
-    private static final String DOC_NOT_FOUND = "Document ID %d not found for contract %d";
+    private static final String DOC_NOT_FOUND = "Documento ID %d non trovato per il contratto %d";
     private static final String LINE_SPLIT_REGEX = "\\r\\n|\\r|\\n";
     private static final String CRLF_REGEX = "[\r\n]";
 
@@ -278,16 +278,16 @@ public class ContractDocumentService {
 
     private void validateFile(MultipartFile file) throws IOException {
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("File is empty");
+            throw new IllegalArgumentException("Il file è vuoto");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("File exceeds the 10 MB limit");
+            throw new IllegalArgumentException("Il file supera il limite di 10 MB");
         }
         byte[] header = file.getBytes();
         if (header.length < 4 ||
                 header[0] != PDF_MAGIC[0] || header[1] != PDF_MAGIC[1] ||
                 header[2] != PDF_MAGIC[2] || header[3] != PDF_MAGIC[3]) {
-            throw new IllegalArgumentException("Only PDF files are accepted");
+            throw new IllegalArgumentException("Sono supportati solo file PDF");
         }
     }
 

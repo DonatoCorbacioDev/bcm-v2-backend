@@ -23,7 +23,7 @@ import com.donatodev.bcm_backend.repository.BudgetRepository;
 public class BudgetService {
 
     private static final String BUDGET_ID_PREFIX = "Budget ID ";
-    private static final String NOT_FOUND_SUFFIX = " not found";
+    private static final String NOT_FOUND_SUFFIX = " non trovato";
 
     private final BudgetRepository budgetRepository;
     private final BudgetMapper budgetMapper;

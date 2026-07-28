@@ -274,7 +274,7 @@ class ContractServiceTest {
             when(contractsRepository.findById(999L)).thenReturn(Optional.empty());
             ContractNotFoundException ex
                     = assertThrows(ContractNotFoundException.class, () -> contractService.getContractById(999L));
-            assertEquals("Contract ID 999 not found", ex.getMessage());
+            assertEquals("Contratto ID 999 non trovato", ex.getMessage());
         }
 
         /**
@@ -655,7 +655,7 @@ class ContractServiceTest {
 
             UserNotFoundException ex
                     = assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
-            assertEquals("User not found", ex.getMessage());
+            assertEquals("Utente non trovato", ex.getMessage());
         }
 
         /**
@@ -734,7 +734,7 @@ class ContractServiceTest {
 
             UserNotFoundException ex
                     = assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
-            assertEquals("No authenticated user", ex.getMessage());
+            assertEquals("Nessun utente autenticato", ex.getMessage());
         }
 
         /**
@@ -748,7 +748,7 @@ class ContractServiceTest {
             SecurityContextHolder.getContext().setAuthentication(null); // Explicitly set authentication to null
             UserNotFoundException ex
                     = assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
-            assertEquals("No authenticated user", ex.getMessage());
+            assertEquals("Nessun utente autenticato", ex.getMessage());
         }
 
         /**
@@ -793,7 +793,7 @@ class ContractServiceTest {
 
             UserNotFoundException ex
                     = assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
-            assertEquals("No authenticated user", ex.getMessage());
+            assertEquals("Nessun utente autenticato", ex.getMessage());
         }
 
         /**
@@ -810,7 +810,7 @@ class ContractServiceTest {
 
             UserNotFoundException ex
                     = assertThrows(UserNotFoundException.class, () -> contractService.getAllContracts());
-            assertEquals("No authenticated user", ex.getMessage());
+            assertEquals("Nessun utente autenticato", ex.getMessage());
         }
 
         /**
@@ -829,7 +829,7 @@ class ContractServiceTest {
             UserNotFoundException ex
                     = assertThrows(UserNotFoundException.class,
                             () -> contractService.getContractsByStatus(ContractStatus.ACTIVE));
-            assertEquals("User not found", ex.getMessage());
+            assertEquals("Utente non trovato", ex.getMessage());
         }
 
         /**
@@ -848,7 +848,7 @@ class ContractServiceTest {
 
             ContractNotFoundException ex
                     = assertThrows(ContractNotFoundException.class, () -> contractService.updateContract(contractId, dto));
-            assertEquals("Contract not found", ex.getMessage());
+            assertEquals("Contratto non trovato", ex.getMessage());
         }
 
         @Test
@@ -927,7 +927,7 @@ class ContractServiceTest {
             IllegalArgumentException ex
                     = assertThrows(IllegalArgumentException.class,
                             () -> contractService.assignManager(999L, 5L));
-            assertTrue(ex.getMessage().contains("Contract not found"));
+            assertTrue(ex.getMessage().contains("Contratto non trovato"));
         }
 
         @Test
@@ -942,7 +942,7 @@ class ContractServiceTest {
             ManagerNotFoundException ex
                     = assertThrows(ManagerNotFoundException.class,
                             () -> contractService.assignManager(1L, 999L));
-            assertTrue(ex.getMessage().contains("Manager not found"));
+            assertTrue(ex.getMessage().contains("Manager non trovato"));
         }
 
         @Test
@@ -974,7 +974,7 @@ class ContractServiceTest {
             ContractNotFoundException ex
                     = assertThrows(ContractNotFoundException.class,
                             () -> contractService.getCollaboratorIds(999L));
-            assertTrue(ex.getMessage().contains("Contract not found"));
+            assertTrue(ex.getMessage().contains("Contratto non trovato"));
         }
 
         @Test
@@ -1021,7 +1021,7 @@ class ContractServiceTest {
             ContractNotFoundException ex
                     = assertThrows(ContractNotFoundException.class,
                             () -> contractService.setCollaborators(999L, managerIds));
-            assertTrue(ex.getMessage().contains("Contract not found"));
+            assertTrue(ex.getMessage().contains("Contratto non trovato"));
         }
 
         @ParameterizedTest(name = "[{index}] Search paged as ADMIN: term=''{0}'', status={1}")
@@ -1512,7 +1512,7 @@ class ContractServiceTest {
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
                     () -> contractService.searchPaged(null, null, 0, 10));
 
-            assertEquals("User not found", ex.getMessage());
+            assertEquals("Utente non trovato", ex.getMessage());
         }
 
         @Test
@@ -1591,7 +1591,7 @@ class ContractServiceTest {
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
                     () -> contractService.updateContract(1L, updateDTO));
 
-            assertEquals("User not found", ex.getMessage());
+            assertEquals("Utente non trovato", ex.getMessage());
 
             // Verify history was NOT saved (exception thrown before)
             verify(contractHistoryRepository, never()).save(any());

@@ -41,7 +41,7 @@ public class ContractAccessGuard {
         Optional<Contracts> contract = (orgId != null)
                 ? contractsRepository.findByIdAndOrganization_Id(contractId, orgId)
                 : contractsRepository.findById(contractId);
-        return contract.orElseThrow(() -> new ContractNotFoundException("Contract ID " + contractId + " not found"));
+        return contract.orElseThrow(() -> new ContractNotFoundException("Contratto ID " + contractId + " non trovato"));
     }
 
     /**
@@ -64,7 +64,7 @@ public class ContractAccessGuard {
         Long managerId = user.getManager() != null ? user.getManager().getId() : null;
         Long contractManagerId = contract.getManager() != null ? contract.getManager().getId() : null;
         if (managerId == null || !managerId.equals(contractManagerId)) {
-            throw new AccessDeniedException("Not authorized to access contract: " + contract.getId());
+            throw new AccessDeniedException("non autorizzato ad accedere al contratto: " + contract.getId());
         }
     }
 }

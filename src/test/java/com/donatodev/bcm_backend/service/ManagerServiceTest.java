@@ -121,7 +121,7 @@ class ManagerServiceTest {
             when(managersRepository.findById(999L)).thenReturn(Optional.empty());
             ManagerNotFoundException ex
                     = assertThrows(ManagerNotFoundException.class, () -> managerService.getManagerById(999L));
-            assertEquals("Manager ID 999 not found", ex.getMessage());
+            assertEquals("ID manager 999 non trovato", ex.getMessage());
         }
 
         /**
@@ -182,7 +182,7 @@ class ManagerServiceTest {
 
             ManagerNotFoundException ex
                     = assertThrows(ManagerNotFoundException.class, () -> managerService.updateManager(1L, dto));
-            assertEquals("Manager ID 1 not found", ex.getMessage());
+            assertEquals("ID manager 1 non trovato", ex.getMessage());
         }
 
         /**
@@ -210,7 +210,7 @@ class ManagerServiceTest {
             ManagerNotFoundException ex = assertThrows(ManagerNotFoundException.class,
                     () -> managerService.deleteManager(999L));
 
-            assertEquals("Manager ID 999 not found", ex.getMessage());
+            assertEquals("ID manager 999 non trovato", ex.getMessage());
             verify(managersRepository, never()).delete(any(Managers.class));
         }
 
@@ -301,7 +301,7 @@ class ManagerServiceTest {
                     () -> managerService.getManagerEntity(999L)
             );
 
-            assertEquals("Manager ID 999 not found", ex.getMessage());
+            assertEquals("ID manager 999 non trovato", ex.getMessage());
         }
 
         @Test

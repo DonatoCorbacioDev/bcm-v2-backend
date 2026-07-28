@@ -48,7 +48,7 @@ public class SepaPaymentService {
     private static final String PAIN_NAMESPACE = "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03";
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final String NOT_PROVIDED = "NOTPROVIDED";
-    private static final String BATCH_NOT_FOUND = "SEPA payment batch ID %d not found for contract %d";
+    private static final String BATCH_NOT_FOUND = "Lotto pagamento SEPA ID %d non trovato per il contratto %d";
 
     private final ContractAccessGuard contractAccessGuard;
     private final ElectronicInvoiceRepository invoiceRepository;
@@ -75,21 +75,21 @@ public class SepaPaymentService {
 
         List<ElectronicInvoice> invoices = invoiceRepository.findByContractIdAndIdIn(contractId, invoiceIds);
         if (invoices.size() != invoiceIds.size()) {
-            throw new IllegalArgumentException("One or more invoices were not found for this contract");
+            throw new IllegalArgumentException("Una o più fatture non sono state trovate per questo contratto");
         }
 
         Organization organization = resolveOrganization(contract);
         if (organization.getIban() == null || organization.getIban().isBlank()) {
-            throw new IllegalArgumentException("Organization has no IBAN configured for SEPA payments");
+            throw new IllegalArgumentException("L'organizzazione non ha un IBAN configurato per i pagamenti SEPA");
         }
 
         String currency = resolveCurrency(invoices);
         for (ElectronicInvoice invoice : invoices) {
             if (invoice.getSepaBatch() != null) {
-                throw new IllegalArgumentException("Invoice " + invoice.getId() + " was already included in a SEPA payment");
+                throw new IllegalArgumentException("La fattura " + invoice.getId() + " è già inclusa in un pagamento SEPA");
             }
             if (invoice.getSupplierIban() == null || invoice.getSupplierIban().isBlank()) {
-                throw new IllegalArgumentException("Invoice " + invoice.getId() + " has no supplier IBAN");
+                throw new IllegalArgumentException("La fattura " + invoice.getId() + " non ha un IBAN fornitore");
             }
         }
 
@@ -97,7 +97,7 @@ public class SepaPaymentService {
                 ? requestedExecutionDate
                 : LocalDate.now(ZoneId.systemDefault());
         if (executionDate.isBefore(LocalDate.now(ZoneId.systemDefault()))) {
-            throw new IllegalArgumentException("Execution date cannot be in the past");
+            throw new IllegalArgumentException("La data di esecuzione non può essere nel passato");
         }
 
         BigDecimal totalAmount = invoices.stream()
@@ -170,12 +170,12 @@ public class SepaPaymentService {
         Long orgId = TenantContext.get();
         if (orgId != null) {
             return organizationRepository.findById(orgId)
-                    .orElseThrow(() -> new IllegalArgumentException("Organization not found"));
+                    .orElseThrow(() -> new IllegalArgumentException("Organizzazione non trovata"));
         }
         if (contract.getOrganization() != null) {
             return contract.getOrganization();
         }
-        throw new IllegalArgumentException("Contract has no organization to resolve a debtor account from");
+        throw new IllegalArgumentException("Il contratto non ha un'organizzazione da cui risolvere un conto debitore");
     }
 
     private String resolveCurrency(List<ElectronicInvoice> invoices) {
@@ -185,7 +185,7 @@ public class SepaPaymentService {
             if (currency == null) {
                 currency = invoiceCurrency;
             } else if (!currency.equals(invoiceCurrency)) {
-                throw new IllegalArgumentException("Cannot mix currencies in a single SEPA payment");
+                throw new IllegalArgumentException("Non è possibile mischiare valute diverse in un unico pagamento SEPA");
             }
         }
         return currency != null ? currency : "EUR";

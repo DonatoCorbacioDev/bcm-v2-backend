@@ -170,7 +170,7 @@ class UserServiceTest {
             when(usersRepository.findById(999L)).thenReturn(Optional.empty());
             UserNotFoundException ex
                     = assertThrows(UserNotFoundException.class, () -> userService.getUserById(999L));
-            assertEquals("User ID 999 not found", ex.getMessage());
+            assertEquals("Utente ID 999 non trovato", ex.getMessage());
         }
 
         /**
@@ -253,7 +253,7 @@ class UserServiceTest {
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
                     () -> userService.deleteUser(999L));
 
-            assertEquals("User ID 999 not found", ex.getMessage());
+            assertEquals("Utente ID 999 non trovato", ex.getMessage());
             verify(usersRepository, never()).delete(any(Users.class));
         }
 
@@ -350,7 +350,7 @@ class UserServiceTest {
 
             IllegalArgumentException ex
                     = assertThrows(IllegalArgumentException.class, () -> userService.createUser(dto));
-            assertEquals("Username already exists.", ex.getMessage());
+            assertEquals("Username già esistente.", ex.getMessage());
         }
 
         /**
@@ -367,7 +367,7 @@ class UserServiceTest {
 
             IllegalArgumentException ex
                     = assertThrows(IllegalArgumentException.class, () -> userService.createUser(dto));
-            assertEquals("This manager is already associated with another user.", ex.getMessage());
+            assertEquals("Questo manager è già associato a un altro utente.", ex.getMessage());
         }
 
         /**
@@ -387,7 +387,7 @@ class UserServiceTest {
 
             IllegalArgumentException ex
                     = assertThrows(IllegalArgumentException.class, () -> userService.updateUser(1L, dto));
-            assertEquals("Manager ID not found", ex.getMessage());
+            assertEquals("ID manager non trovato", ex.getMessage());
         }
 
         /**
@@ -408,7 +408,7 @@ class UserServiceTest {
 
             IllegalArgumentException ex
                     = assertThrows(IllegalArgumentException.class, () -> userService.updateUser(1L, dto));
-            assertEquals("Role ID not found", ex.getMessage());
+            assertEquals("ID ruolo non trovato", ex.getMessage());
         }
 
         /**
@@ -427,7 +427,7 @@ class UserServiceTest {
 
             UsernameNotFoundException ex
                     = assertThrows(UsernameNotFoundException.class, () -> userService.getCurrentUserProfile());
-            assertEquals("User not found: ghost", ex.getMessage());
+            assertEquals("Utente non trovato: ghost", ex.getMessage());
         }
 
         /**
@@ -504,7 +504,7 @@ class UserServiceTest {
             when(usersRepository.findById(userId)).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> userService.getUserById(userId));
-            assertEquals("User ID 123 not found", ex.getMessage());
+            assertEquals("Utente ID 123 non trovato", ex.getMessage());
         }
 
         /**
@@ -522,7 +522,7 @@ class UserServiceTest {
 
             UserNotFoundException exception = assertThrows(UserNotFoundException.class, () -> userService.updateUser(userId, dto));
 
-            assertEquals("User ID 999 not found", exception.getMessage());
+            assertEquals("Utente ID 999 non trovato", exception.getMessage());
         }
 
         /**
@@ -555,7 +555,7 @@ class UserServiceTest {
             when(usersRepository.existsByUsername("existinguser")).thenReturn(true);
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("existinguser", "MANAGER", 1L));
-            assertEquals("Username already exists.", ex.getMessage());
+            assertEquals("Username già esistente.", ex.getMessage());
         }
 
         /**
@@ -569,7 +569,7 @@ class UserServiceTest {
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("user", "USER", 1L));
 
-            assertEquals("Only MANAGER role allowed via invite.", ex.getMessage());
+            assertEquals("Solo il ruolo MANAGER è consentito tramite invito.", ex.getMessage());
 
         }
 
@@ -585,7 +585,7 @@ class UserServiceTest {
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("user", "MANAGER", 999L));
 
-            assertEquals("Manager not found", ex.getMessage());
+            assertEquals("Manager non trovato", ex.getMessage());
         }
 
         /**
@@ -633,7 +633,7 @@ class UserServiceTest {
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.completeInvite("invalid", "password"));
 
-            assertEquals("Invalid invite token", ex.getMessage());
+            assertEquals("Token di invito non valido", ex.getMessage());
         }
 
         /**
@@ -655,7 +655,7 @@ class UserServiceTest {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.completeInvite("used-token", "password"));
 
-            assertEquals("Invite token used or expired", ex.getMessage());
+            assertEquals("Token di invito già usato o scaduto", ex.getMessage());
         }
 
         /**
@@ -677,7 +677,7 @@ class UserServiceTest {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.completeInvite("expired-token", "password"));
 
-            assertEquals("Invite token used or expired", ex.getMessage());
+            assertEquals("Token di invito già usato o scaduto", ex.getMessage());
         }
 
         /**
@@ -701,7 +701,7 @@ class UserServiceTest {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.completeInvite("token", "password"));
 
-            assertEquals("User already exists.", ex.getMessage());
+            assertEquals("Utente già esistente.", ex.getMessage());
         }
 
         /**
@@ -727,7 +727,7 @@ class UserServiceTest {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.completeInvite("token", "password"));
 
-            assertEquals("This manager is already associated with another user.", ex.getMessage());
+            assertEquals("Questo manager è già associato a un altro utente.", ex.getMessage());
         }
 
         /**
@@ -771,7 +771,7 @@ class UserServiceTest {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.updateUserPartial(1L, "existinguser", null, null, null));
 
-            assertEquals("Username already exists.", ex.getMessage());
+            assertEquals("Username già esistente.", ex.getMessage());
         }
 
         /**
@@ -830,7 +830,7 @@ class UserServiceTest {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.updateUserPartial(1L, null, "INVALIDROLE", null, null));
 
-            assertEquals("Role not found: INVALIDROLE", ex.getMessage());
+            assertEquals("Ruolo non trovato: INVALIDROLE", ex.getMessage());
         }
 
         /**
@@ -868,7 +868,7 @@ class UserServiceTest {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.updateUserPartial(1L, null, null, 999L, null));
 
-            assertEquals("Manager ID not found", ex.getMessage());
+            assertEquals("ID manager non trovato", ex.getMessage());
         }
 
         /**
@@ -902,7 +902,7 @@ class UserServiceTest {
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
                     () -> userService.updateUserPartial(999L, "newname", null, null, null));
 
-            assertEquals("User ID 999 not found", ex.getMessage());
+            assertEquals("Utente ID 999 non trovato", ex.getMessage());
         }
 
         /**
@@ -1098,7 +1098,7 @@ class UserServiceTest {
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
                     () -> userService.sendResetLink(999L));
 
-            assertEquals("User ID 999 not found", ex.getMessage());
+            assertEquals("Utente ID 999 non trovato", ex.getMessage());
         }
 
         /**
@@ -1264,7 +1264,7 @@ class UserServiceTest {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.completeInvite(token, "password"));
 
-            assertEquals("Manager not found", ex.getMessage());
+            assertEquals("Manager non trovato", ex.getMessage());
             verify(usersRepository, never()).save(any(Users.class));
         }
 
@@ -1297,7 +1297,7 @@ class UserServiceTest {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.completeInvite(token, "password"));
 
-            assertEquals("Role not found: INVALIDROLE", ex.getMessage());
+            assertEquals("Ruolo non trovato: INVALIDROLE", ex.getMessage());
             verify(usersRepository, never()).save(any(Users.class));
         }
 

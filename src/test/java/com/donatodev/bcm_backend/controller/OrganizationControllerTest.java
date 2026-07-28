@@ -115,7 +115,7 @@ class OrganizationControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(duplicate))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.message").value(containsString("Username already exists")));
+                    .andExpect(jsonPath("$.message").value(containsString("Username già esistente")));
         }
 
         @Test
@@ -141,7 +141,7 @@ class OrganizationControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(duplicate))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.message").value(containsString("Email already in use")));
+                    .andExpect(jsonPath("$.message").value(containsString("Email già in uso")));
         }
 
         @Test

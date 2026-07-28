@@ -77,7 +77,7 @@ class CustomUserDetailsServiceTest {
 
         UsernameNotFoundException ex =
                 assertThrows(UsernameNotFoundException.class, () -> userDetailsService.loadUserByUsername("ghost"));
-        assertEquals("User not found: ghost", ex.getMessage());
+        assertEquals("Utente non trovato: ghost", ex.getMessage());
     }
 
     /**
@@ -116,6 +116,6 @@ class CustomUserDetailsServiceTest {
 
         UsernameNotFoundException ex = assertThrows(UsernameNotFoundException.class,
                 () -> userDetailsService.loadUserByUsername("ghost", 1L));
-        assertEquals("User not found: ghost", ex.getMessage());
+        assertEquals("Utente non trovato: ghost", ex.getMessage());
     }
 }
