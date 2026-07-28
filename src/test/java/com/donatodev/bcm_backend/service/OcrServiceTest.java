@@ -7,9 +7,11 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.awaitility.Awaitility.await;
@@ -23,7 +25,9 @@ import org.junit.jupiter.api.condition.OS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.MockedStatic;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 import org.mockito.invocation.InvocationOnMock;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -143,6 +147,21 @@ class OcrServiceTest {
             String result = ocrService.extractText(textImage("irrelevant"));
 
             assertEquals("", result);
+        }
+    }
+
+    @Test
+    @DisplayName("createSecureTempFile: falls back to a plain temp file when the given filesystem doesn't support POSIX attribute views")
+    void shouldUseWindowsFallbackWhenPosixUnsupported() throws IOException {
+        FileSystem nonPosixFs = mock(FileSystem.class);
+        when(nonPosixFs.supportedFileAttributeViews()).thenReturn(Set.of("basic"));
+
+        Path result = OcrService.createSecureTempFile("ocr-fallback-test-", ".tmp", nonPosixFs);
+
+        try {
+            assertTrue(Files.exists(result));
+        } finally {
+            Files.delete(result);
         }
     }
 

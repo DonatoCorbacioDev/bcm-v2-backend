@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -85,7 +86,15 @@ public class OcrService {
     // SonarJava's S5443 check recognizes as race-free (permissions applied
     // atomically at creation, not after).
     private static Path createSecureTempFile(String prefix, String suffix) throws IOException {
-        if (FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
+        return createSecureTempFile(prefix, suffix, FileSystems.getDefault());
+    }
+
+    // Package-private overload so tests can force the non-POSIX branch with a
+    // fake FileSystem, without swapping the JVM's actual default filesystem
+    // (that would also break the real Path.toFile() calls extractText() makes
+    // on the temp files this method returns).
+    static Path createSecureTempFile(String prefix, String suffix, FileSystem fileSystem) throws IOException {
+        if (fileSystem.supportedFileAttributeViews().contains("posix")) {
             FileAttribute<Set<PosixFilePermission>> ownerOnly =
                     PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"));
             return Files.createTempFile(prefix, suffix, ownerOnly);
