@@ -1,8 +1,11 @@
 package com.donatodev.bcm_backend.auth;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,6 +24,14 @@ import com.donatodev.bcm_backend.service.RefreshTokenService;
  */
 @Service
 public class AuthService {
+
+    /**
+     * RateLimitingFilter already throttles /auth/login by client IP, but that
+     * does nothing against a distributed or IP-rotating attacker targeting one
+     * known username - this is the per-account backstop.
+     */
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final long LOCKOUT_MINUTES = 15;
 
     private final JwtUtils jwtUtils;
     private final UsersRepository usersRepository;
@@ -44,6 +55,7 @@ public class AuthService {
      * MFA-pending token if the account has 2FA enabled
      * @throws UsernameNotFoundException if the username is not found
      * @throws BadCredentialsException if the password is incorrect
+     * @throws LockedException if the account is temporarily locked after too many failed attempts
      * @throws AccountNotVerifiedException if the account is not yet verified
      */
     public LoginOutcome authenticate(String username, String password) {
@@ -71,13 +83,31 @@ public class AuthService {
      * @throws AmbiguousUsernameException if the username matches users in multiple organizations
      * and no {@code organizationSlug} was provided
      * @throws BadCredentialsException if the password is incorrect
+     * @throws LockedException if the account is temporarily locked after too many failed attempts
      * @throws AccountNotVerifiedException if the account is not yet verified
      */
     public LoginOutcome authenticate(String username, String password, String organizationSlug) {
         Users user = findUser(username, organizationSlug);
 
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+        if (user.getLockedUntil() != null) {
+            if (user.getLockedUntil().isAfter(now)) {
+                throw new LockedException(
+                        "Account temporaneamente bloccato per troppi tentativi falliti. Riprova più tardi.");
+            }
+            // Lock expired naturally - start the attempt count fresh.
+            user.setLockedUntil(null);
+            user.setFailedLoginAttempts(0);
+        }
+
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            registerFailedAttempt(user, now);
             throw new BadCredentialsException("Nome utente o password non validi");
+        }
+
+        if (user.getFailedLoginAttempts() > 0) {
+            user.setFailedLoginAttempts(0);
+            usersRepository.save(user);
         }
 
         if (!user.isVerified()) {
@@ -91,6 +121,19 @@ public class AuthService {
         String accessToken = jwtUtils.generateToken(user);
         String refreshToken = refreshTokenService.createRefreshToken(user);
         return new LoginOutcome(new AuthResponseDTO(accessToken, refreshToken), null);
+    }
+
+    /**
+     * Records one failed login attempt and locks the account for
+     * {@link #LOCKOUT_MINUTES} once {@link #MAX_FAILED_ATTEMPTS} is reached.
+     */
+    private void registerFailedAttempt(Users user, LocalDateTime now) {
+        int attempts = user.getFailedLoginAttempts() + 1;
+        user.setFailedLoginAttempts(attempts);
+        if (attempts >= MAX_FAILED_ATTEMPTS) {
+            user.setLockedUntil(now.plusMinutes(LOCKOUT_MINUTES));
+        }
+        usersRepository.save(user);
     }
 
     /**

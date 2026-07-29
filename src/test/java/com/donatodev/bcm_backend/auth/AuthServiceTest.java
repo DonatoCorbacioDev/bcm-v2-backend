@@ -18,7 +18,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
+import java.time.LocalDateTime;
+
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
@@ -248,6 +251,112 @@ class AuthServiceTest {
 
             assertTrue(outcome.mfaRequired());
             assertEquals("fake-mfa-pending-token", outcome.mfaToken());
+        }
+
+        @Test
+        @Order(10)
+        @DisplayName("Wrong password increments the failed-attempt counter")
+        void shouldIncrementFailedAttemptsOnWrongPassword() {
+            Users user = Users.builder()
+                    .username("admin")
+                    .passwordHash("hashedpwd")
+                    .verified(true)
+                    .failedLoginAttempts(2)
+                    .build();
+
+            when(usersRepository.findAllByUsername("admin")).thenReturn(List.of(user));
+            when(passwordEncoder.matches("wrongpass", "hashedpwd")).thenReturn(false);
+
+            assertThrows(BadCredentialsException.class,
+                    () -> authService.authenticate("admin", "wrongpass"));
+
+            assertEquals(3, user.getFailedLoginAttempts());
+            assertEquals(null, user.getLockedUntil());
+        }
+
+        @Test
+        @Order(11)
+        @DisplayName("5th consecutive wrong password locks the account")
+        void shouldLockAccountAfterFifthFailedAttempt() {
+            Users user = Users.builder()
+                    .username("admin")
+                    .passwordHash("hashedpwd")
+                    .verified(true)
+                    .failedLoginAttempts(4)
+                    .build();
+
+            when(usersRepository.findAllByUsername("admin")).thenReturn(List.of(user));
+            when(passwordEncoder.matches("wrongpass", "hashedpwd")).thenReturn(false);
+
+            assertThrows(BadCredentialsException.class,
+                    () -> authService.authenticate("admin", "wrongpass"));
+
+            assertEquals(5, user.getFailedLoginAttempts());
+            assertTrue(user.getLockedUntil().isAfter(LocalDateTime.now()));
+        }
+
+        @Test
+        @Order(12)
+        @DisplayName("Login is refused while the account is locked, even with the right password")
+        void shouldRejectLoginWhileLocked() {
+            Users user = Users.builder()
+                    .username("admin")
+                    .passwordHash("hashedpwd")
+                    .verified(true)
+                    .failedLoginAttempts(5)
+                    .lockedUntil(LocalDateTime.now().plusMinutes(10))
+                    .build();
+
+            when(usersRepository.findAllByUsername("admin")).thenReturn(List.of(user));
+
+            LockedException ex = assertThrows(LockedException.class,
+                    () -> authService.authenticate("admin", "password"));
+            assertTrue(ex.getMessage().contains("bloccato"));
+        }
+
+        @Test
+        @Order(13)
+        @DisplayName("Login succeeds once a stale lock has expired, and resets the counter")
+        void shouldAllowLoginAfterLockExpires() {
+            Users user = Users.builder()
+                    .username("admin")
+                    .passwordHash("hashedpwd")
+                    .verified(true)
+                    .failedLoginAttempts(5)
+                    .lockedUntil(LocalDateTime.now().minusMinutes(1))
+                    .build();
+
+            when(usersRepository.findAllByUsername("admin")).thenReturn(List.of(user));
+            when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
+            when(jwtUtils.generateToken(user)).thenReturn("fake-jwt-token");
+            when(refreshTokenService.createRefreshToken(user)).thenReturn("fake-refresh-token");
+
+            LoginOutcome outcome = authService.authenticate("admin", "password");
+
+            assertEquals("fake-jwt-token", outcome.tokens().token());
+            assertEquals(0, user.getFailedLoginAttempts());
+            assertEquals(null, user.getLockedUntil());
+        }
+
+        @Test
+        @Order(14)
+        @DisplayName("Successful login resets a nonzero failed-attempt counter")
+        void shouldResetFailedAttemptsOnSuccessfulLogin() {
+            Users user = Users.builder()
+                    .username("admin")
+                    .passwordHash("hashedpwd")
+                    .verified(true)
+                    .failedLoginAttempts(3)
+                    .build();
+
+            when(usersRepository.findAllByUsername("admin")).thenReturn(List.of(user));
+            when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
+            when(jwtUtils.generateToken(user)).thenReturn("fake-jwt-token");
+            when(refreshTokenService.createRefreshToken(user)).thenReturn("fake-refresh-token");
+
+            authService.authenticate("admin", "password");
+
+            assertEquals(0, user.getFailedLoginAttempts());
         }
     }
 }

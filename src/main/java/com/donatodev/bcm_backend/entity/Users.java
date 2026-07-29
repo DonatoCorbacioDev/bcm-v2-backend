@@ -113,4 +113,20 @@ public class Users {
     @Builder.Default
     @Column(name = "can_approve_contracts", nullable = false)
     private boolean canApproveContracts = false;
+
+    /**
+     * Count of consecutive failed login attempts since the last successful
+     * login (or since the account was last unlocked). Reset to 0 on success.
+     */
+    @Builder.Default
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts = 0;
+
+    /**
+     * If set and in the future, login is refused regardless of a correct
+     * password (see {@link com.donatodev.bcm_backend.auth.AuthService}).
+     * Cleared automatically once it has passed.
+     */
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
 }
