@@ -24,6 +24,14 @@ RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-ita
 
 # Create non-root user for security
 RUN addgroup -S spring && adduser -S spring -G spring
+
+# /app/uploads is normally a named volume (contract documents, invoices -
+# see UPLOAD_DIR). Docker seeds a fresh volume's ownership from whatever
+# exists at this path in the image at mount time, so it must already be
+# owned by the runtime user - otherwise the volume comes up root-owned and
+# every file upload fails with AccessDeniedException.
+RUN mkdir -p /app/uploads && chown -R spring:spring /app/uploads
+
 USER spring:spring
 
 # Copy the built JAR from builder stage
