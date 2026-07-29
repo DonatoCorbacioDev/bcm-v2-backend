@@ -297,6 +297,7 @@ public class UserService {
 		user.setManager(manager);
 		user.setRole(role);
 		user.setVerified(true);
+		user.setOrganization(manager.getOrganization());
 		usersRepository.save(user);
 
 		it.setUsed(true);

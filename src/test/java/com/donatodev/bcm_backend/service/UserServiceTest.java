@@ -47,6 +47,7 @@ import com.donatodev.bcm_backend.dto.UserDTO;
 import com.donatodev.bcm_backend.dto.UserProfileDTO;
 import com.donatodev.bcm_backend.entity.InviteToken;
 import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.PasswordResetToken;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
@@ -596,7 +597,8 @@ class UserServiceTest {
         @DisplayName("Complete invite successfully creates new user")
         void shouldCompleteInviteSuccessfully() {
             String token = "valid-token-123";
-            Managers manager = Managers.builder().id(1L).email("mgr@company.com").build();
+            Organization organization = Organization.builder().id(9L).name("Acme").build();
+            Managers manager = Managers.builder().id(1L).email("mgr@company.com").organization(organization).build();
             Roles role = Roles.builder().role("MANAGER").build();
 
             InviteToken inviteToken = InviteToken.builder()
@@ -617,7 +619,9 @@ class UserServiceTest {
 
             userService.completeInvite(token, "mypassword");
 
-            verify(usersRepository).save(any(Users.class));
+            ArgumentCaptor<Users> userCaptor = ArgumentCaptor.forClass(Users.class);
+            verify(usersRepository).save(userCaptor.capture());
+            assertEquals(organization, userCaptor.getValue().getOrganization());
             verify(inviteTokenRepository).save(any(InviteToken.class));
             assertTrue(inviteToken.isUsed());
         }
