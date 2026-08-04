@@ -18,6 +18,7 @@ import org.springframework.test.context.ActiveProfiles;
 import com.donatodev.bcm_backend.dto.FinancialValueDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.FinancialCategory;
 import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.entity.FinancialValues;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
@@ -63,7 +64,7 @@ class FinancialValueMapperTest {
     @Test
     @DisplayName("Convert entity to DTO")
     void shouldConvertToDTO() {
-        FinancialTypes type = FinancialTypes.builder().id(1L).build();
+        FinancialTypes type = FinancialTypes.builder().id(1L).category(FinancialCategory.REVENUE).build();
         BusinessAreas area = BusinessAreas.builder().id(2L).build();
         Contracts contract = Contracts.builder().id(3L).build();
 
@@ -86,6 +87,7 @@ class FinancialValueMapperTest {
         assertEquals(1L, dto.financialTypeId());
         assertEquals(2L, dto.businessAreaId());
         assertEquals(3L, dto.contractId());
+        assertEquals(FinancialCategory.REVENUE, dto.category());
     }
 
     /**
@@ -102,7 +104,7 @@ class FinancialValueMapperTest {
         FinancialValueDTO dto = new FinancialValueDTO(
                 10L, 5, 2025, 1500.0,
                 1L, 2L, 3L, "Type", "Area", "Contract"
-        );
+        , FinancialCategory.REVENUE);
 
         when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(type));
         when(businessAreaRepository.findById(2L)).thenReturn(Optional.of(area));
@@ -126,7 +128,7 @@ class FinancialValueMapperTest {
     @Test
     @DisplayName("Throw exception if financial type not found")
     void shouldThrowIfFinancialTypeNotFound() {
-        FinancialValueDTO dto = new FinancialValueDTO(1L, 5, 2025, 1000.0, 99L, 2L, 3L, "Type", "Area", "Contract");
+        FinancialValueDTO dto = new FinancialValueDTO(1L, 5, 2025, 1000.0, 99L, 2L, 3L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
         when(financialTypesRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -144,7 +146,7 @@ class FinancialValueMapperTest {
     @Test
     @DisplayName("Throw exception if business area not found")
     void shouldThrowIfBusinessAreaNotFound() {
-        FinancialValueDTO dto = new FinancialValueDTO(1L, 5, 2025, 1000.0, 1L, 99L, 3L, "Type", "Area", "Contract");
+        FinancialValueDTO dto = new FinancialValueDTO(1L, 5, 2025, 1000.0, 1L, 99L, 3L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
         when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(FinancialTypes.builder().id(1L).build()));
         when(businessAreaRepository.findById(99L)).thenReturn(Optional.empty());
@@ -162,7 +164,7 @@ class FinancialValueMapperTest {
     @Test
     @DisplayName("Throw exception if contract not found")
     void shouldThrowIfContractNotFound() {
-        FinancialValueDTO dto = new FinancialValueDTO(1L, 5, 2025, 1000.0, 1L, 2L, 99L, "Type", "Area", "Contract");
+        FinancialValueDTO dto = new FinancialValueDTO(1L, 5, 2025, 1000.0, 1L, 2L, 99L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
         when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(FinancialTypes.builder().id(1L).build()));
         when(businessAreaRepository.findById(2L)).thenReturn(Optional.of(BusinessAreas.builder().id(2L).build()));
@@ -195,7 +197,7 @@ class FinancialValueMapperTest {
                 .contract(Contracts.builder().id(1L).build())
                 .build();
 
-        FinancialValueDTO dto = new FinancialValueDTO(10L, 6, 2025, 999.0, 2L, 3L, 4L, "NewType", "NewArea", "NewContract");
+        FinancialValueDTO dto = new FinancialValueDTO(10L, 6, 2025, 999.0, 2L, 3L, 4L, "NewType", "NewArea", "NewContract", FinancialCategory.REVENUE);
 
         when(financialTypesRepository.findById(2L)).thenReturn(Optional.of(newType));
         when(businessAreaRepository.findById(3L)).thenReturn(Optional.of(newArea));
@@ -218,7 +220,7 @@ class FinancialValueMapperTest {
     @DisplayName("updateEntity should throw if financial type not found")
     void shouldThrowOnUpdateIfFinancialTypeNotFound() {
         FinancialValues existing = FinancialValues.builder().id(1L).build();
-        FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2025, 100.0, 99L, 2L, 3L, null, null, null);
+        FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2025, 100.0, 99L, 2L, 3L, null, null, null, FinancialCategory.REVENUE);
 
         when(financialTypesRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -234,7 +236,7 @@ class FinancialValueMapperTest {
     @DisplayName("updateEntity should throw if business area not found")
     void shouldThrowOnUpdateIfBusinessAreaNotFound() {
         FinancialValues existing = FinancialValues.builder().id(1L).build();
-        FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2025, 100.0, 1L, 99L, 3L, null, null, null);
+        FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2025, 100.0, 1L, 99L, 3L, null, null, null, FinancialCategory.REVENUE);
 
         when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(FinancialTypes.builder().id(1L).build()));
         when(businessAreaRepository.findById(99L)).thenReturn(Optional.empty());
@@ -251,7 +253,7 @@ class FinancialValueMapperTest {
     @DisplayName("updateEntity should throw if contract not found")
     void shouldThrowOnUpdateIfContractNotFound() {
         FinancialValues existing = FinancialValues.builder().id(1L).build();
-        FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2025, 100.0, 1L, 2L, 99L, null, null, null);
+        FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2025, 100.0, 1L, 2L, 99L, null, null, null, FinancialCategory.REVENUE);
 
         when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(FinancialTypes.builder().id(1L).build()));
         when(businessAreaRepository.findById(2L)).thenReturn(Optional.of(BusinessAreas.builder().id(2L).build()));
@@ -295,6 +297,7 @@ class FinancialValueMapperTest {
         assertNull(result.typeName());
         assertEquals("IT", result.areaName());
         assertEquals("Client", result.customerName());
+        assertNull(result.category());
     }
 
     /**

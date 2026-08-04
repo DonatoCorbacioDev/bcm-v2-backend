@@ -52,7 +52,8 @@ public class FinancialValueMapper {
                 entity.getContract() != null ? entity.getContract().getId() : null,
                 entity.getFinancialType() != null ? entity.getFinancialType().getName() : null,
                 entity.getBusinessArea() != null ? entity.getBusinessArea().getName() : null,
-                entity.getContract() != null ? entity.getContract().getCustomerName() : null
+                entity.getContract() != null ? entity.getContract().getCustomerName() : null,
+                entity.getFinancialType() != null ? entity.getFinancialType().getCategory() : null
         );
     }
 

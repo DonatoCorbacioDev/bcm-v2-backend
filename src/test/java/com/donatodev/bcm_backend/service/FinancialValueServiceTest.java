@@ -43,6 +43,7 @@ import com.donatodev.bcm_backend.entity.FinancialValues;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
+import com.donatodev.bcm_backend.entity.FinancialCategory;
 import com.donatodev.bcm_backend.exception.FinancialValueNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.mapper.FinancialValueMapper;
@@ -109,7 +110,7 @@ class FinancialValueServiceTest {
 
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
             FinancialValues entity = FinancialValues.builder().id(1L).build();
-            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 500.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 500.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
@@ -144,7 +145,7 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
                     .build();
 
-            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 1000.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 1000.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
 
             SecurityContextHolder.getContext().setAuthentication(
@@ -214,10 +215,10 @@ class FinancialValueServiceTest {
         @Order(5)
         @DisplayName("Create value returns saved DTO")
         void shouldCreateValue() {
-            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
             FinancialValues entity = FinancialValues.builder().build();
             FinancialValues saved = FinancialValues.builder().id(1L).build();
-            FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
             when(mapper.toEntity(dto)).thenReturn(entity);
             when(valuesRepository.save(entity)).thenReturn(saved);
@@ -249,7 +250,7 @@ class FinancialValueServiceTest {
                     .manager(userManager)
                     .build();
 
-            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
             FinancialValues entity = FinancialValues.builder()
                     .contract(Contracts.builder().manager(contractManager).build())
                     .build();
@@ -286,7 +287,7 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(manager).build())
                     .build();
 
-            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 800.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 800.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
@@ -505,8 +506,8 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
                     .build();
             FinancialValues saved = FinancialValues.builder().id(1L).build();
-            FinancialValueDTO dto = new FinancialValueDTO(1L, 3, 2025, 750.0, 2L, 2L, 2L, "Sales", "Area2", "Contract2");
-            FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 3, 2025, 750.0, 2L, 2L, 2L, "Sales", "Area2", "Contract2");
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 3, 2025, 750.0, 2L, 2L, 2L, "Sales", "Area2", "Contract2", FinancialCategory.REVENUE);
+            FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 3, 2025, 750.0, 2L, 2L, 2L, "Sales", "Area2", "Contract2", FinancialCategory.REVENUE);
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
 
             SecurityContextHolder.getContext().setAuthentication(
@@ -551,7 +552,7 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(Managers.builder().id(99L).build()).build())
                     .build();
 
-            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 100.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 100.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
@@ -574,7 +575,7 @@ class FinancialValueServiceTest {
         void shouldThrowFinancialValueNotFoundException() {
             when(valuesRepository.findById(999L)).thenReturn(Optional.empty());
 
-            FinancialValueDTO dto = new FinancialValueDTO(999L, 1, 2024, 100.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO dto = new FinancialValueDTO(999L, 1, 2024, 100.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
             FinancialValueNotFoundException ex
                     = assertThrows(FinancialValueNotFoundException.class, () -> service.updateValue(999L, dto));
@@ -693,8 +694,8 @@ class FinancialValueServiceTest {
         void shouldCreateValueWithOrgFilter() {
             FinancialValues entity = FinancialValues.builder().id(1L).build();
             FinancialValues saved = FinancialValues.builder().id(1L).build();
-            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 100.0, 1L, 1L, 1L, "T", "A", "C");
-            FinancialValueDTO savedDto = new FinancialValueDTO(1L, 1, 2024, 100.0, 1L, 1L, 1L, "T", "A", "C");
+            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 100.0, 1L, 1L, 1L, "T", "A", "C", FinancialCategory.REVENUE);
+            FinancialValueDTO savedDto = new FinancialValueDTO(1L, 1, 2024, 100.0, 1L, 1L, 1L, "T", "A", "C", FinancialCategory.REVENUE);
 
             com.donatodev.bcm_backend.config.TenantContext.set(8L);
             try {
@@ -760,7 +761,7 @@ class FinancialValueServiceTest {
             Users admin = Users.builder().username("admin")
                     .role(Roles.builder().role("ADMIN").build()).build();
             FinancialValues entity = FinancialValues.builder().id(1L).build();
-            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 500.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 500.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities()));
@@ -784,7 +785,7 @@ class FinancialValueServiceTest {
         @DisplayName("getValuesByContractId with TenantContext uses org-filtered query")
         void shouldGetValuesByContractIdWithOrgFilter() {
             FinancialValues entity = FinancialValues.builder().id(1L).build();
-            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 100.0, 1L, 1L, 1L, "T", "A", "C");
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 100.0, 1L, 1L, 1L, "T", "A", "C", FinancialCategory.REVENUE);
 
             com.donatodev.bcm_backend.config.TenantContext.set(5L);
             try {
@@ -816,7 +817,7 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
                     .build();
 
-            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 1000.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 1000.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
 
             SecurityContextHolder.getContext().setAuthentication(
@@ -891,11 +892,11 @@ class FinancialValueServiceTest {
         /*
          * ML cache invalidation (evictAllForOrg). None of createValue/updateValue/
          * deleteValue are @Transactional today, so each repository.save()/delete()
-         * call is already its own committed transaction by the time it returns —
+         * call is already its own committed transaction by the time it returns â€”
          * calling evictAllForOrg() right after is safe and equivalent to an
          * after-commit hook. (MlCacheService.evictAllForOrg itself carries
          * @Transactional, since the derived deleteByOrgId query needs an active
-         * EntityManager transaction that no caller here provides — verified by
+         * EntityManager transaction that no caller here provides â€” verified by
          * a real jakarta.persistence.TransactionRequiredException in end-to-end
          * testing before that annotation was added. This is internal to
          * MlCacheService and does not affect the transactionality of the three
@@ -911,10 +912,10 @@ class FinancialValueServiceTest {
         @Order(31)
         @DisplayName("createValue evicts the ML cache for the correct organization exactly once after save succeeds")
         void shouldEvictCacheOnCreateValue() {
-            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
             FinancialValues entity = FinancialValues.builder().build();
             FinancialValues saved = FinancialValues.builder().id(1L).build();
-            FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
             com.donatodev.bcm_backend.config.TenantContext.set(36L);
             try {
@@ -945,8 +946,8 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
                     .build();
             FinancialValues saved = FinancialValues.builder().id(1L).build();
-            FinancialValueDTO dto = new FinancialValueDTO(1L, 3, 2025, 750.0, 2L, 2L, 2L, "Sales", "Area2", "Contract2");
-            FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 3, 2025, 750.0, 2L, 2L, 2L, "Sales", "Area2", "Contract2");
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 3, 2025, 750.0, 2L, 2L, 2L, "Sales", "Area2", "Contract2", FinancialCategory.REVENUE);
+            FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 3, 2025, 750.0, 2L, 2L, 2L, "Sales", "Area2", "Contract2", FinancialCategory.REVENUE);
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
 
             SecurityContextHolder.getContext().setAuthentication(
@@ -1003,7 +1004,7 @@ class FinancialValueServiceTest {
         @Order(34)
         @DisplayName("createValue does NOT evict the ML cache when the repository save fails")
         void shouldNotEvictCacheWhenCreateSaveFails() {
-            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
             FinancialValues entity = FinancialValues.builder().build();
 
             when(mapper.toEntity(dto)).thenReturn(entity);
@@ -1051,7 +1052,7 @@ class FinancialValueServiceTest {
                     .manager(userManager)
                     .build();
 
-            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract");
+            FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
             FinancialValues entity = FinancialValues.builder()
                     .contract(Contracts.builder().manager(contractManager).build())
                     .build();

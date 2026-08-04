@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.dto;
 
+import com.donatodev.bcm_backend.entity.FinancialCategory;
+
 /**
  * Data Transfer Object for Financial Values.
  * <p>
@@ -16,6 +18,7 @@ package com.donatodev.bcm_backend.dto;
  * @param typeName the name of the financial type
  * @param areaName the name of the business area
  * @param customerName the name of the customer
+ * @param category whether the underlying financial type is revenue or a cost
  */
 public record FinancialValueDTO(
         Long id,
@@ -27,7 +30,8 @@ public record FinancialValueDTO(
         Long contractId,
         String typeName,
         String areaName,
-        String customerName
+        String customerName,
+        FinancialCategory category
         ) {
 
 }

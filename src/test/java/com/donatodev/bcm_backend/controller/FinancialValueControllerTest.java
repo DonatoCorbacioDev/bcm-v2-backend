@@ -185,7 +185,8 @@ class FinancialValueControllerTest {
             createAdminWithManager(manager);
 
             FinancialValueDTO dto = new FinancialValueDTO(null, 5, 2025, 10000.00,
-                    type.getId(), area.getId(), contract.getId(), type.getName(), area.getName(), contract.getCustomerName());
+                    type.getId(), area.getId(), contract.getId(), type.getName(), area.getName(), contract.getCustomerName(),
+                    type.getCategory());
 
             mockMvc.perform(post("/financial-values")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -281,7 +282,8 @@ class FinancialValueControllerTest {
                     .build());
 
             FinancialValueDTO updatedDTO = new FinancialValueDTO(original.getId(), 8, 2025, 3000.00,
-                    type.getId(), area.getId(), contract.getId(), type.getName(), area.getName(), contract.getCustomerName());
+                    type.getId(), area.getId(), contract.getId(), type.getName(), area.getName(), contract.getCustomerName(),
+                    type.getCategory());
 
             mockMvc.perform(put("/financial-values/{id}", original.getId())
                     .contentType(MediaType.APPLICATION_JSON)
