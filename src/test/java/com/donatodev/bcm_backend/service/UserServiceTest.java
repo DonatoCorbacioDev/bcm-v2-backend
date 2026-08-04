@@ -266,11 +266,13 @@ class UserServiceTest {
         @Order(7)
         @DisplayName("Get current user profile")
         void shouldReturnCurrentUserProfile() {
+            Organization organization = Organization.builder().id(1L).name("Acme").build();
             Users user = Users.builder()
                     .id(1L)
                     .username("admin")
                     .role(Roles.builder().role("ADMIN").build())
                     .verified(true)
+                    .organization(organization)
                     .build();
 
             SecurityContextHolder.getContext().setAuthentication(
@@ -284,6 +286,7 @@ class UserServiceTest {
             assertEquals("admin", result.username());
             assertEquals("ADMIN", result.role());
             assertTrue(result.verified());
+            assertEquals("Acme", result.organizationName());
         }
 
         /**

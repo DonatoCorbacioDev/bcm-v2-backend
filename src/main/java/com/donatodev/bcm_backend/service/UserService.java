@@ -23,6 +23,7 @@ import com.donatodev.bcm_backend.dto.UserDTO;
 import com.donatodev.bcm_backend.dto.UserProfileDTO;
 import com.donatodev.bcm_backend.entity.InviteToken;
 import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
@@ -230,17 +231,21 @@ public class UserService {
 	 * @return a {@link UserProfileDTO} containing profile information
 	 * @throws UsernameNotFoundException if the authenticated user cannot be found
 	 */
+	@Transactional(readOnly = true)
 	public UserProfileDTO getCurrentUserProfile() {
 		String username = SecurityContextHolder.getContext().getAuthentication().getName();
 		Users user = usersRepository.findByUsername(username)
 				.orElseThrow(() -> new UsernameNotFoundException("Utente non trovato: " + username));
+
+		Organization organization = user.getOrganization();
 
 		return new UserProfileDTO(
 				user.getId(),
 				user.getUsername(),
 				user.getRole().getRole(),
 				user.isVerified(),
-				user.isCanApproveContracts()
+				user.isCanApproveContracts(),
+				organization != null ? organization.getName() : null
 		);
 	}
 
