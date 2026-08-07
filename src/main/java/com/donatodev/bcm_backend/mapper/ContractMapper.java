@@ -6,9 +6,11 @@ import java.time.ZoneId;
 
 import org.springframework.stereotype.Component;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.BusinessAreaDTO;
 import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ManagerDTO;
+import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Managers;
@@ -120,10 +122,7 @@ public class ContractMapper {
                 .status(dto.status())
                 .startDate(dto.startDate())
                 .endDate(dto.endDate())
-                .businessArea(dto.areaId() != null
-                        ? businessAreasRepository.findById(dto.areaId())
-                                .orElseThrow(() -> new BusinessAreaNotFoundException("Business area not found: " + dto.areaId()))
-                        : null)
+                .businessArea(dto.areaId() != null ? resolveBusinessArea(dto.areaId()) : null)
                 .manager(resolveManager(dto.managerId()))
                 // Workflow stage is derived, not user-settable on creation: a
                 // DRAFT contract starts the workflow, anything else never enters it.
@@ -133,13 +132,32 @@ public class ContractMapper {
 
     /**
      * Resolves the manager entity based on the given ID. Returns {@code null}
-     * if the ID is {@code null}.
+     * if the ID is {@code null}. Scoped to the current tenant when
+     * {@link TenantContext} carries an organization ID, so a contract can't
+     * be linked to a manager belonging to a different organization.
      */
     private Managers resolveManager(Long managerId) {
         if (managerId == null) {
             return null;
         }
-        return managersRepository.findById(managerId)
+        Long orgId = TenantContext.get();
+        return (orgId != null
+                ? managersRepository.findByIdAndOrganizationId(managerId, orgId)
+                : managersRepository.findById(managerId))
                 .orElseThrow(() -> new ManagerNotFoundException("Manager not found: " + managerId));
+    }
+
+    /**
+     * Resolves the business area entity based on the given ID. Scoped to the
+     * current tenant when {@link TenantContext} carries an organization ID,
+     * so a contract can't be linked to a business area belonging to a
+     * different organization.
+     */
+    private BusinessAreas resolveBusinessArea(Long areaId) {
+        Long orgId = TenantContext.get();
+        return (orgId != null
+                ? businessAreasRepository.findByIdAndOrganizationId(areaId, orgId)
+                : businessAreasRepository.findById(areaId))
+                .orElseThrow(() -> new BusinessAreaNotFoundException("Business area not found: " + areaId));
     }
 }

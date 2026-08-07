@@ -259,5 +259,40 @@ class ManagerControllerTest {
                     .andExpect(jsonPath("$.firstName").value("NewName"))
                     .andExpect(jsonPath("$.lastName").value("NewLast"));
         }
+
+        /**
+         * MANAGER can list managers too — the frontend uses this endpoint to
+         * populate manager pickers (e.g. assigning a "Responsabile" when
+         * instantiating a contract from a template) that MANAGER users can
+         * reach.
+         */
+        @Test
+        @Order(10)
+        @DisplayName("A MANAGER can list managers")
+        @WithMockUser(roles = "MANAGER")
+        void shouldAllowManagerRoleToListManagers() throws Exception {
+            repository.save(Managers.builder().firstName("Chiara").lastName("Neri")
+                    .email("chiara@example.com").phoneNumber("222").department("Ops").build());
+
+            mockMvc.perform(get("/managers"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1));
+        }
+
+        /**
+         * MANAGER must still be denied administrative actions on managers.
+         */
+        @Test
+        @Order(11)
+        @DisplayName("A MANAGER cannot create a manager")
+        @WithMockUser(roles = "MANAGER")
+        void shouldDenyManagerRoleFromCreatingManagers() throws Exception {
+            ManagerDTO newDTO = new ManagerDTO(null, "Blocked", "User", "blocked@example.com", "111", "IT");
+
+            mockMvc.perform(post("/managers")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(newDTO)))
+                    .andExpect(status().isForbidden());
+        }
     }
 }

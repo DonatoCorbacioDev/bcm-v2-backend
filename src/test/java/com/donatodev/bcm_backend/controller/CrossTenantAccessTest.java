@@ -16,18 +16,21 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
@@ -68,6 +71,9 @@ class CrossTenantAccessTest {
     private BusinessAreasRepository businessAreasRepository;
 
     @Autowired
+    private ManagersRepository managersRepository;
+
+    @Autowired
     private ContractsRepository contractsRepository;
 
     @Autowired
@@ -84,6 +90,9 @@ class CrossTenantAccessTest {
 
     private Contracts orgAContract;
     private Contracts orgBContract;
+    private BusinessAreas orgAArea;
+    private BusinessAreas orgBArea;
+    private Managers orgBManager;
     private String orgAAdminToken;
 
     @BeforeEach
@@ -108,6 +117,14 @@ class CrossTenantAccessTest {
 
         BusinessAreas area = businessAreasRepository.save(
                 BusinessAreas.builder().name("Ops").description("Operations").build());
+
+        orgAArea = businessAreasRepository.save(
+                BusinessAreas.builder().name("Org A Area").description("Org A only").organization(orgA).build());
+        orgBArea = businessAreasRepository.save(
+                BusinessAreas.builder().name("Org B Area").description("Org B only").organization(orgB).build());
+        orgBManager = managersRepository.save(Managers.builder()
+                .firstName("Org B").lastName("Manager").email("orgb-manager@example.com")
+                .organization(orgB).build());
 
         orgAContract = contractsRepository.save(Contracts.builder()
                 .customerName("Org A Customer")
@@ -162,6 +179,77 @@ class CrossTenantAccessTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].contractNumber").value("CNTR-ORG-A"));
+    }
+
+    @Test
+    @DisplayName("POST /contracts rejects a managerId belonging to another organization")
+    void createContractRejectsOtherOrganizationManager() throws Exception {
+        String body = """
+                {
+                  "customerName": "New Customer",
+                  "contractNumber": "CNTR-NEW-MANAGER",
+                  "wbsCode": "WBS-NEW",
+                  "projectName": "New Project",
+                  "status": "ACTIVE",
+                  "startDate": "2025-01-01",
+                  "endDate": "2026-01-01",
+                  "areaId": %d,
+                  "managerId": %d
+                }
+                """.formatted(orgAArea.getId(), orgBManager.getId());
+
+        mockMvc.perform(post("/contracts")
+                        .header("Authorization", "Bearer " + orgAAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("POST /contracts rejects an areaId belonging to another organization")
+    void createContractRejectsOtherOrganizationArea() throws Exception {
+        String body = """
+                {
+                  "customerName": "New Customer",
+                  "contractNumber": "CNTR-NEW-AREA",
+                  "wbsCode": "WBS-NEW",
+                  "projectName": "New Project",
+                  "status": "ACTIVE",
+                  "startDate": "2025-01-01",
+                  "endDate": "2026-01-01",
+                  "areaId": %d
+                }
+                """.formatted(orgBArea.getId());
+
+        mockMvc.perform(post("/contracts")
+                        .header("Authorization", "Bearer " + orgAAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("POST /contracts accepts a managerId/areaId belonging to the caller's own organization")
+    void createContractAllowsOwnOrganizationManagerAndArea() throws Exception {
+        String body = """
+                {
+                  "customerName": "New Customer",
+                  "contractNumber": "CNTR-NEW-OWN",
+                  "wbsCode": "WBS-NEW",
+                  "projectName": "New Project",
+                  "status": "ACTIVE",
+                  "startDate": "2025-01-01",
+                  "endDate": "2026-01-01",
+                  "areaId": %d
+                }
+                """.formatted(orgAArea.getId());
+
+        mockMvc.perform(post("/contracts")
+                        .header("Authorization", "Bearer " + orgAAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.areaId").value(orgAArea.getId()));
     }
 
     @Test

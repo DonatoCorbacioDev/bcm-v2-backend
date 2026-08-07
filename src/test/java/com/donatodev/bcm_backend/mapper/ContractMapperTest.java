@@ -14,15 +14,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
+import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.util.TestDataCleaner;
 
 /**
@@ -53,6 +56,9 @@ class ContractMapperTest {
     private ContractsRepository contractsRepository;
 
     @Autowired
+    private OrganizationRepository organizationRepository;
+
+    @Autowired
     private TestDataCleaner cleaner;
 
     private BusinessAreas savedArea;
@@ -65,6 +71,7 @@ class ContractMapperTest {
     @BeforeEach
     void setup() {
         cleaner.clean();
+        organizationRepository.deleteAll();
 
         contractManagerRepository.deleteAll();
         contractsRepository.deleteAll();
@@ -187,6 +194,89 @@ class ContractMapperTest {
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
         assertEquals("Manager not found: 888", ex.getMessage());
+    }
+
+    /**
+     * Tests that a manager belonging to the caller's own organization
+     * resolves normally when {@link TenantContext} is set.
+     */
+    @Test
+    void shouldMapToEntityWithManagerInOwnOrganization() {
+        Organization org = organizationRepository.save(Organization.builder().name("Org A").slug("org-a").build());
+        BusinessAreas scopedArea = businessAreasRepository.save(
+                BusinessAreas.builder().name("Scoped Area").organization(org).build());
+        Managers scopedManager = managersRepository.save(Managers.builder()
+                .firstName("Scoped").lastName("Manager").email("scoped@mail.com")
+                .organization(org).build());
+
+        TenantContext.set(org.getId());
+        try {
+            ContractDTO dto = new ContractDTO(
+                    8L, "Client", "CN-008", "WBS-008", "TenantProject", ContractStatus.ACTIVE,
+                    LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(6),
+                    scopedArea.getId(), scopedManager.getId(), null, null, null, null);
+
+            Contracts contract = contractMapper.toEntity(dto);
+
+            assertEquals(scopedManager.getId(), contract.getManager().getId());
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    /**
+     * Tests that a manager belonging to a different organization is rejected
+     * (as not found) when {@link TenantContext} is set — guards against
+     * cross-tenant manager assignment.
+     */
+    @Test
+    void shouldRejectManagerFromDifferentOrganization() {
+        Organization callerOrg = organizationRepository.save(Organization.builder().name("Caller Org").slug("caller-org").build());
+        Organization otherOrg = organizationRepository.save(Organization.builder().name("Other Org").slug("other-org").build());
+        BusinessAreas callerOrgArea = businessAreasRepository.save(
+                BusinessAreas.builder().name("Caller Org Area").organization(callerOrg).build());
+        Managers otherOrgManager = managersRepository.save(Managers.builder()
+                .firstName("Other").lastName("Manager").email("other@mail.com")
+                .organization(otherOrg).build());
+
+        TenantContext.set(callerOrg.getId());
+        try {
+            ContractDTO dto = new ContractDTO(
+                    9L, "Client", "CN-009", "WBS-009", "TenantProject", ContractStatus.ACTIVE,
+                    LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(6),
+                    callerOrgArea.getId(), otherOrgManager.getId(), null, null, null, null);
+
+            RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
+            assertEquals("Manager not found: " + otherOrgManager.getId(), ex.getMessage());
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    /**
+     * Tests that a business area belonging to a different organization is
+     * rejected (as not found) when {@link TenantContext} is set — guards
+     * against cross-tenant business area assignment.
+     */
+    @Test
+    void shouldRejectBusinessAreaFromDifferentOrganization() {
+        Organization callerOrg = organizationRepository.save(Organization.builder().name("Caller Org 2").slug("caller-org-2").build());
+        Organization otherOrg = organizationRepository.save(Organization.builder().name("Other Org 2").slug("other-org-2").build());
+        BusinessAreas otherOrgArea = businessAreasRepository.save(
+                BusinessAreas.builder().name("Other Org Area").organization(otherOrg).build());
+
+        TenantContext.set(callerOrg.getId());
+        try {
+            ContractDTO dto = new ContractDTO(
+                    10L, "Client", "CN-010", "WBS-010", "TenantProject", ContractStatus.ACTIVE,
+                    LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(6),
+                    otherOrgArea.getId(), null, null, null, null, null);
+
+            RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
+            assertEquals("Business area not found: " + otherOrgArea.getId(), ex.getMessage());
+        } finally {
+            TenantContext.clear();
+        }
     }
 
     /**

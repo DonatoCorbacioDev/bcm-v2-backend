@@ -242,12 +242,12 @@ class ContractTemplateControllerTest {
         @DisplayName("POST /contract-templates/{id}/instantiate uses explicit overrides from the request")
         void shouldInstantiateTemplateWithExplicitOverrides() throws Exception {
             BusinessAreas templateArea = businessAreasRepository.save(
-                    BusinessAreas.builder().name("Template Area").description("d").build());
+                    BusinessAreas.builder().name("Template Area").description("d").organization(org).build());
             BusinessAreas overrideArea = businessAreasRepository.save(
-                    BusinessAreas.builder().name("Override Area").description("d").build());
+                    BusinessAreas.builder().name("Override Area").description("d").organization(org).build());
             Managers overrideManager = managersRepository.save(Managers.builder()
                     .firstName("Over").lastName("Ride").email("over@ride.com")
-                    .phoneNumber("123").department("Sales").build());
+                    .phoneNumber("123").department("Sales").organization(org).build());
 
             ContractTemplate saved = templateRepository.save(ContractTemplate.builder()
                     .name("Base Template").defaultStatus(ContractStatus.DRAFT)
@@ -275,10 +275,10 @@ class ContractTemplateControllerTest {
         @DisplayName("POST /contract-templates/{id}/instantiate falls back to the template's area, manager, status and computed end date")
         void shouldInstantiateTemplateUsingTemplateDefaults() throws Exception {
             BusinessAreas area = businessAreasRepository.save(
-                    BusinessAreas.builder().name("Default Area").description("d").build());
+                    BusinessAreas.builder().name("Default Area").description("d").organization(org).build());
             Managers manager = managersRepository.save(Managers.builder()
                     .firstName("Default").lastName("Manager").email("default@manager.com")
-                    .phoneNumber("456").department("Ops").build());
+                    .phoneNumber("456").department("Ops").organization(org).build());
 
             ContractTemplate saved = templateRepository.save(ContractTemplate.builder()
                     .name("Full Default Template").defaultStatus(ContractStatus.DRAFT)
@@ -326,7 +326,7 @@ class ContractTemplateControllerTest {
         @DisplayName("POST /contract-templates/{id}/instantiate leaves endDate null when neither the request nor the template provide a duration")
         void shouldLeaveEndDateNullWhenNoDurationAvailable() throws Exception {
             BusinessAreas area = businessAreasRepository.save(
-                    BusinessAreas.builder().name("No Duration Area").description("d").build());
+                    BusinessAreas.builder().name("No Duration Area").description("d").organization(org).build());
 
             ContractTemplate saved = templateRepository.save(ContractTemplate.builder()
                     .name("No Duration Template").businessArea(area).autoRenew(false)
