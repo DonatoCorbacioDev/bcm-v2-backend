@@ -63,7 +63,7 @@
         <openpdf.version>3.0.5</openpdf.version>
         <!-- 1.1.x is the last line compatible with Spring Boot 3.x — Spring AI
              2.0 requires Spring Boot 4. -->
-        <spring-ai.version>1.1.8</spring-ai.version>
+        <spring-ai.version>2.0.0</spring-ai.version>
 		
         <!-- Plugin Versions -->
         <jacoco.version>0.8.13</jacoco.version>
