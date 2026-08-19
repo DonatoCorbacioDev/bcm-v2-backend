@@ -105,6 +105,15 @@
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
 
+    <!-- CRLF_INJECTION_LOGS in RedisRateLimitBucketSource: same already-sanitized
+         safeMessage() pattern as MlCacheRefresher/OcrService above, same
+         analysis-depth quirk (sanitization happens in a static helper one hop
+         away from the log.warn call, which the taint tracker doesn't follow here). -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.jwt.RedisRateLimitBucketSource"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
     <!-- COMMAND_INJECTION in OcrService: ProcessBuilder is used with its
          List<String> constructor (no shell involved, so no metacharacter
          injection is possible regardless of content). Every argument is

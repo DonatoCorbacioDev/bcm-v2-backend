@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,7 +31,9 @@ class RateLimitingFilterTest {
 
     @BeforeEach
     void setup() {
-        filter = new RateLimitingFilter();
+        // Same class that backs the `test` Spring profile in production wiring
+        // (InMemoryRateLimiterConfig) — no divergence between this test double and reality.
+        filter = new RateLimitingFilter(new InMemoryRateLimitBucketSource());
         ReflectionTestUtils.setField(filter, "requestsPerMinute", 2);
     }
 
@@ -177,6 +180,22 @@ class RateLimitingFilterTest {
             MockHttpServletResponse ip2response = new MockHttpServletResponse();
             filter.doFilter(ip2, ip2response, chain);
             assertNotEquals(429, ip2response.getStatus());
+        }
+
+        @Test
+        @Order(7)
+        @DisplayName("A bucket source that rejects everything still returns 429 (delegation sanity check)")
+        void shouldDelegateToBucketSource() throws Exception {
+            RateLimitBucketSource alwaysReject = (key, limit) -> false;
+            RateLimitingFilter rejectingFilter = new RateLimitingFilter(alwaysReject);
+            ReflectionTestUtils.setField(rejectingFilter, "requestsPerMinute", 5);
+
+            FilterChain chain = mock(FilterChain.class);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            rejectingFilter.doFilter(loginRequest(), response, chain);
+
+            assertEquals(429, response.getStatus());
+            verify(chain, times(0)).doFilter(any(), any());
         }
     }
 }

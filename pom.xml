@@ -261,6 +261,19 @@
             <artifactId>bucket4j-core</artifactId>
             <version>8.10.1</version>
         </dependency>
+        <!-- Distributed rate limiting backend: buckets live in Redis instead of
+             a per-instance ConcurrentHashMap, so the limit is shared across
+             backend instances instead of resetting/multiplying per instance. -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j-redis</artifactId>
+            <version>8.10.1</version>
+        </dependency>
+        <!-- Version managed by the Spring Boot parent BOM -->
+        <dependency>
+            <groupId>io.lettuce</groupId>
+            <artifactId>lettuce-core</artifactId>
+        </dependency>
 
         <!-- Bean Validation Enhancement -->
         <dependency>

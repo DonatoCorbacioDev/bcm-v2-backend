@@ -55,7 +55,7 @@ flowchart TB
 | Asset | Threat | Current mitigation | Residual risk |
 |---|---|---|---|
 | Tenant data (contracts, documents, invoices) | Cross-tenant data leak | `TenantContext` (populated from the JWT `orgId` claim by `JwtAuthenticationFilter`) scopes repository queries in services; covered by `CrossTenantAccessTest` | Scoping falls back to unscoped queries when `TenantContext` is `null` (e.g. scheduled jobs, or a JWT without an `orgId` claim). Acceptable for internal batch jobs that intentionally iterate all organizations; would be a bug if it ever happened on an authenticated HTTP request. |
-| User credentials | Credential stuffing / brute force | BCrypt hashing, login rate limiting (`RateLimitingFilter`) | Rate limiting is in-memory and per-IP — see "Rate limiting" below |
+| User credentials | Credential stuffing / brute force | BCrypt hashing, login rate limiting (`RateLimitingFilter`, Redis-backed and shared across instances), account lockout after repeated failed attempts | None known |
 | Access/refresh tokens | Token theft / replay | Short-lived access token, `HttpOnly`+`Secure`+`SameSite=Lax` refresh cookie scoped to `/auth`, refresh token rotation with reuse detection | None known |
 | API surface | Information disclosure via API docs | Swagger UI / OpenAPI JSON disabled in the `prod` profile (`springdoc.api-docs.enabled=false`, `springdoc.swagger-ui.enabled=false`) | None known |
 | ML proxy (`MlProxyService` → FastAPI) | Unauthenticated access to the ML service | Shared `X-Internal-Api-Key` header, enforced by the backend on every proxied call | The ML service itself disables this check when its own `INTERNAL_API_KEY` is empty — must be set whenever the ML service is reachable outside the backend's trusted network (see bcm-v2-ml) |
@@ -72,7 +72,7 @@ Before exposing this backend outside a trusted/internal network:
 - [ ] Set `ML_INTERNAL_API_KEY` (backend) / `INTERNAL_API_KEY` (bcm-v2-ml) to a strong random value — an empty value disables that check entirely.
 - [ ] Rotate or disable the default admin account seeded by `V4__create_admin_user.sql` (already neutralized by `V14`, but confirm before going live with a fresh database).
 - [ ] Confirm `FRONTEND_BASE_URL` is set to the real production origin — `CorsConfig` only restricts to it under the `prod` profile.
-- [ ] Put a distributed rate limiter (Redis-backed, or an API gateway/WAF) in front of `/auth/**` — the built-in `RateLimitingFilter` is in-memory and per-IP, so it does not coordinate across multiple backend instances and resets on restart.
+- [x] Distributed rate limiter in front of `/auth/**` — `RateLimitingFilter` is now Redis-backed (`RedisRateLimitBucketSource`, via `bucket4j-redis`/Lettuce) in every profile except `test`, so the limit is shared across backend instances instead of resetting per instance. Fails open on a Redis blip *after* successful startup (same "degrade the feature, not the request" posture as the ML proxy — see ADR-0004/0005); Redis is a hard prerequisite to start the app in dev/prod, same as the MySQL datasource. Proven against a real Redis via Testcontainers in `RateLimitingRedisIT` (two independent bucket sources sharing one Redis, not just a mocked proxy manager).
 - [ ] Enable HTTPS only (terminate TLS in front of the app; cookies are marked `Secure`, so they will silently stop being sent over plain HTTP).
 - [ ] Set up automated database backups and verify restore procedure.
 - [ ] Configure log aggregation and alerting on `actuator/health` (and `metrics`/`info`/`prometheus`, the only other exposed actuator endpoints — logs are now structured JSON/ECS on the `prod` profile, see `logback-spring.xml`).
@@ -84,5 +84,4 @@ Before exposing this backend outside a trusted/internal network:
 
 ## Known limitations (won't fix without explicit need)
 
-- **Rate limiting** is intentionally simple (in-memory, per-IP) for a single-instance dev/demo deployment. Scaling to multiple backend instances requires a shared store (Redis) or pushing the limiting to a gateway/WAF — tracked as a roadmap item, not built speculatively.
 - **Tenant scoping fallback to unscoped queries when `TenantContext` is null** is by design for internal schedulers (`MonthlyReporter`, `RiskScoreRefresher`) that operate across all organizations. If this code path is ever reachable from an authenticated HTTP request, that is a bug — `CrossTenantAccessTest` exists to catch a regression in the common case (`GET /contracts`, `GET /contracts/{id}`).

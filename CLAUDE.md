@@ -42,6 +42,7 @@ Copy `.env.example` to `.env` and configure:
 - `JWT_SECRET` — Base64-encoded, minimum 256 bits
 - `FRONTEND_BASE_URL` — CORS origin
 - `MAIL_*` — SMTP settings
+- `REDIS_HOST`, `REDIS_PORT` — backs the distributed rate limiter (`RateLimitingFilter`). Required to start `dev`/`prod`, same tier as the database; the `test` profile uses an in-memory limiter instead (see `RedisRateLimiterConfig` vs `InMemoryRateLimiterConfig`), so `mvn test` needs no Redis.
 
 Create the database before first run:
 ```sql

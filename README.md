@@ -186,6 +186,10 @@ sequenceDiagram
 - HikariCP connection pooling
 - Flyway for database migrations and version control
 
+**Caching / Rate Limiting:**
+
+- Redis 7 — backs the distributed login/register rate limiter (`bucket4j-redis` + Lettuce). Required to start the app in `dev`/`prod` (same tier as MySQL); the `test` profile uses an in-memory limiter instead, so the fast unit suite needs no Redis.
+
 **Security:**
 
 - Spring Security 6
@@ -371,6 +375,7 @@ CREATE TABLE example_table (
 
 - **Java 21** or higher
 - **MySQL 8.0+** (or compatible)
+- **Redis 7+** — required to run the `dev`/`prod` profiles (rate limiting); not needed to run `mvn test`
 - **Maven 3.8+**
 - **Git**
 
@@ -525,10 +530,11 @@ mvn verify
 
 ### Integration Tests
 
-Two classes so far, both under `src/test/java/.../integration/`, both extending `AbstractMySQLIntegrationTest` (a shared, single Testcontainers MySQL instance, reused across classes in the same run):
+Three classes so far, under `src/test/java/.../integration/`:
 
-- **`FlywayMigrationIT`** — boots the full Spring context against real MySQL with `spring.flyway.enabled=true` and `spring.jpa.hibernate.ddl-auto=validate`. If any of the 31 migrations fails, or a JPA entity no longer matches the real schema, this test fails at context startup — something the H2 unit suite structurally can't catch (H2's "MySQL mode" is an approximation, not real MySQL; V27 exists specifically because a native `ENUM` mismatch slipped past it once).
-- **`CrossTenantIsolationIT`** — seeds two organizations with their own contracts and business areas, then asserts `ContractsRepository.findByIdAndOrganization_Id`/`findByOrganization_Id` never return another tenant's row. The service-layer guard that calls these methods (`ContractAccessGuard`) is unit-tested against a mocked repository elsewhere; this is what actually proves the isolation holds against a real query plan and real foreign keys.
+- **`FlywayMigrationIT`** — boots the full Spring context against real MySQL with `spring.flyway.enabled=true` and `spring.jpa.hibernate.ddl-auto=validate`. If any migration fails, or a JPA entity no longer matches the real schema, this test fails at context startup — something the H2 unit suite structurally can't catch (H2's "MySQL mode" is an approximation, not real MySQL; V27 exists specifically because a native `ENUM` mismatch slipped past it once). Extends `AbstractMySQLIntegrationTest` (a shared, single Testcontainers MySQL instance, reused across classes in the same run).
+- **`CrossTenantIsolationIT`** — seeds two organizations with their own contracts and business areas, then asserts `ContractsRepository.findByIdAndOrganization_Id`/`findByOrganization_Id` never return another tenant's row. The service-layer guard that calls these methods (`ContractAccessGuard`) is unit-tested against a mocked repository elsewhere; this is what actually proves the isolation holds against a real query plan and real foreign keys. Also extends `AbstractMySQLIntegrationTest`.
+- **`RateLimitingRedisIT`** — proves the Redis-backed rate limiter actually coordinates across backend instances against a real Redis (Testcontainers `redis:7-alpine`), not just a mocked proxy manager: two independent `RedisRateLimitBucketSource` instances sharing one Redis correctly see the same bucket. No Spring context needed for this one (no MySQL container either), just the class under test wired directly to a real Lettuce connection.
 
 ### Test Coverage by Package
 
@@ -660,7 +666,7 @@ The application supports multiple profiles:
 
 - **MVP (done):** core contract/document/invoice lifecycle, JWT auth with refresh-token rotation and reuse detection, multi-tenancy, RBAC, audit log, notifications, ML proxy (forecast/risk score), FatturaPA XML viewer.
 - **Beta (in progress):** cross-tenant regression test coverage, production security checklist (see [docs/SECURITY.md](./docs/SECURITY.md)), secret scanning in CI, accessibility pass on the frontend.
-- **Production readiness (open):** distributed rate limiting (current implementation is in-memory/per-IP, see SECURITY.md), credential rotation runbook, dataset-backed ML baselines beyond the current rule-based/linear models.
+- **Production readiness (open):** credential rotation runbook, dataset-backed ML baselines beyond the current rule-based/linear models.
 
 ### Production Deployment Checklist
 
@@ -729,14 +735,12 @@ The rewrite above was the starting point, not the finish line. Since then: multi
 ### Current Limitations
 
 - Notifications are in-app/polling only, no WebSocket push
-- Rate limiting is in-memory/per-IP, not distributed (see [docs/SECURITY.md](./docs/SECURITY.md))
 - No Kubernetes deployment manifests (Docker Compose only, in the `bcm-v2-docker` repo)
 - ML risk classifier is trained on synthetic labels derived from the same rule-based formula it complements, not on real contract outcomes — see [MODEL_CARD.md](https://github.com/DonatoCorbacioDev/bcm-v2-ml/blob/main/MODEL_CARD.md) in the `bcm-v2-ml` repo
 
 ### Planned Improvements
 
 - [ ] WebSocket real-time notifications
-- [ ] Distributed rate limiting
 - [ ] Kubernetes deployment manifests
 - [ ] ML risk classifier trained on real contract outcomes once enough labeled data exists
 - [ ] Performance optimization for large datasets

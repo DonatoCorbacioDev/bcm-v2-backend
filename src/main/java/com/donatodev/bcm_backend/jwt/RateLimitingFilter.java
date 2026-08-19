@@ -1,10 +1,7 @@
 package com.donatodev.bcm_backend.jwt;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
@@ -13,8 +10,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import io.github.bucket4j.Bandwidth;
-import io.github.bucket4j.Bucket;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,10 +25,16 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             "/auth/refresh", "/auth/complete-invite",
             "/organizations/register");
 
+    private static final String BUCKET_KEY_PREFIX = "rate-limit:";
+
+    private final RateLimitBucketSource bucketSource;
+
     @Value("${rate-limit.requests-per-minute:5}")
     private int requestsPerMinute;
 
-    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    public RateLimitingFilter(RateLimitBucketSource bucketSource) {
+        this.bucketSource = bucketSource;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -42,9 +43,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
         if (RATE_LIMITED_PATHS.contains(request.getServletPath())) {
             String ip = request.getRemoteAddr();
-            Bucket bucket = buckets.computeIfAbsent(ip, k -> createBucket());
 
-            if (!bucket.tryConsume(1)) {
+            if (!bucketSource.tryConsume(BUCKET_KEY_PREFIX + ip, requestsPerMinute)) {
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 response.getWriter().write(
@@ -54,13 +54,5 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    private Bucket createBucket() {
-        Bandwidth limit = Bandwidth.builder()
-                .capacity(requestsPerMinute)
-                .refillIntervally(requestsPerMinute, Duration.ofMinutes(1))
-                .build();
-        return Bucket.builder().addLimit(limit).build();
     }
 }
