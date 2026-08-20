@@ -41,6 +41,7 @@ Copy `.env.example` to `.env` and configure:
 - `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` — MySQL 8.0+ connection
 - `JWT_SECRET` — Base64-encoded, minimum 256 bits
 - `FRONTEND_BASE_URL` — CORS origin
+- `BACKEND_BASE_URL` — public URL of this backend, used to build links that leave the app (email verification, calendar `.ics` feed, document/invoice download links). Defaults to `http://localhost:8090/api/v1`; must be overridden in any environment reachable from outside the host.
 - `MAIL_*` — SMTP settings
 - `REDIS_HOST`, `REDIS_PORT` — backs the distributed rate limiter (`RateLimitingFilter`). Required to start `dev`/`prod`, same tier as the database; the `test` profile uses an in-memory limiter instead (see `RedisRateLimiterConfig` vs `InMemoryRateLimiterConfig`), so `mvn test` needs no Redis.
 
@@ -90,6 +91,7 @@ util/         JwtKeyGenerator, TestDataCleaner
 - `IEmailService` interface with two implementations: `EmailService` (SMTP) for prod, `DummyEmailService` for dev/test. The active profile selects the bean.
 - Contract expiration is handled by a `@Scheduled` task — `@EnableScheduling` is on the main application class.
 - `daysUntilExpiry` is a calculated field computed in `ContractMapper`, not stored in the DB.
+- Language convention: user-facing exception/validation messages (thrown exceptions, `@NotBlank`/`@Size` etc.) are in Italian, since they reach the Italian-locale frontend UI. Everything else — identifiers, comments, Javadoc, log statements, Swagger/OpenAPI `summary`/`description`, commit messages — is in English. Keep new code on this split; don't mix languages within either category.
 
 ## Testing Conventions
 
