@@ -82,7 +82,9 @@ public class ExportService {
                 row.createCell(2).setCellValue(contract.projectName());
                 row.createCell(3).setCellValue(contract.status().toString());
                 row.createCell(4).setCellValue(contract.startDate().toString());
-                row.createCell(5).setCellValue(contract.endDate().toString());
+                row.createCell(5).setCellValue(
+                        contract.endDate() != null ? contract.endDate().toString() : "N/A"
+                );
                 row.createCell(6).setCellValue(
                         contract.manager() != null
                         ? contract.manager().firstName() + " " + contract.manager().lastName()
@@ -173,7 +175,10 @@ public class ExportService {
             addCellToTable(table, contract.projectName(), dataFont, rowColor);
             addCellToTable(table, contract.status().toString(), dataFont, rowColor);
             addCellToTable(table, contract.startDate().toString(), dataFont, rowColor);
-            addCellToTable(table, contract.endDate().toString(), dataFont, rowColor);
+            addCellToTable(table,
+                    contract.endDate() != null ? contract.endDate().toString() : "N/A",
+                    dataFont, rowColor
+            );
             addCellToTable(table,
                     contract.manager() != null
                     ? contract.manager().firstName() + " " + contract.manager().lastName()

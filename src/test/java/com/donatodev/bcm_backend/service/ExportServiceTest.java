@@ -124,6 +124,30 @@ class ExportServiceTest {
         );
     }
 
+    /**
+     * Creates a contract with a null end date, the valid "open-ended
+     * contract" state shown as "N/D" in the UI (start date is DB
+     * not-null, so no equivalent helper is needed there).
+     */
+    private ContractDTO createContractWithNullEndDate() {
+        return new ContractDTO(
+                4L,
+                "Gamma Corp",
+                "CNT-2025-004",
+                "WBS-004",
+                "Project Delta",
+                ContractStatus.ACTIVE,
+                LocalDate.of(2025, Month.APRIL, 1),
+                null, // endDate
+                1L,
+                1L,
+                "Mario Rossi",
+                new ManagerDTO(1L, "Mario", "Rossi", "mario.rossi@example.com", "+39123456789", "IT Department"),
+                new BusinessAreaDTO(1L, "IT Services", "Technology services"),
+                null
+        );
+    }
+
     @Nested
     @Order(1)
     @DisplayName("Excel Export Tests")
@@ -218,6 +242,29 @@ class ExportServiceTest {
 
         @Test
         @Order(4)
+        @DisplayName("Should handle a null end date (open-ended contract) in Excel export")
+        void testExportContractsToExcel_WithNullEndDate() throws IOException {
+            // Arrange
+            List<ContractDTO> contractsWithNullEndDate = new ArrayList<>();
+            contractsWithNullEndDate.add(createContractWithNullEndDate());
+
+            // Act
+            byte[] excelData = exportService.exportContractsToExcel(contractsWithNullEndDate);
+
+            // Assert
+            assertNotNull(excelData);
+
+            try (ByteArrayInputStream bis = new ByteArrayInputStream(excelData); Workbook workbook = new XSSFWorkbook(bis)) {
+
+                Sheet sheet = workbook.getSheetAt(0);
+                Row dataRow = sheet.getRow(1);
+
+                assertThat(dataRow.getCell(5).getStringCellValue()).isEqualTo("N/A"); // End Date
+            }
+        }
+
+        @Test
+        @Order(5)
         @DisplayName("Should export large list of contracts to Excel")
         void testExportContractsToExcel_LargeList() throws IOException {
             // Arrange - Create 100 contracts
@@ -336,6 +383,28 @@ class ExportServiceTest {
 
         @Test
         @Order(4)
+        @DisplayName("Should handle a null end date (open-ended contract) in PDF export")
+        void testExportContractsToPDF_WithNullEndDate() throws Exception {
+            // Arrange
+            List<ContractDTO> contractsWithNullEndDate = new ArrayList<>();
+            contractsWithNullEndDate.add(createContractWithNullEndDate());
+
+            // Act
+            byte[] pdfData = exportService.exportContractsToPDF(contractsWithNullEndDate);
+
+            // Assert
+            assertNotNull(pdfData);
+            assertTrue(pdfData.length > 0);
+
+            try (ByteArrayInputStream bis = new ByteArrayInputStream(pdfData)) {
+                PdfReader reader = new PdfReader(bis);
+                assertThat(reader.getNumberOfPages()).isGreaterThan(0);
+                reader.close();
+            }
+        }
+
+        @Test
+        @Order(5)
         @DisplayName("Should include correct metadata in PDF")
         void testExportContractsToPDF_Metadata() throws Exception {
             // Act
@@ -353,7 +422,7 @@ class ExportServiceTest {
         }
 
         @Test
-        @Order(5)
+        @Order(6)
         @DisplayName("Should export large list of contracts to PDF")
         void testExportContractsToPDF_LargeList() throws Exception {
             // Arrange - Create 50 contracts
