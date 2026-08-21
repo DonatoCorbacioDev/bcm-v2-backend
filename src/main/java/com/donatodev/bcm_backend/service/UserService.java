@@ -141,6 +141,9 @@ public class UserService {
 
 		Users user = userMapper.toEntity(dto);
 		user.setPasswordHash(passwordEncoder.encode(dto.password()));
+		if (user.getManager() != null) {
+			user.setOrganization(user.getManager().getOrganization());
+		}
 		return usersRepository.save(user);
 	}
 
