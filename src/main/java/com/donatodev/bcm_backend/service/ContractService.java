@@ -268,18 +268,21 @@ public class ContractService {
         int active;
         int expiring;
         int expired;
+        int draft;
         if (orgId != null) {
             total    = contractsRepository.countAllContractsByOrg(orgId);
             active   = contractsRepository.countActiveContractsByOrg(orgId);
             expiring = contractsRepository.countExpiringContractsByOrg(thirtyDaysFromNow, orgId);
             expired  = contractsRepository.countExpiredContractsByOrg(orgId);
+            draft    = contractsRepository.countDraftContractsByOrg(orgId);
         } else {
             total    = contractsRepository.countAllContracts();
             active   = contractsRepository.countActiveContracts();
             expiring = contractsRepository.countExpiringContracts(thirtyDaysFromNow);
             expired  = contractsRepository.countExpiredContracts();
+            draft    = contractsRepository.countDraftContracts();
         }
-        return new ContractStatsResponse(total, active, expiring, expired);
+        return new ContractStatsResponse(total, active, expiring, expired, draft);
     }
 
     /**

@@ -889,6 +889,7 @@ class ContractServiceTest {
             when(contractsRepository.countActiveContracts()).thenReturn(50);
             when(contractsRepository.countExpiringContracts(any(LocalDate.class))).thenReturn(30);
             when(contractsRepository.countExpiredContracts()).thenReturn(20);
+            when(contractsRepository.countDraftContracts()).thenReturn(10);
 
             ContractStatsResponse result = contractService.getContractStats();
 
@@ -896,6 +897,7 @@ class ContractServiceTest {
             assertEquals(50, result.getActive());
             assertEquals(30, result.getExpiring());
             assertEquals(20, result.getExpired());
+            assertEquals(10, result.getDraft());
         }
 
         @Test
@@ -1826,11 +1828,13 @@ class ContractServiceTest {
                 when(contractsRepository.countActiveContractsByOrg(1L)).thenReturn(5);
                 when(contractsRepository.countExpiringContractsByOrg(any(LocalDate.class), eq(1L))).thenReturn(2);
                 when(contractsRepository.countExpiredContractsByOrg(1L)).thenReturn(3);
+                when(contractsRepository.countDraftContractsByOrg(1L)).thenReturn(1);
 
                 ContractStatsResponse result = contractService.getContractStats();
 
                 assertEquals(10, result.getTotal());
                 assertEquals(5, result.getActive());
+                assertEquals(1, result.getDraft());
             } finally {
                 TenantContext.clear();
             }

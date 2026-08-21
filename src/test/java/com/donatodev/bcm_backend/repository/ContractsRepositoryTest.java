@@ -194,6 +194,19 @@ class ContractsRepositoryTest {
         }
 
         @Test
+        @DisplayName("Should count only DRAFT contracts")
+        void shouldCountDraftContracts() {
+            contractsRepository.save(buildContract("CN-DRAFT-1", ContractStatus.DRAFT, manager,
+                    TODAY.minusMonths(1), TODAY.plusMonths(6)));
+            contractsRepository.save(buildContract("CN-DRAFT-2", ContractStatus.ACTIVE, manager,
+                    TODAY.minusMonths(1), TODAY.plusMonths(6)));
+
+            int count = contractsRepository.countDraftContracts();
+
+            assertEquals(1, count);
+        }
+
+        @Test
         @DisplayName("Should count ACTIVE contracts expiring within window")
         void shouldCountExpiringContracts() {
             contractsRepository.save(buildContract("CN-017", ContractStatus.ACTIVE, manager,

@@ -5,12 +5,14 @@ public class ContractStatsResponse {
     private final int active;
     private final int expiring;
     private final int expired;
+    private final int draft;
 
-    public ContractStatsResponse(int total, int active, int expiring, int expired) {
+    public ContractStatsResponse(int total, int active, int expiring, int expired, int draft) {
         this.total = total;
         this.active = active;
         this.expiring = expiring;
         this.expired = expired;
+        this.draft = draft;
     }
 
     public int getTotal() {
@@ -27,5 +29,9 @@ public class ContractStatsResponse {
 
     public int getExpired() {
         return expired;
+    }
+
+    public int getDraft() {
+        return draft;
     }
 }

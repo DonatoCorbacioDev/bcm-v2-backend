@@ -109,6 +109,12 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
     @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.EXPIRED AND c.organization.id = :orgId")
     int countExpiredContractsByOrg(@Param("orgId") Long orgId);
 
+    @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.DRAFT")
+    int countDraftContracts();
+
+    @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.DRAFT AND c.organization.id = :orgId")
+    int countDraftContractsByOrg(@Param("orgId") Long orgId);
+
     @Query("""
           SELECT COUNT(c) FROM Contracts c
           WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE
