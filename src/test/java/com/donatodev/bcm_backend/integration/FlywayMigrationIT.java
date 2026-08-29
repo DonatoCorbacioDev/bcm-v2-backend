@@ -15,7 +15,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import com.donatodev.bcm_backend.support.AbstractMySQLIntegrationTest;
 
 /**
- * Proves the full migration history (V1-V35) applies cleanly to real MySQL
+ * Proves the full migration history (V1-V36) applies cleanly to real MySQL
  * 8.0 and that every JPA entity mapping validates against the resulting
  * schema ({@code ddl-auto=validate} in the base class) — something the H2
  * "MySQL mode" used by the fast unit suite cannot guarantee, since H2 is not
@@ -38,21 +38,21 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
     }
 
     @Test
-    @DisplayName("flyway_schema_history: all 35 migrations recorded as successful, none pending")
+    @DisplayName("flyway_schema_history: all 36 migrations recorded as successful, none pending")
     void allMigrationsAppliedSuccessfully() {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
 
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 35,
-                "Expected at least 35 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 36,
+                "Expected at least 36 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(35, maxVersion, "Highest applied migration version should be V35");
+        assertEquals(36, maxVersion, "Highest applied migration version should be V36");
     }
 
     @Test
@@ -138,5 +138,25 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
 
         jdbc.update("DELETE FROM managers WHERE id = 9003");
         jdbc.update("DELETE FROM organizations WHERE id = 9003");
+    }
+
+    @Test
+    @DisplayName("Deleting a manager cascades to its invite_token rows instead of failing with a FK conflict")
+    void deletingManagerCascadesToInviteToken() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        jdbc.update("INSERT INTO organizations (id, name, slug) VALUES (9004, 'FK Cascade Test Org 3', 'fk-cascade-test-org-3')");
+        jdbc.update("INSERT INTO managers (id, first_name, last_name, email, organization_id) "
+                + "VALUES (9004, 'Test', 'Manager', 'fk-cascade-test-3@example.com', 9004)");
+        jdbc.update("INSERT INTO invite_token (id, token, expiry_date, username, role, manager_id, used) "
+                + "VALUES (9004, 'fk-cascade-test-token', '2027-01-01 00:00:00', 'fk-cascade-test-user', 'MANAGER', 9004, false)");
+
+        jdbc.update("DELETE FROM managers WHERE id = 9004");
+
+        Integer remainingInviteTokens = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM invite_token WHERE manager_id = 9004", Integer.class);
+        assertEquals(0, remainingInviteTokens, "invite_token rows should cascade-delete with their manager");
+
+        jdbc.update("DELETE FROM organizations WHERE id = 9004");
     }
 }
