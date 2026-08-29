@@ -15,7 +15,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import com.donatodev.bcm_backend.support.AbstractMySQLIntegrationTest;
 
 /**
- * Proves the full migration history (V1-V34) applies cleanly to real MySQL
+ * Proves the full migration history (V1-V35) applies cleanly to real MySQL
  * 8.0 and that every JPA entity mapping validates against the resulting
  * schema ({@code ddl-auto=validate} in the base class) — something the H2
  * "MySQL mode" used by the fast unit suite cannot guarantee, since H2 is not
@@ -38,21 +38,21 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
     }
 
     @Test
-    @DisplayName("flyway_schema_history: all 34 migrations recorded as successful, none pending")
+    @DisplayName("flyway_schema_history: all 35 migrations recorded as successful, none pending")
     void allMigrationsAppliedSuccessfully() {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
 
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 34,
-                "Expected at least 34 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 35,
+                "Expected at least 35 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(34, maxVersion, "Highest applied migration version should be V34");
+        assertEquals(35, maxVersion, "Highest applied migration version should be V35");
     }
 
     @Test
@@ -110,5 +110,33 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         jdbc.update("DELETE FROM managers WHERE id = 9002");
         jdbc.update("DELETE FROM roles WHERE id = 9002");
         jdbc.update("DELETE FROM organizations WHERE id = 9002");
+    }
+
+    @Test
+    @DisplayName("Deleting a contract cascades to its financial_values and contract_manager rows instead of failing with a FK conflict")
+    void deletingContractCascadesToFinancialValuesAndCollaborators() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        jdbc.update("INSERT INTO organizations (id, name, slug) VALUES (9003, 'FK Cascade Test Org 2', 'fk-cascade-test-org-2')");
+        jdbc.update("INSERT INTO managers (id, first_name, last_name, email, organization_id) "
+                + "VALUES (9003, 'Test', 'Manager', 'fk-cascade-test-2@example.com', 9003)");
+        jdbc.update("INSERT INTO contracts (id, customer_name, contract_number, manager_id, start_date, status, organization_id) "
+                + "VALUES (9003, 'Test Customer', 'FK-CASCADE-002', 9003, '2026-01-01', 'ACTIVE', 9003)");
+        jdbc.update("INSERT INTO financial_values (id, month_value, year_value, financial_amount, contract_id, organization_id) "
+                + "VALUES (9003, 1, 2026, 1000.0, 9003, 9003)");
+        jdbc.update("INSERT INTO contract_manager (contract_id, manager_id) VALUES (9003, 9003)");
+
+        jdbc.update("DELETE FROM contracts WHERE id = 9003");
+
+        Integer remainingFinancialValues = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM financial_values WHERE contract_id = 9003", Integer.class);
+        assertEquals(0, remainingFinancialValues, "financial_values rows should cascade-delete with their contract");
+
+        Integer remainingCollaborators = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM contract_manager WHERE contract_id = 9003", Integer.class);
+        assertEquals(0, remainingCollaborators, "contract_manager rows should cascade-delete with their contract");
+
+        jdbc.update("DELETE FROM managers WHERE id = 9003");
+        jdbc.update("DELETE FROM organizations WHERE id = 9003");
     }
 }
