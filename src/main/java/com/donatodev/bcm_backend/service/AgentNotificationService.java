@@ -39,12 +39,13 @@ public class AgentNotificationService {
         usersRepository.findByManagerEmailIgnoreCase(manager.getEmail()).ifPresent(user -> {
             if (user.getOrganization() == null) return;
             long daysLeft = ChronoUnit.DAYS.between(LocalDate.now(ZoneId.systemDefault()), contract.getEndDate());
+            String dayWord = daysLeft == 1 ? " giorno (" : " giorni (";
             notificationService.createForUser(
                     user.getId(),
                     user.getOrganization().getId(),
                     "Contratto in scadenza",
                     CONTRACT_PREFIX + contract.getContractNumber() + " scade tra " + daysLeft
-                            + " giorni (" + contract.getCustomerName() + ")",
+                            + dayWord + contract.getCustomerName() + ")",
                     NotificationType.WARNING
             );
         });
