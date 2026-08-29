@@ -36,10 +36,12 @@ public class ContractHistory {
     private Contracts contract;
 
     /**
-     * User who performed the status change.
+     * User who performed the status change. Null if that user has since been
+     * deleted — the history row is kept for audit purposes, but the
+     * reference to the specific person is severed (see migration V34).
      */
     @ManyToOne
-    @JoinColumn(name = "modified_by", nullable = false)
+    @JoinColumn(name = "modified_by")
     private Users modifiedBy;
 
     /**

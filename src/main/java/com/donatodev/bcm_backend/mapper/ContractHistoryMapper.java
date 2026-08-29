@@ -37,7 +37,7 @@ public class ContractHistoryMapper {
         return new ContractHistoryDTO(
                 history.getId(),
                 history.getContract().getId(),
-                history.getModifiedBy().getId(),
+                history.getModifiedBy() != null ? history.getModifiedBy().getId() : null,
                 history.getModificationDate(),
                 history.getPreviousStatus(),
                 history.getNewStatus()
@@ -58,8 +58,10 @@ public class ContractHistoryMapper {
                 .id(dto.id())
                 .contract(contractsRepository.findById(dto.contractId())
                         .orElseThrow(() -> new ContractNotFoundException("Contract not found")))
-                .modifiedBy(usersRepository.findById(dto.modifiedById())
-                        .orElseThrow(() -> new UserNotFoundException("User not found")))
+                .modifiedBy(dto.modifiedById() != null
+                        ? usersRepository.findById(dto.modifiedById())
+                                .orElseThrow(() -> new UserNotFoundException("User not found"))
+                        : null)
                 .modificationDate(dto.modificationDate() != null ? dto.modificationDate() : java.time.LocalDateTime.now(java.time.ZoneId.systemDefault()))
                 .previousStatus(dto.previousStatus())
                 .newStatus(dto.newStatus())

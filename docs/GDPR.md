@@ -61,10 +61,13 @@ nessuna AI di terze parti) — è stata una decisione esplicita del progetto
   tramite `DELETE /contracts/{id}/documents/{docId}` (cascata su riga DB +
   file fisico via `LocalStorageService`).
 - **Utenti/responsabili**: cancellabili tramite `DELETE /users/{id}` e
-  `DELETE /managers/{id}`. Verificare in fase di cancellazione se esistono
-  audit log o contratti storici collegati che devono restare per obblighi
-  fiscali/contrattuali (in tal caso, valutare anonimizzazione invece di
-  cancellazione fisica — **non ancora implementata**, gap noto).
+  `DELETE /managers/{id}`. Lo storico contratti (`contract_history`) resta
+  per obblighi fiscali/contrattuali: dalla V34, cancellare l'utente
+  anonimizza il riferimento (`modified_by` → `NULL`) invece di bloccare la
+  cancellazione, la riga di storico (cosa è cambiato, quando) resta intatta.
+  Gli `audit_logs` storici mantengono lo `username` come testo libero (non
+  è un riferimento FK, quindi non blocca né si anonimizza automaticamente
+  alla cancellazione) — coperti comunque dal purge a tempo sotto.
 - **Log di audit**: purge automatico giornaliero (job schedulato alle 3:00,
   `AuditLogRetentionService`) delle righe più vecchie di
   `AUDIT_LOG_RETENTION_DAYS` (default 180 giorni / 6 mesi, configurabile).
@@ -107,8 +110,6 @@ costruzione).
   - Nessuna DPIA (valutazione d'impatto) formale — probabilmente non
       obbligatoria per il volume/tipo di dati attuale, ma da valutare quando
       arriva il primo cliente reale.
-  - Nessuna procedura di anonimizzazione per utenti cancellati con storico
-      collegato (contratti, log).
   - Nessun meccanismo self-service di "esporta i miei dati" per il singolo
       interessato (oggi richiede intervento manuale del titolare).
   - Il provider SMTP di produzione non è ancora scelto/documentato — va

@@ -106,6 +106,38 @@ class ContractHistoryMapperTest {
     }
 
     @Test
+    void shouldConvertToDTOWithNullModifiedByWhenUserWasDeleted() {
+        ContractHistory history = ContractHistory.builder()
+                .id(100L)
+                .contract(contract)
+                .modifiedBy(null)
+                .modificationDate(LocalDateTime.of(2024, Month.MAY, 5, 12, 0))
+                .previousStatus(ContractStatus.ACTIVE)
+                .newStatus(ContractStatus.CANCELLED)
+                .build();
+
+        ContractHistoryDTO dto = mapper.toDTO(history);
+
+        assertEquals(null, dto.modifiedById());
+    }
+
+    @Test
+    void shouldConvertToEntityWithNullModifiedByWhenIdIsNull() {
+        ContractHistoryDTO dto = new ContractHistoryDTO(
+                100L, 1L, null,
+                LocalDateTime.of(2024, Month.MAY, 5, 12, 0),
+                ContractStatus.EXPIRED,
+                ContractStatus.ACTIVE
+        );
+
+        when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+
+        ContractHistory entity = mapper.toEntity(dto);
+
+        assertEquals(null, entity.getModifiedBy());
+    }
+
+    @Test
     void shouldThrowIfContractNotFound() {
         ContractHistoryDTO dto = new ContractHistoryDTO(
                 100L, 99L, 2L,

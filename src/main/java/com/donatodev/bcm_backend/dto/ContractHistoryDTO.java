@@ -11,7 +11,8 @@ import com.donatodev.bcm_backend.entity.ContractStatus;
  *
  * @param id              the unique identifier of the contract history entry
  * @param contractId      the ID of the contract associated with this history entry
- * @param modifiedById    the ID of the user who made the modification
+ * @param modifiedById    the ID of the user who made the modification, or null
+ *                        if that user has since been deleted
  * @param modificationDate the timestamp when the modification occurred
  * @param previousStatus  the contract status before the change
  * @param newStatus       the contract status after the change
