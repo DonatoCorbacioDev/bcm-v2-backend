@@ -1,9 +1,13 @@
 package com.donatodev.bcm_backend.repository;
 
+import java.time.Instant;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.entity.AuditLog;
 
@@ -21,4 +25,15 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
      * @return a page of audit log entries belonging to the given organization
      */
     Page<AuditLog> findAllByOrgIdOrderByTimestampDesc(Long orgId, Pageable pageable);
+
+    /**
+     * Bulk-deletes audit log entries older than the given cutoff, backing the
+     * retention/purge policy in {@code AuditLogRetentionService}.
+     *
+     * @param cutoff entries with a timestamp before this instant are deleted
+     * @return the number of deleted rows
+     */
+    @Modifying
+    @Transactional
+    long deleteByTimestampBefore(Instant cutoff);
 }

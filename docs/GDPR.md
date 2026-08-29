@@ -65,8 +65,9 @@ nessuna AI di terze parti) — è stata una decisione esplicita del progetto
   audit log o contratti storici collegati che devono restare per obblighi
   fiscali/contrattuali (in tal caso, valutare anonimizzazione invece di
   cancellazione fisica — **non ancora implementata**, gap noto).
-- **Log di audit**: nessuna policy di retention/purge automatica implementata
-  — gap noto, da definire (tipicamente 6–12 mesi per questo tipo di log).
+- **Log di audit**: purge automatico giornaliero (job schedulato alle 3:00,
+  `AuditLogRetentionService`) delle righe più vecchie di
+  `AUDIT_LOG_RETENTION_DAYS` (default 180 giorni / 6 mesi, configurabile).
 - **Refresh token**: rotazione con rilevamento riuso, TTL configurato via
   JWT — vedi `docs/SECURITY.md`.
 
@@ -106,7 +107,6 @@ costruzione).
   - Nessuna DPIA (valutazione d'impatto) formale — probabilmente non
       obbligatoria per il volume/tipo di dati attuale, ma da valutare quando
       arriva il primo cliente reale.
-  - Nessuna policy di retention/purge per `audit_logs`.
   - Nessuna procedura di anonimizzazione per utenti cancellati con storico
       collegato (contratti, log).
   - Nessun meccanismo self-service di "esporta i miei dati" per il singolo
