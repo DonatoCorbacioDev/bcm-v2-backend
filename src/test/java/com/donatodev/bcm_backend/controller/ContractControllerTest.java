@@ -375,8 +375,9 @@ class ContractControllerTest {
         @Test
         @Order(9)
         @DisplayName("Should get contract statistics")
-        @WithMockUser(roles = "ADMIN")
+        @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldGetContractStats() throws Exception {
+            createUser("admin", "ADMIN", null);
             Managers manager = managersRepository.save(Managers.builder()
                     .firstName("Test").lastName("Manager").email("test@example.com")
                     .phoneNumber("123456").department("Test").build());
@@ -707,6 +708,7 @@ class ContractControllerTest {
         @WithMockUser(username = "admin", roles = "ADMIN")
         @DisplayName("GET /contracts/expiring - Should return expiring contracts")
         void shouldGetExpiringContracts() throws Exception {
+            createUser("admin", "ADMIN", null);
 
             BusinessAreas area = businessAreasRepository.save(
                     BusinessAreas.builder().name("IT").description("IT Department").build()
@@ -787,6 +789,7 @@ class ContractControllerTest {
         @WithMockUser(username = "admin", roles = "ADMIN")
         @DisplayName("GET /contracts/expiring - Should return empty list when no contracts expiring")
         void shouldReturnEmptyListWhenNoExpiringContracts() throws Exception {
+            createUser("admin", "ADMIN", null);
             // No contracts in DB or all expire beyond the days parameter
 
             mockMvc.perform(get("/contracts/expiring")
@@ -802,6 +805,7 @@ class ContractControllerTest {
         @WithMockUser(username = "admin", roles = "ADMIN")
         @DisplayName("GET /contracts/expiring - Should use default days=30 when not specified")
         void shouldUseDefaultDaysWhenNotSpecified() throws Exception {
+            createUser("admin", "ADMIN", null);
 
             BusinessAreas area = businessAreasRepository.save(
                     BusinessAreas.builder().name("IT").description("IT Department").build()

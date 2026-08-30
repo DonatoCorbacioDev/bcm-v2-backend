@@ -259,16 +259,29 @@ public class ContractService {
     }
 
     /**
-     * Dashboard KPIs.
+     * Dashboard KPIs. Admins: organization-wide; Managers: only their
+     * assigned contracts.
      */
     public ContractStatsResponse getContractStats() {
-        Long orgId = TenantContext.get();
+        AuthCtx auth = getAuthCtx();
         LocalDate thirtyDaysFromNow = LocalDate.now(ZoneId.systemDefault()).plusDays(30);
         int total;
         int active;
         int expiring;
         int expired;
         int draft;
+        if (!ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
+            if (auth.managerId() == null) {
+                return new ContractStatsResponse(0, 0, 0, 0, 0);
+            }
+            total    = contractsRepository.countAllContractsByManager(auth.managerId());
+            active   = contractsRepository.countActiveContractsByManager(auth.managerId());
+            expiring = contractsRepository.countExpiringContractsByManager(thirtyDaysFromNow, auth.managerId());
+            expired  = contractsRepository.countExpiredContractsByManager(auth.managerId());
+            draft    = contractsRepository.countDraftContractsByManager(auth.managerId());
+            return new ContractStatsResponse(total, active, expiring, expired, draft);
+        }
+        Long orgId = TenantContext.get();
         if (orgId != null) {
             total    = contractsRepository.countAllContractsByOrg(orgId);
             active   = contractsRepository.countActiveContractsByOrg(orgId);
@@ -287,7 +300,8 @@ public class ContractService {
 
     /**
      * Retrieves all ACTIVE contracts that will expire within the specified
-     * number of days.
+     * number of days. Admins: organization-wide; Managers: only their
+     * assigned contracts.
      *
      * @param days the number of days in the future to check for expiring
      * contracts
@@ -297,11 +311,19 @@ public class ContractService {
     public List<ContractDTO> getExpiringContracts(int days) {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
         LocalDate futureDate = today.plusDays(days);
-        Long orgId = TenantContext.get();
+        AuthCtx auth = getAuthCtx();
 
-        List<Contracts> expiring = (orgId != null)
-                ? contractsRepository.findExpiringContractsByOrg(today, futureDate, orgId)
-                : contractsRepository.findExpiringContracts(today, futureDate);
+        List<Contracts> expiring;
+        if (!ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
+            expiring = auth.managerId() == null
+                    ? List.of()
+                    : contractsRepository.findExpiringContractsByManager(today, futureDate, auth.managerId());
+        } else {
+            Long orgId = TenantContext.get();
+            expiring = (orgId != null)
+                    ? contractsRepository.findExpiringContractsByOrg(today, futureDate, orgId)
+                    : contractsRepository.findExpiringContracts(today, futureDate);
+        }
 
         return expiring.stream().map(contractMapper::toDTO).toList();
     }
@@ -416,11 +438,18 @@ public class ContractService {
     }
 
     /**
-     * Get contract distribution by business area.
+     * Get contract distribution by business area. Admins: organization-wide;
+     * Managers: only their assigned contracts.
      *
      * @return list of business areas with contract counts
      */
     public List<ContractsByAreaDTO> getContractsByArea() {
+        AuthCtx auth = getAuthCtx();
+        if (!ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
+            return auth.managerId() == null
+                    ? List.of()
+                    : contractsRepository.countContractsByAreaAndManager(auth.managerId());
+        }
         Long orgId = TenantContext.get();
         return (orgId != null)
                 ? contractsRepository.countContractsByAreaAndOrg(orgId)
@@ -432,7 +461,8 @@ public class ContractService {
      * the last 12 calendar months). Always returns exactly 12 chronologically
      * ordered entries, zero-filled for months with no contracts started, so
      * that bulk imports (many contracts sharing one created_at but spread
-     * across start_date) don't collapse into a single data point.
+     * across start_date) don't collapse into a single data point. Admins:
+     * organization-wide; Managers: only their assigned contracts.
      *
      * @return chronologically ordered list of 12 months with contract counts
      */
@@ -441,10 +471,18 @@ public class ContractService {
         YearMonth startMonth = currentMonth.minusMonths(11);
         LocalDate windowStart = startMonth.atDay(1);
 
-        Long orgId = TenantContext.get();
-        List<Object[]> results = (orgId != null)
-                ? contractsRepository.countContractsByMonthAndOrg(windowStart, orgId)
-                : contractsRepository.countContractsByMonth(windowStart);
+        AuthCtx auth = getAuthCtx();
+        List<Object[]> results;
+        if (!ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
+            results = auth.managerId() == null
+                    ? List.of()
+                    : contractsRepository.countContractsByMonthAndManager(windowStart, auth.managerId());
+        } else {
+            Long orgId = TenantContext.get();
+            results = (orgId != null)
+                    ? contractsRepository.countContractsByMonthAndOrg(windowStart, orgId)
+                    : contractsRepository.countContractsByMonth(windowStart);
+        }
 
         Map<YearMonth, Long> countsByMonth = new LinkedHashMap<>();
         for (int i = 0; i < 12; i++) {
@@ -463,11 +501,19 @@ public class ContractService {
     }
 
     /**
-     * Get top 5 managers by number of assigned contracts.
+     * Get top 5 managers by number of assigned contracts. Admins: ranking
+     * across the organization; Managers: a single-entry list with just their
+     * own count (there is no "colleagues ranking" to show them).
      *
      * @return list of top managers with contract counts
      */
     public List<TopManagerDTO> getTopManagers() {
+        AuthCtx auth = getAuthCtx();
+        if (!ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
+            return auth.managerId() == null
+                    ? List.of()
+                    : contractsRepository.findTopManagerForManager(auth.managerId());
+        }
         Pageable topFive = PageRequest.of(0, 5);
         Long orgId = TenantContext.get();
         return (orgId != null)

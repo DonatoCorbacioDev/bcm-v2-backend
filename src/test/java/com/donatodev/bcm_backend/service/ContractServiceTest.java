@@ -117,6 +117,15 @@ class ContractServiceTest {
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
     }
 
+    /** Dashboard/stats methods now resolve the caller's role via getAuthCtx(),
+     * so every ADMIN-path test on them needs both the security principal and
+     * the backing Users lookup mocked. */
+    private void mockAdminAuth() {
+        mockAuthentication("admin", "ADMIN");
+        Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
+        when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+    }
+
     @Nested
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
     @DisplayName("Unit Test: ContractService")
@@ -885,6 +894,7 @@ class ContractServiceTest {
         @Order(18)
         @DisplayName("Get contract stats returns correct counts")
         void shouldGetContractStats() {
+            mockAdminAuth();
             when(contractsRepository.countAllContracts()).thenReturn(100);
             when(contractsRepository.countActiveContracts()).thenReturn(50);
             when(contractsRepository.countExpiringContracts(any(LocalDate.class))).thenReturn(30);
@@ -1603,6 +1613,7 @@ class ContractServiceTest {
         @Order(44)
         @DisplayName("Get expiring contracts within 30 days")
         void shouldGetExpiringContracts() {
+            mockAdminAuth();
 
             LocalDate today = LocalDate.now(); //NOSONAR S6543 — must match service internal clock
             LocalDate futureDate = today.plusDays(30);
@@ -1651,6 +1662,7 @@ class ContractServiceTest {
         @Order(45)
         @DisplayName("Get expiring contracts returns empty list when none expiring")
         void shouldReturnEmptyListWhenNoExpiringContracts() {
+            mockAdminAuth();
 
             LocalDate today = LocalDate.now(); //NOSONAR S6543 — must match service internal clock
             LocalDate futureDate = today.plusDays(30);
@@ -1668,6 +1680,7 @@ class ContractServiceTest {
         @Order(46)
         @DisplayName("Should get contracts timeline (started per month, last 12 months, zero-filled)")
         void shouldGetContractsTimeline() {
+            mockAdminAuth();
             YearMonth currentMonth = YearMonth.now(ZoneId.systemDefault());
             YearMonth oldestMonth = currentMonth.minusMonths(11);
             YearMonth sixMonthsAgo = currentMonth.minusMonths(6);
@@ -1705,6 +1718,7 @@ class ContractServiceTest {
         @Order(47)
         @DisplayName("Should get contracts by area")
         void shouldGetContractsByArea() {
+            mockAdminAuth();
 
             List<ContractsByAreaDTO> mockResults = List.of(
                     new ContractsByAreaDTO("IT", 10L),
@@ -1728,6 +1742,7 @@ class ContractServiceTest {
         @Order(48)
         @DisplayName("Should get top managers")
         void shouldGetTopManagers() {
+            mockAdminAuth();
 
             List<TopManagerDTO> mockResults = List.of(
                     new TopManagerDTO(1L, "John Doe", 15L),
@@ -1752,6 +1767,7 @@ class ContractServiceTest {
         @Order(49)
         @DisplayName("Should zero-fill all 12 months when no contracts were started in the window")
         void shouldReturnEmptyListWhenNoTimelineData() {
+            mockAdminAuth();
 
             when(contractsRepository.countContractsByMonth(any(LocalDate.class)))
                     .thenReturn(List.of());
@@ -1822,6 +1838,7 @@ class ContractServiceTest {
         @Order(52)
         @DisplayName("getContractStats with TenantContext uses org-filtered repository methods")
         void shouldGetContractStatsWithOrgFilter() {
+            mockAdminAuth();
             TenantContext.set(1L);
             try {
                 when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(10);
@@ -1844,6 +1861,7 @@ class ContractServiceTest {
         @Order(53)
         @DisplayName("getExpiringContracts with TenantContext uses org-filtered query")
         void shouldGetExpiringContractsWithOrgFilter() {
+            mockAdminAuth();
             TenantContext.set(2L);
             try {
                 Contracts c = Contracts.builder().id(1L).customerName("Org Client").build();
@@ -1865,6 +1883,7 @@ class ContractServiceTest {
         @Order(54)
         @DisplayName("getContractsByArea with TenantContext uses org-filtered query")
         void shouldGetContractsByAreaWithOrgFilter() {
+            mockAdminAuth();
             TenantContext.set(3L);
             try {
                 when(contractsRepository.countContractsByAreaAndOrg(3L))
@@ -1883,6 +1902,7 @@ class ContractServiceTest {
         @Order(55)
         @DisplayName("getContractsTimeline with TenantContext uses org-filtered query")
         void shouldGetContractsTimelineWithOrgFilter() {
+            mockAdminAuth();
             TenantContext.set(4L);
             try {
                 YearMonth currentMonth = YearMonth.now(ZoneId.systemDefault());
@@ -1905,6 +1925,7 @@ class ContractServiceTest {
         @Order(56)
         @DisplayName("getTopManagers with TenantContext uses org-filtered query")
         void shouldGetTopManagersWithOrgFilter() {
+            mockAdminAuth();
             TenantContext.set(5L);
             try {
                 when(contractsRepository.findTopManagersByOrg(any(Pageable.class), eq(5L)))
@@ -1917,6 +1938,160 @@ class ContractServiceTest {
             } finally {
                 TenantContext.clear();
             }
+        }
+
+        /**
+         * Regression coverage for the data leak fixed 2026-08-30: dashboard
+         * stats/expiring/by-area/timeline/top-managers must scope to the
+         * calling MANAGER's own contracts, not the whole organization.
+         */
+        @Test
+        @Order(59)
+        @DisplayName("getContractStats as MANAGER uses manager-scoped repository methods")
+        void shouldGetContractStatsAsManager() {
+            Managers manager = Managers.builder().id(7L).build();
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(manager)
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            when(contractsRepository.countAllContractsByManager(7L)).thenReturn(4);
+            when(contractsRepository.countActiveContractsByManager(7L)).thenReturn(3);
+            when(contractsRepository.countExpiringContractsByManager(any(LocalDate.class), eq(7L))).thenReturn(1);
+            when(contractsRepository.countExpiredContractsByManager(7L)).thenReturn(1);
+            when(contractsRepository.countDraftContractsByManager(7L)).thenReturn(0);
+
+            ContractStatsResponse result = contractService.getContractStats();
+
+            assertEquals(4, result.getTotal());
+            assertEquals(3, result.getActive());
+            assertEquals(1, result.getExpired());
+            verify(contractsRepository, never()).countAllContracts();
+            verify(contractsRepository, never()).countAllContractsByOrg(any());
+        }
+
+        @Test
+        @Order(60)
+        @DisplayName("getContractStats as MANAGER with no manager profile returns all-zero response")
+        void shouldGetContractStatsAsManagerWithNoProfile() {
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            ContractStatsResponse result = contractService.getContractStats();
+
+            assertEquals(0, result.getTotal());
+            assertEquals(0, result.getActive());
+            assertEquals(0, result.getExpiring());
+            assertEquals(0, result.getExpired());
+            assertEquals(0, result.getDraft());
+        }
+
+        @Test
+        @Order(61)
+        @DisplayName("getExpiringContracts as MANAGER uses manager-scoped query")
+        void shouldGetExpiringContractsAsManager() {
+            Managers manager = Managers.builder().id(7L).build();
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(manager)
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            Contracts contract = Contracts.builder().id(1L).customerName("Mine").manager(manager).build();
+            ContractDTO dto = new ContractDTO(1L, "Mine", "C1", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), null, 1L, 7L, null, null, null, 5);
+            when(contractsRepository.findExpiringContractsByManager(any(LocalDate.class), any(LocalDate.class), eq(7L)))
+                    .thenReturn(List.of(contract));
+            when(contractMapper.toDTO(contract)).thenReturn(dto);
+
+            List<ContractDTO> result = contractService.getExpiringContracts(30);
+
+            assertEquals(1, result.size());
+            verify(contractsRepository, never()).findExpiringContracts(any(), any());
+            verify(contractsRepository, never()).findExpiringContractsByOrg(any(), any(), any());
+        }
+
+        @Test
+        @Order(62)
+        @DisplayName("getContractsByArea as MANAGER uses manager-scoped query")
+        void shouldGetContractsByAreaAsManager() {
+            Managers manager = Managers.builder().id(7L).build();
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(manager)
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            when(contractsRepository.countContractsByAreaAndManager(7L))
+                    .thenReturn(List.of(new ContractsByAreaDTO("IT", 2L)));
+
+            List<ContractsByAreaDTO> result = contractService.getContractsByArea();
+
+            assertEquals(1, result.size());
+            verify(contractsRepository, never()).countContractsByArea();
+            verify(contractsRepository, never()).countContractsByAreaAndOrg(any());
+        }
+
+        @Test
+        @Order(63)
+        @DisplayName("getContractsTimeline as MANAGER uses manager-scoped query")
+        void shouldGetContractsTimelineAsManager() {
+            Managers manager = Managers.builder().id(7L).build();
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(manager)
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            YearMonth currentMonth = YearMonth.now(ZoneId.systemDefault());
+            List<Object[]> rows = new java.util.ArrayList<>();
+            rows.add(new Object[]{currentMonth.getYear(), currentMonth.getMonthValue(), 2L});
+            when(contractsRepository.countContractsByMonthAndManager(any(LocalDate.class), eq(7L)))
+                    .thenReturn(rows);
+
+            List<ContractsTimelineDTO> result = contractService.getContractsTimeline();
+
+            assertEquals(12, result.size());
+            assertEquals(2L, result.get(11).getCount());
+            verify(contractsRepository, never()).countContractsByMonth(any());
+            verify(contractsRepository, never()).countContractsByMonthAndOrg(any(), any());
+        }
+
+        @Test
+        @Order(64)
+        @DisplayName("getTopManagers as MANAGER returns only the caller's own entry")
+        void shouldGetTopManagersAsManager() {
+            Managers manager = Managers.builder().id(7L).build();
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(manager)
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            when(contractsRepository.findTopManagerForManager(7L))
+                    .thenReturn(List.of(new TopManagerDTO(7L, "Self", 6L)));
+
+            List<TopManagerDTO> result = contractService.getTopManagers();
+
+            assertEquals(1, result.size());
+            assertEquals("Self", result.get(0).getManagerName());
+            verify(contractsRepository, never()).findTopManagers(any());
+            verify(contractsRepository, never()).findTopManagersByOrg(any(), any());
         }
 
         @Test
