@@ -272,5 +272,19 @@ class SemanticSearchServiceTest {
 
             assertTrue(semanticSearchService.search("query", 10).isEmpty());
         }
+
+        @Test
+        @DisplayName("throws SemanticSearchUnavailableException instead of a raw 500 when Ollama is unreachable")
+        void throwsUnavailableWhenEmbeddingModelFails() {
+            TenantContext.set(ORG_ID);
+            ContractDocument doc = fakeDoc("[1.0, 0.0]");
+
+            when(documentRepository.findByOrgIdAndEmbeddingIsNotNull(ORG_ID)).thenReturn(List.of(doc));
+            when(embeddingModel.embed("query")).thenThrow(new RuntimeException("connection refused"));
+
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    com.donatodev.bcm_backend.exception.SemanticSearchUnavailableException.class,
+                    () -> semanticSearchService.search("query", 10));
+        }
     }
 }

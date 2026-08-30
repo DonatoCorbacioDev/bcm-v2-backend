@@ -128,6 +128,11 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(SemanticSearchUnavailableException.class)
+    public ResponseEntity<ApiErrorResponse> handleSemanticSearchUnavailable(SemanticSearchUnavailableException ex) {
+        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, "Ricerca semantica temporaneamente non disponibile");
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiErrorResponse> handleAuthenticationException(AuthenticationException ex) {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Non autorizzato: " + ex.getMessage());

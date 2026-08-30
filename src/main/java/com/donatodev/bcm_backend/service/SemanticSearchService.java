@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.SemanticSearchResultDTO;
 import com.donatodev.bcm_backend.entity.ContractDocument;
+import com.donatodev.bcm_backend.exception.SemanticSearchUnavailableException;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -87,7 +88,13 @@ public class SemanticSearchService {
             return List.of();
         }
 
-        float[] queryEmbedding = embeddingModel.embed(query);
+        float[] queryEmbedding;
+        try {
+            queryEmbedding = embeddingModel.embed(query);
+        } catch (Exception e) {
+            logger.warn("Query embedding failed: {}", safeMessage(e));
+            throw new SemanticSearchUnavailableException("Impossibile generare l'embedding della query", e);
+        }
 
         List<SemanticSearchResultDTO> results = new ArrayList<>();
         for (ContractDocument doc : candidates) {
