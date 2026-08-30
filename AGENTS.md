@@ -1,0 +1,116 @@
+# AGENTS.md
+
+This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+
+## Build and Development Commands
+
+```bash
+# Build
+mvn clean install
+
+# Run (dev profile is default)
+mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+
+# Run all tests
+mvn test
+
+# Run a single test class
+mvn test -Dtest=ContractServiceTest
+
+# Run a single test method
+mvn test -Dtest=ContractServiceTest#shouldReturnContractWhenValidIdProvided
+
+# Run tests with coverage report (output: target/site/jacoco/index.html)
+mvn clean test jacoco:report
+
+# Run integration tests too (*IT.java: real MySQL via Testcontainers, needs Docker running)
+mvn verify
+
+# Static analysis
+mvn spotbugs:check
+
+# Production build
+mvn clean package -Pprod
+java -jar target/bcm-backend-1.0.0-SNAPSHOT.jar --spring.profiles.active=prod
+```
+
+## Environment Setup
+
+Copy `.env.example` to `.env` and configure:
+- `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` — MySQL 8.0+ connection
+- `JWT_SECRET` — Base64-encoded, minimum 256 bits
+- `FRONTEND_BASE_URL` — CORS origin
+- `BACKEND_BASE_URL` — public URL of this backend, used to build links that leave the app (email verification, calendar `.ics` feed, document/invoice download links). Defaults to `http://localhost:8090/api/v1`; must be overridden in any environment reachable from outside the host.
+- `MAIL_*` — SMTP settings
+- `REDIS_HOST`, `REDIS_PORT` — backs the distributed rate limiter (`RateLimitingFilter`). Required to start `dev`/`prod`, same tier as the database; the `test` profile uses an in-memory limiter instead (see `RedisRateLimiterConfig` vs `InMemoryRateLimiterConfig`), so `mvn test` needs no Redis.
+
+Create the database before first run:
+```sql
+CREATE DATABASE bcm CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Flyway auto-applies all migrations on startup. Five migration files live in `src/main/resources/db/migration/` (V1–V5).
+
+## Maven Profiles
+
+| Profile | Database | Flyway | Use |
+|---------|----------|--------|-----|
+| `dev` (default) | MySQL | baseline-on-migrate | Local development |
+| `test` | H2 in-memory | disabled | Test execution |
+| `prod` | MySQL | validate-on-migrate | Production |
+
+## Architecture
+
+The app is a stateless REST API running on port 8090 with context path `/api/v1`.
+
+**Package layout** under `com.donatodev.bcm_backend`:
+
+```
+auth/         AuthController + AuthService (login, invite flow, password reset)
+config/       CorsConfig, OpenApiConfig
+controller/   8 REST controllers
+dto/          19 record-based DTOs (immutable, used as API contracts)
+entity/       14 JPA entities (Lombok @Builder, enum ContractStatus)
+exception/    Per-entity *NotFoundException classes + GlobalExceptionHandler
+jwt/          JwtUtils, JwtAuthenticationFilter, JwtAuthEntryPoint
+mapper/       8 MapStruct mappers (toDTO / toEntity; some inject repositories for lookups)
+repository/   11 Spring Data JPA repositories (custom @Query for complex searches)
+security/     SecurityConfig (Spring Security 6, stateless JWT chain)
+service/      16 service classes (@Transactional business logic)
+util/         JwtKeyGenerator, TestDataCleaner
+```
+
+**Request flow:**
+`HTTP → JwtAuthenticationFilter → SecurityConfig rules → @PreAuthorize → Controller (@Valid) → Service (@Transactional) → Mapper → Repository → DB`
+
+**Key design decisions:**
+- All DTOs are Java records — do not convert to classes unless necessary.
+- MapStruct mappers are Spring components (`componentModel = "spring"`). Some mappers inject repositories to resolve related entities during mapping.
+- Role-based data visibility is enforced at the service layer: admins see all records, managers see only their assigned contracts.
+- `IEmailService` interface with two implementations: `EmailService` (SMTP) for prod, `DummyEmailService` for dev/test. The active profile selects the bean.
+- Contract expiration is handled by a `@Scheduled` task — `@EnableScheduling` is on the main application class.
+- `daysUntilExpiry` is a calculated field computed in `ContractMapper`, not stored in the DB.
+- Language convention: user-facing exception/validation messages (thrown exceptions, `@NotBlank`/`@Size` etc.) are in Italian, since they reach the Italian-locale frontend UI. Everything else — identifiers, comments, Javadoc, log statements, Swagger/OpenAPI `summary`/`description`, commit messages — is in English. Keep new code on this split; don't mix languages within either category.
+
+## Testing Conventions
+
+- Tests use `@ActiveProfiles("test")` → H2 in-memory DB, Flyway disabled.
+- `@SpringBootTest` + `MockMvc` for integration/controller tests.
+- `@MockitoBean` to mock dependencies in Spring context tests.
+- `@WithMockUser` to inject a security principal.
+- Nested `@Nested` classes group related test cases within a test class.
+- `@ParameterizedTest` with `@CsvSource` for data-driven cases.
+- JaCoCo enforces a 75% minimum coverage threshold on every build; DTOs, entities, config, and the main app class are excluded from measurement.
+- `*IT.java` classes under `integration/` are real-MySQL Testcontainers integration tests, run by `mvn verify` (Failsafe), never by `mvn test` (Surefire only picks up `*Test.java`/`*Tests.java`). They extend `support.AbstractMySQLIntegrationTest`, which force-overrides the `test` profile's `spring.flyway.enabled`/`ddl-auto`/`defer-datasource-initialization` via `@DynamicPropertySource` — don't add those overrides again in a subclass, and don't assume `application-test.properties` describes their datasource config.
+
+## API Surface
+
+- Swagger UI: `http://localhost:8090/api/v1/swagger-ui.html`
+- API docs JSON: `http://localhost:8090/api/v1/api-docs`
+- Health: `http://localhost:8090/api/v1/actuator/health`
+- Prometheus metrics: `http://localhost:8090/api/v1/actuator/prometheus` (custom metrics: `bcm.ml.call`, `bcm.ml.cache.result`, `bcm.embedding.generate` — instrumented via `MeterRegistry` injected into `MlProxyService`/`MlCacheService`/`SemanticSearchService`)
+
+## Code Quality
+
+SpotBugs + FindSecBugs run as part of the build. The project is also configured for SonarQube analysis. Keep all new code free of SpotBugs violations before committing.
