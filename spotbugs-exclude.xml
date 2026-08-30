@@ -85,6 +85,26 @@
         <Bug pattern="PATH_TRAVERSAL_IN"/>
     </Match>
 
+    <!-- NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE in LocalStorageService.store():
+         target.getParent() is flagged as possibly null, but every caller
+         (storeDocument/storeInvoice/storeSepaPayment) builds relativePath
+         with at least one subdirectory segment, so target always has a
+         parent under uploadDir — see the comment on store() itself. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.LocalStorageService"/>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    </Match>
+
+    <!-- PATH_TRAVERSAL_IN in OcrService.createSecureTempFile(): the prefix/
+         suffix arguments passed to Files.createTempFile() are fixed literals
+         from within this class, never raw user input — see the comment on
+         createSecureTempFile() itself. Same false-positive shape as the
+         LocalStorageService match above. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.OcrService"/>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+    </Match>
+
     <!-- CRLF_INJECTION_LOGS in MlCacheRefresher: safeMessage() strips CRLF via
          String.replaceAll before the value reaches the logger, identical to
          the already-sanitized pattern in AuditAspect/OcrService/RiskScoreRefresher
