@@ -128,7 +128,8 @@ public class UserService {
 	 *
 	 * @param dto the user data transfer object
 	 * @return the registered {@link Users} entity
-	 * @throws IllegalArgumentException if username or manager is already in use
+	 * @throws IllegalArgumentException if username or manager is already in use,
+	 * or if the manager belongs to a different tenant than the caller
 	 */
 	public Users registerUser(UserDTO dto) {
 		if (usersRepository.existsByUsername(dto.username())) {
@@ -142,6 +143,15 @@ public class UserService {
 		Users user = userMapper.toEntity(dto);
 		user.setPasswordHash(passwordEncoder.encode(dto.password()));
 		if (user.getManager() != null) {
+			// userMapper.toEntity() resolves the manager by ID without tenant
+			// scoping, so an admin could otherwise attach a manager - and thus
+			// the new user - to a different organization. Reject it here.
+			Long orgId = TenantContext.get();
+			Long managerOrgId = user.getManager().getOrganization() != null
+					? user.getManager().getOrganization().getId() : null;
+			if (orgId != null && !orgId.equals(managerOrgId)) {
+				throw new IllegalArgumentException("ID manager non trovato");
+			}
 			user.setOrganization(user.getManager().getOrganization());
 		}
 		return usersRepository.save(user);

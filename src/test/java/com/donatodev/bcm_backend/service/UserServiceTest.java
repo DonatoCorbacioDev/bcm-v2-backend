@@ -227,6 +227,39 @@ class UserServiceTest {
         }
 
         /**
+         * Test: Creating a user for a manager belonging to a different
+         * organization than the caller's tenant must be rejected -
+         * userMapper.toEntity() resolves the manager by ID without tenant
+         * scoping, so this check is the only thing preventing an admin from
+         * attaching a new user to another organization's manager.
+         */
+        @Test
+        @Order(17)
+        @DisplayName("Create user rejects manager from a different organization")
+        void shouldRejectCreateUserWithCrossTenantManager() {
+            Organization callerOrg = Organization.builder().id(9L).name("Acme").build();
+            Organization otherOrg = Organization.builder().id(42L).name("Other Corp").build();
+            Managers foreignManager = Managers.builder().id(1L).organization(otherOrg).build();
+            UserDTO dto = new UserDTO(null, "user1", "plainpass", 1L, 1L, null, null);
+            Users user = Users.builder().username("user1").manager(foreignManager).build();
+
+            when(usersRepository.existsByUsername("user1")).thenReturn(false);
+            when(userMapper.toEntity(dto)).thenReturn(user);
+            when(passwordEncoder.encode("plainpass")).thenReturn("encodedpass");
+
+            try {
+                TenantContext.set(callerOrg.getId());
+                IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                        () -> userService.createUser(dto));
+                assertEquals("ID manager non trovato", ex.getMessage());
+            } finally {
+                TenantContext.clear();
+            }
+
+            verify(usersRepository, never()).save(any(Users.class));
+        }
+
+        /**
          * Test: Update an existing user with new data and return updated DTO.
          * Verifies manager and role associations.
          */
