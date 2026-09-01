@@ -75,6 +75,31 @@ class AgentNotificationServiceTest {
         }
 
         @Test
+        @Order(13)
+        @DisplayName("Should use singular 'giorno' when the contract expires in exactly 1 day")
+        void shouldNotifyExpiringContractWithSingularDayWord() {
+            Organization org = Organization.builder().id(10L).name("TestOrg").build();
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setEmail("manager@test.com");
+
+            Contracts contract = Contracts.builder()
+                    .id(1L).contractNumber("CNT-005").customerName("Client A")
+                    .status(ContractStatus.ACTIVE)
+                    .endDate(LocalDate.now().plusDays(1))
+                    .manager(manager).build();
+
+            Users user = Users.builder().id(5L).username("mgr").organization(org).build();
+            when(usersRepository.findByManagerEmailIgnoreCase("manager@test.com"))
+                    .thenReturn(Optional.of(user));
+
+            agentNotificationService.notifyExpiringContract(contract);
+
+            verify(notificationService).createForUser(eq(5L), eq(10L), anyString(),
+                    contains("scade tra 1 giorno ("), eq(NotificationType.WARNING));
+        }
+
+        @Test
         @Order(2)
         @DisplayName("Should skip notification when contract has no manager")
         void shouldSkipWhenContractHasNoManager() {

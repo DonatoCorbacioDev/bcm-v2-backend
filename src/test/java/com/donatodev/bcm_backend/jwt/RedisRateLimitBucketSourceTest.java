@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.jwt;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -83,5 +84,39 @@ class RedisRateLimitBucketSourceTest {
         RedisRateLimitBucketSource source = new RedisRateLimitBucketSource(proxyManager);
 
         assertTrue(source.tryConsume("rate-limit:1.2.3.4", 5));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    @DisplayName("Builds a real BucketConfiguration when the proxy manager invokes the lazy supplier")
+    void shouldBuildBucketConfigurationWhenSupplierIsInvoked() {
+        ProxyManager<String> proxyManager = mock(ProxyManager.class);
+        RemoteBucketBuilder<String> builder = mock(RemoteBucketBuilder.class);
+        BucketProxy bucket = mock(BucketProxy.class);
+
+        when(proxyManager.builder()).thenReturn(builder);
+        when(builder.build(anyString(), org.mockito.ArgumentMatchers.<Supplier<BucketConfiguration>>any()))
+                .thenAnswer(invocation -> {
+                    Supplier<BucketConfiguration> configSupplier = invocation.getArgument(1);
+                    assertNotNull(configSupplier.get(), "the bucket configuration built by the supplier");
+                    return bucket;
+                });
+        when(bucket.tryConsume(1L)).thenReturn(true);
+
+        RedisRateLimitBucketSource source = new RedisRateLimitBucketSource(proxyManager);
+
+        assertTrue(source.tryConsume("rate-limit:1.2.3.4", 5));
+    }
+
+    @Test
+    @DisplayName("Fails open with no message logged when the Redis failure has no message")
+    void shouldFailOpenWhenExceptionHasNoMessage() {
+        ProxyManager<String> proxyManager = mock(ProxyManager.class);
+        when(proxyManager.builder()).thenThrow(new RuntimeException());
+
+        RedisRateLimitBucketSource source = new RedisRateLimitBucketSource(proxyManager);
+
+        assertTrue(source.tryConsume("rate-limit:1.2.3.4", 5),
+                "a Redis failure must not block requests even without an exception message");
     }
 }

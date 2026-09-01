@@ -260,6 +260,39 @@ class UserServiceTest {
         }
 
         /**
+         * Test: Creating a user for a manager in the same organization as the
+         * caller must succeed - the tenant check in registerUser() must only
+         * reject a mismatch, not every authenticated request.
+         */
+        @Test
+        @Order(18)
+        @DisplayName("Create user accepts manager from the caller's own organization")
+        void shouldAllowCreateUserWithSameTenantManager() {
+            Organization callerOrg = Organization.builder().id(9L).name("Acme").build();
+            Managers sameOrgManager = Managers.builder().id(1L).organization(callerOrg).build();
+            UserDTO dto = new UserDTO(null, "user1", "plainpass", 1L, 1L, null, null);
+            Users user = Users.builder().username("user1").manager(sameOrgManager).build();
+            Users saved = Users.builder().id(1L).username("user1").manager(sameOrgManager).organization(callerOrg).build();
+            UserDTO savedDTO = new UserDTO(1L, "user1", null, 1L, 1L, null, null);
+
+            when(usersRepository.existsByUsername("user1")).thenReturn(false);
+            when(userMapper.toEntity(dto)).thenReturn(user);
+            when(passwordEncoder.encode("plainpass")).thenReturn("encodedpass");
+            when(usersRepository.save(user)).thenReturn(saved);
+            when(userMapper.toDTO(saved)).thenReturn(savedDTO);
+
+            try {
+                TenantContext.set(callerOrg.getId());
+                UserDTO result = userService.createUser(dto);
+                assertEquals(1L, result.id());
+            } finally {
+                TenantContext.clear();
+            }
+
+            verify(usersRepository).save(user);
+        }
+
+        /**
          * Test: Update an existing user with new data and return updated DTO.
          * Verifies manager and role associations.
          */

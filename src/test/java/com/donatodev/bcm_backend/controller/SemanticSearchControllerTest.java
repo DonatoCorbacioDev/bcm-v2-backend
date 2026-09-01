@@ -19,6 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.donatodev.bcm_backend.dto.SemanticSearchResultDTO;
+import com.donatodev.bcm_backend.exception.SemanticSearchUnavailableException;
 import com.donatodev.bcm_backend.service.SemanticSearchService;
 
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -71,6 +72,20 @@ class SemanticSearchControllerTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"query\":\"penalty clause\"}"))
                     .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Returns 503 when the embedding model is unreachable")
+        void shouldReturn503WhenSemanticSearchUnavailable() throws Exception {
+            when(semanticSearchService.search(anyString(), anyInt()))
+                    .thenThrow(new SemanticSearchUnavailableException("Ollama unreachable", new RuntimeException()));
+
+            mockMvc.perform(post("/contracts/search/semantic")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"query\":\"penalty clause\"}"))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.message").value("Ricerca semantica temporaneamente non disponibile"));
         }
     }
 }

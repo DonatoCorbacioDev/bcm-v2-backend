@@ -2095,6 +2095,75 @@ class ContractServiceTest {
         }
 
         @Test
+        @Order(65)
+        @DisplayName("getExpiringContracts as MANAGER with no manager profile returns empty list")
+        void shouldGetExpiringContractsAsManagerWithNoProfile() {
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            List<ContractDTO> result = contractService.getExpiringContracts(30);
+
+            assertTrue(result.isEmpty());
+            verify(contractsRepository, never()).findExpiringContractsByManager(any(), any(), any());
+        }
+
+        @Test
+        @Order(66)
+        @DisplayName("getContractsByArea as MANAGER with no manager profile returns empty list")
+        void shouldGetContractsByAreaAsManagerWithNoProfile() {
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            List<ContractsByAreaDTO> result = contractService.getContractsByArea();
+
+            assertTrue(result.isEmpty());
+            verify(contractsRepository, never()).countContractsByAreaAndManager(any());
+        }
+
+        @Test
+        @Order(67)
+        @DisplayName("getContractsTimeline as MANAGER with no manager profile returns zero-filled timeline")
+        void shouldGetContractsTimelineAsManagerWithNoProfile() {
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            List<ContractsTimelineDTO> result = contractService.getContractsTimeline();
+
+            assertEquals(12, result.size());
+            assertTrue(result.stream().allMatch(entry -> entry.getCount() == 0L));
+            verify(contractsRepository, never()).countContractsByMonthAndManager(any(), any());
+        }
+
+        @Test
+        @Order(68)
+        @DisplayName("getTopManagers as MANAGER with no manager profile returns empty list")
+        void shouldGetTopManagersAsManagerWithNoProfile() {
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            List<TopManagerDTO> result = contractService.getTopManagers();
+
+            assertTrue(result.isEmpty());
+            verify(contractsRepository, never()).findTopManagerForManager(any());
+        }
+
+        @Test
         @Order(51)
         @DisplayName("Get contracts by status as MANAGER with no manager assigned returns empty list")
         void shouldReturnEmptyListByStatusWhenManagerHasNoManagerAssigned() {
