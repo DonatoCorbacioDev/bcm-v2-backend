@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +33,7 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 public class ContractSchedulerService {
 
     private static final Logger logger = LoggerFactory.getLogger(ContractSchedulerService.class);
-    private static final String CRLF_REGEX = "[\r\n]";
+    private static final Pattern CRLF_PATTERN = Pattern.compile("[\r\n]");
     private static final int[] NOTIFICATION_THRESHOLDS = {30, 14, 7, 1};
 
     private final ContractsRepository contractsRepository;
@@ -103,7 +104,7 @@ public class ContractSchedulerService {
 
     private int processContractForThreshold(Contracts contract, int days) {
         Managers manager = contract.getManager();
-        String safeContractNumber = contract.getContractNumber().replaceAll(CRLF_REGEX, "_");
+        String safeContractNumber = CRLF_PATTERN.matcher(contract.getContractNumber()).replaceAll("_");
         if (manager == null || manager.getEmail() == null) {
             logger.warn("Contract {} has no manager assigned or manager has no email", safeContractNumber);
             return 0;
@@ -112,7 +113,7 @@ public class ContractSchedulerService {
         try {
             sendExpirationEmail(contract, manager, days);
             sent = 1;
-            String safeEmail = manager.getEmail().replaceAll(CRLF_REGEX, "_");
+            String safeEmail = CRLF_PATTERN.matcher(manager.getEmail()).replaceAll("_");
             logger.info("Expiration notification sent for contract: {} ({}d) to manager: {}",
                     safeContractNumber, days, safeEmail);
         } catch (Exception e) {
@@ -139,7 +140,7 @@ public class ContractSchedulerService {
         int expiredCount = 0;
 
         for (Contracts contract : overdueContracts) {
-            String safeContractNumber = contract.getContractNumber().replaceAll(CRLF_REGEX, "_");
+            String safeContractNumber = CRLF_PATTERN.matcher(contract.getContractNumber()).replaceAll("_");
             logger.info("Expiring contract: {} (ID: {}) - End date: {}",
                     safeContractNumber,
                     contract.getId(),

@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +28,7 @@ public class WeeklyDigestService {
     private static final int MAX_ROWS = 5;
     private static final String CLOSE_DIV = "</div>";
     private static final String CLOSE_TD = "</td>";
-    private static final String CRLF_REGEX = "[\r\n]";
+    private static final Pattern CRLF_PATTERN = Pattern.compile("[\r\n]");
 
     private final OrganizationRepository organizationRepository;
     private final ContractsRepository contractsRepository;
@@ -54,7 +55,7 @@ public class WeeklyDigestService {
             try {
                 sent += sendDigestForOrg(org);
             } catch (Exception e) {
-                String safeName = org.getName().replaceAll(CRLF_REGEX, "_");
+                String safeName = CRLF_PATTERN.matcher(org.getName()).replaceAll("_");
                 logger.warn("Weekly digest failed for org {} (id={}): {}", safeName, org.getId(), e.getMessage());
             }
         }

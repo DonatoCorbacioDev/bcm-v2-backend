@@ -5,6 +5,7 @@ import java.time.format.TextStyle;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +25,7 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 public class MonthlyReporter {
 
     private static final Logger logger = LoggerFactory.getLogger(MonthlyReporter.class);
-    private static final String CRLF_REGEX = "[\r\n]";
+    private static final Pattern CRLF_PATTERN = Pattern.compile("[\r\n]");
 
     private final OrganizationRepository organizationRepository;
     private final ContractsRepository contractsRepository;
@@ -62,7 +63,7 @@ public class MonthlyReporter {
                 sendReportForOrg(org, year, month);
                 sent++;
             } catch (Exception e) {
-                String safeName = org.getName().replaceAll(CRLF_REGEX, "_");
+                String safeName = CRLF_PATTERN.matcher(org.getName()).replaceAll("_");
                 logger.error("Failed to send monthly report for org {}: {}", safeName, e.getMessage());
             }
         }
@@ -94,11 +95,11 @@ public class MonthlyReporter {
                     emailService.sendEmail(admin.getManager().getEmail(), subject, body);
                     if (logger.isInfoEnabled()) {
                         logger.info("Monthly report sent to {} for org {}",
-                                admin.getUsername().replaceAll(CRLF_REGEX, "_"), org.getId());
+                                CRLF_PATTERN.matcher(admin.getUsername()).replaceAll("_"), org.getId());
                     }
                 } catch (Exception e) {
                     logger.error("Failed to send report email to {}: {}",
-                            admin.getUsername().replaceAll(CRLF_REGEX, "_"), e.getMessage());
+                            CRLF_PATTERN.matcher(admin.getUsername()).replaceAll("_"), e.getMessage());
                 }
             }
         }
