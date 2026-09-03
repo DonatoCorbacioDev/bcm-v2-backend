@@ -5,8 +5,11 @@ import java.time.Month;
 import java.util.Collections;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -17,17 +20,20 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.donatodev.bcm_backend.dto.NotificationDTO;
 import com.donatodev.bcm_backend.entity.NotificationType;
+import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.NotificationNotFoundException;
 import com.donatodev.bcm_backend.service.NotificationService;
 
@@ -133,6 +139,74 @@ class NotificationControllerTest {
         @DisplayName("Should return 401 for unauthenticated request")
         void shouldReturn401WhenNotAuthenticated() throws Exception {
             mockMvc.perform(patch("/notifications/1/read"))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @DisplayName("POST /notifications")
+    @SuppressWarnings("unused")
+    class CreateReminder {
+
+        @Test
+        @Order(1)
+        @DisplayName("Should return 201 when the reminder is created")
+        @WithMockUser(roles = "ADMIN")
+        void shouldReturn201OnSuccess() throws Exception {
+            doNothing().when(notificationService).createReminderForCurrentUser(5L, "Rinnovo in scadenza");
+
+            mockMvc.perform(post("/notifications")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"contractId\":5,\"message\":\"Rinnovo in scadenza\"}"))
+                    .andExpect(status().isCreated());
+
+            verify(notificationService).createReminderForCurrentUser(5L, "Rinnovo in scadenza");
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("Should return 404 when the contract is not in the caller's org")
+        @WithMockUser(roles = "MANAGER")
+        void shouldReturn404WhenContractNotFound() throws Exception {
+            doThrow(new ContractNotFoundException("Contratto ID 999 non trovato"))
+                    .when(notificationService).createReminderForCurrentUser(anyLong(), anyString());
+
+            mockMvc.perform(post("/notifications")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"contractId\":999,\"message\":\"hi\"}"))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("Should return 400 when the message is blank")
+        @WithMockUser(roles = "ADMIN")
+        void shouldReturn400WhenMessageBlank() throws Exception {
+            mockMvc.perform(post("/notifications")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"contractId\":5,\"message\":\"\"}"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @Order(4)
+        @DisplayName("Should return 400 when contractId is missing")
+        @WithMockUser(roles = "ADMIN")
+        void shouldReturn400WhenContractIdMissing() throws Exception {
+            mockMvc.perform(post("/notifications")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"message\":\"hi\"}"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @Order(5)
+        @DisplayName("Should return 401 for unauthenticated request")
+        void shouldReturn401WhenNotAuthenticated() throws Exception {
+            mockMvc.perform(post("/notifications")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"contractId\":5,\"message\":\"hi\"}"))
                     .andExpect(status().isUnauthorized());
         }
     }

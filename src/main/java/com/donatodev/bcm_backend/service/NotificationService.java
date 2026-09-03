@@ -9,23 +9,33 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.NotificationDTO;
+import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Notification;
 import com.donatodev.bcm_backend.entity.NotificationType;
 import com.donatodev.bcm_backend.entity.Users;
+import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.NotificationNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
+import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.NotificationRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 
 @Service
 public class NotificationService {
 
+    private static final int TITLE_MAX_LENGTH = 200;
+
     private final NotificationRepository notificationRepository;
     private final UsersRepository usersRepository;
+    private final ContractsRepository contractsRepository;
 
-    public NotificationService(NotificationRepository notificationRepository, UsersRepository usersRepository) {
+    public NotificationService(
+            NotificationRepository notificationRepository,
+            UsersRepository usersRepository,
+            ContractsRepository contractsRepository) {
         this.notificationRepository = notificationRepository;
         this.usersRepository = usersRepository;
+        this.contractsRepository = contractsRepository;
     }
 
     @Transactional
@@ -40,6 +50,28 @@ public class NotificationService {
                 .message(message)
                 .type(type)
                 .build());
+    }
+
+    // Re-validates contract ownership against the caller's own org — this is the
+    // human-confirmation step for an agent-proposed reminder, so it must never
+    // trust the contractId at face value just because the ML service already
+    // checked it once; the write only happens here, behind normal auth.
+    @Transactional
+    public void createReminderForCurrentUser(Long contractId, String message) {
+        Users user = resolveCurrentUser();
+        Long orgId = TenantContext.get();
+
+        Contracts contract = (orgId != null
+                ? contractsRepository.findByIdAndOrganization_Id(contractId, orgId)
+                : contractsRepository.findById(contractId))
+                .orElseThrow(() -> new ContractNotFoundException("Contratto ID " + contractId + " non trovato"));
+
+        String title = "Promemoria: " + contract.getCustomerName();
+        if (title.length() > TITLE_MAX_LENGTH) {
+            title = title.substring(0, TITLE_MAX_LENGTH);
+        }
+
+        createForUser(user.getId(), orgId, title, message, NotificationType.INFO);
     }
 
     @Transactional
