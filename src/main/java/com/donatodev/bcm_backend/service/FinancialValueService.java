@@ -114,8 +114,8 @@ public class FinancialValueService {
      * @return the created {@link FinancialValueDTO}
      */
     public FinancialValueDTO createValue(FinancialValueDTO dto) {
-        FinancialValues value = financialValueMapper.toEntity(dto);
         Long orgId = TenantContext.get();
+        FinancialValues value = financialValueMapper.toEntity(dto, orgId);
         if (orgId != null) {
             Organization org = new Organization();
             org.setId(orgId);
@@ -144,7 +144,7 @@ public class FinancialValueService {
 
         checkAccessToFinancialValue(value);
 
-        financialValueMapper.updateEntity(value, dto);
+        financialValueMapper.updateEntity(value, dto, orgId);
 
         value = financialValuesRepository.save(value);
         mlCacheService.evictAllForOrg(orgId);

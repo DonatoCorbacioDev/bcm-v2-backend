@@ -220,7 +220,7 @@ class FinancialValueServiceTest {
             FinancialValues saved = FinancialValues.builder().id(1L).build();
             FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
-            when(mapper.toEntity(dto)).thenReturn(entity);
+            when(mapper.toEntity(dto, null)).thenReturn(entity);
             when(valuesRepository.save(entity)).thenReturn(saved);
             when(mapper.toDTO(saved)).thenReturn(savedDTO);
 
@@ -255,7 +255,7 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(contractManager).build())
                     .build();
 
-            when(mapper.toEntity(dto)).thenReturn(entity);
+            when(mapper.toEntity(dto, null)).thenReturn(entity);
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
 
             assertThrows(AccessDeniedException.class, () -> service.createValue(dto));
@@ -521,7 +521,7 @@ class FinancialValueServiceTest {
 
             FinancialValueDTO result = service.updateValue(1L, dto);
 
-            verify(mapper).updateEntity(entity, dto);
+            verify(mapper).updateEntity(entity, dto, null);
             verify(valuesRepository).save(entity);
             assertEquals(2L, result.financialTypeId());
             assertEquals(750.0, result.financialAmount());
@@ -699,7 +699,7 @@ class FinancialValueServiceTest {
 
             com.donatodev.bcm_backend.config.TenantContext.set(8L);
             try {
-                when(mapper.toEntity(dto)).thenReturn(entity);
+                when(mapper.toEntity(dto, 8L)).thenReturn(entity);
                 when(valuesRepository.save(entity)).thenReturn(saved);
                 when(mapper.toDTO(saved)).thenReturn(savedDto);
 
@@ -919,7 +919,7 @@ class FinancialValueServiceTest {
 
             com.donatodev.bcm_backend.config.TenantContext.set(36L);
             try {
-                when(mapper.toEntity(dto)).thenReturn(entity);
+                when(mapper.toEntity(dto, 36L)).thenReturn(entity);
                 when(valuesRepository.save(entity)).thenReturn(saved);
                 when(mapper.toDTO(saved)).thenReturn(savedDTO);
 
@@ -1007,7 +1007,7 @@ class FinancialValueServiceTest {
             FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
             FinancialValues entity = FinancialValues.builder().build();
 
-            when(mapper.toEntity(dto)).thenReturn(entity);
+            when(mapper.toEntity(dto, null)).thenReturn(entity);
             when(valuesRepository.save(entity)).thenThrow(new RuntimeException("db unavailable"));
 
             assertThrows(RuntimeException.class, () -> service.createValue(dto));
@@ -1057,7 +1057,7 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(contractManager).build())
                     .build();
 
-            when(mapper.toEntity(dto)).thenReturn(entity);
+            when(mapper.toEntity(dto, null)).thenReturn(entity);
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
 
             assertThrows(AccessDeniedException.class, () -> service.createValue(dto));

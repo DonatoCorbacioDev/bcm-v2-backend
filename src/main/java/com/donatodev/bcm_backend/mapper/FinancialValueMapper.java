@@ -3,7 +3,13 @@ package com.donatodev.bcm_backend.mapper;
 import org.springframework.stereotype.Component;
 
 import com.donatodev.bcm_backend.dto.FinancialValueDTO;
+import com.donatodev.bcm_backend.entity.BusinessAreas;
+import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.entity.FinancialValues;
+import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
+import com.donatodev.bcm_backend.exception.ContractNotFoundException;
+import com.donatodev.bcm_backend.exception.FinancialTypeNotFoundException;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
@@ -60,45 +66,76 @@ public class FinancialValueMapper {
     /**
      * Updates an existing {@link FinancialValues} entity in-place from a
      * {@link FinancialValueDTO}, resolving all relation changes via repositories.
+     * Every relation is re-resolved scoped to {@code orgId} — see
+     * {@link #resolveContract}, {@link #resolveFinancialType}, {@link #resolveBusinessArea}
+     * for why this can't be a plain unscoped lookup by ID.
      *
      * @param existing the entity to update
      * @param dto      the DTO with the new values
-     * @throws RuntimeException if any referenced entity is not found
+     * @param orgId    the caller's organization, or {@code null} outside an
+     *                 authenticated HTTP request (see the scoped resolve helpers)
      */
-    public void updateEntity(FinancialValues existing, FinancialValueDTO dto) {
+    public void updateEntity(FinancialValues existing, FinancialValueDTO dto, Long orgId) {
         existing.setMonth(dto.month());
         existing.setYear(dto.year());
         existing.setFinancialAmount(dto.financialAmount());
-        existing.setFinancialType(financialTypesRepository.findById(dto.financialTypeId())
-                .orElseThrow(() -> new RuntimeException("Financial type not found")));
-        existing.setBusinessArea(businessAreaRepository.findById(dto.businessAreaId())
-                .orElseThrow(() -> new RuntimeException("Business area not found")));
-        existing.setContract(contractsRepository.findById(dto.contractId())
-                .orElseThrow(() -> new RuntimeException("Contract not found")));
+        existing.setFinancialType(resolveFinancialType(dto.financialTypeId(), orgId));
+        existing.setBusinessArea(resolveBusinessArea(dto.businessAreaId(), orgId));
+        existing.setContract(resolveContract(dto.contractId(), orgId));
     }
 
     /**
      * Converts a {@link FinancialValueDTO} to a {@link FinancialValues} entity.
      * <p>
      * This method also retrieves related entities (type, area, contract) from
-     * the database.
+     * the database, each scoped to {@code orgId} (see the scoped resolve helpers) —
+     * a financialTypeId/businessAreaId/contractId belonging to another
+     * organization must never attach to this value.
      *
-     * @param dto the DTO to convert
+     * @param dto   the DTO to convert
+     * @param orgId the caller's organization, or {@code null} outside an
+     *              authenticated HTTP request
      * @return the corresponding entity
-     * @throws RuntimeException if any referenced entity is not found
      */
-    public FinancialValues toEntity(FinancialValueDTO dto) {
+    public FinancialValues toEntity(FinancialValueDTO dto, Long orgId) {
         return FinancialValues.builder()
                 .id(dto.id())
                 .month(dto.month())
                 .year(dto.year())
                 .financialAmount(dto.financialAmount())
-                .financialType(financialTypesRepository.findById(dto.financialTypeId())
-                        .orElseThrow(() -> new RuntimeException("Financial type not found")))
-                .businessArea(businessAreaRepository.findById(dto.businessAreaId())
-                        .orElseThrow(() -> new RuntimeException("Business area not found")))
-                .contract(contractsRepository.findById(dto.contractId())
-                        .orElseThrow(() -> new RuntimeException("Contract not found")))
+                .financialType(resolveFinancialType(dto.financialTypeId(), orgId))
+                .businessArea(resolveBusinessArea(dto.businessAreaId(), orgId))
+                .contract(resolveContract(dto.contractId(), orgId))
                 .build();
+    }
+
+    // orgId is null only outside a real HTTP request (e.g. tests using
+    // @WithMockUser without the JWT filter) — same fallback convention used
+    // throughout the service layer (see ContractService.findContractInScope).
+    // Whenever orgId is present, the lookup MUST be scoped: these three IDs
+    // come straight from client input, and an unscoped findById would let a
+    // caller attach another organization's contract/type/area to their own
+    // financial value (real, exploitable cross-tenant leak — see the
+    // anomaly-detection join in bcm-v2-ml, which trusts this association).
+
+    private Contracts resolveContract(Long id, Long orgId) {
+        return (orgId != null
+                ? contractsRepository.findByIdAndOrganization_Id(id, orgId)
+                : contractsRepository.findById(id))
+                .orElseThrow(() -> new ContractNotFoundException("Contratto ID " + id + " non trovato"));
+    }
+
+    private FinancialTypes resolveFinancialType(Long id, Long orgId) {
+        return (orgId != null
+                ? financialTypesRepository.findByIdAndOrganizationId(id, orgId)
+                : financialTypesRepository.findById(id))
+                .orElseThrow(() -> new FinancialTypeNotFoundException("Tipo finanziario ID " + id + " non trovato"));
+    }
+
+    private BusinessAreas resolveBusinessArea(Long id, Long orgId) {
+        return (orgId != null
+                ? businessAreaRepository.findByIdAndOrganizationId(id, orgId)
+                : businessAreaRepository.findById(id))
+                .orElseThrow(() -> new BusinessAreaNotFoundException("Area di business ID " + id + " non trovata"));
     }
 }
