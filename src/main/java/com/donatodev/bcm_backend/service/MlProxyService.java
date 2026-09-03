@@ -118,6 +118,32 @@ public class MlProxyService {
         }
     }
 
+    public ResponseEntity<String> askAgent(String question) {
+        Long orgId = TenantContext.get();
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/agent/ask");
+        if (orgId != null) {
+            uriBuilder.queryParam("org_id", orgId);
+        }
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        if (internalApiKey != null && !internalApiKey.isBlank()) {
+            headers.set("X-Internal-Api-Key", internalApiKey);
+        }
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(Map.of("question", question), headers);
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(
+                    uriBuilder.toUriString(), HttpMethod.POST, entity, String.class);
+            recordCallTiming(sample, "agent-ask", "success");
+            return ResponseEntity.status(response.getStatusCode())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(response.getBody());
+        } catch (RestClientException e) {
+            recordCallTiming(sample, "agent-ask", "error");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+    }
+
     // ── Raw methods for the nightly refresher (bypass cache) ────────────────
 
     public ResponseEntity<String> fetchForecastRaw(int months, Long orgId) {

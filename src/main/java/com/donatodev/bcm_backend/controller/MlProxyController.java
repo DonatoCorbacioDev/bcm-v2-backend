@@ -3,10 +3,15 @@ package com.donatodev.bcm_backend.controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.donatodev.bcm_backend.dto.AskAgentRequest;
 import com.donatodev.bcm_backend.service.MlProxyService;
+
+import jakarta.validation.Valid;
 
 /**
  * Exposes the ML forecast/risk-score data to the authenticated frontend.
@@ -32,6 +37,12 @@ public class MlProxyController {
     @GetMapping("/agent/insights")
     public ResponseEntity<String> getAgentInsights(@RequestParam(defaultValue = "3") int months) {
         return mlProxyService.getAgentInsights(months);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PostMapping("/agent/ask")
+    public ResponseEntity<String> askAgent(@Valid @RequestBody AskAgentRequest request) {
+        return mlProxyService.askAgent(request.question());
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")

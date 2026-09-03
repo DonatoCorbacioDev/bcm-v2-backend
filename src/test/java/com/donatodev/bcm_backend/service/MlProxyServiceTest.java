@@ -412,6 +412,60 @@ class MlProxyServiceTest {
 
     @Nested
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @DisplayName("askAgent()")
+    @SuppressWarnings("unused")
+    class AskAgent {
+
+        @Test
+        @Order(1)
+        @DisplayName("Posts the question and org_id to /agent/ask and returns the response body")
+        void shouldPostQuestionWithOrgId() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(4L);
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"answer\":\"...\"}"));
+
+            ResponseEntity<String> result = mlProxyService.askAgent("Which contracts expire soon?");
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+            verify(restTemplate).exchange(contains("org_id=4"), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(
+                    anyString(), eq(HttpMethod.POST),
+                    org.mockito.ArgumentMatchers.argThat((HttpEntity<?> e) ->
+                            "Which contracts expire soon?".equals(((java.util.Map<?, ?>) e.getBody()).get("question"))),
+                    eq(String.class));
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("Omits org_id when TenantContext is empty")
+        void shouldOmitOrgIdWhenTenantContextEmpty() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{}"));
+
+            mlProxyService.askAgent("Any question");
+
+            verify(restTemplate).exchange(
+                    eq(FASTAPI_URL + "/agent/ask"), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("Returns 503 when the ML service is unreachable")
+        void shouldReturn503WhenMlUnreachable() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                    .thenThrow(new ResourceAccessException("Connection refused"));
+
+            ResponseEntity<String> result = mlProxyService.askAgent("Any question");
+
+            assertEquals(HttpStatus.SERVICE_UNAVAILABLE, result.getStatusCode());
+        }
+    }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
     @DisplayName("Error handling and headers")
     @SuppressWarnings("unused")
     class ErrorHandling {

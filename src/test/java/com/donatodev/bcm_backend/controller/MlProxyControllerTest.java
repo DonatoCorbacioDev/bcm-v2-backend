@@ -17,9 +17,11 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -195,6 +197,72 @@ class MlProxyControllerTest {
                     ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build());
 
             mockMvc.perform(get("/anomalies"))
+                    .andExpect(status().isServiceUnavailable());
+        }
+
+        @Test
+        @Order(65)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Admin can ask the agent a question")
+        void shouldAnswerQuestionForAdmin() throws Exception {
+            when(mlProxyService.askAgent("Which contracts expire soon?")).thenReturn(
+                    ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body("{\"answer\":\"...\"}"));
+
+            mockMvc.perform(post("/agent/ask")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"question\":\"Which contracts expire soon?\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().json("{\"answer\":\"...\"}"));
+
+            verify(mlProxyService).askAgent("Which contracts expire soon?");
+        }
+
+        @Test
+        @Order(66)
+        @WithMockUser(roles = "MANAGER")
+        @DisplayName("Manager can ask the agent a question")
+        void shouldAnswerQuestionForManager() throws Exception {
+            when(mlProxyService.askAgent(anyString())).thenReturn(
+                    ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body("{}"));
+
+            mockMvc.perform(post("/agent/ask")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"question\":\"Any question\"}"))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @Order(67)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Rejects a blank question")
+        void shouldRejectBlankQuestion() throws Exception {
+            mockMvc.perform(post("/agent/ask")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"question\":\"\"}"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @Order(68)
+        @DisplayName("Unauthenticated request to agent ask is denied")
+        void shouldReturn401ForUnauthenticatedAgentAsk() throws Exception {
+            mockMvc.perform(post("/agent/ask")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"question\":\"Any question\"}"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @Order(69)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Propagates 503 for agent ask when ML service is unavailable")
+        void shouldPropagate503ForAgentAsk() throws Exception {
+            when(mlProxyService.askAgent(anyString())).thenReturn(
+                    ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build());
+
+            mockMvc.perform(post("/agent/ask")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"question\":\"Any question\"}"))
                     .andExpect(status().isServiceUnavailable());
         }
     }
