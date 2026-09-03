@@ -115,6 +115,55 @@ class MlProxyControllerTest {
         }
 
         @Test
+        @Order(61)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Admin can fetch agent insights, default months=3")
+        void shouldReturnAgentInsightsForAdmin() throws Exception {
+            when(mlProxyService.getAgentInsights(3)).thenReturn(
+                    ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body("{\"report\":\"...\"}"));
+
+            mockMvc.perform(get("/agent/insights"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().json("{\"report\":\"...\"}"));
+
+            verify(mlProxyService).getAgentInsights(3);
+        }
+
+        @Test
+        @Order(62)
+        @WithMockUser(roles = "MANAGER")
+        @DisplayName("Manager can fetch agent insights with a custom months value")
+        void shouldForwardCustomMonthsForAgentInsights() throws Exception {
+            when(mlProxyService.getAgentInsights(anyInt())).thenReturn(
+                    ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body("{}"));
+
+            mockMvc.perform(get("/agent/insights?months=6"))
+                    .andExpect(status().isOk());
+
+            verify(mlProxyService).getAgentInsights(6);
+        }
+
+        @Test
+        @Order(63)
+        @DisplayName("Unauthenticated request to agent insights is denied")
+        void shouldReturn401ForUnauthenticatedAgentInsights() throws Exception {
+            mockMvc.perform(get("/agent/insights"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @Order(64)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Propagates 503 for agent insights when ML service is unavailable")
+        void shouldPropagate503ForAgentInsights() throws Exception {
+            when(mlProxyService.getAgentInsights(3)).thenReturn(
+                    ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build());
+
+            mockMvc.perform(get("/agent/insights"))
+                    .andExpect(status().isServiceUnavailable());
+        }
+
+        @Test
         @Order(7)
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Admin can fetch anomalies")

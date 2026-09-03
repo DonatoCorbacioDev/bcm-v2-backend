@@ -63,6 +63,21 @@ public class MlProxyService {
         return response;
     }
 
+    public ResponseEntity<String> getAgentInsights(int months) {
+        Long orgId = TenantContext.get();
+        String key = "AGENT_INSIGHTS_" + months;
+        Optional<String> cached = mlCacheService.get(orgId, key);
+        if (cached.isPresent()) {
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
+        }
+        ResponseEntity<String> response = callMl(
+                UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/agent/insights").queryParam("months", months), orgId, "agent-insights");
+        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            mlCacheService.put(orgId, key, response.getBody());
+        }
+        return response;
+    }
+
     public ResponseEntity<String> getAnomalies() {
         Long orgId = TenantContext.get();
         Optional<String> cached = mlCacheService.get(orgId, "ANOMALIES");

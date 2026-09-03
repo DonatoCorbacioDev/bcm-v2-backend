@@ -136,6 +136,79 @@ class MlProxyServiceTest {
 
     @Nested
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @DisplayName("getAgentInsights()")
+    @SuppressWarnings("unused")
+    class GetAgentInsights {
+
+        @Test
+        @Order(1)
+        @DisplayName("Forwards months and org_id to FastAPI on cache miss")
+        void shouldForwardAgentInsightsWithOrgId() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            when(mlCacheService.get(5L, "AGENT_INSIGHTS_6")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"report\":\"...\"}"));
+
+            ResponseEntity<String> result = mlProxyService.getAgentInsights(6);
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+            verify(restTemplate).exchange(contains("/agent/insights"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(contains("months=6"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(contains("org_id=5"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(mlCacheService).put(5L, "AGENT_INSIGHTS_6", "{\"report\":\"...\"}");
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("Returns cached value without calling FastAPI on cache hit")
+        void shouldReturnCachedValueOnHit() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(1L);
+            when(mlCacheService.get(1L, "AGENT_INSIGHTS_3")).thenReturn(Optional.of("{\"report\":\"cached\"}"));
+
+            ResponseEntity<String> result = mlProxyService.getAgentInsights(3);
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+            assertEquals("{\"report\":\"cached\"}", result.getBody());
+            verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("Does not cache a non-2xx response from FastAPI")
+        void shouldNotCacheOnNon2xxResponse() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            when(mlCacheService.get(5L, "AGENT_INSIGHTS_3")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenThrow(new ResourceAccessException("Connection refused"));
+
+            ResponseEntity<String> result = mlProxyService.getAgentInsights(3);
+
+            assertEquals(HttpStatus.SERVICE_UNAVAILABLE, result.getStatusCode());
+            verify(mlCacheService, never()).put(any(), any(), any());
+        }
+
+        @Test
+        @Order(4)
+        @DisplayName("Does not cache a 2xx response with a null body")
+        void shouldNotCacheOnNullBody() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            when(mlCacheService.get(5L, "AGENT_INSIGHTS_3")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.status(HttpStatus.OK).body(null));
+
+            ResponseEntity<String> result = mlProxyService.getAgentInsights(3);
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+            verify(mlCacheService, never()).put(any(), any(), any());
+        }
+    }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
     @DisplayName("getAnomalies()")
     @SuppressWarnings("unused")
     class GetAnomalies {

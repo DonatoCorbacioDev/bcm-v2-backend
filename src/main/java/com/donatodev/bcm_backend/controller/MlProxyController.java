@@ -29,6 +29,12 @@ public class MlProxyController {
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @GetMapping("/agent/insights")
+    public ResponseEntity<String> getAgentInsights(@RequestParam(defaultValue = "3") int months) {
+        return mlProxyService.getAgentInsights(months);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @GetMapping("/risk-scores")
     public ResponseEntity<String> getRiskScores() {
         return mlProxyService.getRiskScores();
