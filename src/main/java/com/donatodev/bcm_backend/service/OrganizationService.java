@@ -109,9 +109,6 @@ public class OrganizationService {
         if (request.name() != null && !request.name().isBlank()) {
             org.setName(request.name());
         }
-        if (request.subscriptionTier() != null) {
-            org.setSubscriptionTier(request.subscriptionTier());
-        }
         if (request.iban() != null) {
             String normalizedIban = request.iban().replace(" ", "").toUpperCase(Locale.ROOT);
             if (!normalizedIban.isEmpty() && !IbanValidator.isValid(normalizedIban)) {

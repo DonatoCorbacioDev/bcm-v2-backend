@@ -270,7 +270,7 @@ class OrganizationControllerTest {
         @Test
         @Order(1)
         @WithMockUser(username = "update-admin", roles = "ADMIN")
-        @DisplayName("Admin updates organization name and tier")
+        @DisplayName("Admin updates organization name; a subscriptionTier in the body is ignored, not self-service")
         void shouldUpdateOrgNameAndTier() throws Exception {
             seedAdminUser();
             mockMvc.perform(put(ME_URL)
@@ -278,7 +278,7 @@ class OrganizationControllerTest {
                     .content("{\"name\":\"New Name\",\"subscriptionTier\":\"PRO\"}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.name").value("New Name"))
-                    .andExpect(jsonPath("$.subscriptionTier").value("PRO"));
+                    .andExpect(jsonPath("$.subscriptionTier").value("FREE"));
         }
 
         @Test

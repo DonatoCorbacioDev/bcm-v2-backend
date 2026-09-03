@@ -147,7 +147,7 @@ class OrganizationServiceTest {
 
         @Test
         @Order(5)
-        @DisplayName("updateMyOrganization updates name and tier via TenantContext")
+        @DisplayName("updateMyOrganization updates name via TenantContext; subscriptionTier is not self-service")
         void shouldUpdateOrganization() {
             Organization org = Organization.builder()
                     .id(1L).name("Old Name").slug("old-name")
@@ -158,11 +158,11 @@ class OrganizationServiceTest {
                 when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
                 when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-                UpdateOrganizationRequest req = new UpdateOrganizationRequest("New Name", SubscriptionTier.PRO, null, null);
+                UpdateOrganizationRequest req = new UpdateOrganizationRequest("New Name", null, null);
                 OrganizationDTO result = organizationService.updateMyOrganization(req);
 
                 assertEquals("New Name", result.name());
-                assertEquals(SubscriptionTier.PRO, result.subscriptionTier());
+                assertEquals(SubscriptionTier.FREE, result.subscriptionTier());
             } finally {
                 com.donatodev.bcm_backend.config.TenantContext.clear();
             }
@@ -223,11 +223,11 @@ class OrganizationServiceTest {
                 when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
                 // name = null → should NOT update name
-                UpdateOrganizationRequest req = new UpdateOrganizationRequest(null, SubscriptionTier.PRO, null, null);
+                UpdateOrganizationRequest req = new UpdateOrganizationRequest(null, null, null);
                 OrganizationDTO result = organizationService.updateMyOrganization(req);
 
                 assertEquals("Original", result.name()); // name unchanged
-                assertEquals(SubscriptionTier.PRO, result.subscriptionTier());
+                assertEquals(SubscriptionTier.FREE, result.subscriptionTier()); // tier unchanged
             } finally {
                 com.donatodev.bcm_backend.config.TenantContext.clear();
             }
@@ -246,7 +246,7 @@ class OrganizationServiceTest {
                 when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
                 // name = "  " (blank) → should NOT update name
-                UpdateOrganizationRequest req = new UpdateOrganizationRequest("   ", null, null, null);
+                UpdateOrganizationRequest req = new UpdateOrganizationRequest("   ", null, null);
                 OrganizationDTO result = organizationService.updateMyOrganization(req);
 
                 assertEquals("Original", result.name()); // name unchanged
@@ -325,7 +325,7 @@ class OrganizationServiceTest {
                 when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
                 UpdateOrganizationRequest req = new UpdateOrganizationRequest(
-                        null, null, "de89 3704 0044 0532 0130 00", "cobadeffxxx");
+                        null, "de89 3704 0044 0532 0130 00", "cobadeffxxx");
                 OrganizationDTO result = organizationService.updateMyOrganization(req);
 
                 assertEquals("DE89370400440532013000", result.iban());
@@ -347,7 +347,7 @@ class OrganizationServiceTest {
                 when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
 
                 UpdateOrganizationRequest req = new UpdateOrganizationRequest(
-                        null, null, "IT00X0000000000000000000000", null);
+                        null, "IT00X0000000000000000000000", null);
 
                 assertThrows(IllegalArgumentException.class,
                         () -> organizationService.updateMyOrganization(req));
@@ -368,7 +368,7 @@ class OrganizationServiceTest {
                 when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
                 when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-                UpdateOrganizationRequest req = new UpdateOrganizationRequest(null, null, "", "");
+                UpdateOrganizationRequest req = new UpdateOrganizationRequest(null, "", "");
                 OrganizationDTO result = organizationService.updateMyOrganization(req);
 
                 assertNull(result.iban());
