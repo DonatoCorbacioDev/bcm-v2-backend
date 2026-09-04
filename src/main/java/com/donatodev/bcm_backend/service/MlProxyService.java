@@ -183,6 +183,10 @@ public class MlProxyService {
         return callMl(UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/anomalies"), orgId, "anomalies");
     }
 
+    public ResponseEntity<String> fetchRiskScoresRaw(Long orgId) {
+        return callMl(UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/risk-scores"), orgId, "risk-scores");
+    }
+
     // ── Internal helpers ─────────────────────────────────────────────────────
 
     /**

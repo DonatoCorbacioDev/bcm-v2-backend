@@ -105,14 +105,29 @@
         <Bug pattern="PATH_TRAVERSAL_IN"/>
     </Match>
 
-    <!-- CRLF_INJECTION_LOGS in MlCacheRefresher: safeMessage() strips CRLF via
-         String.replaceAll before the value reaches the logger, identical to
-         the already-sanitized pattern in AuditAspect/OcrService/RiskScoreRefresher
+    <!-- CRLF_INJECTION_LOGS in MlCacheRefresher/RiskScoreRefresher: safeMessage()
+         strips CRLF via String.replaceAll before the value reaches the logger,
+         identical to the already-sanitized pattern in AuditAspect/OcrService
          (which FindSecBugs's taint tracker does resolve on its own — this one
-         instance it does not, likely an analysis-depth quirk). -->
+         instance, a two-argument logger.warn(fmt, orgId, safeMessage(e)) call,
+         it does not, likely an analysis-depth quirk). -->
     <Match>
         <Class name="com.donatodev.bcm_backend.service.MlCacheRefresher"/>
         <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.RiskScoreRefresher"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
+    <!-- REC_CATCH_EXCEPTION in RiskScoreRefresher.refreshForOrg(): the try block
+         calls ObjectMapper.readValue(), which declares the checked
+         JsonProcessingException, alongside an ML call that can throw an
+         unchecked exception — Exception is the actual common supertype needed
+         here, not an overly broad catch. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.RiskScoreRefresher"/>
+        <Bug pattern="REC_CATCH_EXCEPTION"/>
     </Match>
 
     <!-- CRLF_INJECTION_LOGS in OcrService: same already-sanitized safeMessage()

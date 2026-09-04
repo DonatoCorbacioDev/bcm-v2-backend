@@ -450,6 +450,27 @@ class MlProxyServiceTest {
             verify(restTemplate).exchange(contains("/anomalies"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
             verify(restTemplate).exchange(contains("org_id=7"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
         }
+
+        @Test
+        @Order(8)
+        @DisplayName("fetchRiskScoresRaw bypasses cache, attaches org_id and the internal API key")
+        void fetchRiskScoresRawBypassesCache() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            ReflectionTestUtils.setField(mlProxyService, "internalApiKey", "secret");
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("[]"));
+
+            mlProxyService.fetchRiskScoresRaw(7L);
+
+            verify(mlCacheService, never()).get(any(), anyString());
+            verify(restTemplate).exchange(contains("/risk-scores"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(contains("org_id=7"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(
+                    anyString(), eq(HttpMethod.GET),
+                    org.mockito.ArgumentMatchers.argThat((HttpEntity<?> e) ->
+                            "secret".equals(e.getHeaders().getFirst("X-Internal-Api-Key"))),
+                    eq(String.class));
+        }
     }
 
     @Nested
