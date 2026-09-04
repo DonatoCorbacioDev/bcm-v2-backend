@@ -10,12 +10,18 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.donatodev.bcm_backend.config.TenantContext;
+import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.entity.Users;
+import com.donatodev.bcm_backend.repository.UsersRepository;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -26,6 +32,12 @@ import io.micrometer.core.instrument.Timer;
  * and org-scoped by this proxy. Results for forecast and anomalies are cached
  * in DB (via MlCacheService) to avoid re-fitting Prophet / Isolation Forest
  * on each HTTP request.
+ * <p>
+ * A MANAGER caller is additionally scoped to their own assigned contracts via
+ * {@code manager_id} (resolved from the authenticated principal, never client-
+ * supplied) — mirroring the ADMIN/MANAGER split already enforced in
+ * {@code ContractService}. An ADMIN (or an unauthenticated internal caller,
+ * e.g. the nightly refresher) is scoped by {@code org_id} only.
  */
 @Service
 public class MlProxyService {
@@ -39,24 +51,32 @@ public class MlProxyService {
     private final RestTemplate restTemplate;
     private final MlCacheService mlCacheService;
     private final MeterRegistry meterRegistry;
+    private final UsersRepository usersRepository;
 
-    public MlProxyService(RestTemplate restTemplate, MlCacheService mlCacheService, MeterRegistry meterRegistry) {
+    public MlProxyService(
+            RestTemplate restTemplate,
+            MlCacheService mlCacheService,
+            MeterRegistry meterRegistry,
+            UsersRepository usersRepository) {
         this.restTemplate = restTemplate;
         this.mlCacheService = mlCacheService;
         this.meterRegistry = meterRegistry;
+        this.usersRepository = usersRepository;
     }
 
     // ── Cache-aware public methods (called from HTTP requests) ──────────────
 
     public ResponseEntity<String> getForecast(int months) {
         Long orgId = TenantContext.get();
-        String key = "FORECAST_" + months;
+        Long managerId = resolveManagerId();
+        String key = "FORECAST_" + months + cacheKeySuffix(managerId);
         Optional<String> cached = mlCacheService.get(orgId, key);
         if (cached.isPresent()) {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
         }
-        ResponseEntity<String> response = callMl(
-                UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/forecast").queryParam("months", months), orgId, "forecast");
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/forecast").queryParam("months", months);
+        addManagerId(uriBuilder, managerId);
+        ResponseEntity<String> response = callMl(uriBuilder, orgId, "forecast");
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
             mlCacheService.put(orgId, key, response.getBody());
         }
@@ -65,13 +85,15 @@ public class MlProxyService {
 
     public ResponseEntity<String> getAgentInsights(int months) {
         Long orgId = TenantContext.get();
-        String key = "AGENT_INSIGHTS_" + months;
+        Long managerId = resolveManagerId();
+        String key = "AGENT_INSIGHTS_" + months + cacheKeySuffix(managerId);
         Optional<String> cached = mlCacheService.get(orgId, key);
         if (cached.isPresent()) {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
         }
-        ResponseEntity<String> response = callMl(
-                UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/agent/insights").queryParam("months", months), orgId, "agent-insights");
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/agent/insights").queryParam("months", months);
+        addManagerId(uriBuilder, managerId);
+        ResponseEntity<String> response = callMl(uriBuilder, orgId, "agent-insights");
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
             mlCacheService.put(orgId, key, response.getBody());
         }
@@ -80,21 +102,26 @@ public class MlProxyService {
 
     public ResponseEntity<String> getAnomalies() {
         Long orgId = TenantContext.get();
-        Optional<String> cached = mlCacheService.get(orgId, "ANOMALIES");
+        Long managerId = resolveManagerId();
+        String key = "ANOMALIES" + cacheKeySuffix(managerId);
+        Optional<String> cached = mlCacheService.get(orgId, key);
         if (cached.isPresent()) {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
         }
-        ResponseEntity<String> response = callMl(
-                UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/anomalies"), orgId, "anomalies");
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/anomalies");
+        addManagerId(uriBuilder, managerId);
+        ResponseEntity<String> response = callMl(uriBuilder, orgId, "anomalies");
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-            mlCacheService.put(orgId, "ANOMALIES", response.getBody());
+            mlCacheService.put(orgId, key, response.getBody());
         }
         return response;
     }
 
     public ResponseEntity<String> getRiskScores() {
         Long orgId = TenantContext.get();
-        return callMl(UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/risk-scores"), orgId, "risk-scores");
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/risk-scores");
+        addManagerId(uriBuilder, resolveManagerId());
+        return callMl(uriBuilder, orgId, "risk-scores");
     }
 
     public ResponseEntity<String> analyzeClauseRisk(String text) {
@@ -124,6 +151,7 @@ public class MlProxyService {
         if (orgId != null) {
             uriBuilder.queryParam("org_id", orgId);
         }
+        addManagerId(uriBuilder, resolveManagerId());
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         if (internalApiKey != null && !internalApiKey.isBlank()) {
@@ -155,7 +183,40 @@ public class MlProxyService {
         return callMl(UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/anomalies"), orgId, "anomalies");
     }
 
-    // ── Internal helper ──────────────────────────────────────────────────────
+    // ── Internal helpers ─────────────────────────────────────────────────────
+
+    /**
+     * Resolves the current authenticated user's manager scope: {@code null}
+     * for an ADMIN (or when there is no authenticated user, e.g. an internal
+     * caller), otherwise the id of the manager they are assigned to. This is
+     * looked up from the security principal on every call — it is never
+     * accepted as a caller-supplied parameter, so a request can't widen its
+     * own scope by claiming a different manager.
+     */
+    private Long resolveManagerId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        String username = principal instanceof UserDetails userDetails ? userDetails.getUsername() : String.valueOf(principal);
+
+        return usersRepository.findByUsername(username)
+                .filter(user -> !"ADMIN".equals(user.getRole().getRole()) && user.getManager() != null)
+                .map(Users::getManager)
+                .map(Managers::getId)
+                .orElse(null);
+    }
+
+    private void addManagerId(UriComponentsBuilder uriBuilder, Long managerId) {
+        if (managerId != null) {
+            uriBuilder.queryParam("manager_id", managerId);
+        }
+    }
+
+    private String cacheKeySuffix(Long managerId) {
+        return managerId != null ? "_MGR" + managerId : "";
+    }
 
     private ResponseEntity<String> callMl(UriComponentsBuilder uriBuilder, Long orgId, String endpoint) {
         if (orgId != null) {

@@ -33,8 +33,10 @@ import org.springframework.test.context.ActiveProfiles;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.NotificationDTO;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Notification;
 import com.donatodev.bcm_backend.entity.NotificationType;
+import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.NotificationNotFoundException;
@@ -56,6 +58,12 @@ class NotificationServiceTest {
     private static final Long USER_ID = 1L;
     private static final Long ORG_ID  = 10L;
     private static final String USERNAME = "testuser";
+
+    private static Roles role(String name) {
+        Roles role = new Roles();
+        role.setRole(name);
+        return role;
+    }
 
     @BeforeEach
     void setupContext() {
@@ -249,7 +257,7 @@ class NotificationServiceTest {
         @Order(12)
         @DisplayName("Should create a reminder when the contract belongs to the caller's org")
         void shouldCreateReminderWhenContractInOrg() {
-            Users user = Users.builder().id(USER_ID).username(USERNAME).build();
+            Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("ADMIN")).build();
             Contracts contract = Contracts.builder().id(5L).customerName("Acme").build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
@@ -268,7 +276,7 @@ class NotificationServiceTest {
         @Order(13)
         @DisplayName("Should throw ContractNotFoundException when the contract is not in the caller's org")
         void shouldThrowWhenContractNotInOrg() {
-            Users user = Users.builder().id(USER_ID).username(USERNAME).build();
+            Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("ADMIN")).build();
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findByIdAndOrganization_Id(999L, ORG_ID)).thenReturn(Optional.empty());
 
@@ -282,7 +290,7 @@ class NotificationServiceTest {
         @Order(14)
         @DisplayName("Should truncate a title longer than 200 characters")
         void shouldTruncateLongReminderTitle() {
-            Users user = Users.builder().id(USER_ID).username(USERNAME).build();
+            Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("ADMIN")).build();
             String longName = "A".repeat(250);
             Contracts contract = Contracts.builder().id(6L).customerName(longName).build();
 
@@ -301,7 +309,7 @@ class NotificationServiceTest {
         @DisplayName("Should fall back to an unscoped contract lookup when TenantContext is empty")
         void shouldCreateReminderWhenOrgContextIsAbsent() {
             TenantContext.clear();
-            Users user = Users.builder().id(USER_ID).username(USERNAME).build();
+            Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("ADMIN")).build();
             Contracts contract = Contracts.builder().id(7L).customerName("Beta").build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
@@ -312,6 +320,46 @@ class NotificationServiceTest {
 
             verify(notificationRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
                     "Promemoria: Beta".equals(saved.getTitle()) && saved.getOrgId() == null));
+        }
+
+        // Regression tests for B1: a MANAGER confirming an agent-proposed
+        // reminder must be re-validated against their own assigned contracts,
+        // not just the caller's org — the ML side only checked org membership.
+
+        @Test
+        @Order(16)
+        @DisplayName("Should create a reminder when the contract is assigned to the manager")
+        void shouldCreateReminderWhenContractAssignedToManager() {
+            Managers manager = Managers.builder().id(42L).build();
+            Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("MANAGER")).manager(manager).build();
+            Contracts contract = Contracts.builder().id(5L).customerName("Acme").manager(manager).build();
+
+            when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
+            when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));
+            when(usersRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+            notificationService.createReminderForCurrentUser(5L, "Rinnovo in scadenza");
+
+            verify(notificationRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
+                    "Promemoria: Acme".equals(saved.getTitle())));
+        }
+
+        @Test
+        @Order(17)
+        @DisplayName("Should throw ContractNotFoundException when the contract belongs to another manager")
+        void shouldThrowWhenContractBelongsToAnotherManager() {
+            Managers callerManager = Managers.builder().id(42L).build();
+            Managers otherManager = Managers.builder().id(99L).build();
+            Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("MANAGER")).manager(callerManager).build();
+            Contracts contract = Contracts.builder().id(5L).customerName("Acme").manager(otherManager).build();
+
+            when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
+            when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> notificationService.createReminderForCurrentUser(5L, "hi"));
+
+            verify(notificationRepository, never()).save(any());
         }
     }
 }

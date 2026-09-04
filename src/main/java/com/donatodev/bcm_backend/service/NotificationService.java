@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.NotificationDTO;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Notification;
 import com.donatodev.bcm_backend.entity.NotificationType;
 import com.donatodev.bcm_backend.entity.Users;
@@ -65,6 +66,17 @@ public class NotificationService {
                 ? contractsRepository.findByIdAndOrganization_Id(contractId, orgId)
                 : contractsRepository.findById(contractId))
                 .orElseThrow(() -> new ContractNotFoundException("Contratto ID " + contractId + " non trovato"));
+
+        // Org membership alone isn't enough for a MANAGER: the agent's proposal
+        // is only scoped by org (see bcm-v2-ml's _propose_reminder), so a manager
+        // could otherwise confirm a reminder on a colleague's contract.
+        if ("MANAGER".equals(user.getRole().getRole())) {
+            Long managerId = user.getManager() != null ? user.getManager().getId() : null;
+            Managers contractManager = contract.getManager();
+            if (managerId == null || contractManager == null || !managerId.equals(contractManager.getId())) {
+                throw new ContractNotFoundException("Contratto ID " + contractId + " non trovato");
+            }
+        }
 
         String title = "Promemoria: " + contract.getCustomerName();
         if (title.length() > TITLE_MAX_LENGTH) {

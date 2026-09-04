@@ -26,11 +26,17 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import com.donatodev.bcm_backend.config.TenantContext;
+import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.entity.Roles;
+import com.donatodev.bcm_backend.entity.Users;
+import com.donatodev.bcm_backend.repository.UsersRepository;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
@@ -43,6 +49,9 @@ class MlProxyServiceTest {
     @Mock
     private MlCacheService mlCacheService;
 
+    @Mock
+    private UsersRepository usersRepository;
+
     private SimpleMeterRegistry meterRegistry;
     private MlProxyService mlProxyService;
 
@@ -52,12 +61,34 @@ class MlProxyServiceTest {
     @SuppressWarnings("unused")
     void setup() {
         meterRegistry = new SimpleMeterRegistry();
-        mlProxyService = new MlProxyService(restTemplate, mlCacheService, meterRegistry);
+        mlProxyService = new MlProxyService(restTemplate, mlCacheService, meterRegistry, usersRepository);
     }
 
     @AfterEach
     void clearTenant() {
         TenantContext.clear();
+        SecurityContextHolder.clearContext();
+    }
+
+    /** Authenticates as a MANAGER assigned to the given managerId, so resolveManagerId() picks it up. */
+    private void authenticateAsManager(Long managerId) {
+        Managers manager = Managers.builder().id(managerId).build();
+        Roles managerRole = new Roles();
+        managerRole.setRole("MANAGER");
+        Users user = Users.builder().username("manager1").role(managerRole).manager(manager).build();
+        org.mockito.Mockito.lenient().when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(user));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("manager1", null, java.util.List.of()));
+    }
+
+    /** Authenticates as an ADMIN, so resolveManagerId() must return null (org-wide scope). */
+    private void authenticateAsAdmin() {
+        Roles adminRole = new Roles();
+        adminRole.setRole("ADMIN");
+        Users user = Users.builder().username("admin1").role(adminRole).build();
+        org.mockito.Mockito.lenient().when(usersRepository.findByUsername("admin1")).thenReturn(Optional.of(user));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("admin1", null, java.util.List.of()));
     }
 
     @Nested
@@ -132,6 +163,41 @@ class MlProxyServiceTest {
             assertEquals(HttpStatus.OK, result.getStatusCode());
             verify(mlCacheService, never()).put(any(), any(), any());
         }
+
+        @Test
+        @Order(5)
+        @DisplayName("A MANAGER's request adds manager_id and uses a manager-specific cache key")
+        void shouldForwardManagerIdAndUseManagerScopedCacheKey() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            authenticateAsManager(42L);
+            when(mlCacheService.get(5L, "FORECAST_6_MGR42")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
+
+            ResponseEntity<String> result = mlProxyService.getForecast(6);
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+            verify(restTemplate).exchange(contains("manager_id=42"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(mlCacheService).put(5L, "FORECAST_6_MGR42", "{\"historical\":[]}");
+        }
+
+        @Test
+        @Order(6)
+        @DisplayName("An ADMIN's request never adds manager_id, uses the plain org cache key")
+        void shouldNotForwardManagerIdForAdmin() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            authenticateAsAdmin();
+            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
+
+            mlProxyService.getForecast(6);
+
+            verify(restTemplate, never()).exchange(contains("manager_id"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(mlCacheService).put(5L, "FORECAST_6", "{\"historical\":[]}");
+        }
     }
 
     @Nested
@@ -205,6 +271,24 @@ class MlProxyServiceTest {
             assertEquals(HttpStatus.OK, result.getStatusCode());
             verify(mlCacheService, never()).put(any(), any(), any());
         }
+
+        @Test
+        @Order(5)
+        @DisplayName("A MANAGER's request adds manager_id and uses a manager-specific cache key")
+        void shouldForwardManagerIdAndUseManagerScopedCacheKey() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            authenticateAsManager(42L);
+            when(mlCacheService.get(5L, "AGENT_INSIGHTS_3_MGR42")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"report\":\"...\"}"));
+
+            ResponseEntity<String> result = mlProxyService.getAgentInsights(3);
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+            verify(restTemplate).exchange(contains("manager_id=42"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(mlCacheService).put(5L, "AGENT_INSIGHTS_3_MGR42", "{\"report\":\"...\"}");
+        }
     }
 
     @Nested
@@ -275,6 +359,24 @@ class MlProxyServiceTest {
             assertEquals(HttpStatus.OK, result.getStatusCode());
             verify(mlCacheService, never()).put(any(), any(), any());
         }
+
+        @Test
+        @Order(7)
+        @DisplayName("A MANAGER's request adds manager_id and uses a manager-specific cache key")
+        void shouldForwardManagerIdAndUseManagerScopedCacheKey() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(2L);
+            authenticateAsManager(42L);
+            when(mlCacheService.get(2L, "ANOMALIES_MGR42")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("[]"));
+
+            ResponseEntity<String> result = mlProxyService.getAnomalies();
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+            verify(restTemplate).exchange(contains("manager_id=42"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(mlCacheService).put(2L, "ANOMALIES_MGR42", "[]");
+        }
     }
 
     @Nested
@@ -295,6 +397,21 @@ class MlProxyServiceTest {
 
             verify(restTemplate).exchange(
                     eq(FASTAPI_URL + "/risk-scores"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+        }
+
+        @Test
+        @Order(6)
+        @DisplayName("A MANAGER's request adds manager_id")
+        void shouldForwardManagerId() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            authenticateAsManager(42L);
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("[]"));
+
+            mlProxyService.getRiskScores();
+
+            verify(restTemplate).exchange(contains("manager_id=42"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
         }
     }
 
@@ -461,6 +578,21 @@ class MlProxyServiceTest {
             ResponseEntity<String> result = mlProxyService.askAgent("Any question");
 
             assertEquals(HttpStatus.SERVICE_UNAVAILABLE, result.getStatusCode());
+        }
+
+        @Test
+        @Order(4)
+        @DisplayName("A MANAGER's request adds manager_id alongside org_id")
+        void shouldForwardManagerId() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(4L);
+            authenticateAsManager(42L);
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"answer\":\"...\"}"));
+
+            mlProxyService.askAgent("Which contracts expire soon?");
+
+            verify(restTemplate).exchange(contains("manager_id=42"), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
         }
     }
 
