@@ -149,6 +149,19 @@
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
 
+    <!-- CRLF_INJECTION_LOGS in MlCacheService.put(): the logged values are
+         orgId (a Long) and cacheKey (always built from fixed literals plus
+         a numeric id/manager id, never raw text) — never the jsonResult
+         parameter (the actual external ML response body). FindSecBugs'
+         taint tracker over-approximates here: it treats jsonResult as
+         tainted at every mlCacheService.put(...) call site (MlProxyService,
+         MlCacheRefresher) and flags the whole call chain into this debug
+         log, even though jsonResult itself is never logged. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.MlCacheService"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
     <!-- COMMAND_INJECTION in OcrService: ProcessBuilder is used with its
          List<String> constructor (no shell involved, so no metacharacter
          injection is possible regardless of content). Every argument is

@@ -156,6 +156,22 @@ class MlCacheServiceTest {
             mlCacheService.put(ORG, KEY, null);
             verifyNoInteractions(repository);
         }
+
+        @Test
+        @Order(9)
+        @DisplayName("Swallows a lost find-then-save race instead of propagating it")
+        void swallowsConcurrentWriteRace() {
+            // Regression test for A3: two concurrent misses for the same
+            // (orgId, cacheKey) both build a new entry; the loser's save()
+            // hits uq_ml_cache. Callers like MlProxyService.getForecast call
+            // put() inline with the response they're about to return, so this
+            // must never fail the caller's already-successful request.
+            when(repository.findByOrgIdAndCacheKey(ORG, KEY)).thenReturn(Optional.empty());
+            when(repository.save(org.mockito.ArgumentMatchers.any()))
+                    .thenThrow(new org.springframework.dao.DataIntegrityViolationException("uq_ml_cache"));
+
+            assertThatCode(() -> mlCacheService.put(ORG, KEY, "{\"ok\":true}")).doesNotThrowAnyException();
+        }
     }
 
     @Nested
