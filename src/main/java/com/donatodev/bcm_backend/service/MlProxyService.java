@@ -38,6 +38,11 @@ import io.micrometer.core.instrument.Timer;
  * supplied) — mirroring the ADMIN/MANAGER split already enforced in
  * {@code ContractService}. An ADMIN (or an unauthenticated internal caller,
  * e.g. the nightly refresher) is scoped by {@code org_id} only.
+ * <p>
+ * Every call also carries an {@code X-Internal-Claims} JWT ({@link MlClaimsSigner})
+ * asserting org_id/manager_id, signed with a private key FastAPI never holds —
+ * see {@link MlClaimsSigner} for why this is asymmetric rather than reusing
+ * {@code ml.internal-api-key} for both authentication and scope-binding.
  */
 @Service
 public class MlProxyService {
@@ -52,16 +57,19 @@ public class MlProxyService {
     private final MlCacheService mlCacheService;
     private final MeterRegistry meterRegistry;
     private final UsersRepository usersRepository;
+    private final MlClaimsSigner mlClaimsSigner;
 
     public MlProxyService(
             RestTemplate restTemplate,
             MlCacheService mlCacheService,
             MeterRegistry meterRegistry,
-            UsersRepository usersRepository) {
+            UsersRepository usersRepository,
+            MlClaimsSigner mlClaimsSigner) {
         this.restTemplate = restTemplate;
         this.mlCacheService = mlCacheService;
         this.meterRegistry = meterRegistry;
         this.usersRepository = usersRepository;
+        this.mlClaimsSigner = mlClaimsSigner;
     }
 
     // ── Cache-aware public methods (called from HTTP requests) ──────────────
@@ -75,8 +83,7 @@ public class MlProxyService {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
         }
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/forecast").queryParam("months", months);
-        addManagerId(uriBuilder, managerId);
-        ResponseEntity<String> response = callMl(uriBuilder, orgId, "forecast");
+        ResponseEntity<String> response = callMl(uriBuilder, orgId, managerId, "forecast");
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
             mlCacheService.put(orgId, key, response.getBody());
         }
@@ -92,8 +99,7 @@ public class MlProxyService {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
         }
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/agent/insights").queryParam("months", months);
-        addManagerId(uriBuilder, managerId);
-        ResponseEntity<String> response = callMl(uriBuilder, orgId, "agent-insights");
+        ResponseEntity<String> response = callMl(uriBuilder, orgId, managerId, "agent-insights");
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
             mlCacheService.put(orgId, key, response.getBody());
         }
@@ -109,8 +115,7 @@ public class MlProxyService {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
         }
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/anomalies");
-        addManagerId(uriBuilder, managerId);
-        ResponseEntity<String> response = callMl(uriBuilder, orgId, "anomalies");
+        ResponseEntity<String> response = callMl(uriBuilder, orgId, managerId, "anomalies");
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
             mlCacheService.put(orgId, key, response.getBody());
         }
@@ -120,8 +125,7 @@ public class MlProxyService {
     public ResponseEntity<String> getRiskScores() {
         Long orgId = TenantContext.get();
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/risk-scores");
-        addManagerId(uriBuilder, resolveManagerId());
-        return callMl(uriBuilder, orgId, "risk-scores");
+        return callMl(uriBuilder, orgId, resolveManagerId(), "risk-scores");
     }
 
     public ResponseEntity<String> analyzeClauseRisk(String text) {
@@ -147,16 +151,16 @@ public class MlProxyService {
 
     public ResponseEntity<String> askAgent(String question) {
         Long orgId = TenantContext.get();
+        Long managerId = resolveManagerId();
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/agent/ask");
         if (orgId != null) {
             uriBuilder.queryParam("org_id", orgId);
         }
-        addManagerId(uriBuilder, resolveManagerId());
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        if (internalApiKey != null && !internalApiKey.isBlank()) {
-            headers.set("X-Internal-Api-Key", internalApiKey);
+        if (managerId != null) {
+            uriBuilder.queryParam("manager_id", managerId);
         }
+        HttpHeaders headers = buildInternalHeaders(orgId, managerId);
+        headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(Map.of("question", question), headers);
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
@@ -176,15 +180,15 @@ public class MlProxyService {
 
     public ResponseEntity<String> fetchForecastRaw(int months, Long orgId) {
         return callMl(
-                UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/forecast").queryParam("months", months), orgId, "forecast");
+                UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/forecast").queryParam("months", months), orgId, null, "forecast");
     }
 
     public ResponseEntity<String> fetchAnomaliesRaw(Long orgId) {
-        return callMl(UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/anomalies"), orgId, "anomalies");
+        return callMl(UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/anomalies"), orgId, null, "anomalies");
     }
 
     public ResponseEntity<String> fetchRiskScoresRaw(Long orgId) {
-        return callMl(UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/risk-scores"), orgId, "risk-scores");
+        return callMl(UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/risk-scores"), orgId, null, "risk-scores");
     }
 
     // ── Internal helpers ─────────────────────────────────────────────────────
@@ -212,25 +216,39 @@ public class MlProxyService {
                 .orElse(null);
     }
 
-    private void addManagerId(UriComponentsBuilder uriBuilder, Long managerId) {
-        if (managerId != null) {
-            uriBuilder.queryParam("manager_id", managerId);
-        }
-    }
-
     private String cacheKeySuffix(Long managerId) {
         return managerId != null ? "_MGR" + managerId : "";
     }
 
-    private ResponseEntity<String> callMl(UriComponentsBuilder uriBuilder, Long orgId, String endpoint) {
-        if (orgId != null) {
-            uriBuilder.queryParam("org_id", orgId);
-        }
+    /**
+     * Builds the headers every internal call to the ML service carries: the
+     * shared-secret gate ({@code X-Internal-Api-Key}, "is this caller allowed
+     * to reach the ML service at all") and, when a signing key is configured,
+     * the asymmetrically-signed claims token ({@code X-Internal-Claims},
+     * "which org/manager this specific request is for" — see
+     * {@link MlClaimsSigner}). The two are independent and both optional in
+     * local dev (empty key / no signing key configured).
+     */
+    private HttpHeaders buildInternalHeaders(Long orgId, Long managerId) {
         HttpHeaders headers = new HttpHeaders();
         if (internalApiKey != null && !internalApiKey.isBlank()) {
             headers.set("X-Internal-Api-Key", internalApiKey);
         }
-        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        String claimsToken = mlClaimsSigner.sign(orgId, managerId);
+        if (claimsToken != null) {
+            headers.set("X-Internal-Claims", claimsToken);
+        }
+        return headers;
+    }
+
+    private ResponseEntity<String> callMl(UriComponentsBuilder uriBuilder, Long orgId, Long managerId, String endpoint) {
+        if (orgId != null) {
+            uriBuilder.queryParam("org_id", orgId);
+        }
+        if (managerId != null) {
+            uriBuilder.queryParam("manager_id", managerId);
+        }
+        HttpEntity<Void> entity = new HttpEntity<>(buildInternalHeaders(orgId, managerId));
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
             ResponseEntity<String> response = restTemplate.exchange(

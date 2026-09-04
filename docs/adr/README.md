@@ -17,3 +17,4 @@ add a new ADR that supersedes the old one rather than editing history away.
 | [0005](0005-local-llm-via-ollama.md) | Ollama (local LLM) instead of a cloud LLM provider |
 | [0006](0006-mysql-in-memory-vector-search.md) | MySQL + in-memory cosine similarity instead of a vector database |
 | [0007](0007-two-tier-test-strategy.md) | Two-tier test strategy: fast H2 unit suite + Testcontainers/MySQL integration lane |
+| [0008](0008-asymmetric-internal-claims.md) | Asymmetric signing (RS256) for the ML proxy's org_id/manager_id claim, not a shared secret |

@@ -52,6 +52,9 @@ class MlProxyServiceTest {
     @Mock
     private UsersRepository usersRepository;
 
+    @Mock
+    private MlClaimsSigner mlClaimsSigner;
+
     private SimpleMeterRegistry meterRegistry;
     private MlProxyService mlProxyService;
 
@@ -61,7 +64,7 @@ class MlProxyServiceTest {
     @SuppressWarnings("unused")
     void setup() {
         meterRegistry = new SimpleMeterRegistry();
-        mlProxyService = new MlProxyService(restTemplate, mlCacheService, meterRegistry, usersRepository);
+        mlProxyService = new MlProxyService(restTemplate, mlCacheService, meterRegistry, usersRepository, mlClaimsSigner);
     }
 
     @AfterEach
@@ -197,6 +200,45 @@ class MlProxyServiceTest {
 
             verify(restTemplate, never()).exchange(contains("manager_id"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
             verify(mlCacheService).put(5L, "FORECAST_6", "{\"historical\":[]}");
+        }
+
+        @Test
+        @Order(7)
+        @DisplayName("Attaches X-Internal-Claims when claims signing is configured")
+        void shouldAttachSignedClaimsWhenConfigured() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            when(mlClaimsSigner.sign(5L, null)).thenReturn("signed-token");
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
+
+            mlProxyService.getForecast(6);
+
+            verify(restTemplate).exchange(
+                    anyString(), eq(HttpMethod.GET),
+                    org.mockito.ArgumentMatchers.argThat((HttpEntity<?> e) ->
+                            "signed-token".equals(e.getHeaders().getFirst("X-Internal-Claims"))),
+                    eq(String.class));
+        }
+
+        @Test
+        @Order(8)
+        @DisplayName("Omits X-Internal-Claims when claims signing is not configured")
+        void shouldOmitClaimsHeaderWhenNotConfigured() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
+
+            mlProxyService.getForecast(6);
+
+            verify(restTemplate).exchange(
+                    anyString(), eq(HttpMethod.GET),
+                    org.mockito.ArgumentMatchers.argThat((HttpEntity<?> e) ->
+                            e.getHeaders().getFirst("X-Internal-Claims") == null),
+                    eq(String.class));
         }
     }
 
@@ -614,6 +656,25 @@ class MlProxyServiceTest {
             mlProxyService.askAgent("Which contracts expire soon?");
 
             verify(restTemplate).exchange(contains("manager_id=42"), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
+        }
+
+        @Test
+        @Order(5)
+        @DisplayName("Attaches X-Internal-Claims when claims signing is configured")
+        void shouldAttachSignedClaims() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(4L);
+            when(mlClaimsSigner.sign(4L, null)).thenReturn("signed-token");
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"answer\":\"...\"}"));
+
+            mlProxyService.askAgent("Any question");
+
+            verify(restTemplate).exchange(
+                    anyString(), eq(HttpMethod.POST),
+                    org.mockito.ArgumentMatchers.argThat((HttpEntity<?> e) ->
+                            "signed-token".equals(e.getHeaders().getFirst("X-Internal-Claims"))),
+                    eq(String.class));
         }
     }
 
