@@ -118,18 +118,14 @@ class ContractServiceTest {
 
     @org.junit.jupiter.api.BeforeEach
     @SuppressWarnings("unused")
-    void stubFinancialTermsGeneration() {
+    void stubCommonLookups() {
         // create/updateContract() always check hasFinancialTerms() before
         // deciding whether to generate; none of this file's fixtures set
         // financial terms, so this always returns false unless a specific
         // test overrides it.
         org.mockito.Mockito.lenient().when(contractFinancialGenerationService.hasFinancialTerms(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(false);
-    }
 
-    @org.junit.jupiter.api.BeforeEach
-    @SuppressWarnings("unused")
-    void stubCounterpartyResolution() {
         // Every updateContract() call resolves the counterparty first; the
         // fixtures across this file all use counterpartyId 1L (see the
         // ContractDTO construction after the Counterparty refactor), so one

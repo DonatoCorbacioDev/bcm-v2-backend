@@ -8,7 +8,6 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.Date;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -60,8 +59,8 @@ public class MlClaimsSigner {
         return Jwts.builder()
                 .claim(CLAIM_ORG_ID, orgId)
                 .claim(CLAIM_MANAGER_ID, managerId)
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(CLAIMS_TTL_MS)))
+                .issuedAt(toLegacyDate(now))
+                .expiration(toLegacyDate(now.plusMillis(CLAIMS_TTL_MS)))
                 .signWith(getPrivateKey(), Jwts.SIG.RS256)
                 .compact();
     }
@@ -74,5 +73,15 @@ public class MlClaimsSigner {
         } catch (NoSuchAlgorithmException | InvalidKeySpecException | IllegalArgumentException e) {
             throw new IllegalStateException("Invalid ml.claims.private-key configuration", e);
         }
+    }
+
+    /**
+     * JJWT 0.12.x requires java.util.Date for standard JWT date claims.
+     * The application uses java.time.Instant internally and converts only at
+     * the library boundary.
+     */
+    @SuppressWarnings("java:S2143")
+    private java.util.Date toLegacyDate(Instant instant) {
+        return java.util.Date.from(instant);
     }
 }

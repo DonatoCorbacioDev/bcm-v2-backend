@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -112,7 +113,7 @@ public class ContractFinancialGenerationService {
                         (a, b) -> a,
                         HashMap::new));
 
-        YearMonth today = YearMonth.now();
+        YearMonth today = YearMonth.now(ZoneId.systemDefault());
         List<FinancialValues> toDelete = existing.stream()
                 .filter(fv -> fv.getSource() == FinancialValueSource.GENERATED)
                 .filter(fv -> !YearMonth.of(fv.getYear(), fv.getMonth()).isBefore(today))

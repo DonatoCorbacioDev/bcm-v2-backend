@@ -47,6 +47,10 @@ import io.micrometer.core.instrument.Timer;
 @Service
 public class MlProxyService {
 
+    private static final String QUERY_PARAM_MONTHS = "months";
+    private static final String OUTCOME_SUCCESS = "success";
+    private static final String OUTCOME_ERROR = "error";
+
     @Value("${ml.fastapi.url:http://localhost:8000}")
     private String fastApiUrl;
 
@@ -82,7 +86,7 @@ public class MlProxyService {
         if (cached.isPresent()) {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
         }
-        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/forecast").queryParam("months", months);
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/forecast").queryParam(QUERY_PARAM_MONTHS, months);
         ResponseEntity<String> response = callMl(uriBuilder, orgId, managerId, "forecast");
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
             mlCacheService.put(orgId, key, response.getBody());
@@ -98,7 +102,7 @@ public class MlProxyService {
         if (cached.isPresent()) {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
         }
-        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/agent/insights").queryParam("months", months);
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/agent/insights").queryParam(QUERY_PARAM_MONTHS, months);
         ResponseEntity<String> response = callMl(uriBuilder, orgId, managerId, "agent-insights");
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
             mlCacheService.put(orgId, key, response.getBody());
@@ -139,12 +143,12 @@ public class MlProxyService {
         try {
             ResponseEntity<String> response = restTemplate.exchange(
                     fastApiUrl + "/clause-risk-analysis", HttpMethod.POST, entity, String.class);
-            recordCallTiming(sample, "clause-risk-analysis", "success");
+            recordCallTiming(sample, "clause-risk-analysis", OUTCOME_SUCCESS);
             return ResponseEntity.status(response.getStatusCode())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(response.getBody());
         } catch (RestClientException e) {
-            recordCallTiming(sample, "clause-risk-analysis", "error");
+            recordCallTiming(sample, "clause-risk-analysis", OUTCOME_ERROR);
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         }
     }
@@ -166,12 +170,12 @@ public class MlProxyService {
         try {
             ResponseEntity<String> response = restTemplate.exchange(
                     uriBuilder.toUriString(), HttpMethod.POST, entity, String.class);
-            recordCallTiming(sample, "agent-ask", "success");
+            recordCallTiming(sample, "agent-ask", OUTCOME_SUCCESS);
             return ResponseEntity.status(response.getStatusCode())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(response.getBody());
         } catch (RestClientException e) {
-            recordCallTiming(sample, "agent-ask", "error");
+            recordCallTiming(sample, "agent-ask", OUTCOME_ERROR);
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         }
     }
@@ -180,7 +184,7 @@ public class MlProxyService {
 
     public ResponseEntity<String> fetchForecastRaw(int months, Long orgId) {
         return callMl(
-                UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/forecast").queryParam("months", months), orgId, null, "forecast");
+                UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/forecast").queryParam(QUERY_PARAM_MONTHS, months), orgId, null, "forecast");
     }
 
     public ResponseEntity<String> fetchAnomaliesRaw(Long orgId) {
@@ -253,12 +257,12 @@ public class MlProxyService {
         try {
             ResponseEntity<String> response = restTemplate.exchange(
                     uriBuilder.toUriString(), HttpMethod.GET, entity, String.class);
-            recordCallTiming(sample, endpoint, "success");
+            recordCallTiming(sample, endpoint, OUTCOME_SUCCESS);
             return ResponseEntity.status(response.getStatusCode())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(response.getBody());
         } catch (RestClientException e) {
-            recordCallTiming(sample, endpoint, "error");
+            recordCallTiming(sample, endpoint, OUTCOME_ERROR);
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         }
     }

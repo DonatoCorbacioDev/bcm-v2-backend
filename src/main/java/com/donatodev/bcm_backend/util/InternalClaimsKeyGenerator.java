@@ -38,9 +38,13 @@ public final class InternalClaimsKeyGenerator {
         String publicKeyBase64 = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
 
         logger.info("ML claims private key (PKCS8, base64) — set as ml.claims.private-key on the BACKEND only:");
-        logger.info("{}", safe(privateKeyBase64));
+        if (logger.isInfoEnabled()) {
+            logger.info("{}", safe(privateKeyBase64));
+        }
         logger.info("ML claims public key (X.509, base64) — set as INTERNAL_CLAIMS_PUBLIC_KEY on the ML service:");
-        logger.info("{}", safe(publicKeyBase64));
+        if (logger.isInfoEnabled()) {
+            logger.info("{}", safe(publicKeyBase64));
+        }
     }
 
     private static String safe(String value) {

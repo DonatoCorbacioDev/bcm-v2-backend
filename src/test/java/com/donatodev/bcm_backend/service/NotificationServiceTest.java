@@ -264,7 +264,6 @@ class NotificationServiceTest {
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));
-            when(usersRepository.findById(USER_ID)).thenReturn(Optional.of(user));
 
             notificationService.createReminderForCurrentUser(5L, "Rinnovo in scadenza");
 
@@ -300,7 +299,6 @@ class NotificationServiceTest {
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findByIdAndOrganization_Id(6L, ORG_ID)).thenReturn(Optional.of(contract));
-            when(usersRepository.findById(USER_ID)).thenReturn(Optional.of(user));
 
             notificationService.createReminderForCurrentUser(6L, "hi");
 
@@ -318,7 +316,6 @@ class NotificationServiceTest {
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findById(7L)).thenReturn(Optional.of(contract));
-            when(usersRepository.findById(USER_ID)).thenReturn(Optional.of(user));
 
             notificationService.createReminderForCurrentUser(7L, "hi");
 
@@ -340,7 +337,6 @@ class NotificationServiceTest {
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));
-            when(usersRepository.findById(USER_ID)).thenReturn(Optional.of(user));
 
             notificationService.createReminderForCurrentUser(5L, "Rinnovo in scadenza");
 

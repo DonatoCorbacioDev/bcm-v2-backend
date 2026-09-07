@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.YearMonth;
 import java.util.List;
 
@@ -82,7 +83,7 @@ class ContractFinancialGenerationServiceTest {
         @Test
         @DisplayName("36000/year MONTHLY over 12 months -> 12 rows of 3000")
         void monthlyGeneratesTwelveEqualRows() {
-            Contracts contract = baseContract(LocalDate.of(2027, 1, 1), LocalDate.of(2027, 12, 31))
+            Contracts contract = baseContract(LocalDate.of(2027, Month.JANUARY, 1), LocalDate.of(2027, Month.DECEMBER, 31))
                     .annualValue(36000.0)
                     .billingFrequency(BillingFrequency.MONTHLY)
                     .build();
@@ -102,7 +103,7 @@ class ContractFinancialGenerationServiceTest {
         @Test
         @DisplayName("48000/year QUARTERLY over 12 months -> 4 rows of 12000")
         void quarterlyGeneratesFourEqualRows() {
-            Contracts contract = baseContract(LocalDate.of(2027, 1, 1), LocalDate.of(2027, 12, 31))
+            Contracts contract = baseContract(LocalDate.of(2027, Month.JANUARY, 1), LocalDate.of(2027, Month.DECEMBER, 31))
                     .annualValue(48000.0)
                     .billingFrequency(BillingFrequency.QUARTERLY)
                     .build();
@@ -119,7 +120,7 @@ class ContractFinancialGenerationServiceTest {
         @DisplayName("periods walk from startDate, not from a calendar quarter boundary")
         void periodsAnchorToStartDateNotCalendar() {
             // Starts mid-quarter (Feb) — periods should land Feb/May/Aug/Nov, not Jan/Apr/Jul/Oct.
-            Contracts contract = baseContract(LocalDate.of(2027, 2, 1), LocalDate.of(2028, 1, 31))
+            Contracts contract = baseContract(LocalDate.of(2027, Month.FEBRUARY, 1), LocalDate.of(2028, Month.JANUARY, 31))
                     .annualValue(40000.0)
                     .billingFrequency(BillingFrequency.QUARTERLY)
                     .build();
@@ -130,7 +131,8 @@ class ContractFinancialGenerationServiceTest {
             List<FinancialValues> saved = captorForSaveAll().getValue();
             List<YearMonth> slots = saved.stream().map(fv -> YearMonth.of(fv.getYear(), fv.getMonth())).sorted().toList();
             assertEquals(
-                    List.of(YearMonth.of(2027, 2), YearMonth.of(2027, 5), YearMonth.of(2027, 8), YearMonth.of(2027, 11)),
+                    List.of(YearMonth.of(2027, Month.FEBRUARY), YearMonth.of(2027, Month.MAY),
+                            YearMonth.of(2027, Month.AUGUST), YearMonth.of(2027, Month.NOVEMBER)),
                     slots);
         }
     }
@@ -142,7 +144,7 @@ class ContractFinancialGenerationServiceTest {
         @Test
         @DisplayName("a MANUAL row already occupying a slot is never overwritten")
         void skipsSlotsOccupiedByManualRows() {
-            Contracts contract = baseContract(LocalDate.of(2027, 1, 1), LocalDate.of(2027, 3, 31))
+            Contracts contract = baseContract(LocalDate.of(2027, Month.JANUARY, 1), LocalDate.of(2027, Month.MARCH, 31))
                     .annualValue(12000.0)
                     .billingFrequency(BillingFrequency.MONTHLY)
                     .build();
@@ -186,7 +188,7 @@ class ContractFinancialGenerationServiceTest {
             when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L))
                     .thenReturn(List.of(pastGenerated));
 
-            FinancialGenerationResultDTO result = generationService.generate(contract);
+            generationService.generate(contract);
 
             // Past slot untouched: not deleted, not recreated, not counted as created.
             List<FinancialValues> deleted = captorForDeleteAll().getValue();
@@ -231,7 +233,7 @@ class ContractFinancialGenerationServiceTest {
         @Test
         @DisplayName("no end date caps generation at startDate + 5 years")
         void capsAtFiveYearsFromStart() {
-            LocalDate start = LocalDate.of(2025, 1, 1);
+            LocalDate start = LocalDate.of(2025, Month.JANUARY, 1);
             Contracts contract = baseContract(start, null)
                     .annualValue(12000.0)
                     .billingFrequency(BillingFrequency.ANNUAL)

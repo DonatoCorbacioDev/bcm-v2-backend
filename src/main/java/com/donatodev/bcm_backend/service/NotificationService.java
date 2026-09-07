@@ -83,7 +83,16 @@ public class NotificationService {
             title = title.substring(0, TITLE_MAX_LENGTH);
         }
 
-        createForUser(user.getId(), orgId, title, message, NotificationType.INFO);
+        // Inlined rather than calling createForUser(...) via 'this': that method
+        // is also @Transactional, and a same-class call bypasses Spring's proxy,
+        // silently dropping its transactional semantics.
+        notificationRepository.save(Notification.builder()
+                .user(user)
+                .orgId(orgId)
+                .title(title)
+                .message(message)
+                .type(NotificationType.INFO)
+                .build());
     }
 
     @Transactional
