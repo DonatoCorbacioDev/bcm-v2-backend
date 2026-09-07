@@ -62,7 +62,6 @@ import com.donatodev.bcm_backend.exception.CounterpartyNotFoundException;
 import com.donatodev.bcm_backend.exception.FinancialTypeNotFoundException;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
-import com.donatodev.bcm_backend.dto.FinancialGenerationResultDTO;
 import com.donatodev.bcm_backend.mapper.ContractMapper;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
