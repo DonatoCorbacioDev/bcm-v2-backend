@@ -15,12 +15,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import com.donatodev.bcm_backend.support.AbstractMySQLIntegrationTest;
 
 /**
- * Proves the full migration history (V1-V36) applies cleanly to real MySQL
+ * Proves the full migration history (V1-V38) applies cleanly to real MySQL
  * 8.0 and that every JPA entity mapping validates against the resulting
  * schema ({@code ddl-auto=validate} in the base class) — something the H2
  * "MySQL mode" used by the fast unit suite cannot guarantee, since H2 is not
  * MySQL and has papered over real dialect differences before (see e.g.
- * V27, which had to widen a native MySQL ENUM column H2 never enforced).
+ * V27, which had to widen a native MySQL ENUM column H2 never enforced;
+ * V37, which introduced a collation mismatch between its explicit
+ * utf8mb4_unicode_ci and the server default that only reproduces against a
+ * real MySQL server — see AbstractMySQLIntegrationTest).
  */
 @SpringBootTest
 @DisplayName("Integration Test: Flyway migrations against real MySQL")
@@ -38,21 +41,21 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
     }
 
     @Test
-    @DisplayName("flyway_schema_history: all 36 migrations recorded as successful, none pending")
+    @DisplayName("flyway_schema_history: all 38 migrations recorded as successful, none pending")
     void allMigrationsAppliedSuccessfully() {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
 
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 36,
-                "Expected at least 36 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 38,
+                "Expected at least 38 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(36, maxVersion, "Highest applied migration version should be V36");
+        assertEquals(38, maxVersion, "Highest applied migration version should be V38");
     }
 
     @Test
@@ -63,8 +66,10 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         jdbc.update("INSERT INTO organizations (id, name, slug) VALUES (9001, 'FK Cascade Test Org', 'fk-cascade-test-org')");
         jdbc.update("INSERT INTO managers (id, first_name, last_name, email, organization_id) "
                 + "VALUES (9001, 'Test', 'Manager', 'fk-cascade-test@example.com', 9001)");
-        jdbc.update("INSERT INTO contracts (id, customer_name, contract_number, manager_id, start_date, status, organization_id) "
-                + "VALUES (9001, 'Test Customer', 'FK-CASCADE-001', 9001, '2026-01-01', 'ACTIVE', 9001)");
+        jdbc.update("INSERT INTO counterparties (id, name, type, organization_id) "
+                + "VALUES (9001, 'Test Customer', 'CUSTOMER', 9001)");
+        jdbc.update("INSERT INTO contracts (id, counterparty_id, contract_number, manager_id, start_date, status, organization_id) "
+                + "VALUES (9001, 9001, 'FK-CASCADE-001', 9001, '2026-01-01', 'ACTIVE', 9001)");
         jdbc.update("INSERT INTO roles (id, role) VALUES (9001, 'FK_CASCADE_TEST_ROLE')");
         jdbc.update("INSERT INTO users (id, username, password_hash, manager_id, role_id, organization_id) "
                 + "VALUES (9001, 'fk-cascade-test-user', 'x', 9001, 9001, 9001)");
@@ -80,6 +85,7 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         jdbc.update("DELETE FROM users WHERE id = 9001");
         jdbc.update("DELETE FROM managers WHERE id = 9001");
         jdbc.update("DELETE FROM roles WHERE id = 9001");
+        jdbc.update("DELETE FROM counterparties WHERE id = 9001");
         jdbc.update("DELETE FROM organizations WHERE id = 9001");
     }
 
@@ -91,8 +97,10 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         jdbc.update("INSERT INTO organizations (id, name, slug) VALUES (9002, 'FK SetNull Test Org', 'fk-setnull-test-org')");
         jdbc.update("INSERT INTO managers (id, first_name, last_name, email, organization_id) "
                 + "VALUES (9002, 'Test', 'Manager', 'fk-setnull-test@example.com', 9002)");
-        jdbc.update("INSERT INTO contracts (id, customer_name, contract_number, manager_id, start_date, status, organization_id) "
-                + "VALUES (9002, 'Test Customer', 'FK-SETNULL-001', 9002, '2026-01-01', 'ACTIVE', 9002)");
+        jdbc.update("INSERT INTO counterparties (id, name, type, organization_id) "
+                + "VALUES (9002, 'Test Customer', 'CUSTOMER', 9002)");
+        jdbc.update("INSERT INTO contracts (id, counterparty_id, contract_number, manager_id, start_date, status, organization_id) "
+                + "VALUES (9002, 9002, 'FK-SETNULL-001', 9002, '2026-01-01', 'ACTIVE', 9002)");
         jdbc.update("INSERT INTO roles (id, role) VALUES (9002, 'FK_SETNULL_TEST_ROLE')");
         jdbc.update("INSERT INTO users (id, username, password_hash, manager_id, role_id, organization_id) "
                 + "VALUES (9002, 'fk-setnull-test-user', 'x', 9002, 9002, 9002)");
@@ -109,6 +117,7 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         jdbc.update("DELETE FROM contracts WHERE id = 9002");
         jdbc.update("DELETE FROM managers WHERE id = 9002");
         jdbc.update("DELETE FROM roles WHERE id = 9002");
+        jdbc.update("DELETE FROM counterparties WHERE id = 9002");
         jdbc.update("DELETE FROM organizations WHERE id = 9002");
     }
 
@@ -120,8 +129,10 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         jdbc.update("INSERT INTO organizations (id, name, slug) VALUES (9003, 'FK Cascade Test Org 2', 'fk-cascade-test-org-2')");
         jdbc.update("INSERT INTO managers (id, first_name, last_name, email, organization_id) "
                 + "VALUES (9003, 'Test', 'Manager', 'fk-cascade-test-2@example.com', 9003)");
-        jdbc.update("INSERT INTO contracts (id, customer_name, contract_number, manager_id, start_date, status, organization_id) "
-                + "VALUES (9003, 'Test Customer', 'FK-CASCADE-002', 9003, '2026-01-01', 'ACTIVE', 9003)");
+        jdbc.update("INSERT INTO counterparties (id, name, type, organization_id) "
+                + "VALUES (9003, 'Test Customer', 'CUSTOMER', 9003)");
+        jdbc.update("INSERT INTO contracts (id, counterparty_id, contract_number, manager_id, start_date, status, organization_id) "
+                + "VALUES (9003, 9003, 'FK-CASCADE-002', 9003, '2026-01-01', 'ACTIVE', 9003)");
         jdbc.update("INSERT INTO financial_values (id, month_value, year_value, financial_amount, contract_id, organization_id) "
                 + "VALUES (9003, 1, 2026, 1000.0, 9003, 9003)");
         jdbc.update("INSERT INTO contract_manager (contract_id, manager_id) VALUES (9003, 9003)");
@@ -137,6 +148,7 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         assertEquals(0, remainingCollaborators, "contract_manager rows should cascade-delete with their contract");
 
         jdbc.update("DELETE FROM managers WHERE id = 9003");
+        jdbc.update("DELETE FROM counterparties WHERE id = 9003");
         jdbc.update("DELETE FROM organizations WHERE id = 9003");
     }
 

@@ -25,11 +25,19 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Tag("integration")
 public abstract class AbstractMySQLIntegrationTest {
 
+    // Server-level collation must match the real setup (CLAUDE.md's
+    // `CREATE DATABASE ... COLLATE utf8mb4_unicode_ci`), or the auto-created
+    // "bcm_it" database gets mysql:8.0's own compiled-in default
+    // (utf8mb4_0900_ai_ci) instead — which then clashes with migrations that
+    // explicitly declare utf8mb4_unicode_ci (e.g. V37's `counterparties`
+    // table) with "Illegal mix of collations" the moment a query compares a
+    // column from each.
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0")
             .withDatabaseName("bcm_it")
             .withUsername("bcm_it")
-            .withPassword("bcm_it_password");
+            .withPassword("bcm_it_password")
+            .withCommand("--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci");
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
