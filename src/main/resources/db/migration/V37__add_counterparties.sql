@@ -31,7 +31,7 @@ ALTER TABLE contracts ADD COLUMN counterparty_id BIGINT;
 
 UPDATE contracts c
 JOIN counterparties cp
-  ON cp.name = c.customer_name AND cp.organization_id = c.organization_id
+  ON cp.name = c.customer_name COLLATE utf8mb4_unicode_ci AND cp.organization_id = c.organization_id
 SET c.counterparty_id = cp.id;
 
 ALTER TABLE contracts MODIFY COLUMN counterparty_id BIGINT NOT NULL;
