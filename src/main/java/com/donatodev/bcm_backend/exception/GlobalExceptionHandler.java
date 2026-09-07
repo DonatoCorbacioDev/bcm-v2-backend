@@ -47,6 +47,14 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles cases where a counterparty is not found.
+     */
+    @ExceptionHandler(CounterpartyNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleCounterpartyNotFound(CounterpartyNotFoundException ex) {
+        return buildErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    /**
      * Handles cases where a financial type is not found.
      */
     @ExceptionHandler(FinancialTypeNotFoundException.class)

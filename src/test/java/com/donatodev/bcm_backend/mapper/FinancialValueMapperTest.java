@@ -18,6 +18,8 @@ import org.springframework.test.context.ActiveProfiles;
 import com.donatodev.bcm_backend.dto.FinancialValueDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.FinancialCategory;
 import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.entity.FinancialValues;
@@ -69,7 +71,9 @@ class FinancialValueMapperTest {
     void shouldConvertToDTO() {
         FinancialTypes type = FinancialTypes.builder().id(1L).category(FinancialCategory.REVENUE).build();
         BusinessAreas area = BusinessAreas.builder().id(2L).build();
-        Contracts contract = Contracts.builder().id(3L).build();
+        Contracts contract = Contracts.builder().id(3L)
+                .counterparty(Counterparty.builder().id(4L).name("Client").type(CounterpartyType.CUSTOMER).build())
+                .build();
 
         FinancialValues value = FinancialValues.builder()
                 .id(10L)
@@ -309,7 +313,9 @@ class FinancialValueMapperTest {
                 .financialAmount(1000.00)
                 .financialType(null)
                 .businessArea(BusinessAreas.builder().id(1L).name("IT").build())
-                .contract(Contracts.builder().id(1L).customerName("Client").build())
+                .contract(Contracts.builder().id(1L)
+                        .counterparty(Counterparty.builder().id(1L).name("Client").type(CounterpartyType.CUSTOMER).build())
+                        .build())
                 .build();
 
         FinancialValueDTO result = financialValueMapper.toDTO(entity);
@@ -335,7 +341,9 @@ class FinancialValueMapperTest {
                 .financialAmount(1000.00)
                 .financialType(FinancialTypes.builder().id(1L).name("Revenue").build())
                 .businessArea(null)
-                .contract(Contracts.builder().id(1L).customerName("Client").build())
+                .contract(Contracts.builder().id(1L)
+                        .counterparty(Counterparty.builder().id(1L).name("Client").type(CounterpartyType.CUSTOMER).build())
+                        .build())
                 .build();
 
         FinancialValueDTO result = financialValueMapper.toDTO(entity);

@@ -78,7 +78,7 @@ public class NotificationService {
             }
         }
 
-        String title = "Promemoria: " + contract.getCustomerName();
+        String title = "Promemoria: " + contract.getCounterparty().getName();
         if (title.length() > TITLE_MAX_LENGTH) {
             title = title.substring(0, TITLE_MAX_LENGTH);
         }

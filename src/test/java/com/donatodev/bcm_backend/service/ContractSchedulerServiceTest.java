@@ -34,6 +34,8 @@ import org.springframework.test.context.ActiveProfiles;
 
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
@@ -83,13 +85,15 @@ class ContractSchedulerServiceTest {
             LocalDate today = TODAY;
 
             Contracts overdueContract1 = Contracts.builder()
-                    .id(1L).contractNumber("CNT-001").customerName("Client A")
+                    .id(1L).contractNumber("CNT-001")
+                    .counterparty(Counterparty.builder().name("Client A").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .startDate(today.minusMonths(6)).endDate(today.minusDays(1))
                     .build();
 
             Contracts overdueContract2 = Contracts.builder()
-                    .id(2L).contractNumber("CNT-002").customerName("Client B")
+                    .id(2L).contractNumber("CNT-002")
+                    .counterparty(Counterparty.builder().name("Client B").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .startDate(today.minusMonths(12)).endDate(today.minusDays(7))
                     .build();
@@ -137,7 +141,8 @@ class ContractSchedulerServiceTest {
             LocalDate today = TODAY;
 
             Contracts overdueContract = Contracts.builder()
-                    .id(1L).contractNumber("CNT-004").customerName("Client D")
+                    .id(1L).contractNumber("CNT-004")
+                    .counterparty(Counterparty.builder().name("Client D").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .startDate(today.minusMonths(6)).endDate(today.minusDays(1))
                     .build();
@@ -169,7 +174,8 @@ class ContractSchedulerServiceTest {
             LocalDate today = TODAY;
 
             Contracts overdueContract = Contracts.builder()
-                    .id(1L).contractNumber("CNT-005").customerName("Client E")
+                    .id(1L).contractNumber("CNT-005")
+                    .counterparty(Counterparty.builder().name("Client E").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .startDate(today.minusMonths(6)).endDate(today.minusDays(1))
                     .build();
@@ -415,7 +421,7 @@ class ContractSchedulerServiceTest {
             Contracts c = new Contracts();
             c.setId(id);
             c.setContractNumber(contractNumber);
-            c.setCustomerName(customerName);
+            c.setCounterparty(Counterparty.builder().name(customerName).type(CounterpartyType.CUSTOMER).build());
             c.setProjectName(projectName);
             c.setStatus(ContractStatus.ACTIVE);
             c.setStartDate(LocalDate.of(2026, Month.DECEMBER, 15));

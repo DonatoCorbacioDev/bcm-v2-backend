@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 public record InstantiateTemplateDTO(
-        @NotBlank(message = "Nome cliente obbligatorio") String customerName,
+        @NotNull(message = "Controparte obbligatoria") Long counterpartyId,
         @NotBlank(message = "Numero contratto obbligatorio") String contractNumber,
         String wbsCode,
         String projectName,

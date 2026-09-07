@@ -16,9 +16,12 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.support.AbstractMySQLIntegrationTest;
 
@@ -38,6 +41,7 @@ class CrossTenantIsolationIT extends AbstractMySQLIntegrationTest {
     @Autowired private ContractsRepository contractsRepository;
     @Autowired private OrganizationRepository organizationRepository;
     @Autowired private BusinessAreasRepository businessAreasRepository;
+    @Autowired private CounterpartiesRepository counterpartiesRepository;
 
     private Organization orgA;
     private Organization orgB;
@@ -60,8 +64,13 @@ class CrossTenantIsolationIT extends AbstractMySQLIntegrationTest {
     }
 
     private Contracts contractFor(Organization org, BusinessAreas area, String contractNumber) {
+        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder()
+                .name("Customer of " + org.getName())
+                .type(CounterpartyType.CUSTOMER)
+                .organization(org)
+                .build());
         return contractsRepository.save(Contracts.builder()
-                .customerName("Customer of " + org.getName())
+                .counterparty(counterparty)
                 .contractNumber(contractNumber)
                 .businessArea(area)
                 .startDate(LocalDate.now())

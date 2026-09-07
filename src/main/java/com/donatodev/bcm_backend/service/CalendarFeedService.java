@@ -85,7 +85,7 @@ public class CalendarFeedService {
             if (contract.getEndDate() == null) {
                 continue;
             }
-            String summary = "Scadenza contratto " + contract.getContractNumber() + " - " + contract.getCustomerName();
+            String summary = "Scadenza contratto " + contract.getContractNumber() + " - " + contract.getCounterparty().getName();
             ics.append("BEGIN:VEVENT\r\n")
                     .append("UID:contract-").append(contract.getId()).append("@bcm\r\n")
                     .append("DTSTAMP:").append(dtstamp).append("\r\n")

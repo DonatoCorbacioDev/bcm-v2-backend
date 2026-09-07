@@ -33,12 +33,14 @@ import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.WorkflowStage;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
+import com.donatodev.bcm_backend.exception.CounterpartyNotFoundException;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.mapper.ContractMapper;
@@ -46,6 +48,7 @@ import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 
 /**
@@ -71,6 +74,7 @@ public class ContractService {
     private final ContractManagerRepository contractManagerRepository;
     private final ContractHistoryRepository contractHistoryRepository;
     private final BusinessAreasRepository businessAreasRepository;
+    private final CounterpartiesRepository counterpartiesRepository;
 
     public ContractService(
             ContractsRepository contractsRepository,
@@ -79,7 +83,8 @@ public class ContractService {
             ManagerService managerService,
             ContractManagerRepository contractManagerRepository,
             ContractHistoryRepository contractHistoryRepository,
-            BusinessAreasRepository businessAreasRepository
+            BusinessAreasRepository businessAreasRepository,
+            CounterpartiesRepository counterpartiesRepository
     ) {
         this.contractsRepository = contractsRepository;
         this.contractMapper = contractMapper;
@@ -88,6 +93,12 @@ public class ContractService {
         this.contractManagerRepository = contractManagerRepository;
         this.contractHistoryRepository = contractHistoryRepository;
         this.businessAreasRepository = businessAreasRepository;
+        this.counterpartiesRepository = counterpartiesRepository;
+    }
+
+    private Counterparty resolveCounterpartyForUpdate(Long counterpartyId) {
+        return counterpartiesRepository.findById(counterpartyId)
+                .orElseThrow(() -> new CounterpartyNotFoundException("Controparte non trovata: " + counterpartyId));
     }
 
     /**
@@ -200,7 +211,7 @@ public class ContractService {
                     "Impossibile cambiare stato mentre il contratto è in revisione; approvarlo o respingerlo");
         }
 
-        contract.setCustomerName(contractDTO.customerName());
+        contract.setCounterparty(resolveCounterpartyForUpdate(contractDTO.counterpartyId()));
         contract.setContractNumber(contractDTO.contractNumber());
         contract.setWbsCode(contractDTO.wbsCode());
         contract.setProjectName(contractDTO.projectName());
@@ -351,15 +362,15 @@ public class ContractService {
             return searchPagedAdminForOrg(orgId, status, hasTerm, term, pageable);
         }
         if (status != null && hasTerm) {
-            // contractNumber OR customerName con stesso status
+            // contractNumber OR nome controparte con stesso status
             return contractsRepository
-                    .findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCustomerNameContainingIgnoreCase(
+                    .findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCounterpartyNameContainingIgnoreCase(
                             status, term, status, term, pageable);
         } else if (status != null) {
             return contractsRepository.findByStatus(status, pageable);
         } else if (hasTerm) {
             return contractsRepository
-                    .findByContractNumberContainingIgnoreCaseOrCustomerNameContainingIgnoreCase(
+                    .findByContractNumberContainingIgnoreCaseOrCounterpartyNameContainingIgnoreCase(
                             term, term, pageable);
         } else {
             return contractsRepository.findAllBy(pageable);
@@ -383,13 +394,13 @@ public class ContractService {
             return Page.empty(pageable);
         } else if (status != null && hasTerm) {
             return contractsRepository
-                    .findByManagerIdAndStatusAndContractNumberContainingIgnoreCaseOrManagerIdAndStatusAndCustomerNameContainingIgnoreCase(
+                    .findByManagerIdAndStatusAndContractNumberContainingIgnoreCaseOrManagerIdAndStatusAndCounterpartyNameContainingIgnoreCase(
                             managerId, status, term, managerId, status, term, pageable);
         } else if (status != null) {
             return contractsRepository.findByManagerIdAndStatus(managerId, status, pageable);
         } else if (hasTerm) {
             return contractsRepository
-                    .findByManagerIdAndContractNumberContainingIgnoreCaseOrManagerIdAndCustomerNameContainingIgnoreCase(
+                    .findByManagerIdAndContractNumberContainingIgnoreCaseOrManagerIdAndCounterpartyNameContainingIgnoreCase(
                             managerId, term, managerId, term, pageable);
         } else {
             return contractsRepository.findByManagerId(managerId, pageable);

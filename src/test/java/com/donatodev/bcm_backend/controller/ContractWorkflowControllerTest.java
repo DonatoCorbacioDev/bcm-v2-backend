@@ -23,12 +23,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.entity.WorkflowStage;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
@@ -45,6 +48,7 @@ class ContractWorkflowControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ContractsRepository contractsRepository;
+    @Autowired private CounterpartiesRepository counterpartiesRepository;
     @Autowired private ManagersRepository managersRepository;
     @Autowired private BusinessAreasRepository businessAreasRepository;
     @Autowired private UsersRepository usersRepository;
@@ -72,8 +76,9 @@ class ContractWorkflowControllerTest {
 
     private Contracts createDraftContract(Managers manager) {
         BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().name("WF-Area-" + System.nanoTime()).description("d").build());
+        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Client WF").type(CounterpartyType.CUSTOMER).build());
         return contractsRepository.save(Contracts.builder()
-                .customerName("Client WF").contractNumber("WF-" + System.nanoTime())
+                .counterparty(counterparty).contractNumber("WF-" + System.nanoTime())
                 .status(ContractStatus.DRAFT).workflowStage(WorkflowStage.DRAFT)
                 .startDate(LocalDate.of(2025, Month.JANUARY, 1)).endDate(LocalDate.of(2026, Month.JANUARY, 1))
                 .businessArea(area).manager(manager)

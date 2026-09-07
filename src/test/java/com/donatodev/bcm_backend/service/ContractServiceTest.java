@@ -50,6 +50,8 @@ import com.donatodev.bcm_backend.dto.TopManagerDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
@@ -102,8 +104,26 @@ class ContractServiceTest {
     @Mock
     private BusinessAreasRepository businessAreasRepository;
 
+    @Mock
+    private com.donatodev.bcm_backend.repository.CounterpartiesRepository counterpartiesRepository;
+
     @InjectMocks
     private ContractService contractService;
+
+    @org.junit.jupiter.api.BeforeEach
+    @SuppressWarnings("unused")
+    void stubCounterpartyResolution() {
+        // Every updateContract() call resolves the counterparty first; the
+        // fixtures across this file all use counterpartyId 1L (see the
+        // ContractDTO construction after the Counterparty refactor), so one
+        // lenient stub here covers them instead of repeating it per test.
+        org.mockito.Mockito.lenient().when(counterpartiesRepository.findById(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> Optional.of(com.donatodev.bcm_backend.entity.Counterparty.builder()
+                        .id(inv.getArgument(0, Long.class))
+                        .name("Any")
+                        .type(com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER)
+                        .build()));
+    }
 
     @AfterEach
     @SuppressWarnings("unused")
@@ -146,9 +166,9 @@ class ContractServiceTest {
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
 
-            ContractDTO dto = new ContractDTO(1L, "Cliente", "CONTR123", "WBS001", "Progetto A",
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Cliente", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CONTR123", "WBS001", "Progetto A",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 2L, 3L, null, null, null, null);
-            Contracts entity = Contracts.builder().id(1L).customerName("Cliente").build();
+            Contracts entity = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Cliente").type(CounterpartyType.CUSTOMER).build()).build();
 
             mockAuthentication("admin", "ADMIN");
 
@@ -159,7 +179,7 @@ class ContractServiceTest {
             List<ContractDTO> result = contractService.getAllContracts();
 
             assertEquals(1, result.size());
-            assertEquals("Cliente", result.get(0).customerName());
+            assertEquals("Cliente", result.get(0).counterparty().name());
         }
 
         /**
@@ -176,8 +196,8 @@ class ContractServiceTest {
             mockAuthentication("admin", "ADMIN");
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
 
-            Contracts contract = Contracts.builder().id(1L).contractNumber("ABC123").customerName("Mario").build();
-            ContractDTO dto = new ContractDTO(1L, "Mario", "ABC123", "WBS001", "Progetto",
+            Contracts contract = Contracts.builder().id(1L).contractNumber("ABC123").counterparty(Counterparty.builder().name("Mario").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Mario", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "ABC123", "WBS001", "Progetto",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
@@ -185,7 +205,7 @@ class ContractServiceTest {
 
             ContractDTO result = contractService.getContractById(1L);
 
-            assertEquals("Mario", result.customerName());
+            assertEquals("Mario", result.counterparty().name());
         }
 
         @Test
@@ -201,8 +221,8 @@ class ContractServiceTest {
             mockAuthentication("manager1", "MANAGER");
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
 
-            Contracts contract = Contracts.builder().id(1L).customerName("Mario").manager(manager).build();
-            ContractDTO dto = new ContractDTO(1L, "Mario", "ABC123", "WBS001", "Progetto",
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Mario").type(CounterpartyType.CUSTOMER).build()).manager(manager).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Mario", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "ABC123", "WBS001", "Progetto",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 5L, null, null, null, null);
 
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
@@ -210,7 +230,7 @@ class ContractServiceTest {
 
             ContractDTO result = contractService.getContractById(1L);
 
-            assertEquals("Mario", result.customerName());
+            assertEquals("Mario", result.counterparty().name());
         }
 
         @Test
@@ -227,7 +247,7 @@ class ContractServiceTest {
             mockAuthentication("manager1", "MANAGER");
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
 
-            Contracts contract = Contracts.builder().id(1L).customerName("Mario").manager(otherManager).build();
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Mario").type(CounterpartyType.CUSTOMER).build()).manager(otherManager).build();
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
 
             assertThrows(org.springframework.security.access.AccessDeniedException.class,
@@ -245,7 +265,7 @@ class ContractServiceTest {
             mockAuthentication("manager1", "MANAGER");
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
 
-            Contracts contract = Contracts.builder().id(1L).customerName("Mario").build();
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Mario").type(CounterpartyType.CUSTOMER).build()).build();
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
 
             assertThrows(org.springframework.security.access.AccessDeniedException.class,
@@ -265,7 +285,7 @@ class ContractServiceTest {
             mockAuthentication("manager1", "MANAGER");
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
 
-            Contracts contract = Contracts.builder().id(1L).customerName("Mario").build();
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Mario").type(CounterpartyType.CUSTOMER).build()).build();
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
 
             assertThrows(org.springframework.security.access.AccessDeniedException.class,
@@ -294,12 +314,12 @@ class ContractServiceTest {
         @Order(4)
         @DisplayName("Create contract returns saved DTO")
         void shouldCreateContract() {
-            ContractDTO dto = new ContractDTO(null, "NewClient", "ABC123", "WBS001", "NewProject",
+            ContractDTO dto = new ContractDTO(null, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "NewClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "ABC123", "WBS001", "NewProject",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
-            Contracts entity = Contracts.builder().customerName("NewClient").build();
-            Contracts saved = Contracts.builder().id(1L).customerName("NewClient").build();
-            ContractDTO savedDTO = new ContractDTO(1L, "NewClient", "ABC123", "WBS001", "NewProject",
+            Contracts entity = Contracts.builder().counterparty(Counterparty.builder().name("NewClient").type(CounterpartyType.CUSTOMER).build()).build();
+            Contracts saved = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("NewClient").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO savedDTO = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "NewClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "ABC123", "WBS001", "NewProject",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
             when(contractMapper.toEntity(dto)).thenReturn(entity);
@@ -309,7 +329,7 @@ class ContractServiceTest {
             ContractDTO result = contractService.createContract(dto);
 
             assertEquals(1L, result.id());
-            assertEquals("NewClient", result.customerName());
+            assertEquals("NewClient", result.counterparty().name());
         }
 
         /**
@@ -332,7 +352,7 @@ class ContractServiceTest {
 
             Contracts existing = Contracts.builder()
                     .id(1L)
-                    .customerName("OldClient")
+                    .counterparty(Counterparty.builder().name("OldClient").type(CounterpartyType.CUSTOMER).build())
                     .contractNumber("OLD123")
                     .wbsCode("OLDWBS")
                     .projectName("OldProject")
@@ -341,7 +361,7 @@ class ContractServiceTest {
                     .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                     .build();
 
-            ContractDTO updateDTO = new ContractDTO(1L, "UpdatedClient", "NEW123", "WBSNEW", "NewProject",
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "UpdatedClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "NEW123", "WBSNEW", "NewProject",
                     ContractStatus.EXPIRED, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(5), 1L, 1L, null, null, null, null);
 
             when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
@@ -352,7 +372,7 @@ class ContractServiceTest {
 
             ContractDTO result = contractService.updateContract(1L, updateDTO);
 
-            assertEquals("UpdatedClient", result.customerName());
+            assertEquals("UpdatedClient", result.counterparty().name());
             assertEquals("NEW123", result.contractNumber());
 
             // Verify history was saved (status changed from ACTIVE to EXPIRED)
@@ -370,7 +390,7 @@ class ContractServiceTest {
         void shouldRejectStatusChangeWhileInReview() {
             Contracts existing = Contracts.builder()
                     .id(1L)
-                    .customerName("Client")
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
                     .contractNumber("CNTR-WF")
                     .status(ContractStatus.DRAFT)
                     .workflowStage(com.donatodev.bcm_backend.entity.WorkflowStage.IN_REVIEW)
@@ -378,7 +398,7 @@ class ContractServiceTest {
                     .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                     .build();
 
-            ContractDTO updateDTO = new ContractDTO(1L, "Client", "CNTR-WF", null, null,
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CNTR-WF", null, null,
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(5), 1L, 1L, null, null, null, null);
 
@@ -394,7 +414,7 @@ class ContractServiceTest {
         void shouldAllowNonStatusUpdateWhileInReview() {
             Contracts existing = Contracts.builder()
                     .id(1L)
-                    .customerName("Client")
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
                     .contractNumber("CNTR-WF2")
                     .status(ContractStatus.DRAFT)
                     .workflowStage(com.donatodev.bcm_backend.entity.WorkflowStage.IN_REVIEW)
@@ -402,7 +422,7 @@ class ContractServiceTest {
                     .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                     .build();
 
-            ContractDTO updateDTO = new ContractDTO(1L, "Client Renamed", "CNTR-WF2", null, null,
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client Renamed", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CNTR-WF2", null, null,
                     ContractStatus.DRAFT, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(5), null, null, null, null, null, null);
 
@@ -412,7 +432,7 @@ class ContractServiceTest {
 
             ContractDTO result = contractService.updateContract(1L, updateDTO);
 
-            assertEquals("Client Renamed", result.customerName());
+            assertEquals("Client Renamed", result.counterparty().name());
             verify(contractsRepository).save(existing);
         }
 
@@ -431,7 +451,7 @@ class ContractServiceTest {
 
             Contracts existing = Contracts.builder()
                     .id(1L)
-                    .customerName("Client")
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
                     .contractNumber("CNTR-EDIT-DRAFT")
                     .status(ContractStatus.ACTIVE)
                     .workflowStage(null)
@@ -439,7 +459,7 @@ class ContractServiceTest {
                     .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                     .build();
 
-            ContractDTO updateDTO = new ContractDTO(1L, "Client", "CNTR-EDIT-DRAFT", null, null,
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CNTR-EDIT-DRAFT", null, null,
                     ContractStatus.DRAFT, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
@@ -468,7 +488,7 @@ class ContractServiceTest {
 
             Contracts existing = Contracts.builder()
                     .id(1L)
-                    .customerName("Client")
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
                     .contractNumber("CNTR-EDIT-ACTIVE")
                     .status(ContractStatus.DRAFT)
                     .workflowStage(com.donatodev.bcm_backend.entity.WorkflowStage.DRAFT)
@@ -476,7 +496,7 @@ class ContractServiceTest {
                     .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                     .build();
 
-            ContractDTO updateDTO = new ContractDTO(1L, "Client", "CNTR-EDIT-ACTIVE", null, null,
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CNTR-EDIT-ACTIVE", null, null,
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
@@ -500,7 +520,7 @@ class ContractServiceTest {
         void shouldLeaveWorkflowStageWhenStatusUnchangedDraft() {
             Contracts existing = Contracts.builder()
                     .id(1L)
-                    .customerName("Client")
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
                     .contractNumber("CNTR-STILL-DRAFT")
                     .status(ContractStatus.DRAFT)
                     .workflowStage(com.donatodev.bcm_backend.entity.WorkflowStage.DRAFT)
@@ -508,7 +528,7 @@ class ContractServiceTest {
                     .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                     .build();
 
-            ContractDTO updateDTO = new ContractDTO(1L, "Client Renamed", "CNTR-STILL-DRAFT", null, null,
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client Renamed", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CNTR-STILL-DRAFT", null, null,
                     ContractStatus.DRAFT, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
@@ -532,7 +552,7 @@ class ContractServiceTest {
         void shouldUpdateManagerAndBusinessAreaOnEdit() {
             Contracts existing = Contracts.builder()
                     .id(1L)
-                    .customerName("Client")
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
                     .contractNumber("CNTR-MGR-AREA")
                     .status(ContractStatus.ACTIVE)
                     .manager(null)
@@ -540,7 +560,7 @@ class ContractServiceTest {
                     .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                     .build();
 
-            ContractDTO updateDTO = new ContractDTO(1L, "Client", "CNTR-MGR-AREA", null, null,
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CNTR-MGR-AREA", null, null,
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 2L, 5L, null, null, null, null);
 
@@ -570,7 +590,7 @@ class ContractServiceTest {
             Managers oldManager = Managers.builder().id(9L).firstName("Old").lastName("Manager").build();
             Contracts existing = Contracts.builder()
                     .id(1L)
-                    .customerName("Client")
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
                     .contractNumber("CNTR-CLEAR-MGR")
                     .status(ContractStatus.ACTIVE)
                     .manager(oldManager)
@@ -578,7 +598,7 @@ class ContractServiceTest {
                     .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                     .build();
 
-            ContractDTO updateDTO = new ContractDTO(1L, "Client", "CNTR-CLEAR-MGR", null, null,
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CNTR-CLEAR-MGR", null, null,
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, null, null, null, null, null);
 
@@ -603,14 +623,14 @@ class ContractServiceTest {
         void shouldThrowWhenUpdateReferencesUnknownBusinessArea() {
             Contracts existing = Contracts.builder()
                     .id(1L)
-                    .customerName("Client")
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
                     .contractNumber("CNTR-BAD-AREA")
                     .status(ContractStatus.ACTIVE)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15))
                     .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                     .build();
 
-            ContractDTO updateDTO = new ContractDTO(1L, "Client", "CNTR-BAD-AREA", null, null,
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CNTR-BAD-AREA", null, null,
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 999L, null, null, null, null, null);
 
@@ -683,8 +703,8 @@ class ContractServiceTest {
                     .manager(manager)
                     .build();
 
-            Contracts contract = Contracts.builder().id(1L).customerName("ClientA").build();
-            ContractDTO dto = new ContractDTO(1L, "ClientA", "CON123", "WBS", "Proj", ContractStatus.ACTIVE,
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("ClientA").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "ClientA", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CON123", "WBS", "Proj", ContractStatus.ACTIVE,
                     LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 5L, 1L, null, null, null, null);
 
             mockAuthentication("manager1", "MANAGER");
@@ -696,7 +716,7 @@ class ContractServiceTest {
             List<ContractDTO> result = contractService.getAllContracts();
 
             assertEquals(1, result.size());
-            assertEquals("ClientA", result.get(0).customerName());
+            assertEquals("ClientA", result.get(0).counterparty().name());
         }
 
         /**
@@ -715,8 +735,8 @@ class ContractServiceTest {
                     .manager(manager)
                     .build();
 
-            Contracts contract = Contracts.builder().id(2L).status(ContractStatus.ACTIVE).customerName("ClientB").build();
-            ContractDTO dto = new ContractDTO(2L, "ClientB", "CON456", "WBS2", "Proj2", ContractStatus.ACTIVE,
+            Contracts contract = Contracts.builder().id(2L).status(ContractStatus.ACTIVE).counterparty(Counterparty.builder().name("ClientB").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(2L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "ClientB", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CON456", "WBS2", "Proj2", ContractStatus.ACTIVE,
                     LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(20), 7L, 1L, null, null, null, null);
 
             mockAuthentication("manager2", "MANAGER");
@@ -728,7 +748,7 @@ class ContractServiceTest {
             List<ContractDTO> result = contractService.getContractsByStatus(ContractStatus.ACTIVE);
 
             assertEquals(1, result.size());
-            assertEquals("ClientB", result.get(0).customerName());
+            assertEquals("ClientB", result.get(0).counterparty().name());
         }
 
         /**
@@ -850,7 +870,7 @@ class ContractServiceTest {
         @DisplayName("Should throw if contract to update is not found")
         void shouldThrowIfContractToUpdateNotFound() {
             Long contractId = 999L;
-            ContractDTO dto = new ContractDTO(contractId, "x", "x", "x", "x",
+            ContractDTO dto = new ContractDTO(contractId, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "x", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "x", "x", "x",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(5), 1L, 1L, null, null, null, null);
 
             when(contractsRepository.findById(contractId)).thenReturn(Optional.empty());
@@ -873,9 +893,9 @@ class ContractServiceTest {
             Contracts contract = Contracts.builder()
                     .id(1L)
                     .status(ContractStatus.ACTIVE)
-                    .customerName("ClientA")
+                    .counterparty(Counterparty.builder().name("ClientA").type(CounterpartyType.CUSTOMER).build())
                     .build();
-            ContractDTO dto = new ContractDTO(1L, "ClientA", "CON123", "WBS", "Proj",
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "ClientA", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CON123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             mockAuthentication("admin", "ADMIN");
@@ -887,7 +907,7 @@ class ContractServiceTest {
             List<ContractDTO> result = contractService.getContractsByStatus(ContractStatus.ACTIVE);
 
             assertEquals(1, result.size());
-            assertEquals("ClientA", result.get(0).customerName());
+            assertEquals("ClientA", result.get(0).counterparty().name());
         }
 
         @Test
@@ -1048,10 +1068,10 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder()
                     .id(1L)
-                    .customerName("TestClient")
+                    .counterparty(Counterparty.builder().name("TestClient").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .build();
-            ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "TestClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
@@ -1066,10 +1086,10 @@ class ContractServiceTest {
                 case "findByStatus" ->
                     when(contractsRepository.findByStatus(eq(status), any(Pageable.class))).thenReturn(page);
                 case "findByTerm" ->
-                    when(contractsRepository.findByContractNumberContainingIgnoreCaseOrCustomerNameContainingIgnoreCase(
+                    when(contractsRepository.findByContractNumberContainingIgnoreCaseOrCounterpartyNameContainingIgnoreCase(
                             eq(searchTerm), eq(searchTerm), any(Pageable.class))).thenReturn(page);
                 case "findByStatusAndTerm" ->
-                    when(contractsRepository.findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCustomerNameContainingIgnoreCase(
+                    when(contractsRepository.findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCounterpartyNameContainingIgnoreCase(
                             eq(status), eq(searchTerm), eq(status), eq(searchTerm), any(Pageable.class))).thenReturn(page);
                 default ->
                     throw new IllegalArgumentException("Unexpected repository method: " + expectedRepoMethod);
@@ -1103,7 +1123,7 @@ class ContractServiceTest {
                     .build();
 
             Contracts contract = Contracts.builder().id(1L).status(ContractStatus.ACTIVE).build();
-            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
@@ -1129,15 +1149,15 @@ class ContractServiceTest {
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
 
-            Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
-            ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("TestClient").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "TestClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
             mockAuthentication("admin", "ADMIN");
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findByContractNumberContainingIgnoreCaseOrCustomerNameContainingIgnoreCase(
+            when(contractsRepository.findByContractNumberContainingIgnoreCaseOrCounterpartyNameContainingIgnoreCase(
                     eq("test"), eq("test"), any(Pageable.class))).thenReturn(page);
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
@@ -1155,15 +1175,15 @@ class ContractServiceTest {
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
 
-            Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
-            ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("TestClient").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "TestClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
             mockAuthentication("admin", "ADMIN");
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCustomerNameContainingIgnoreCase(
+            when(contractsRepository.findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCounterpartyNameContainingIgnoreCase(
                     eq(ContractStatus.ACTIVE), eq("test"), eq(ContractStatus.ACTIVE), eq("test"), any(Pageable.class)))
                     .thenReturn(page);
             when(contractMapper.toDTO(contract)).thenReturn(dto);
@@ -1187,10 +1207,10 @@ class ContractServiceTest {
 
             Contracts contract = Contracts.builder()
                     .id(1L)
-                    .customerName("TestClient")
+                    .counterparty(Counterparty.builder().name("TestClient").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .build();
-            ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "TestClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 5L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
@@ -1208,10 +1228,10 @@ class ContractServiceTest {
                     when(contractsRepository.findByManagerIdAndStatus(
                             eq(managerId), eq(status), any(Pageable.class))).thenReturn(page);
                 case "findByManagerIdAndTerm" ->
-                    when(contractsRepository.findByManagerIdAndContractNumberContainingIgnoreCaseOrManagerIdAndCustomerNameContainingIgnoreCase(
+                    when(contractsRepository.findByManagerIdAndContractNumberContainingIgnoreCaseOrManagerIdAndCounterpartyNameContainingIgnoreCase(
                             eq(managerId), eq(searchTerm), eq(managerId), eq(searchTerm), any(Pageable.class))).thenReturn(page);
                 case "findByManagerIdAndStatusAndTerm" ->
-                    when(contractsRepository.findByManagerIdAndStatusAndContractNumberContainingIgnoreCaseOrManagerIdAndStatusAndCustomerNameContainingIgnoreCase(
+                    when(contractsRepository.findByManagerIdAndStatusAndContractNumberContainingIgnoreCaseOrManagerIdAndStatusAndCounterpartyNameContainingIgnoreCase(
                             eq(managerId), eq(status), eq(searchTerm), eq(managerId), eq(status), eq(searchTerm), any(Pageable.class))).thenReturn(page);
                 default ->
                     throw new IllegalArgumentException("Unexpected repository method: " + expectedRepoMethod);
@@ -1245,7 +1265,7 @@ class ContractServiceTest {
                     .build();
 
             Contracts contract = Contracts.builder().id(1L).status(ContractStatus.ACTIVE).build();
-            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 5L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
@@ -1272,15 +1292,15 @@ class ContractServiceTest {
                     .manager(manager)
                     .build();
 
-            Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
-            ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("TestClient").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "TestClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 5L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
             mockAuthentication("manager", "MANAGER");
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(contractsRepository.findByManagerIdAndContractNumberContainingIgnoreCaseOrManagerIdAndCustomerNameContainingIgnoreCase(
+            when(contractsRepository.findByManagerIdAndContractNumberContainingIgnoreCaseOrManagerIdAndCounterpartyNameContainingIgnoreCase(
                     eq(5L), eq("test"), eq(5L), eq("test"), any(Pageable.class))).thenReturn(page);
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
@@ -1300,15 +1320,15 @@ class ContractServiceTest {
                     .manager(manager)
                     .build();
 
-            Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
-            ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("TestClient").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "TestClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 5L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
             mockAuthentication("manager", "MANAGER");
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(contractsRepository.findByManagerIdAndStatusAndContractNumberContainingIgnoreCaseOrManagerIdAndStatusAndCustomerNameContainingIgnoreCase(
+            when(contractsRepository.findByManagerIdAndStatusAndContractNumberContainingIgnoreCaseOrManagerIdAndStatusAndCounterpartyNameContainingIgnoreCase(
                     eq(5L), eq(ContractStatus.ACTIVE), eq("test"), eq(5L), eq(ContractStatus.ACTIVE), eq("test"), any(Pageable.class)))
                     .thenReturn(page);
             when(contractMapper.toDTO(contract)).thenReturn(dto);
@@ -1350,8 +1370,8 @@ class ContractServiceTest {
                     .manager(Managers.builder().id(100L).build()) // Admin has a manager but should be ignored
                     .build();
 
-            Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
-            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
@@ -1377,8 +1397,8 @@ class ContractServiceTest {
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
 
-            Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
-            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
@@ -1404,8 +1424,8 @@ class ContractServiceTest {
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
 
-            Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
-            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
@@ -1432,8 +1452,8 @@ class ContractServiceTest {
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
 
-            Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
-            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
@@ -1476,8 +1496,8 @@ class ContractServiceTest {
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
 
-            Contracts contract = Contracts.builder().id(1L).customerName("Client").build();
-            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             Page<Contracts> page = new PageImpl<>(List.of(contract));
@@ -1543,7 +1563,7 @@ class ContractServiceTest {
 
             Contracts existing = Contracts.builder()
                     .id(1L)
-                    .customerName("OldClient")
+                    .counterparty(Counterparty.builder().name("OldClient").type(CounterpartyType.CUSTOMER).build())
                     .contractNumber("OLD123")
                     .wbsCode("OLDWBS")
                     .projectName("OldProject")
@@ -1553,7 +1573,7 @@ class ContractServiceTest {
                     .build();
 
             // Update DTO with SAME status 
-            ContractDTO updateDTO = new ContractDTO(1L, "UpdatedClient", "NEW123", "WBSNEW", "NewProject",
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "UpdatedClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "NEW123", "WBSNEW", "NewProject",
                     ContractStatus.ACTIVE,
                     LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(5), 1L, 1L, null, null, null, null);
 
@@ -1564,7 +1584,7 @@ class ContractServiceTest {
 
             ContractDTO result = contractService.updateContract(1L, updateDTO);
 
-            assertEquals("UpdatedClient", result.customerName());
+            assertEquals("UpdatedClient", result.counterparty().name());
 
             // Verify history was NOT saved (status didn't change)
             verify(contractHistoryRepository, never()).save(any());
@@ -1581,7 +1601,7 @@ class ContractServiceTest {
 
             Contracts existing = Contracts.builder()
                     .id(1L)
-                    .customerName("Client")
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
                     .contractNumber("C123")
                     .wbsCode("WBS")
                     .projectName("Project")
@@ -1591,7 +1611,7 @@ class ContractServiceTest {
                     .build();
 
             // Update DTO with DIFFERENT status
-            ContractDTO updateDTO = new ContractDTO(1L, "Client", "C123", "WBS", "Project",
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Project",
                     ContractStatus.EXPIRED,
                     LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
@@ -1621,7 +1641,7 @@ class ContractServiceTest {
             Contracts expiring1 = Contracts.builder()
                     .id(1L)
                     .contractNumber("CNT-001")
-                    .customerName("Acme Corp")
+                    .counterparty(Counterparty.builder().name("Acme Corp").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .endDate(today.plusDays(10))
                     .build();
@@ -1629,7 +1649,7 @@ class ContractServiceTest {
             Contracts expiring2 = Contracts.builder()
                     .id(2L)
                     .contractNumber("CNT-002")
-                    .customerName("TechStart Inc")
+                    .counterparty(Counterparty.builder().name("TechStart Inc").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .endDate(today.plusDays(25))
                     .build();
@@ -1638,13 +1658,13 @@ class ContractServiceTest {
                     .thenReturn(List.of(expiring1, expiring2));
 
             when(contractMapper.toDTO(expiring1)).thenReturn(
-                    new ContractDTO(1L, "Acme Corp", "CNT-001", "WBS-001", "Project A",
+                    new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CNT-001", "WBS-001", "Project A",
                             ContractStatus.ACTIVE, today, today.plusDays(10),
                             null, null, null, null, null, 10)
             );
 
             when(contractMapper.toDTO(expiring2)).thenReturn(
-                    new ContractDTO(2L, "TechStart Inc", "CNT-002", "WBS-002", "Project B",
+                    new ContractDTO(2L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "TechStart Inc", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CNT-002", "WBS-002", "Project B",
                             ContractStatus.ACTIVE, today, today.plusDays(25),
                             null, null, null, null, null, 25)
             );
@@ -1804,8 +1824,8 @@ class ContractServiceTest {
         @Order(57)
         @DisplayName("createContract with TenantContext sets organization on entity")
         void shouldCreateContractWithOrgFilter() {
-            Contracts entity = Contracts.builder().id(1L).customerName("OrgClient").build();
-            ContractDTO dto = new ContractDTO(1L, "OrgClient", "CTR-ORG", null, null,
+            Contracts entity = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("OrgClient").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "OrgClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CTR-ORG", null, null,
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), null, 1L, null, null, null, null, 0);
 
             TenantContext.set(10L);
@@ -1816,7 +1836,7 @@ class ContractServiceTest {
 
                 ContractDTO result = contractService.createContract(dto);
 
-                assertEquals("OrgClient", result.customerName());
+                assertEquals("OrgClient", result.counterparty().name());
                 org.junit.jupiter.api.Assertions.assertNotNull(entity.getOrganization());
                 assertEquals(10L, entity.getOrganization().getId());
             } finally {
@@ -1864,8 +1884,8 @@ class ContractServiceTest {
             mockAdminAuth();
             TenantContext.set(2L);
             try {
-                Contracts c = Contracts.builder().id(1L).customerName("Org Client").build();
-                ContractDTO dto = new ContractDTO(1L, "Org Client", "C001", null, null,
+                Contracts c = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Org Client").type(CounterpartyType.CUSTOMER).build()).build();
+                ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Org Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C001", null, null,
                         ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), null, 1L, null, null, null, null, 5);
                 when(contractsRepository.findExpiringContractsByOrg(any(LocalDate.class), any(LocalDate.class), eq(2L)))
                         .thenReturn(List.of(c));
@@ -2006,8 +2026,8 @@ class ContractServiceTest {
             mockAuthentication("manager1", "MANAGER");
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
 
-            Contracts contract = Contracts.builder().id(1L).customerName("Mine").manager(manager).build();
-            ContractDTO dto = new ContractDTO(1L, "Mine", "C1", null, null,
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Mine").type(CounterpartyType.CUSTOMER).build()).manager(manager).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Mine", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C1", null, null,
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), null, 1L, 7L, null, null, null, 5);
             when(contractsRepository.findExpiringContractsByManager(any(LocalDate.class), any(LocalDate.class), eq(7L)))
                     .thenReturn(List.of(contract));
@@ -2193,8 +2213,8 @@ class ContractServiceTest {
             mockAuthentication("admin", "ADMIN");
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
 
-            Contracts contract = Contracts.builder().id(1L).contractNumber("ABC123").customerName("Mario").build();
-            ContractDTO dto = new ContractDTO(1L, "Mario", "ABC123", "WBS001", "Progetto",
+            Contracts contract = Contracts.builder().id(1L).contractNumber("ABC123").counterparty(Counterparty.builder().name("Mario").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Mario", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "ABC123", "WBS001", "Progetto",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
             TenantContext.set(11L);
@@ -2204,7 +2224,7 @@ class ContractServiceTest {
 
                 ContractDTO result = contractService.getContractById(1L);
 
-                assertEquals("Mario", result.customerName());
+                assertEquals("Mario", result.counterparty().name());
                 verify(contractsRepository).findByIdAndOrganization_Id(1L, 11L);
             } finally {
                 TenantContext.clear();
@@ -2219,8 +2239,8 @@ class ContractServiceTest {
                     .username("admin")
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
-            Contracts entity = Contracts.builder().id(1L).customerName("OrgClient").build();
-            ContractDTO dto = new ContractDTO(1L, "OrgClient", "C001", null, null,
+            Contracts entity = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("OrgClient").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "OrgClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C001", null, null,
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), null, 1L, null, null, null, null, 0);
 
             mockAuthentication("admin", "ADMIN");
@@ -2249,8 +2269,8 @@ class ContractServiceTest {
                     .username("admin")
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
-            Contracts entity = Contracts.builder().id(1L).customerName("OrgClient").build();
-            ContractDTO dto = new ContractDTO(1L, "OrgClient", "C001", null, null,
+            Contracts entity = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("OrgClient").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "OrgClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C001", null, null,
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), null, 1L, null, null, null, null, 0);
 
             mockAuthentication("admin", "ADMIN");
@@ -2280,8 +2300,8 @@ class ContractServiceTest {
                     .username("admin")
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
-            Contracts contract = Contracts.builder().id(1L).customerName("OrgClient").build();
-            ContractDTO dto = new ContractDTO(1L, "OrgClient", "C001", "WBS", "Proj",
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("OrgClient").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "OrgClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C001", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -2312,7 +2332,7 @@ class ContractServiceTest {
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
             Contracts contract = Contracts.builder().id(1L).status(ContractStatus.ACTIVE).build();
-            ContractDTO dto = new ContractDTO(1L, "Client", "C123", "WBS", "Proj",
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -2342,8 +2362,8 @@ class ContractServiceTest {
                     .username("admin")
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
-            Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
-            ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("TestClient").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "TestClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 
@@ -2372,8 +2392,8 @@ class ContractServiceTest {
                     .username("admin")
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
-            Contracts contract = Contracts.builder().id(1L).customerName("TestClient").build();
-            ContractDTO dto = new ContractDTO(1L, "TestClient", "C123", "WBS", "Proj",
+            Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("TestClient").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "TestClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "C123", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
             Page<Contracts> page = new PageImpl<>(List.of(contract));
 

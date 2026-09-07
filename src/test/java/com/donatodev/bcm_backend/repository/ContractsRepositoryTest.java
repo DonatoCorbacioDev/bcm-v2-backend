@@ -17,6 +17,8 @@ import org.springframework.test.context.ActiveProfiles;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 
 @DataJpaTest
@@ -34,8 +36,12 @@ class ContractsRepositoryTest {
     @Autowired
     private ManagersRepository managersRepository;
 
+    @Autowired
+    private CounterpartiesRepository counterpartiesRepository;
+
     private BusinessAreas area;
     private Managers manager;
+    private Counterparty counterparty;
 
     @BeforeEach
     @SuppressWarnings("unused")
@@ -43,6 +49,7 @@ class ContractsRepositoryTest {
         contractsRepository.deleteAll();
         businessAreasRepository.deleteAll();
         managersRepository.deleteAll();
+        counterpartiesRepository.deleteAll();
 
         area = businessAreasRepository.save(BusinessAreas.builder()
                 .name("IT")
@@ -56,11 +63,16 @@ class ContractsRepositoryTest {
                 .phoneNumber("123456")
                 .department("Tech")
                 .build());
+
+        counterparty = counterpartiesRepository.save(Counterparty.builder()
+                .name("Customer")
+                .type(CounterpartyType.CUSTOMER)
+                .build());
     }
 
     private Contracts buildContract(String number, ContractStatus status, Managers mgr, LocalDate start, LocalDate end) {
         return Contracts.builder()
-                .customerName("Customer")
+                .counterparty(counterparty)
                 .contractNumber(number)
                 .wbsCode("WBS-" + number)
                 .projectName("Project " + number)

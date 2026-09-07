@@ -28,6 +28,8 @@ import com.donatodev.bcm_backend.dto.InstantiateTemplateDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.ContractTemplate;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Roles;
@@ -35,6 +37,7 @@ import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractTemplateRepository;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
@@ -71,6 +74,9 @@ class ContractTemplateControllerTest {
     private ManagersRepository managersRepository;
 
     @Autowired
+    private CounterpartiesRepository counterpartiesRepository;
+
+    @Autowired
     private OrganizationRepository organizationRepository;
 
     @Autowired
@@ -92,6 +98,10 @@ class ContractTemplateControllerTest {
     @BeforeEach
     void setUp() {
         testDataCleaner.clean();
+        // Counterparties created by instantiate-template tests reference a
+        // per-test Organization; TestDataCleaner doesn't know about this new
+        // table, so it must be cleared here before the org itself.
+        counterpartiesRepository.deleteAll();
         organizationRepository.deleteAll();
 
         org = organizationRepository.save(Organization.builder().name("Acme").slug("acme").build());
@@ -254,8 +264,11 @@ class ContractTemplateControllerTest {
                     .defaultDurationDays(30).businessArea(templateArea).autoRenew(false)
                     .orgId(org.getId()).build());
 
+            Counterparty acmeCorp = counterpartiesRepository.save(Counterparty.builder()
+                    .name("Acme Corp").type(CounterpartyType.CUSTOMER).organization(org).build());
+
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
-                    "Acme Corp", "CTR-OVR-001", "WBS-1", "Project X",
+                    acmeCorp.getId(), "CTR-OVR-001", "WBS-1", "Project X",
                     LocalDate.of(2026, Month.JANUARY, 1), LocalDate.of(2026, Month.DECEMBER, 31),
                     overrideArea.getId(), overrideManager.getId(), ContractStatus.ACTIVE);
 
@@ -264,7 +277,7 @@ class ContractTemplateControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(req)))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.customerName").value("Acme Corp"))
+                    .andExpect(jsonPath("$.counterparty.name").value("Acme Corp"))
                     .andExpect(jsonPath("$.status").value("ACTIVE"))
                     .andExpect(jsonPath("$.endDate").value("2026-12-31"))
                     .andExpect(jsonPath("$.areaId").value(overrideArea.getId()));
@@ -285,8 +298,11 @@ class ContractTemplateControllerTest {
                     .defaultDurationDays(60).businessArea(area).defaultManager(manager)
                     .autoRenew(false).orgId(org.getId()).build());
 
+            Counterparty betaCorp = counterpartiesRepository.save(Counterparty.builder()
+                    .name("Beta Corp").type(CounterpartyType.CUSTOMER).organization(org).build());
+
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
-                    "Beta Corp", "CTR-DEF-001", null, null,
+                    betaCorp.getId(), "CTR-DEF-001", null, null,
                     LocalDate.of(2026, Month.JANUARY, 1), null,
                     null, null, null);
 
@@ -295,7 +311,7 @@ class ContractTemplateControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(req)))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.customerName").value("Beta Corp"))
+                    .andExpect(jsonPath("$.counterparty.name").value("Beta Corp"))
                     .andExpect(jsonPath("$.status").value("DRAFT"))
                     .andExpect(jsonPath("$.endDate").value("2026-03-02"))
                     .andExpect(jsonPath("$.areaId").value(area.getId()))
@@ -309,8 +325,11 @@ class ContractTemplateControllerTest {
             ContractTemplate saved = templateRepository.save(ContractTemplate.builder()
                     .name("No Area Template").autoRenew(false).orgId(org.getId()).build());
 
+            Counterparty gammaCorp = counterpartiesRepository.save(Counterparty.builder()
+                    .name("Gamma Corp").type(CounterpartyType.CUSTOMER).organization(org).build());
+
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
-                    "Gamma Corp", "CTR-NOAREA-001", null, null,
+                    gammaCorp.getId(), "CTR-NOAREA-001", null, null,
                     LocalDate.of(2026, Month.JANUARY, 1), null,
                     null, null, null);
 
@@ -332,8 +351,11 @@ class ContractTemplateControllerTest {
                     .name("No Duration Template").businessArea(area).autoRenew(false)
                     .orgId(org.getId()).build());
 
+            Counterparty deltaCorp = counterpartiesRepository.save(Counterparty.builder()
+                    .name("Delta Corp").type(CounterpartyType.CUSTOMER).organization(org).build());
+
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
-                    "Delta Corp", "CTR-NODUR-001", null, null,
+                    deltaCorp.getId(), "CTR-NODUR-001", null, null,
                     LocalDate.of(2026, Month.JANUARY, 1), null,
                     null, null, null);
 
@@ -342,7 +364,7 @@ class ContractTemplateControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(req)))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.customerName").value("Delta Corp"))
+                    .andExpect(jsonPath("$.counterparty.name").value("Delta Corp"))
                     .andExpect(jsonPath("$.endDate").doesNotExist());
         }
 

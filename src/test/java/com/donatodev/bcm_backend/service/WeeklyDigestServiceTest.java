@@ -22,6 +22,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Users;
@@ -61,7 +63,10 @@ class WeeklyDigestServiceTest {
     private Contracts contract(String number, String customer, LocalDate endDate) {
         Contracts c = new Contracts();
         c.setContractNumber(number);
-        c.setCustomerName(customer);
+        // Counterparty itself is always non-null (matches the real NOT NULL FK);
+        // only its name can be null, to exercise the escapeHtml(null) -> "-"
+        // dash-placeholder path the same way a null customerName used to.
+        c.setCounterparty(Counterparty.builder().name(customer).type(CounterpartyType.CUSTOMER).build());
         c.setProjectName("Progetto Test");
         c.setEndDate(endDate);
         c.setStatus(ContractStatus.ACTIVE);

@@ -117,7 +117,7 @@ public class ContractTemplateService {
         }
 
         ContractDTO contractDTO = new ContractDTO(
-                null, req.customerName(), req.contractNumber(),
+                null, req.counterpartyId(), null, req.contractNumber(),
                 req.wbsCode(), req.projectName(), status,
                 req.startDate(), endDate,
                 areaId, managerId, null, null, null, null);

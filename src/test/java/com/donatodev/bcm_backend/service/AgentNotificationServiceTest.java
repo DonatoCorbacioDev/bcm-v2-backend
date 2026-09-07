@@ -27,6 +27,8 @@ import org.springframework.test.context.ActiveProfiles;
 
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.NotificationType;
 import com.donatodev.bcm_backend.entity.Organization;
@@ -58,7 +60,8 @@ class AgentNotificationServiceTest {
             manager.setEmail("manager@test.com");
 
             Contracts contract = Contracts.builder()
-                    .id(1L).contractNumber("CNT-001").customerName("Client A")
+                    .id(1L).contractNumber("CNT-001")
+                    .counterparty(Counterparty.builder().name("Client A").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .startDate(LocalDate.of(2026, Month.DECEMBER, 15))
                     .endDate(LocalDate.of(2027, Month.JULY, 5))
@@ -84,7 +87,8 @@ class AgentNotificationServiceTest {
             manager.setEmail("manager@test.com");
 
             Contracts contract = Contracts.builder()
-                    .id(1L).contractNumber("CNT-005").customerName("Client A")
+                    .id(1L).contractNumber("CNT-005")
+                    .counterparty(Counterparty.builder().name("Client A").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .endDate(LocalDate.now().plusDays(1))
                     .manager(manager).build();
@@ -164,7 +168,7 @@ class AgentNotificationServiceTest {
 
             Contracts contract = Contracts.builder()
                     .id(1L).contractNumber("CNT-RISK-001")
-                    .customerName("Risky Client")
+                    .counterparty(Counterparty.builder().name("Risky Client").type(CounterpartyType.CUSTOMER).build())
                     .endDate(LocalDate.of(2027, Month.SEPTEMBER, 15))
                     .manager(manager).build();
 
@@ -321,7 +325,8 @@ class AgentNotificationServiceTest {
         void notifiesAdminsAndApproversDeduped() {
             Organization org = Organization.builder().id(10L).name("TestOrg").build();
             Contracts contract = Contracts.builder()
-                    .id(1L).contractNumber("CNT-WF-002").customerName("Client B")
+                    .id(1L).contractNumber("CNT-WF-002")
+                    .counterparty(Counterparty.builder().name("Client B").type(CounterpartyType.CUSTOMER).build())
                     .organization(org).build();
 
             Users adminAndApprover = Users.builder().id(1L).username("admin1").build();

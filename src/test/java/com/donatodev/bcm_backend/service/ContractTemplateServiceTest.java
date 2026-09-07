@@ -231,12 +231,11 @@ class ContractTemplateServiceTest {
             template.setBusinessArea(area);
 
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
-                    "Acme Corp", "CTR-001", null, null,
+                    1L, "CTR-001", null, null,
                     LocalDate.of(2026, Month.JANUARY, 1), null,
                     null, null, null);
 
-            ContractDTO created = new ContractDTO(
-                    42L, "Acme Corp", "CTR-001", null, null,
+            ContractDTO created = new ContractDTO(42L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CTR-001", null, null,
                     ContractStatus.DRAFT, LocalDate.of(2026, Month.JANUARY, 1), LocalDate.of(2027, Month.JANUARY, 1),
                     3L, null, null, null, null, null);
 
@@ -247,7 +246,7 @@ class ContractTemplateServiceTest {
             ContractDTO result = templateService.instantiateTemplate(TEMPLATE_ID, req);
 
             assertEquals(42L, result.id());
-            assertEquals("Acme Corp", result.customerName());
+            assertEquals("Acme Corp", result.counterparty().name());
         }
 
         @Test
@@ -260,7 +259,7 @@ class ContractTemplateServiceTest {
             template.setBusinessArea(area);
 
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
-                    "Acme", "CTR-002", null, null,
+                    1L, "CTR-002", null, null,
                     LocalDate.of(2026, Month.JANUARY, 1), null,
                     null, null, null);
 
@@ -269,7 +268,7 @@ class ContractTemplateServiceTest {
             when(contractService.createContract(any(ContractDTO.class))).thenAnswer(inv -> {
                 ContractDTO arg = inv.getArgument(0);
                 assertEquals(LocalDate.of(2027, Month.JANUARY, 1), arg.endDate());
-                return new ContractDTO(1L, "Acme", "CTR-002", null, null,
+                return new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CTR-002", null, null,
                         ContractStatus.DRAFT, arg.startDate(), arg.endDate(),
                         3L, null, null, null, null, null);
             });
@@ -288,7 +287,7 @@ class ContractTemplateServiceTest {
 
             LocalDate explicitEnd = LocalDate.of(2026, Month.JUNE, 30);
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
-                    "Acme", "CTR-003", null, null,
+                    1L, "CTR-003", null, null,
                     LocalDate.of(2026, Month.JANUARY, 1), explicitEnd,
                     null, null, null);
 
@@ -297,7 +296,7 @@ class ContractTemplateServiceTest {
             when(contractService.createContract(any(ContractDTO.class))).thenAnswer(inv -> {
                 ContractDTO arg = inv.getArgument(0);
                 assertEquals(explicitEnd, arg.endDate());
-                return new ContractDTO(1L, "Acme", "CTR-003", null, null,
+                return new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CTR-003", null, null,
                         ContractStatus.DRAFT, arg.startDate(), arg.endDate(),
                         3L, null, null, null, null, null);
             });
@@ -313,7 +312,7 @@ class ContractTemplateServiceTest {
             template.setBusinessArea(null);
 
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
-                    "Acme", "CTR-004", null, null,
+                    1L, "CTR-004", null, null,
                     LocalDate.of(2026, Month.JANUARY, 1), null,
                     null, null, null);
 
@@ -332,7 +331,7 @@ class ContractTemplateServiceTest {
             template.setBusinessArea(null);
 
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
-                    "Acme", "CTR-005", null, null,
+                    1L, "CTR-005", null, null,
                     LocalDate.of(2026, Month.JANUARY, 1), null,
                     7L, null, null);
 
@@ -341,7 +340,7 @@ class ContractTemplateServiceTest {
             when(contractService.createContract(any(ContractDTO.class))).thenAnswer(inv -> {
                 ContractDTO arg = inv.getArgument(0);
                 assertEquals(7L, arg.areaId());
-                return new ContractDTO(1L, "Acme", "CTR-005", null, null,
+                return new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CTR-005", null, null,
                         ContractStatus.DRAFT, arg.startDate(), null, 7L, null, null, null, null, null);
             });
 
@@ -385,7 +384,7 @@ class ContractTemplateServiceTest {
             template.setBusinessArea(area);
 
             InstantiateTemplateDTO req = new InstantiateTemplateDTO(
-                    "Acme", "CTR-006", null, null,
+                    1L, "CTR-006", null, null,
                     LocalDate.of(2026, Month.JANUARY, 1), null,
                     null, null, ContractStatus.ACTIVE);
 
@@ -394,7 +393,7 @@ class ContractTemplateServiceTest {
             when(contractService.createContract(any(ContractDTO.class))).thenAnswer(inv -> {
                 ContractDTO arg = inv.getArgument(0);
                 assertEquals(ContractStatus.ACTIVE, arg.status());
-                return new ContractDTO(1L, "Acme", "CTR-006", null, null,
+                return new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CTR-006", null, null,
                         ContractStatus.ACTIVE, arg.startDate(), null, 3L, null, null, null, null, null);
             });
 

@@ -29,6 +29,8 @@ import com.donatodev.bcm_backend.dto.FinancialValueDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.FinancialCategory;
 import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.entity.FinancialValues;
@@ -37,6 +39,7 @@ import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.repository.FinancialValuesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
@@ -78,6 +81,9 @@ class FinancialValueControllerTest {
 
     @Autowired
     private ContractsRepository contractsRepository;
+
+    @Autowired
+    private CounterpartiesRepository counterpartiesRepository;
 
     @Autowired
     private FinancialValuesRepository financialValuesRepository;
@@ -143,8 +149,12 @@ class FinancialValueControllerTest {
      * @return the persisted contract
      */
     private Contracts createContract(BusinessAreas area, Managers manager) {
+        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder()
+                .name("Customer " + System.currentTimeMillis())
+                .type(CounterpartyType.CUSTOMER)
+                .build());
         return contractsRepository.save(Contracts.builder()
-                .customerName("Customer " + System.currentTimeMillis())
+                .counterparty(counterparty)
                 .contractNumber("CONTRACT-" + System.currentTimeMillis())
                 .businessArea(area)
                 .manager(manager)
@@ -185,7 +195,7 @@ class FinancialValueControllerTest {
             createAdminWithManager(manager);
 
             FinancialValueDTO dto = new FinancialValueDTO(null, 5, 2025, 10000.00,
-                    type.getId(), area.getId(), contract.getId(), type.getName(), area.getName(), contract.getCustomerName(),
+                    type.getId(), area.getId(), contract.getId(), type.getName(), area.getName(), contract.getCounterparty().getName(),
                     type.getCategory());
 
             mockMvc.perform(post("/financial-values")
@@ -282,7 +292,7 @@ class FinancialValueControllerTest {
                     .build());
 
             FinancialValueDTO updatedDTO = new FinancialValueDTO(original.getId(), 8, 2025, 3000.00,
-                    type.getId(), area.getId(), contract.getId(), type.getName(), area.getName(), contract.getCustomerName(),
+                    type.getId(), area.getId(), contract.getId(), type.getName(), area.getName(), contract.getCounterparty().getName(),
                     type.getCategory());
 
             mockMvc.perform(put("/financial-values/{id}", original.getId())
@@ -363,8 +373,9 @@ class FinancialValueControllerTest {
             Managers manager = createManager();
 
             // Create contract with area and manager
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build());
             Contracts contract = contractsRepository.save(Contracts.builder()
-                    .customerName("Client")
+                    .counterparty(counterparty)
                     .contractNumber("C123")
                     .wbsCode("WBS")
                     .projectName("Project")

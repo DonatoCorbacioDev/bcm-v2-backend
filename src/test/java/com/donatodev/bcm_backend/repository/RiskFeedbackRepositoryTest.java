@@ -17,6 +17,8 @@ import org.springframework.test.context.ActiveProfiles;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.RiskFeedback;
@@ -48,6 +50,9 @@ class RiskFeedbackRepositoryTest {
     @Autowired
     private OrganizationRepository organizationRepository;
 
+    @Autowired
+    private CounterpartiesRepository counterpartiesRepository;
+
     private Contracts contract;
     private Users user;
     private Managers manager;
@@ -63,6 +68,7 @@ class RiskFeedbackRepositoryTest {
         rolesRepository.deleteAll();
         businessAreasRepository.deleteAll();
         organizationRepository.deleteAll();
+        counterpartiesRepository.deleteAll();
 
         organization = organizationRepository.save(Organization.builder()
                 .name("Acme")
@@ -92,8 +98,14 @@ class RiskFeedbackRepositoryTest {
                 .manager(manager)
                 .build());
 
+        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder()
+                .name("Customer")
+                .type(CounterpartyType.CUSTOMER)
+                .organization(organization)
+                .build());
+
         contract = contractsRepository.save(Contracts.builder()
-                .customerName("Customer")
+                .counterparty(counterparty)
                 .contractNumber("RF-REPO-001")
                 .businessArea(area)
                 .manager(manager)

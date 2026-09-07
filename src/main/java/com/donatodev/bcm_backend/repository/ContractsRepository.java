@@ -212,21 +212,21 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
     Page<Contracts> findByStatusAndOrganization_Id(ContractStatus status, Long orgId, Pageable pageable);
 
     /**
-     * Paged search by contract number or customer name, scoped to the given
-     * organization. Used by the ADMIN "term only" search.
+     * Paged search by contract number or counterparty name, scoped to the
+     * given organization. Used by the ADMIN "term only" search.
      */
     @EntityGraph("contracts.withManagerAndArea")
     @Query("""
         SELECT c FROM Contracts c
         WHERE c.organization.id = :orgId
           AND (LOWER(c.contractNumber) LIKE LOWER(CONCAT('%', :term, '%'))
-               OR LOWER(c.customerName) LIKE LOWER(CONCAT('%', :term, '%')))
+               OR LOWER(c.counterparty.name) LIKE LOWER(CONCAT('%', :term, '%')))
         """)
     Page<Contracts> findByOrgAndTerm(@Param("orgId") Long orgId, @Param("term") String term, Pageable pageable);
 
     /**
-     * Paged search by status and (contract number or customer name), scoped
-     * to the given organization. Used by the ADMIN "status and term" search.
+     * Paged search by status and (contract number or counterparty name),
+     * scoped to the given organization. Used by the ADMIN "status and term" search.
      */
     @EntityGraph("contracts.withManagerAndArea")
     @Query("""
@@ -234,7 +234,7 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
         WHERE c.organization.id = :orgId
           AND c.status = :status
           AND (LOWER(c.contractNumber) LIKE LOWER(CONCAT('%', :term, '%'))
-               OR LOWER(c.customerName) LIKE LOWER(CONCAT('%', :term, '%')))
+               OR LOWER(c.counterparty.name) LIKE LOWER(CONCAT('%', :term, '%')))
         """)
     Page<Contracts> findByOrgAndStatusAndTerm(
             @Param("orgId") Long orgId,
@@ -243,13 +243,13 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
             Pageable pageable);
 
     @EntityGraph("contracts.withManagerAndArea")
-    Page<Contracts> findByContractNumberContainingIgnoreCaseOrCustomerNameContainingIgnoreCase(
-            String contractNumber, String customerName, Pageable pageable);
+    Page<Contracts> findByContractNumberContainingIgnoreCaseOrCounterpartyNameContainingIgnoreCase(
+            String contractNumber, String counterpartyName, Pageable pageable);
 
     @EntityGraph("contracts.withManagerAndArea")
-    Page<Contracts> findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCustomerNameContainingIgnoreCase(
+    Page<Contracts> findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCounterpartyNameContainingIgnoreCase(
             ContractStatus s1, String contractNumber,
-            ContractStatus s2, String customerName,
+            ContractStatus s2, String counterpartyName,
             Pageable pageable);
 
     @EntityGraph("contracts.withManagerAndArea")
@@ -259,15 +259,15 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
     Page<Contracts> findByManagerIdAndStatus(Long managerId, ContractStatus status, Pageable pageable);
 
     @EntityGraph("contracts.withManagerAndArea")
-    Page<Contracts> findByManagerIdAndContractNumberContainingIgnoreCaseOrManagerIdAndCustomerNameContainingIgnoreCase(
+    Page<Contracts> findByManagerIdAndContractNumberContainingIgnoreCaseOrManagerIdAndCounterpartyNameContainingIgnoreCase(
             Long managerId1, String contractNumber,
-            Long managerId2, String customerName,
+            Long managerId2, String counterpartyName,
             Pageable pageable);
 
     @EntityGraph("contracts.withManagerAndArea")
-    Page<Contracts> findByManagerIdAndStatusAndContractNumberContainingIgnoreCaseOrManagerIdAndStatusAndCustomerNameContainingIgnoreCase(
+    Page<Contracts> findByManagerIdAndStatusAndContractNumberContainingIgnoreCaseOrManagerIdAndStatusAndCounterpartyNameContainingIgnoreCase(
             Long managerId1, ContractStatus status1, String contractNumber,
-            Long managerId2, ContractStatus status2, String customerName,
+            Long managerId2, ContractStatus status2, String counterpartyName,
             Pageable pageable);
 
     /**

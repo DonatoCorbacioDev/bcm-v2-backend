@@ -37,11 +37,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.donatodev.bcm_backend.repository.RefreshTokenRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
@@ -63,6 +66,7 @@ class ElectronicInvoiceControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ContractsRepository contractsRepository;
+    @Autowired private CounterpartiesRepository counterpartiesRepository;
     @Autowired private ElectronicInvoiceRepository electronicInvoiceRepository;
     @Autowired private BusinessAreasRepository businessAreasRepository;
     @Autowired private RolesRepository rolesRepository;
@@ -107,8 +111,9 @@ class ElectronicInvoiceControllerTest {
         BusinessAreas area = businessAreasRepository.save(
                 BusinessAreas.builder().name("IT").description("IT dept").build());
 
+        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build());
         Contracts contract = contractsRepository.save(Contracts.builder()
-                .customerName("Acme").contractNumber("CTR-001")
+                .counterparty(counterparty).contractNumber("CTR-001")
                 .businessArea(area).startDate(LocalDate.of(2027, Month.JUNE, 15))
                 .status(ContractStatus.ACTIVE).build());
 

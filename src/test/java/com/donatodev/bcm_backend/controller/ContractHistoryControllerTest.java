@@ -28,11 +28,14 @@ import com.donatodev.bcm_backend.dto.ContractHistoryDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
@@ -56,8 +59,11 @@ class ContractHistoryControllerTest {
     @Autowired 
     private ObjectMapper objectMapper;
     
-    @Autowired 
+    @Autowired
     private ContractsRepository contractsRepository;
+
+    @Autowired
+    private CounterpartiesRepository counterpartiesRepository;
     
     @Autowired 
     private UsersRepository usersRepository;
@@ -81,6 +87,8 @@ class ContractHistoryControllerTest {
     @SuppressWarnings("unused")
     void cleanDb() {
         testDataCleaner.clean();
+        // TestDataCleaner predates the counterparties table.
+        counterpartiesRepository.deleteAll();
     }
 
     /**
@@ -106,8 +114,10 @@ class ContractHistoryControllerTest {
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                     .name("Legal Area").description("Handles legal affairs").build());
 
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Cliente Uno").type(CounterpartyType.CUSTOMER).build());
+
             Contracts contract = contractsRepository.save(Contracts.builder()
-                    .customerName("Cliente Uno").contractNumber("CH001").wbsCode("WBS001").projectName("Legal Project")
+                    .counterparty(counterparty).contractNumber("CH001").wbsCode("WBS001").projectName("Legal Project")
                     .businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(365))
                     .status(ContractStatus.ACTIVE).build());
@@ -142,8 +152,10 @@ class ContractHistoryControllerTest {
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                     .name("HR Area").description("Handles human resources").build());
 
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Client Beta").type(CounterpartyType.CUSTOMER).build());
+
             Contracts contract = contractsRepository.save(Contracts.builder()
-                    .customerName("Client Beta").contractNumber("CH002").wbsCode("WBS002").projectName("HR Project")
+                    .counterparty(counterparty).contractNumber("CH002").wbsCode("WBS002").projectName("HR Project")
                     .businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusMonths(6))
                     .status(ContractStatus.ACTIVE).build());
@@ -186,8 +198,10 @@ class ContractHistoryControllerTest {
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                     .name("Operations Area").description("Operations details").build());
 
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Big Client").type(CounterpartyType.CUSTOMER).build());
+
             Contracts contract = contractsRepository.save(Contracts.builder()
-                    .customerName("Big Client").contractNumber("CH003").wbsCode("WBS003").projectName("Operations Project")
+                    .counterparty(counterparty).contractNumber("CH003").wbsCode("WBS003").projectName("Operations Project")
                     .businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusMonths(6))
                     .status(ContractStatus.ACTIVE).build());
@@ -232,8 +246,10 @@ class ContractHistoryControllerTest {
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                     .name("Finance Area").description("Finance operations").build());
 
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Finance Corp").type(CounterpartyType.CUSTOMER).build());
+
             Contracts contract = contractsRepository.save(Contracts.builder()
-                    .customerName("Finance Corp").contractNumber("CH004").projectName("Finance Project")
+                    .counterparty(counterparty).contractNumber("CH004").projectName("Finance Project")
                     .businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusMonths(12))
                     .status(ContractStatus.ACTIVE).build());
@@ -276,8 +292,10 @@ class ContractHistoryControllerTest {
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                 .name("Test Area").description("Test").build());
 
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Test Client").type(CounterpartyType.CUSTOMER).build());
+
             Contracts contract = contractsRepository.save(Contracts.builder()
-                .customerName("Test Client").contractNumber("CH999").wbsCode("WBS999")
+                .counterparty(counterparty).contractNumber("CH999").wbsCode("WBS999")
                 .projectName("Test Project").businessArea(area).manager(manager)
                 .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
                 .status(ContractStatus.ACTIVE).build());

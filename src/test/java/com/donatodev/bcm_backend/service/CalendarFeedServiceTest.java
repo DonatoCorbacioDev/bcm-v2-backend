@@ -29,6 +29,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Roles;
@@ -85,7 +87,7 @@ class CalendarFeedServiceTest {
         Contracts c = new Contracts();
         c.setId(id);
         c.setContractNumber(number);
-        c.setCustomerName(customer);
+        c.setCounterparty(Counterparty.builder().name(customer).type(CounterpartyType.CUSTOMER).build());
         c.setEndDate(endDate);
         c.setStatus(ContractStatus.ACTIVE);
         return c;

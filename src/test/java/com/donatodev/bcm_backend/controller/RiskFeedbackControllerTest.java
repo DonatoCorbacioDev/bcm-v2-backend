@@ -26,12 +26,15 @@ import com.donatodev.bcm_backend.dto.RiskFeedbackRequest;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
@@ -55,6 +58,9 @@ class RiskFeedbackControllerTest {
 
     @Autowired
     private ContractsRepository contractsRepository;
+
+    @Autowired
+    private CounterpartiesRepository counterpartiesRepository;
 
     @Autowired
     private UsersRepository usersRepository;
@@ -100,8 +106,9 @@ class RiskFeedbackControllerTest {
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                     .name("Legal Area").description("Handles legal affairs").build());
 
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Cliente Uno").type(CounterpartyType.CUSTOMER).build());
             Contracts contract = contractsRepository.save(Contracts.builder()
-                    .customerName("Cliente Uno").contractNumber("RF001").projectName("Legal Project")
+                    .counterparty(counterparty).contractNumber("RF001").projectName("Legal Project")
                     .businessArea(area).manager(manager).organization(organization)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(365))
                     .status(ContractStatus.ACTIVE).build());
@@ -136,8 +143,9 @@ class RiskFeedbackControllerTest {
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                     .name("HR Area").description("Handles human resources").build());
 
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Client Beta").type(CounterpartyType.CUSTOMER).build());
             Contracts contract = contractsRepository.save(Contracts.builder()
-                    .customerName("Client Beta").contractNumber("RF002").projectName("HR Project")
+                    .counterparty(counterparty).contractNumber("RF002").projectName("HR Project")
                     .businessArea(area).manager(manager).organization(organization)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusMonths(6))
                     .status(ContractStatus.ACTIVE).build());
@@ -178,8 +186,9 @@ class RiskFeedbackControllerTest {
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                     .name("Finance Area").description("Finance operations").build());
 
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Finance Corp").type(CounterpartyType.CUSTOMER).build());
             Contracts contract = contractsRepository.save(Contracts.builder()
-                    .customerName("Finance Corp").contractNumber("RF003").projectName("Finance Project")
+                    .counterparty(counterparty).contractNumber("RF003").projectName("Finance Project")
                     .businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusMonths(12))
                     .status(ContractStatus.ACTIVE).build());

@@ -9,15 +9,19 @@ import org.springframework.stereotype.Component;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.BusinessAreaDTO;
 import com.donatodev.bcm_backend.dto.ContractDTO;
+import com.donatodev.bcm_backend.dto.CounterpartyDTO;
 import com.donatodev.bcm_backend.dto.ManagerDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.WorkflowStage;
 import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
+import com.donatodev.bcm_backend.exception.CounterpartyNotFoundException;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 
 /**
@@ -32,11 +36,14 @@ public class ContractMapper {
 
     private final BusinessAreasRepository businessAreasRepository;
     private final ManagersRepository managersRepository;
+    private final CounterpartiesRepository counterpartiesRepository;
 
     public ContractMapper(BusinessAreasRepository businessAreasRepository,
-            ManagersRepository managersRepository) {
+            ManagersRepository managersRepository,
+            CounterpartiesRepository counterpartiesRepository) {
         this.businessAreasRepository = businessAreasRepository;
         this.managersRepository = managersRepository;
+        this.counterpartiesRepository = counterpartiesRepository;
     }
 
     /**
@@ -71,6 +78,22 @@ public class ContractMapper {
                 )
                 : null;
 
+        Counterparty counterparty = contract.getCounterparty();
+        CounterpartyDTO counterpartyDTO = counterparty != null
+                ? new CounterpartyDTO(
+                        counterparty.getId(),
+                        counterparty.getName(),
+                        counterparty.getType(),
+                        counterparty.getVatNumber(),
+                        counterparty.getTaxCode(),
+                        counterparty.getAddress(),
+                        counterparty.getContactName(),
+                        counterparty.getContactEmail(),
+                        counterparty.getContactPhone(),
+                        counterparty.getNotes()
+                )
+                : null;
+
         // Calculate days until expiry (only for ACTIVE contracts)
         Integer daysUntilExpiry = null;
         if (contract.getStatus() == ContractStatus.ACTIVE && contract.getEndDate() != null) {
@@ -80,7 +103,8 @@ public class ContractMapper {
 
         return new ContractDTO(
                 contract.getId(),
-                contract.getCustomerName(),
+                counterparty != null ? counterparty.getId() : null,
+                counterpartyDTO,
                 contract.getContractNumber(),
                 contract.getWbsCode(),
                 contract.getProjectName(),
@@ -115,7 +139,7 @@ public class ContractMapper {
 
         return Contracts.builder()
                 .id(dto.id())
-                .customerName(dto.customerName())
+                .counterparty(resolveCounterparty(dto.counterpartyId()))
                 .contractNumber(dto.contractNumber())
                 .wbsCode(dto.wbsCode())
                 .projectName(dto.projectName())
@@ -159,5 +183,19 @@ public class ContractMapper {
                 ? businessAreasRepository.findByIdAndOrganizationId(areaId, orgId)
                 : businessAreasRepository.findById(areaId))
                 .orElseThrow(() -> new BusinessAreaNotFoundException("Business area not found: " + areaId));
+    }
+
+    /**
+     * Resolves the counterparty entity based on the given ID. Scoped to the
+     * current tenant when {@link TenantContext} carries an organization ID,
+     * so a contract can't be linked to a counterparty belonging to a
+     * different organization.
+     */
+    private Counterparty resolveCounterparty(Long counterpartyId) {
+        Long orgId = TenantContext.get();
+        return (orgId != null
+                ? counterpartiesRepository.findByIdAndOrganizationId(counterpartyId, orgId)
+                : counterpartiesRepository.findById(counterpartyId))
+                .orElseThrow(() -> new CounterpartyNotFoundException("Counterparty not found: " + counterpartyId));
     }
 }

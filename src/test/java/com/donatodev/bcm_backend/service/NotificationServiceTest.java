@@ -33,6 +33,8 @@ import org.springframework.test.context.ActiveProfiles;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.NotificationDTO;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Notification;
 import com.donatodev.bcm_backend.entity.NotificationType;
@@ -258,7 +260,7 @@ class NotificationServiceTest {
         @DisplayName("Should create a reminder when the contract belongs to the caller's org")
         void shouldCreateReminderWhenContractInOrg() {
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("ADMIN")).build();
-            Contracts contract = Contracts.builder().id(5L).customerName("Acme").build();
+            Contracts contract = Contracts.builder().id(5L).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));
@@ -292,7 +294,9 @@ class NotificationServiceTest {
         void shouldTruncateLongReminderTitle() {
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("ADMIN")).build();
             String longName = "A".repeat(250);
-            Contracts contract = Contracts.builder().id(6L).customerName(longName).build();
+            Contracts contract = Contracts.builder().id(6L)
+                    .counterparty(Counterparty.builder().name(longName).type(CounterpartyType.CUSTOMER).build())
+                    .build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findByIdAndOrganization_Id(6L, ORG_ID)).thenReturn(Optional.of(contract));
@@ -310,7 +314,7 @@ class NotificationServiceTest {
         void shouldCreateReminderWhenOrgContextIsAbsent() {
             TenantContext.clear();
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("ADMIN")).build();
-            Contracts contract = Contracts.builder().id(7L).customerName("Beta").build();
+            Contracts contract = Contracts.builder().id(7L).counterparty(Counterparty.builder().name("Beta").type(CounterpartyType.CUSTOMER).build()).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findById(7L)).thenReturn(Optional.of(contract));
@@ -332,7 +336,7 @@ class NotificationServiceTest {
         void shouldCreateReminderWhenContractAssignedToManager() {
             Managers manager = Managers.builder().id(42L).build();
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("MANAGER")).manager(manager).build();
-            Contracts contract = Contracts.builder().id(5L).customerName("Acme").manager(manager).build();
+            Contracts contract = Contracts.builder().id(5L).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).manager(manager).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));
@@ -351,7 +355,7 @@ class NotificationServiceTest {
             Managers callerManager = Managers.builder().id(42L).build();
             Managers otherManager = Managers.builder().id(99L).build();
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("MANAGER")).manager(callerManager).build();
-            Contracts contract = Contracts.builder().id(5L).customerName("Acme").manager(otherManager).build();
+            Contracts contract = Contracts.builder().id(5L).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).manager(otherManager).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));

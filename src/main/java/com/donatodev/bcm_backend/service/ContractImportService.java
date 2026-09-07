@@ -52,7 +52,7 @@ public class ContractImportService {
     private static final int MAX_DATA_ROWS = 5000;
 
     private static final int COL_CONTRACT_NUMBER = 0;
-    private static final int COL_CUSTOMER = 1;
+    private static final int COL_COUNTERPARTY = 1;
     private static final int COL_PROJECT = 2;
     private static final int COL_STATUS = 3;
     private static final int COL_START_DATE = 4;
@@ -61,7 +61,7 @@ public class ContractImportService {
     private static final int COL_AREA = 7;
 
     private static final String[] HEADERS = {
-        "Contract Number", "Customer", "Project", "Status",
+        "Contract Number", "Counterparty", "Project", "Status",
         "Start Date", "End Date", "Manager", "Business Area"
     };
 
@@ -71,16 +71,19 @@ public class ContractImportService {
     private final BusinessAreasRepository businessAreasRepository;
     private final ManagersRepository managersRepository;
     private final ContractService contractService;
+    private final CounterpartyService counterpartyService;
 
     public ContractImportService(
             ContractsRepository contractsRepository,
             BusinessAreasRepository businessAreasRepository,
             ManagersRepository managersRepository,
-            ContractService contractService) {
+            ContractService contractService,
+            CounterpartyService counterpartyService) {
         this.contractsRepository = contractsRepository;
         this.businessAreasRepository = businessAreasRepository;
         this.managersRepository = managersRepository;
         this.contractService = contractService;
+        this.counterpartyService = counterpartyService;
     }
 
     /**
@@ -181,7 +184,8 @@ public class ContractImportService {
             String[] notes = {
                 "Non modificare l'ordine delle colonne nel foglio \"Contratti\".",
                 "La prima riga e' l'intestazione e viene sempre ignorata durante l'import.",
-                "Numero contratto e Cliente sono obbligatori.",
+                "Numero contratto e Controparte sono obbligatori.",
+                "Controparte: se il nome non corrisponde a una controparte gia' esistente, ne viene creata una nuova automaticamente (tipo Cliente).",
                 "Data inizio e Data fine sono obbligatorie, formato gg/mm/aaaa o aaaa-mm-gg.",
                 "Status: ACTIVE, EXPIRED, CANCELLED o DRAFT. Se vuoto, viene impostato ACTIVE.",
                 "Area aziendale e' obbligatoria e deve corrispondere esattamente a un'area gia' esistente.",
@@ -201,19 +205,23 @@ public class ContractImportService {
     private ContractDTO parseRow(Row row, List<BusinessAreas> areas, List<Managers> managers,
             Set<String> seenContractNumbers) {
         String contractNumber = getRequiredString(row, COL_CONTRACT_NUMBER, "Numero contratto");
-        String customerName = getRequiredString(row, COL_CUSTOMER, "Cliente");
+        String counterpartyName = getRequiredString(row, COL_COUNTERPARTY, "Controparte");
         String projectName = getOptionalString(row, COL_PROJECT);
         ContractStatus status = parseStatus(getOptionalString(row, COL_STATUS));
         LocalDate startDate = parseDateCell(getCell(row, COL_START_DATE), "Data inizio");
         LocalDate endDate = parseDateCell(getCell(row, COL_END_DATE), "Data fine");
         Long areaId = resolveArea(getOptionalString(row, COL_AREA), areas);
         Long managerId = resolveManager(getOptionalString(row, COL_MANAGER), managers);
+        // Unlike area/manager, an unmatched counterparty name doesn't reject the
+        // row -- it creates a new CUSTOMER-type counterparty on the fly, since a
+        // company migrating from spreadsheets rarely has a clean anagraphic yet.
+        Long counterpartyId = counterpartyService.resolveOrCreateByName(counterpartyName).getId();
 
         if (!seenContractNumbers.add(contractNumber) || contractsRepository.existsByContractNumber(contractNumber)) {
             throw new ContractImportRowException("Numero contratto gia' esistente: " + contractNumber);
         }
 
-        return new ContractDTO(null, customerName, contractNumber, null, projectName, status,
+        return new ContractDTO(null, counterpartyId, null, contractNumber, null, projectName, status,
                 startDate, endDate, areaId, managerId, null, null, null, null);
     }
 

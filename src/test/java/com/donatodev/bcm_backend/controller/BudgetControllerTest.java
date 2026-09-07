@@ -29,6 +29,10 @@ import com.donatodev.bcm_backend.dto.BudgetDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.FinancialCategory;
 import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.entity.FinancialValues;
@@ -40,6 +44,7 @@ import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.BudgetRepository;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.repository.FinancialValuesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
@@ -75,6 +80,9 @@ class BudgetControllerTest {
 
     @Autowired
     private ContractsRepository contractsRepository;
+
+    @Autowired
+    private CounterpartiesRepository counterpartiesRepository;
 
     @Autowired
     private FinancialValuesRepository financialValuesRepository;
@@ -116,8 +124,12 @@ class BudgetControllerTest {
     }
 
     private Contracts createContract(BusinessAreas area, Managers manager) {
+        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder()
+                .name("Customer " + System.currentTimeMillis())
+                .type(CounterpartyType.CUSTOMER)
+                .build());
         return contractsRepository.save(Contracts.builder()
-                .customerName("Customer " + System.currentTimeMillis())
+                .counterparty(counterparty)
                 .contractNumber("CONTRACT-" + System.currentTimeMillis())
                 .businessArea(area)
                 .manager(manager)

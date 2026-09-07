@@ -15,7 +15,8 @@ import jakarta.validation.constraints.NotNull;
  * information.
  *
  * @param id the unique identifier of the contract
- * @param customerName the name of the customer associated with the contract
+ * @param counterpartyId the ID of the counterparty (customer/supplier) this contract is with
+ * @param counterparty the nested counterparty details (optional)
  * @param contractNumber the contract reference number
  * @param wbsCode the WBS (Work Breakdown Structure) code for project tracking
  * @param projectName the name of the project
@@ -31,7 +32,8 @@ import jakarta.validation.constraints.NotNull;
  */
 public record ContractDTO(
         Long id,
-        @NotBlank(message = "Nome cliente obbligatorio") String customerName,
+        @NotNull(message = "Controparte obbligatoria") Long counterpartyId,
+        CounterpartyDTO counterparty,
         @NotBlank(message = "Numero contratto obbligatorio") String contractNumber,
         String wbsCode,
         String projectName,
@@ -52,11 +54,11 @@ public record ContractDTO(
      * workflow — defaults {@code workflowStage} to {@code null} (contract
      * not part of the workflow).
      */
-    public ContractDTO(Long id, String customerName, String contractNumber, String wbsCode,
+    public ContractDTO(Long id, Long counterpartyId, CounterpartyDTO counterparty, String contractNumber, String wbsCode,
             String projectName, ContractStatus status, LocalDate startDate, LocalDate endDate,
             Long areaId, Long managerId, String managerName, ManagerDTO manager, BusinessAreaDTO area,
             Integer daysUntilExpiry) {
-        this(id, customerName, contractNumber, wbsCode, projectName, status, startDate, endDate,
+        this(id, counterpartyId, counterparty, contractNumber, wbsCode, projectName, status, startDate, endDate,
                 areaId, managerId, managerName, manager, area, daysUntilExpiry, null);
     }
 }

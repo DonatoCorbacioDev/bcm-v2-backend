@@ -49,11 +49,14 @@ import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
@@ -84,6 +87,9 @@ class ContractControllerTest {
     private ContractsRepository contractsRepository;
 
     @Autowired
+    private CounterpartiesRepository counterpartiesRepository;
+
+    @Autowired
     private ManagersRepository managersRepository;
 
     @Autowired
@@ -111,6 +117,8 @@ class ContractControllerTest {
     @SuppressWarnings("unused")
     void cleanDb() {
         testDataCleaner.clean();
+        // TestDataCleaner predates the counterparties table.
+        counterpartiesRepository.deleteAll();
     }
 
     private Users createUser(String username, String roleName, Managers manager) {
@@ -158,8 +166,10 @@ class ContractControllerTest {
 
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                     .name("Operations").description("Ops").build());
+            Counterparty counterparty = counterpartiesRepository.save(
+                    Counterparty.builder().name("Client 1").type(CounterpartyType.CUSTOMER).build());
 
-            ContractDTO dto = new ContractDTO(null, "Client 1", "CNTR-TEST-1", "WBS-001", "Project X",
+            ContractDTO dto = new ContractDTO(null, counterparty.getId(), null, "CNTR-TEST-1", "WBS-001", "Project X",
                     ContractStatus.ACTIVE, LocalDate.of(2025, Month.MAY, 1), LocalDate.of(2026, Month.MAY, 1),
                     area.getId(), manager.getId(), null, null, null, null);
 
@@ -198,8 +208,10 @@ class ContractControllerTest {
 
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                     .name("Dev Area").description("Development").build());
+            Counterparty counterparty = counterpartiesRepository.save(
+                    Counterparty.builder().name("Client A").type(CounterpartyType.CUSTOMER).build());
 
-            ContractDTO dto = new ContractDTO(null, "Client A", "CNTR-GET-ALL", "WBS-GET",
+            ContractDTO dto = new ContractDTO(null, counterparty.getId(), null, "CNTR-GET-ALL", "WBS-GET",
                     "Project Get", ContractStatus.ACTIVE,
                     LocalDate.of(2025, Month.JUNE, 1), LocalDate.of(2026, Month.JUNE, 1),
                     area.getId(), manager.getId(), null, null, null, null);
@@ -232,7 +244,7 @@ class ContractControllerTest {
                     .name("Marketing").description("Promo").build());
 
             Contracts contract = contractsRepository.save(Contracts.builder()
-                    .customerName("Client B").contractNumber("CNTR-TEST-3").wbsCode("WBS-003")
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Client B").type(CounterpartyType.CUSTOMER).build())).contractNumber("CNTR-TEST-3").wbsCode("WBS-003")
                     .projectName("Project B").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2025, Month.JULY, 1)).endDate(LocalDate.of(2026, Month.JULY, 1))
                     .status(ContractStatus.ACTIVE).build());
@@ -267,12 +279,14 @@ class ContractControllerTest {
                     .build());
 
             Contracts original = contractsRepository.save(Contracts.builder()
-                    .customerName("Client Old").contractNumber("CNTR-TEST-4").wbsCode("WBS-OLD")
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Client Old").type(CounterpartyType.CUSTOMER).build())).contractNumber("CNTR-TEST-4").wbsCode("WBS-OLD")
                     .projectName("Old Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2025, Month.JANUARY, 1)).endDate(LocalDate.of(2025, Month.DECEMBER, 31))
                     .status(ContractStatus.ACTIVE).build());
 
-            ContractDTO updated = new ContractDTO(original.getId(), "Client Updated", "CNTR-TEST-4", "WBS-NEW",
+            Counterparty updatedCounterparty = counterpartiesRepository.save(
+                    Counterparty.builder().name("Client Updated").type(CounterpartyType.CUSTOMER).build());
+            ContractDTO updated = new ContractDTO(original.getId(), updatedCounterparty.getId(), null, "CNTR-TEST-4", "WBS-NEW",
                     "Updated Project", ContractStatus.EXPIRED,
                     LocalDate.of(2025, Month.FEBRUARY, 1), LocalDate.of(2025, Month.NOVEMBER, 30),
                     area.getId(), manager.getId(), null, null, null, null);
@@ -281,7 +295,7 @@ class ContractControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(updated)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.customerName").value("Client Updated"))
+                    .andExpect(jsonPath("$.counterparty.name").value("Client Updated"))
                     .andExpect(jsonPath("$.status").value("EXPIRED"));
         }
 
@@ -301,7 +315,7 @@ class ContractControllerTest {
                     .name("Legal").description("Law").build());
 
             Contracts contract = contractsRepository.save(Contracts.builder()
-                    .customerName("To Delete").contractNumber("CNTR-TEST-5").wbsCode("WBS-DEL")
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("To Delete").type(CounterpartyType.CUSTOMER).build())).contractNumber("CNTR-TEST-5").wbsCode("WBS-DEL")
                     .projectName("To be deleted").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2025, Month.MARCH, 1)).endDate(LocalDate.of(2025, Month.SEPTEMBER, 30))
                     .status(ContractStatus.CANCELLED).build());
@@ -344,7 +358,7 @@ class ContractControllerTest {
                     .name("Ops").description("Operational").build());
 
             contractsRepository.save(Contracts.builder()
-                    .customerName("Client Z").contractNumber("CNTR-STATUS").wbsCode("WBS-STATUS")
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Client Z").type(CounterpartyType.CUSTOMER).build())).contractNumber("CNTR-STATUS").wbsCode("WBS-STATUS")
                     .projectName("Status Test").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -387,7 +401,7 @@ class ContractControllerTest {
 
             // Create some test contracts
             contractsRepository.save(Contracts.builder()
-                    .customerName("Client 1").contractNumber("STATS-1").wbsCode("WBS-S1")
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Client 1").type(CounterpartyType.CUSTOMER).build())).contractNumber("STATS-1").wbsCode("WBS-S1")
                     .projectName("Stats Test 1").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(60))
                     .status(ContractStatus.ACTIVE).build());
@@ -418,7 +432,7 @@ class ContractControllerTest {
                     .name("Search Area").description("Search").build());
 
             contractsRepository.save(Contracts.builder()
-                    .customerName("SearchClient").contractNumber("SEARCH-1").wbsCode("WBS-SEARCH")
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("SearchClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("SEARCH-1").wbsCode("WBS-SEARCH")
                     .projectName("Search Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -451,7 +465,7 @@ class ContractControllerTest {
                     .name("Filter Area").description("Filter").build());
 
             contractsRepository.save(Contracts.builder()
-                    .customerName("FilterClient").contractNumber("FILTER-1").wbsCode("WBS-FILTER")
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("FilterClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("FILTER-1").wbsCode("WBS-FILTER")
                     .projectName("Filter Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.EXPIRED).build());
@@ -484,7 +498,7 @@ class ContractControllerTest {
                     .name("Assign Area").description("Assign").build());
 
             Contracts contract = contractsRepository.save(Contracts.builder()
-                    .customerName("Assign Client").contractNumber("ASSIGN-1").wbsCode("WBS-ASSIGN")
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Assign Client").type(CounterpartyType.CUSTOMER).build())).contractNumber("ASSIGN-1").wbsCode("WBS-ASSIGN")
                     .projectName("Assign Project").businessArea(area).manager(manager1)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -514,7 +528,7 @@ class ContractControllerTest {
                     .name("Collab Area").description("Collab").build());
 
             Contracts contract = contractsRepository.save(Contracts.builder()
-                    .customerName("Collab Client").contractNumber("COLLAB-1").wbsCode("WBS-COLLAB")
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Collab Client").type(CounterpartyType.CUSTOMER).build())).contractNumber("COLLAB-1").wbsCode("WBS-COLLAB")
                     .projectName("Collab Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -544,7 +558,7 @@ class ContractControllerTest {
                     .name("Set Area").description("Set").build());
 
             Contracts contract = contractsRepository.save(Contracts.builder()
-                    .customerName("Set Client").contractNumber("SET-1").wbsCode("WBS-SET")
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Set Client").type(CounterpartyType.CUSTOMER).build())).contractNumber("SET-1").wbsCode("WBS-SET")
                     .projectName("Set Project").businessArea(area).manager(manager1)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -567,7 +581,7 @@ class ContractControllerTest {
         @DisplayName("MANAGER should be forbidden from creating contracts")
         @WithMockUser(roles = "MANAGER")
         void shouldForbidCreateForManager() throws Exception {
-            ContractDTO dto = new ContractDTO(null, "Test", "TEST", "WBS", "Test",
+            ContractDTO dto = new ContractDTO(null, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Test", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "TEST", "WBS", "Test",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             mockMvc.perform(post("/contracts")
@@ -620,7 +634,7 @@ class ContractControllerTest {
                     .name("Test Area").description("Test").build());
 
             contractsRepository.save(Contracts.builder()
-                    .customerName("TestClient").contractNumber("TEST-1").wbsCode("WBS-TEST")
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("TestClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("TEST-1").wbsCode("WBS-TEST")
                     .projectName("Test Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -654,7 +668,7 @@ class ContractControllerTest {
                     .name("Blank Area").description("Blank").build());
 
             contractsRepository.save(Contracts.builder()
-                    .customerName("BlankClient").contractNumber("BLANK-1").wbsCode("WBS-BLANK")
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("BlankClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("BLANK-1").wbsCode("WBS-BLANK")
                     .projectName("Blank Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -689,7 +703,7 @@ class ContractControllerTest {
                     .name("All Area").description("All").build());
 
             contractsRepository.save(Contracts.builder()
-                    .customerName("AllClient").contractNumber("ALL-1").wbsCode("WBS-ALL")
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("AllClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("ALL-1").wbsCode("WBS-ALL")
                     .projectName("All Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -729,7 +743,7 @@ class ContractControllerTest {
             Contracts expiringContract = contractsRepository.save(
                     Contracts.builder()
                             .contractNumber("CNT-EXP-001")
-                            .customerName("Expiring Corp")
+                            .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Expiring Corp").type(CounterpartyType.CUSTOMER).build()))
                             .wbsCode("WBS-EXP")
                             .projectName("Expiring Project")
                             .status(ContractStatus.ACTIVE)
@@ -744,7 +758,7 @@ class ContractControllerTest {
             Contracts expiringContract2 = contractsRepository.save(
                     Contracts.builder()
                             .contractNumber("CNT-EXP-002")
-                            .customerName("Almost Expired Inc")
+                            .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Almost Expired Inc").type(CounterpartyType.CUSTOMER).build()))
                             .wbsCode("WBS-EXP2")
                             .projectName("Almost Expired Project")
                             .status(ContractStatus.ACTIVE)
@@ -759,7 +773,7 @@ class ContractControllerTest {
             contractsRepository.save(
                     Contracts.builder()
                             .contractNumber("CNT-SAFE-001")
-                            .customerName("Safe Corp")
+                            .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Safe Corp").type(CounterpartyType.CUSTOMER).build()))
                             .wbsCode("WBS-SAFE")
                             .projectName("Safe Project")
                             .status(ContractStatus.ACTIVE)
@@ -777,10 +791,10 @@ class ContractControllerTest {
                     .andExpect(jsonPath("$").isArray())
                     .andExpect(jsonPath("$.length()").value(2))
                     .andExpect(jsonPath("$[0].contractNumber").value("CNT-EXP-001"))
-                    .andExpect(jsonPath("$[0].customerName").value("Expiring Corp"))
+                    .andExpect(jsonPath("$[0].counterparty.name").value("Expiring Corp"))
                     .andExpect(jsonPath("$[0].daysUntilExpiry").value(10))
                     .andExpect(jsonPath("$[1].contractNumber").value("CNT-EXP-002"))
-                    .andExpect(jsonPath("$[1].customerName").value("Almost Expired Inc"))
+                    .andExpect(jsonPath("$[1].counterparty.name").value("Almost Expired Inc"))
                     .andExpect(jsonPath("$[1].daysUntilExpiry").value(25));
         }
 
@@ -825,7 +839,7 @@ class ContractControllerTest {
             contractsRepository.save(
                     Contracts.builder()
                             .contractNumber("CNT-DEFAULT-001")
-                            .customerName("Default Test Corp")
+                            .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Default Test Corp").type(CounterpartyType.CUSTOMER).build()))
                             .wbsCode("WBS-DEF")
                             .projectName("Default Test Project")
                             .status(ContractStatus.ACTIVE)
@@ -1061,8 +1075,10 @@ class ContractControllerTest {
         void shouldReturn409WhenContractNumberIsDuplicate() throws Exception {
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                     .name("Area-Dup").description("Dup").build());
+            Counterparty counterparty = counterpartiesRepository.save(
+                    Counterparty.builder().name("Client Dup").type(CounterpartyType.CUSTOMER).build());
 
-            ContractDTO dto = new ContractDTO(null, "Client Dup", "CNTR-DUP-001", "WBS", "Proj",
+            ContractDTO dto = new ContractDTO(null, counterparty.getId(), null, "CNTR-DUP-001", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2025, Month.JANUARY, 1), LocalDate.of(2026, Month.JANUARY, 1),
                     area.getId(), null, null, null, null, null);
 

@@ -24,6 +24,8 @@ import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.SemanticSearchResultDTO;
 import com.donatodev.bcm_backend.entity.ContractDocument;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -57,7 +59,7 @@ class SemanticSearchServiceTest {
         Contracts c = new Contracts();
         c.setId(5L);
         c.setContractNumber("CTR-001");
-        c.setCustomerName("Acme");
+        c.setCounterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build());
         return c;
     }
 

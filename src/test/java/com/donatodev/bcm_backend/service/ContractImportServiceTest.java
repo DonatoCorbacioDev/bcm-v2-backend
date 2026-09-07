@@ -32,6 +32,8 @@ import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ContractImportResultDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
@@ -56,6 +58,9 @@ class ContractImportServiceTest {
     @Mock
     private ContractService contractService;
 
+    @Mock
+    private CounterpartyService counterpartyService;
+
     private ContractImportService importService;
 
     private final BusinessAreas area = BusinessAreas.builder().id(1L).name("IT").build();
@@ -69,7 +74,11 @@ class ContractImportServiceTest {
 
     private void setupImportService() {
         importService = new ContractImportService(
-                contractsRepository, businessAreasRepository, managersRepository, contractService);
+                contractsRepository, businessAreasRepository, managersRepository, contractService, counterpartyService);
+        // lenient: most tests reach parseRow and need a counterparty resolved, a
+        // few fail validation before ever getting there and never touch this mock.
+        org.mockito.Mockito.lenient().when(counterpartyService.resolveOrCreateByName(org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(inv -> Counterparty.builder().id(99L).name(inv.getArgument(0)).type(CounterpartyType.CUSTOMER).build());
     }
 
     private static byte[] buildWorkbook(String[]... rows) {

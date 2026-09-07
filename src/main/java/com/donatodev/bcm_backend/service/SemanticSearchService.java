@@ -106,7 +106,7 @@ public class SemanticSearchService {
             results.add(new SemanticSearchResultDTO(
                     doc.getContract().getId(),
                     doc.getContract().getContractNumber(),
-                    doc.getContract().getCustomerName(),
+                    doc.getContract().getCounterparty().getName(),
                     doc.getId(),
                     doc.getFileName(),
                     score));

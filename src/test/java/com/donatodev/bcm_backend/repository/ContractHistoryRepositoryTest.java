@@ -18,6 +18,8 @@ import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
@@ -44,6 +46,9 @@ class ContractHistoryRepositoryTest {
     @Autowired
     private BusinessAreasRepository businessAreasRepository;
 
+    @Autowired
+    private CounterpartiesRepository counterpartiesRepository;
+
     private Contracts contract;
     private Users user;
     private Managers manager;
@@ -57,6 +62,7 @@ class ContractHistoryRepositoryTest {
         managersRepository.deleteAll();
         rolesRepository.deleteAll();
         businessAreasRepository.deleteAll();
+        counterpartiesRepository.deleteAll();
 
         BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
                 .name("IT")
@@ -81,8 +87,13 @@ class ContractHistoryRepositoryTest {
                 .manager(manager)
                 .build());
 
+        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder()
+                .name("Customer")
+                .type(CounterpartyType.CUSTOMER)
+                .build());
+
         contract = contractsRepository.save(Contracts.builder()
-                .customerName("Customer")
+                .counterparty(counterparty)
                 .contractNumber("CN-001")
                 .wbsCode("WBS-001")
                 .projectName("Project")

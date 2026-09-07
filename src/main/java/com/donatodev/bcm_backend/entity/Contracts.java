@@ -10,7 +10,7 @@ import lombok.*;
 /**
  * Represents a company contract entity stored in the "contracts" table.
  * This entity holds all relevant information regarding a contract such as
- * customer, project, associated business area, manager, and contract status.
+ * counterparty, project, associated business area, manager, and contract status.
  * <p>
  * Each contract can optionally be linked to a manager and must belong to a business area.
  * The contract status is represented as an enum and stored as a string in the database.
@@ -20,7 +20,8 @@ import lombok.*;
     name = "contracts.withManagerAndArea",
     attributeNodes = {
         @NamedAttributeNode("manager"),
-        @NamedAttributeNode("businessArea")
+        @NamedAttributeNode("businessArea"),
+        @NamedAttributeNode("counterparty")
     }
 )
 @Entity
@@ -41,11 +42,12 @@ public class Contracts {
     private Long id;
 
     /**
-     * Name of the customer associated with the contract.
+     * The company this contract is with — a customer, a supplier, or both.
      * Cannot be null.
      */
-    @Column(name = "customer_name", nullable = false)
-    private String customerName;
+    @ManyToOne
+    @JoinColumn(name = "counterparty_id", nullable = false)
+    private Counterparty counterparty;
 
     /**
      * Unique identifier number for the contract.

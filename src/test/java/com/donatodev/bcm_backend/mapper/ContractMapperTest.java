@@ -19,11 +19,14 @@ import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.util.TestDataCleaner;
@@ -56,6 +59,9 @@ class ContractMapperTest {
     private ContractsRepository contractsRepository;
 
     @Autowired
+    private CounterpartiesRepository counterpartiesRepository;
+
+    @Autowired
     private OrganizationRepository organizationRepository;
 
     @Autowired
@@ -63,6 +69,7 @@ class ContractMapperTest {
 
     private BusinessAreas savedArea;
     private Managers savedManager;
+    private Counterparty savedCounterparty;
 
     /**
      * Cleans the test database and sets up common test data before each test.
@@ -71,12 +78,18 @@ class ContractMapperTest {
     @BeforeEach
     void setup() {
         cleaner.clean();
-        organizationRepository.deleteAll();
 
+        // Children before parent: business areas, managers and counterparties
+        // from a previous test method can still reference a per-test
+        // Organization (see the TenantContext-scoped tests below), so
+        // organizationRepository.deleteAll() must run last or it 409s on the
+        // FK.
         contractManagerRepository.deleteAll();
         contractsRepository.deleteAll();
         businessAreasRepository.deleteAll();
         managersRepository.deleteAll();
+        counterpartiesRepository.deleteAll();
+        organizationRepository.deleteAll();
 
         savedArea = businessAreasRepository.save(BusinessAreas.builder()
                 .name("IT").build());
@@ -84,6 +97,9 @@ class ContractMapperTest {
         savedManager = managersRepository.save(Managers.builder()
                 .firstName("Donato").lastName("Dev").email("dev@mail.com")
                 .department("IT").phoneNumber("123456789").build());
+
+        savedCounterparty = counterpartiesRepository.save(Counterparty.builder()
+                .name("Client").type(CounterpartyType.CUSTOMER).build());
     }
 
     /**
@@ -93,7 +109,7 @@ class ContractMapperTest {
     void shouldMapToDTOWithNulls() {
         Contracts contract = Contracts.builder()
                 .id(1L)
-                .customerName("ACME")
+                .counterparty(Counterparty.builder().id(1L).name("ACME").type(CounterpartyType.CUSTOMER).build())
                 .contractNumber("CN-001")
                 .wbsCode("WBS-001")
                 .projectName("Progetto")
@@ -107,7 +123,8 @@ class ContractMapperTest {
         assertEquals(1L, dto.id());
         assertNull(dto.areaId());
         assertNull(dto.managerId());
-        assertEquals("ACME", dto.customerName());
+        assertEquals(1L, dto.counterpartyId());
+        assertEquals("ACME", dto.counterparty().name());
     }
 
     /**
@@ -117,7 +134,7 @@ class ContractMapperTest {
     void shouldMapToDTOWithValues() {
         Contracts contract = Contracts.builder()
                 .id(2L)
-                .customerName("Company")
+                .counterparty(Counterparty.builder().id(2L).name("Company").type(CounterpartyType.CUSTOMER).build())
                 .contractNumber("CN-002")
                 .wbsCode("WBS-002")
                 .projectName("Project")
@@ -140,13 +157,14 @@ class ContractMapperTest {
     @Test
     void shouldMapToEntityWithManager() {
         ContractDTO dto = new ContractDTO(
-                3L, "Client", "CN-003", "WBS-003", "TestProject", ContractStatus.ACTIVE,
+                3L, savedCounterparty.getId(), null, "CN-003", "WBS-003", "TestProject", ContractStatus.ACTIVE,
                 LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(6),
                 savedArea.getId(), savedManager.getId(), null, null, null, null);
 
         Contracts contract = contractMapper.toEntity(dto);
 
-        assertEquals("Client", contract.getCustomerName());
+        assertEquals(savedCounterparty.getId(), contract.getCounterparty().getId());
+        assertEquals("Client", contract.getCounterparty().getName());
         assertEquals(ContractStatus.ACTIVE, contract.getStatus());
         assertEquals(savedArea.getId(), contract.getBusinessArea().getId());
         assertEquals(savedManager.getId(), contract.getManager().getId());
@@ -158,13 +176,13 @@ class ContractMapperTest {
     @Test
     void shouldMapToEntityWithoutManager() {
         ContractDTO dto = new ContractDTO(
-                4L, "Client2", "CN-004", "WBS-004", "SoloArea", ContractStatus.CANCELLED,
+                4L, savedCounterparty.getId(), null, "CN-004", "WBS-004", "SoloArea", ContractStatus.CANCELLED,
                 LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(3),
                 savedArea.getId(), null, null, null, null, null);
 
         Contracts contract = contractMapper.toEntity(dto);
 
-        assertEquals("Client2", contract.getCustomerName());
+        assertEquals(savedCounterparty.getId(), contract.getCounterparty().getId());
         assertEquals(ContractStatus.CANCELLED, contract.getStatus());
         assertNotNull(contract.getBusinessArea());
         assertNull(contract.getManager());
@@ -176,7 +194,7 @@ class ContractMapperTest {
     @Test
     void shouldThrowIfAreaNotFound() {
         ContractDTO dto = new ContractDTO(
-                5L, "Missing", "CN-005", "WBS-005", "Error", ContractStatus.CANCELLED,
+                5L, savedCounterparty.getId(), null, "CN-005", "WBS-005", "Error", ContractStatus.CANCELLED,
                 LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15), 999L, null, null, null, null, null);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
@@ -189,11 +207,24 @@ class ContractMapperTest {
     @Test
     void shouldThrowIfManagerNotFound() {
         ContractDTO dto = new ContractDTO(
-                6L, "Missing", "CN-006", "WBS-006", "Errore", ContractStatus.EXPIRED,
+                6L, savedCounterparty.getId(), null, "CN-006", "WBS-006", "Errore", ContractStatus.EXPIRED,
                 LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15), savedArea.getId(), 888L, null, null, null, null);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
         assertEquals("Manager not found: 888", ex.getMessage());
+    }
+
+    /**
+     * Tests exception when counterparty is not found.
+     */
+    @Test
+    void shouldThrowIfCounterpartyNotFound() {
+        ContractDTO dto = new ContractDTO(
+                13L, 999L, null, "CN-013", "WBS-013", "Error", ContractStatus.CANCELLED,
+                LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15), savedArea.getId(), null, null, null, null, null);
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
+        assertEquals("Counterparty not found: 999", ex.getMessage());
     }
 
     /**
@@ -209,10 +240,13 @@ class ContractMapperTest {
                 .firstName("Scoped").lastName("Manager").email("scoped@mail.com")
                 .organization(org).build());
 
+        Counterparty scopedCounterparty = counterpartiesRepository.save(
+                Counterparty.builder().name("Scoped Client").type(CounterpartyType.CUSTOMER).organization(org).build());
+
         TenantContext.set(org.getId());
         try {
             ContractDTO dto = new ContractDTO(
-                    8L, "Client", "CN-008", "WBS-008", "TenantProject", ContractStatus.ACTIVE,
+                    8L, scopedCounterparty.getId(), null, "CN-008", "WBS-008", "TenantProject", ContractStatus.ACTIVE,
                     LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(6),
                     scopedArea.getId(), scopedManager.getId(), null, null, null, null);
 
@@ -239,10 +273,13 @@ class ContractMapperTest {
                 .firstName("Other").lastName("Manager").email("other@mail.com")
                 .organization(otherOrg).build());
 
+        Counterparty callerOrgCounterparty = counterpartiesRepository.save(
+                Counterparty.builder().name("Caller Org Client").type(CounterpartyType.CUSTOMER).organization(callerOrg).build());
+
         TenantContext.set(callerOrg.getId());
         try {
             ContractDTO dto = new ContractDTO(
-                    9L, "Client", "CN-009", "WBS-009", "TenantProject", ContractStatus.ACTIVE,
+                    9L, callerOrgCounterparty.getId(), null, "CN-009", "WBS-009", "TenantProject", ContractStatus.ACTIVE,
                     LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(6),
                     callerOrgArea.getId(), otherOrgManager.getId(), null, null, null, null);
 
@@ -265,10 +302,13 @@ class ContractMapperTest {
         BusinessAreas otherOrgArea = businessAreasRepository.save(
                 BusinessAreas.builder().name("Other Org Area").organization(otherOrg).build());
 
+        Counterparty callerOrgCounterparty = counterpartiesRepository.save(
+                Counterparty.builder().name("Caller Org 2 Client").type(CounterpartyType.CUSTOMER).organization(callerOrg).build());
+
         TenantContext.set(callerOrg.getId());
         try {
             ContractDTO dto = new ContractDTO(
-                    10L, "Client", "CN-010", "WBS-010", "TenantProject", ContractStatus.ACTIVE,
+                    10L, callerOrgCounterparty.getId(), null, "CN-010", "WBS-010", "TenantProject", ContractStatus.ACTIVE,
                     LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(6),
                     otherOrgArea.getId(), null, null, null, null, null);
 
@@ -303,7 +343,7 @@ class ContractMapperTest {
     @Test
     void shouldMapToEntityWithNullAreaAndManager() {
         ContractDTO dto = new ContractDTO(
-                7L, "ClientNoArea", "CN-007", "WBS-007", "NoAreaProject",
+                7L, savedCounterparty.getId(), null, "CN-007", "WBS-007", "NoAreaProject",
                 ContractStatus.ACTIVE,
                 LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(2),
                 null, // No area ID
@@ -315,7 +355,7 @@ class ContractMapperTest {
 
         Contracts contract = contractMapper.toEntity(dto);
 
-        assertEquals("ClientNoArea", contract.getCustomerName());
+        assertEquals(savedCounterparty.getId(), contract.getCounterparty().getId());
         assertEquals(ContractStatus.ACTIVE, contract.getStatus());
         assertNull(contract.getBusinessArea());  // Should be null
         assertNull(contract.getManager());       // Should be null
@@ -328,7 +368,7 @@ class ContractMapperTest {
         Contracts contract = Contracts.builder()
                 .id(10L)
                 .contractNumber("CNT-NULL-DATE")
-                .customerName("Null Date Corp")
+                .counterparty(Counterparty.builder().id(10L).name("Null Date Corp").type(CounterpartyType.CUSTOMER).build())
                 .wbsCode("WBS-NULL")
                 .projectName("Null Date Project")
                 .status(ContractStatus.ACTIVE)
@@ -354,7 +394,7 @@ class ContractMapperTest {
         Contracts expiredContract = Contracts.builder()
                 .id(11L)
                 .contractNumber("CNT-EXPIRED")
-                .customerName("Expired Corp")
+                .counterparty(Counterparty.builder().id(11L).name("Expired Corp").type(CounterpartyType.CUSTOMER).build())
                 .wbsCode("WBS-EXP")
                 .projectName("Expired Project")
                 .status(ContractStatus.EXPIRED)
@@ -365,7 +405,7 @@ class ContractMapperTest {
         Contracts cancelledContract = Contracts.builder()
                 .id(12L)
                 .contractNumber("CNT-CANCELLED")
-                .customerName("Cancelled Corp")
+                .counterparty(Counterparty.builder().id(12L).name("Cancelled Corp").type(CounterpartyType.CUSTOMER).build())
                 .wbsCode("WBS-CAN")
                 .projectName("Cancelled Project")
                 .status(ContractStatus.CANCELLED)

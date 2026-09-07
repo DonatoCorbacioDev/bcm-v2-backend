@@ -192,7 +192,7 @@ public class ContractSchedulerService {
         String firstName = HtmlUtils.htmlEscape(manager.getFirstName());
         String lastName = HtmlUtils.htmlEscape(manager.getLastName());
         String contractNumber = HtmlUtils.htmlEscape(contract.getContractNumber());
-        String customerName = HtmlUtils.htmlEscape(contract.getCustomerName());
+        String customerName = HtmlUtils.htmlEscape(contract.getCounterparty().getName());
         String projectName = contract.getProjectName() != null
                 ? HtmlUtils.htmlEscape(contract.getProjectName())
                 : "";
@@ -218,7 +218,7 @@ public class ContractSchedulerService {
                 + "<h3>Contract Details:</h3>"
                 + "<div class=\"detail\"><span class=\"label\">Contract Number:</span>"
                 + " <span class=\"value\">" + contractNumber + "</span></div>"
-                + "<div class=\"detail\"><span class=\"label\">Customer:</span>"
+                + "<div class=\"detail\"><span class=\"label\">Counterparty:</span>"
                 + " <span class=\"value\">" + customerName + "</span></div>"
                 + "<div class=\"detail\"><span class=\"label\">Project:</span>"
                 + " <span class=\"value\">" + projectName + "</span></div>"

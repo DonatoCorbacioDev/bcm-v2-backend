@@ -45,7 +45,7 @@ public class AgentNotificationService {
                     user.getOrganization().getId(),
                     "Contratto in scadenza",
                     CONTRACT_PREFIX + contract.getContractNumber() + " scade tra " + daysLeft
-                            + dayWord + contract.getCustomerName() + ")",
+                            + dayWord + contract.getCounterparty().getName() + ")",
                     NotificationType.WARNING
             );
         });
@@ -100,7 +100,7 @@ public class AgentNotificationService {
                     approver.getId(),
                     orgId,
                     "Contratto in attesa di revisione",
-                    CONTRACT_PREFIX + contract.getContractNumber() + " (" + contract.getCustomerName()
+                    CONTRACT_PREFIX + contract.getContractNumber() + " (" + contract.getCounterparty().getName()
                             + ") è stato inviato per la revisione",
                     NotificationType.INFO
             );

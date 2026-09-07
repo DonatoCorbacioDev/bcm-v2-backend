@@ -152,7 +152,7 @@ public class WeeklyDigestService {
             long daysLeft = today.until(c.getEndDate()).getDays();
             sb.append("<tr>")
               .append("<td>").append(escapeHtml(c.getContractNumber())).append(CLOSE_TD)
-              .append("<td>").append(escapeHtml(c.getCustomerName())).append(CLOSE_TD)
+              .append("<td>").append(escapeHtml(c.getCounterparty().getName())).append(CLOSE_TD)
               .append("<td>").append(c.getEndDate().format(DATE_FMT)).append(CLOSE_TD)
               .append("<td><span class='").append(urgencyBadge(daysLeft)).append("'>").append(urgencyLabel(daysLeft)).append("</span>").append(CLOSE_TD)
               .append("</tr>");
@@ -181,7 +181,7 @@ public class WeeklyDigestService {
             String project = c.getProjectName() != null ? c.getProjectName() : "—";
             sb.append("<tr>")
               .append("<td>").append(escapeHtml(c.getContractNumber())).append(CLOSE_TD)
-              .append("<td>").append(escapeHtml(c.getCustomerName())).append(CLOSE_TD)
+              .append("<td>").append(escapeHtml(c.getCounterparty().getName())).append(CLOSE_TD)
               .append("<td>").append(escapeHtml(project)).append(CLOSE_TD)
               .append("<td style='color:#991b1b;font-weight:600'>").append(c.getEndDate().format(DATE_FMT)).append(CLOSE_TD)
               .append("</tr>");

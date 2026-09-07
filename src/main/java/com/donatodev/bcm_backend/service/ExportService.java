@@ -54,7 +54,7 @@ public class ExportService {
             // Create header row with styling
             Row headerRow = sheet.createRow(0);
             String[] headers = {
-                "Contract Number", "Customer", "Project", "Status",
+                "Contract Number", "Counterparty", "Project", "Status",
                 "Start Date", "End Date", "Manager", "Business Area"
             };
 
@@ -78,7 +78,7 @@ public class ExportService {
             for (ContractDTO contract : contracts) {
                 Row row = sheet.createRow(rowNum++);
                 row.createCell(0).setCellValue(contract.contractNumber());
-                row.createCell(1).setCellValue(contract.customerName());
+                row.createCell(1).setCellValue(contract.counterparty().name());
                 row.createCell(2).setCellValue(contract.projectName());
                 row.createCell(3).setCellValue(contract.status().toString());
                 row.createCell(4).setCellValue(contract.startDate().toString());
@@ -148,7 +148,7 @@ public class ExportService {
 
         // Header
         String[] headers = {
-            "Contract Number", "Customer", "Project", "Status",
+            "Contract Number", "Counterparty", "Project", "Status",
             "Start Date", "End Date", "Manager", "Business Area"
         };
         Font headerFont = new Font(Font.HELVETICA, 9, Font.BOLD, Color.WHITE);
@@ -171,7 +171,7 @@ public class ExportService {
             Color rowColor = (rowIndex % 2 == 0) ? Color.WHITE : evenRowColor;
 
             addCellToTable(table, contract.contractNumber(), dataFont, rowColor);
-            addCellToTable(table, contract.customerName(), dataFont, rowColor);
+            addCellToTable(table, contract.counterparty().name(), dataFont, rowColor);
             addCellToTable(table, contract.projectName(), dataFont, rowColor);
             addCellToTable(table, contract.status().toString(), dataFont, rowColor);
             addCellToTable(table, contract.startDate().toString(), dataFont, rowColor);
