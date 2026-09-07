@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.dto;
 
 import java.time.LocalDate;
 
+import com.donatodev.bcm_backend.entity.BillingFrequency;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.WorkflowStage;
 import jakarta.validation.constraints.NotBlank;
@@ -29,6 +30,9 @@ import jakarta.validation.constraints.NotNull;
  * @param manager the nested manager details (optional)
  * @param area the nested business area details (optional)
  * @param workflowStage the approval workflow stage (null if the contract never entered the workflow)
+ * @param financialTypeId the financial type generated {@code FinancialValues} rows should use (optional — see financial terms below)
+ * @param annualValue the contract's yearly value in euros, divided across periods per {@code billingFrequency} (optional)
+ * @param billingFrequency how often the contract invoices; together with {@code financialTypeId}/{@code annualValue}, opts a contract into automatic financial-value generation (optional)
  */
 public record ContractDTO(
         Long id,
@@ -46,13 +50,30 @@ public record ContractDTO(
         ManagerDTO manager,
         BusinessAreaDTO area,
         Integer daysUntilExpiry,
-        WorkflowStage workflowStage
+        WorkflowStage workflowStage,
+        Long financialTypeId,
+        Double annualValue,
+        BillingFrequency billingFrequency
         ) {
 
     /**
+     * Compatibility constructor for call sites predating optional financial
+     * terms on a contract — defaults {@code financialTypeId}/{@code annualValue}/
+     * {@code billingFrequency} to {@code null} (contract not auto-generating
+     * its financial values).
+     */
+    public ContractDTO(Long id, Long counterpartyId, CounterpartyDTO counterparty, String contractNumber, String wbsCode,
+            String projectName, ContractStatus status, LocalDate startDate, LocalDate endDate,
+            Long areaId, Long managerId, String managerName, ManagerDTO manager, BusinessAreaDTO area,
+            Integer daysUntilExpiry, WorkflowStage workflowStage) {
+        this(id, counterpartyId, counterparty, contractNumber, wbsCode, projectName, status, startDate, endDate,
+                areaId, managerId, managerName, manager, area, daysUntilExpiry, workflowStage, null, null, null);
+    }
+
+    /**
      * Compatibility constructor for call sites predating the approval
-     * workflow — defaults {@code workflowStage} to {@code null} (contract
-     * not part of the workflow).
+     * workflow — defaults {@code workflowStage} (and the financial-terms
+     * fields) to {@code null}.
      */
     public ContractDTO(Long id, Long counterpartyId, CounterpartyDTO counterparty, String contractNumber, String wbsCode,
             String projectName, ContractStatus status, LocalDate startDate, LocalDate endDate,

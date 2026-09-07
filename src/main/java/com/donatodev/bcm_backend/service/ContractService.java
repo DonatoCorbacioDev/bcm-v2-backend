@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -29,11 +30,14 @@ import com.donatodev.bcm_backend.dto.ContractStatsResponse;
 import com.donatodev.bcm_backend.dto.ContractsByAreaDTO;
 import com.donatodev.bcm_backend.dto.ContractsTimelineDTO;
 import com.donatodev.bcm_backend.dto.TopManagerDTO;
+import com.donatodev.bcm_backend.dto.FinancialGenerationResultDTO;
+import com.donatodev.bcm_backend.entity.BillingFrequency;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.entity.WorkflowStage;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
@@ -41,6 +45,7 @@ import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.CounterpartyNotFoundException;
+import com.donatodev.bcm_backend.exception.FinancialTypeNotFoundException;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.mapper.ContractMapper;
@@ -49,6 +54,7 @@ import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
+import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 
 /**
@@ -75,6 +81,8 @@ public class ContractService {
     private final ContractHistoryRepository contractHistoryRepository;
     private final BusinessAreasRepository businessAreasRepository;
     private final CounterpartiesRepository counterpartiesRepository;
+    private final FinancialTypesRepository financialTypesRepository;
+    private final ContractFinancialGenerationService contractFinancialGenerationService;
 
     public ContractService(
             ContractsRepository contractsRepository,
@@ -84,7 +92,9 @@ public class ContractService {
             ContractManagerRepository contractManagerRepository,
             ContractHistoryRepository contractHistoryRepository,
             BusinessAreasRepository businessAreasRepository,
-            CounterpartiesRepository counterpartiesRepository
+            CounterpartiesRepository counterpartiesRepository,
+            FinancialTypesRepository financialTypesRepository,
+            ContractFinancialGenerationService contractFinancialGenerationService
     ) {
         this.contractsRepository = contractsRepository;
         this.contractMapper = contractMapper;
@@ -94,11 +104,35 @@ public class ContractService {
         this.contractHistoryRepository = contractHistoryRepository;
         this.businessAreasRepository = businessAreasRepository;
         this.counterpartiesRepository = counterpartiesRepository;
+        this.financialTypesRepository = financialTypesRepository;
+        this.contractFinancialGenerationService = contractFinancialGenerationService;
     }
 
     private Counterparty resolveCounterpartyForUpdate(Long counterpartyId) {
         return counterpartiesRepository.findById(counterpartyId)
                 .orElseThrow(() -> new CounterpartyNotFoundException("Controparte non trovata: " + counterpartyId));
+    }
+
+    private FinancialTypes resolveFinancialTypeForUpdate(Long financialTypeId) {
+        return financialTypesRepository.findById(financialTypeId)
+                .orElseThrow(() -> new FinancialTypeNotFoundException("Tipo finanziario non trovato: " + financialTypeId));
+    }
+
+    /**
+     * Runs financial-terms generation for a contract that has all three terms
+     * set, swallowing any failure so it never blocks the contract save itself
+     * (same "degrade without breaking" style used elsewhere in this codebase
+     * for ML/agent-insight side effects that aren't the primary operation).
+     */
+    private void generateFinancialValuesIfApplicable(Contracts contract) {
+        if (!contractFinancialGenerationService.hasFinancialTerms(contract)) {
+            return;
+        }
+        try {
+            contractFinancialGenerationService.generate(contract);
+        } catch (RuntimeException e) {
+            logger.warn("Financial value generation failed for contract {}: {}", contract.getId(), e.getMessage());
+        }
     }
 
     /**
@@ -192,6 +226,7 @@ public class ContractService {
             contract.setOrganization(org);
         }
         contract = contractsRepository.save(contract);
+        generateFinancialValuesIfApplicable(contract);
         return contractMapper.toDTO(contract);
     }
 
@@ -211,6 +246,17 @@ public class ContractService {
                     "Impossibile cambiare stato mentre il contratto è in revisione; approvarlo o respingerlo");
         }
 
+        // Snapshot everything that affects financial-value generation, before
+        // any of it is overwritten below, so we can tell afterwards whether
+        // regeneration is actually warranted (see generateFinancialValuesIfApplicable
+        // call below) instead of re-running it on every unrelated edit.
+        Long previousFinancialTypeId = contract.getFinancialType() != null ? contract.getFinancialType().getId() : null;
+        Double previousAnnualValue = contract.getAnnualValue();
+        BillingFrequency previousBillingFrequency = contract.getBillingFrequency();
+        Long previousAreaId = contract.getBusinessArea() != null ? contract.getBusinessArea().getId() : null;
+        LocalDate previousStartDate = contract.getStartDate();
+        LocalDate previousEndDate = contract.getEndDate();
+
         contract.setCounterparty(resolveCounterpartyForUpdate(contractDTO.counterpartyId()));
         contract.setContractNumber(contractDTO.contractNumber());
         contract.setWbsCode(contractDTO.wbsCode());
@@ -227,6 +273,11 @@ public class ContractService {
         contract.setManager(contractDTO.managerId() != null
                 ? managerService.getManagerEntity(contractDTO.managerId())
                 : null);
+        contract.setFinancialType(contractDTO.financialTypeId() != null
+                ? resolveFinancialTypeForUpdate(contractDTO.financialTypeId())
+                : null);
+        contract.setAnnualValue(contractDTO.annualValue());
+        contract.setBillingFrequency(contractDTO.billingFrequency());
 
         // Derive workflow stage the same way contract creation does: entering
         // DRAFT for the first time starts the workflow; leaving DRAFT for any
@@ -240,6 +291,22 @@ public class ContractService {
         }
 
         contract = contractsRepository.save(contract);
+
+        // Only regenerate when something that actually affects generation
+        // changed — otherwise every unrelated edit (e.g. projectName) would
+        // needlessly re-run it and exercise the manual-wins skip logic for
+        // nothing. Same "diff before side-effecting" idiom as the status-change
+        // check below.
+        boolean financialTermsRelevantFieldsChanged =
+                !Objects.equals(previousFinancialTypeId, contractDTO.financialTypeId())
+                || !Objects.equals(previousAnnualValue, contractDTO.annualValue())
+                || previousBillingFrequency != contractDTO.billingFrequency()
+                || !Objects.equals(previousAreaId, contractDTO.areaId())
+                || !Objects.equals(previousStartDate, contractDTO.startDate())
+                || !Objects.equals(previousEndDate, contractDTO.endDate());
+        if (financialTermsRelevantFieldsChanged) {
+            generateFinancialValuesIfApplicable(contract);
+        }
 
         // Create history record if status changed
         if (previousStatus != contractDTO.status()) {
@@ -258,6 +325,26 @@ public class ContractService {
         }
 
         return contractMapper.toDTO(contract);
+    }
+
+    /**
+     * Explicit "regenerate" trigger for the manual admin-triggered endpoint —
+     * recomputes the contract's financial values from its current terms right
+     * now, regardless of whether anything changed since the last run. Useful
+     * after editing something that affects generation (e.g. business area)
+     * without touching the terms themselves. Unlike the automatic post-save
+     * hook, failures here are NOT swallowed — this is a user-initiated action
+     * and its result (including a thrown exception) should be visible to the caller.
+     *
+     * @throws IllegalArgumentException if the contract has no financial terms set
+     */
+    public FinancialGenerationResultDTO regenerateFinancialValues(Long contractId) {
+        Contracts contract = findContractInScope(contractId)
+                .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
+        if (!contractFinancialGenerationService.hasFinancialTerms(contract)) {
+            throw new IllegalArgumentException("Il contratto non ha termini finanziari impostati");
+        }
+        return contractFinancialGenerationService.generate(contract);
     }
 
     /**

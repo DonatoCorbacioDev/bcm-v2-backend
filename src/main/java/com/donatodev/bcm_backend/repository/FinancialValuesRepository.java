@@ -24,6 +24,8 @@ public interface FinancialValuesRepository extends JpaRepository<FinancialValues
 
     Optional<FinancialValues> findByIdAndOrganizationId(Long id, Long organizationId);
 
+    List<FinancialValues> findByContract_IdAndFinancialType_Id(Long contractId, Long financialTypeId);
+
     @Query("""
             SELECT COALESCE(SUM(fv.financialAmount), 0.0)
             FROM FinancialValues fv

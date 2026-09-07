@@ -6,6 +6,7 @@ import com.donatodev.bcm_backend.dto.FinancialValueDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.FinancialTypes;
+import com.donatodev.bcm_backend.entity.FinancialValueSource;
 import com.donatodev.bcm_backend.entity.FinancialValues;
 import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
@@ -59,7 +60,8 @@ public class FinancialValueMapper {
                 entity.getFinancialType() != null ? entity.getFinancialType().getName() : null,
                 entity.getBusinessArea() != null ? entity.getBusinessArea().getName() : null,
                 entity.getContract() != null ? entity.getContract().getCounterparty().getName() : null,
-                entity.getFinancialType() != null ? entity.getFinancialType().getCategory() : null
+                entity.getFinancialType() != null ? entity.getFinancialType().getCategory() : null,
+                entity.getSource()
         );
     }
 
@@ -69,6 +71,11 @@ public class FinancialValueMapper {
      * Every relation is re-resolved scoped to {@code orgId} — see
      * {@link #resolveContract}, {@link #resolveFinancialType}, {@link #resolveBusinessArea}
      * for why this can't be a plain unscoped lookup by ID.
+     * <p>
+     * Always sets {@code source} to {@code MANUAL}, ignoring whatever the DTO
+     * carries — this mapper backs only the manual CRUD path (see
+     * {@code FinancialValueService}), so editing a row by hand always "claims"
+     * it from generation, even if it was previously {@code GENERATED}.
      *
      * @param existing the entity to update
      * @param dto      the DTO with the new values
@@ -82,6 +89,7 @@ public class FinancialValueMapper {
         existing.setFinancialType(resolveFinancialType(dto.financialTypeId(), orgId));
         existing.setBusinessArea(resolveBusinessArea(dto.businessAreaId(), orgId));
         existing.setContract(resolveContract(dto.contractId(), orgId));
+        existing.setSource(FinancialValueSource.MANUAL);
     }
 
     /**
@@ -106,6 +114,8 @@ public class FinancialValueMapper {
                 .financialType(resolveFinancialType(dto.financialTypeId(), orgId))
                 .businessArea(resolveBusinessArea(dto.businessAreaId(), orgId))
                 .contract(resolveContract(dto.contractId(), orgId))
+                // This mapper backs only the manual CRUD path — see updateEntity's Javadoc.
+                .source(FinancialValueSource.MANUAL)
                 .build();
     }
 

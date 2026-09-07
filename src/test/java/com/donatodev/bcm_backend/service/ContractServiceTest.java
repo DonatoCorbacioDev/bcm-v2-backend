@@ -107,8 +107,25 @@ class ContractServiceTest {
     @Mock
     private com.donatodev.bcm_backend.repository.CounterpartiesRepository counterpartiesRepository;
 
+    @Mock
+    private com.donatodev.bcm_backend.repository.FinancialTypesRepository financialTypesRepository;
+
+    @Mock
+    private ContractFinancialGenerationService contractFinancialGenerationService;
+
     @InjectMocks
     private ContractService contractService;
+
+    @org.junit.jupiter.api.BeforeEach
+    @SuppressWarnings("unused")
+    void stubFinancialTermsGeneration() {
+        // create/updateContract() always check hasFinancialTerms() before
+        // deciding whether to generate; none of this file's fixtures set
+        // financial terms, so this always returns false unless a specific
+        // test overrides it.
+        org.mockito.Mockito.lenient().when(contractFinancialGenerationService.hasFinancialTerms(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(false);
+    }
 
     @org.junit.jupiter.api.BeforeEach
     @SuppressWarnings("unused")

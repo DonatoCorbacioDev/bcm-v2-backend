@@ -2,6 +2,8 @@ package com.donatodev.bcm_backend.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -90,4 +92,16 @@ public class FinancialValues {
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "organization_id")
     private Organization organization;
+
+    /**
+     * Whether this row was typed in by hand or produced by
+     * {@code ContractFinancialGenerationService} from the contract's
+     * financial terms. Manual writes always force this to {@code MANUAL}
+     * server-side (see {@code FinancialValueService}) — clients can never
+     * set it directly.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false)
+    @Builder.Default
+    private FinancialValueSource source = FinancialValueSource.MANUAL;
 }

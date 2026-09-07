@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.dto;
 
 import com.donatodev.bcm_backend.entity.FinancialCategory;
+import com.donatodev.bcm_backend.entity.FinancialValueSource;
 
 /**
  * Data Transfer Object for Financial Values.
@@ -19,6 +20,7 @@ import com.donatodev.bcm_backend.entity.FinancialCategory;
  * @param areaName the name of the business area
  * @param customerName the name of the customer
  * @param category whether the underlying financial type is revenue or a cost
+ * @param source whether this row was entered manually or produced by contract-terms generation (read-only — manual writes always force MANUAL server-side, see FinancialValueService)
  */
 public record FinancialValueDTO(
         Long id,
@@ -31,7 +33,18 @@ public record FinancialValueDTO(
         String typeName,
         String areaName,
         String customerName,
-        FinancialCategory category
+        FinancialCategory category,
+        FinancialValueSource source
         ) {
 
+    /**
+     * Compatibility constructor for call sites predating the manual/generated
+     * distinction — defaults {@code source} to {@code MANUAL}.
+     */
+    public FinancialValueDTO(Long id, int month, int year, double financialAmount, Long financialTypeId,
+            Long businessAreaId, Long contractId, String typeName, String areaName, String customerName,
+            FinancialCategory category) {
+        this(id, month, year, financialAmount, financialTypeId, businessAreaId, contractId, typeName, areaName,
+                customerName, category, FinancialValueSource.MANUAL);
+    }
 }

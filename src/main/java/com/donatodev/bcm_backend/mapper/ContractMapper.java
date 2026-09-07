@@ -15,13 +15,16 @@ import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.WorkflowStage;
 import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
 import com.donatodev.bcm_backend.exception.CounterpartyNotFoundException;
+import com.donatodev.bcm_backend.exception.FinancialTypeNotFoundException;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
+import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 
 /**
@@ -37,13 +40,16 @@ public class ContractMapper {
     private final BusinessAreasRepository businessAreasRepository;
     private final ManagersRepository managersRepository;
     private final CounterpartiesRepository counterpartiesRepository;
+    private final FinancialTypesRepository financialTypesRepository;
 
     public ContractMapper(BusinessAreasRepository businessAreasRepository,
             ManagersRepository managersRepository,
-            CounterpartiesRepository counterpartiesRepository) {
+            CounterpartiesRepository counterpartiesRepository,
+            FinancialTypesRepository financialTypesRepository) {
         this.businessAreasRepository = businessAreasRepository;
         this.managersRepository = managersRepository;
         this.counterpartiesRepository = counterpartiesRepository;
+        this.financialTypesRepository = financialTypesRepository;
     }
 
     /**
@@ -117,7 +123,10 @@ public class ContractMapper {
                 managerDTO,
                 areaDTO,
                 daysUntilExpiry,
-                contract.getWorkflowStage()
+                contract.getWorkflowStage(),
+                contract.getFinancialType() != null ? contract.getFinancialType().getId() : null,
+                contract.getAnnualValue(),
+                contract.getBillingFrequency()
         );
     }
 
@@ -151,6 +160,9 @@ public class ContractMapper {
                 // Workflow stage is derived, not user-settable on creation: a
                 // DRAFT contract starts the workflow, anything else never enters it.
                 .workflowStage(dto.status() == ContractStatus.DRAFT ? WorkflowStage.DRAFT : null)
+                .financialType(dto.financialTypeId() != null ? resolveFinancialType(dto.financialTypeId()) : null)
+                .annualValue(dto.annualValue())
+                .billingFrequency(dto.billingFrequency())
                 .build();
     }
 
@@ -197,5 +209,19 @@ public class ContractMapper {
                 ? counterpartiesRepository.findByIdAndOrganizationId(counterpartyId, orgId)
                 : counterpartiesRepository.findById(counterpartyId))
                 .orElseThrow(() -> new CounterpartyNotFoundException("Counterparty not found: " + counterpartyId));
+    }
+
+    /**
+     * Resolves the financial type used for auto-generated financial values
+     * (optional financial terms). Scoped to the current tenant when
+     * {@link TenantContext} carries an organization ID, same as the other
+     * resolve helpers above.
+     */
+    private FinancialTypes resolveFinancialType(Long financialTypeId) {
+        Long orgId = TenantContext.get();
+        return (orgId != null
+                ? financialTypesRepository.findByIdAndOrganizationId(financialTypeId, orgId)
+                : financialTypesRepository.findById(financialTypeId))
+                .orElseThrow(() -> new FinancialTypeNotFoundException("Financial type not found: " + financialTypeId));
     }
 }

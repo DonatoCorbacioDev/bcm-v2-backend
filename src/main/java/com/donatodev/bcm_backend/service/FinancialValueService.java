@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.FinancialValueDTO;
 import com.donatodev.bcm_backend.entity.FinancialValues;
+import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.FinancialValueNotFoundException;
@@ -207,9 +208,12 @@ public class FinancialValueService {
 
         if ("MANAGER".equals(user.getRole().getRole())) {
             Long managerId = user.getManager().getId();
-            Long valueManagerId = value.getContract().getManager().getId();
+            // A contract's manager is optional (Contracts.manager is nullable) — an
+            // unassigned contract belongs to no manager, so a MANAGER-role user
+            // never has access to its financial values, same as any other mismatch.
+            Managers contractManager = value.getContract().getManager();
 
-            if (!managerId.equals(valueManagerId)) {
+            if (contractManager == null || !managerId.equals(contractManager.getId())) {
                 throw new AccessDeniedException("non sei assegnato a questo contratto");
             }
         }

@@ -33,6 +33,7 @@ import com.donatodev.bcm_backend.dto.ContractImportResultDTO;
 import com.donatodev.bcm_backend.dto.ContractStatsResponse;
 import com.donatodev.bcm_backend.dto.ContractsByAreaDTO;
 import com.donatodev.bcm_backend.dto.ContractsTimelineDTO;
+import com.donatodev.bcm_backend.dto.FinancialGenerationResultDTO;
 import com.donatodev.bcm_backend.dto.TopManagerDTO;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.service.ContractImportService;
@@ -321,6 +322,22 @@ public class ContractController {
         logger.info("Manual trigger of contract expiration check requested");
         contractSchedulerService.expireOverdueContracts();
         return ResponseEntity.ok("Contract expiration check completed successfully");
+    }
+
+    /**
+     * Manually (re)generates a contract's financial values from its current
+     * financial terms — useful after editing something that affects
+     * generation (e.g. business area) without touching the terms themselves.
+     * Unlike the automatic generation on create/update, a failure here
+     * surfaces to the caller instead of being swallowed.
+     *
+     * @param id the contract ID
+     * @return a summary of what generation did (rows created/regenerated/skipped)
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{id}/generate-financial-values")
+    public ResponseEntity<FinancialGenerationResultDTO> generateFinancialValues(@PathVariable Long id) {
+        return ResponseEntity.ok(contractService.regenerateFinancialValues(id));
     }
 
     /**

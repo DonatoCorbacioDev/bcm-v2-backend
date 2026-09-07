@@ -126,4 +126,23 @@ public class Contracts {
     @Enumerated(EnumType.STRING)
     @Column(name = "workflow_stage")
     private WorkflowStage workflowStage;
+
+    /**
+     * Optional financial terms — when {@link #financialType}, {@link #annualValue}
+     * and {@link #billingFrequency} are all set, {@code ContractFinancialGenerationService}
+     * auto-generates the contract's {@link FinancialValues} rows instead of
+     * requiring them to be entered one at a time. A contract with none of
+     * these set behaves exactly as before (fully manual entry).
+     */
+    @ManyToOne
+    @JoinColumn(name = "financial_type_id")
+    private FinancialTypes financialType;
+
+    /** The contract's yearly value in euros; divided by {@link BillingFrequency#getPeriodsPerYear()} for each generated row. */
+    @Column(name = "annual_value")
+    private Double annualValue;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "billing_frequency")
+    private BillingFrequency billingFrequency;
 }
