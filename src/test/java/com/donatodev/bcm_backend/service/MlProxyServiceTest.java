@@ -733,4 +733,76 @@ class MlProxyServiceTest {
             assertEquals(HttpStatus.SERVICE_UNAVAILABLE, result.getStatusCode());
         }
     }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @DisplayName("resolveManagerId() edge cases")
+    @SuppressWarnings("unused")
+    class ResolveManagerIdEdgeCases {
+
+        @Test
+        @Order(1)
+        @DisplayName("A present-but-unauthenticated principal is treated as no scope, same as no authentication at all")
+        void unauthenticatedPrincipalYieldsNoManagerScope() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            // The 2-arg UsernamePasswordAuthenticationToken constructor leaves
+            // authenticated=false, unlike the 3-arg one used elsewhere in this
+            // file (which Spring Security treats as pre-authenticated).
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken("someone", "creds"));
+            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
+
+            mlProxyService.getForecast(6);
+
+            verify(restTemplate, never()).exchange(contains("manager_id="), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(usersRepository, never()).findByUsername(any());
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("Resolves the manager scope from a UserDetails principal, not just a raw username string")
+        void resolvesManagerIdFromUserDetailsPrincipal() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            Roles managerRole = new Roles();
+            managerRole.setRole("MANAGER");
+            Users user = Users.builder().username("manager1").role(managerRole).manager(Managers.builder().id(42L).build()).build();
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(user));
+            org.springframework.security.core.userdetails.UserDetails principal = org.springframework.security.core.userdetails.User
+                    .withUsername("manager1").password("pwd").roles("MANAGER").build();
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+            when(mlCacheService.get(5L, "FORECAST_6_MGR42")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
+
+            mlProxyService.getForecast(6);
+
+            verify(restTemplate).exchange(contains("manager_id=42"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("A MANAGER-role user with no manager assigned yields no manager scope")
+        void managerRoleWithNoManagerAssignedYieldsNoScope() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            Roles managerRole = new Roles();
+            managerRole.setRole("MANAGER");
+            Users user = Users.builder().username("manager1").role(managerRole).manager(null).build();
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(user));
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken("manager1", null, java.util.List.of()));
+            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
+
+            mlProxyService.getForecast(6);
+
+            verify(restTemplate, never()).exchange(contains("manager_id="), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+        }
+    }
 }

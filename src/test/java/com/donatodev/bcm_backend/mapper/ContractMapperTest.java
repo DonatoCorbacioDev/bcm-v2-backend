@@ -21,12 +21,15 @@ import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.CounterpartyType;
+import com.donatodev.bcm_backend.entity.FinancialCategory;
+import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
+import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.util.TestDataCleaner;
@@ -65,6 +68,9 @@ class ContractMapperTest {
     private OrganizationRepository organizationRepository;
 
     @Autowired
+    private FinancialTypesRepository financialTypesRepository;
+
+    @Autowired
     private TestDataCleaner cleaner;
 
     private BusinessAreas savedArea;
@@ -89,6 +95,7 @@ class ContractMapperTest {
         businessAreasRepository.deleteAll();
         managersRepository.deleteAll();
         counterpartiesRepository.deleteAll();
+        financialTypesRepository.deleteAll();
         organizationRepository.deleteAll();
 
         savedArea = businessAreasRepository.save(BusinessAreas.builder()
@@ -314,6 +321,134 @@ class ContractMapperTest {
 
             RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
             assertEquals("Business area not found: " + otherOrgArea.getId(), ex.getMessage());
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    /**
+     * Tests that toDTO tolerates a contract with no counterparty set.
+     */
+    @Test
+    void shouldMapToDTOWithoutCounterparty() {
+        Contracts contract = Contracts.builder()
+                .id(20L)
+                .contractNumber("CN-020")
+                .wbsCode("WBS-020")
+                .projectName("No Counterparty")
+                .status(ContractStatus.ACTIVE)
+                .startDate(LocalDate.of(2024, Month.JANUARY, 1))
+                .endDate(LocalDate.of(2024, Month.DECEMBER, 31))
+                .build();
+
+        ContractDTO dto = contractMapper.toDTO(contract);
+
+        assertNull(dto.counterpartyId());
+        assertNull(dto.counterparty());
+    }
+
+    /**
+     * Tests that toDTO includes the financial-terms fields when set.
+     */
+    @Test
+    void shouldMapToDTOWithFinancialType() {
+        FinancialTypes financialType = financialTypesRepository.save(
+                FinancialTypes.builder().name("Vendite-Mapper").category(FinancialCategory.REVENUE).build());
+
+        Contracts contract = Contracts.builder()
+                .id(21L)
+                .counterparty(savedCounterparty)
+                .contractNumber("CN-021")
+                .wbsCode("WBS-021")
+                .projectName("Financial Terms")
+                .status(ContractStatus.ACTIVE)
+                .startDate(LocalDate.of(2024, Month.JANUARY, 1))
+                .endDate(LocalDate.of(2024, Month.DECEMBER, 31))
+                .financialType(financialType)
+                .annualValue(12000.0)
+                .billingFrequency(com.donatodev.bcm_backend.entity.BillingFrequency.MONTHLY)
+                .build();
+
+        ContractDTO dto = contractMapper.toDTO(contract);
+
+        assertEquals(financialType.getId(), dto.financialTypeId());
+        assertEquals(12000.0, dto.annualValue());
+        assertEquals(com.donatodev.bcm_backend.entity.BillingFrequency.MONTHLY, dto.billingFrequency());
+    }
+
+    /**
+     * Tests mapping from DTO to entity when a financial type is provided.
+     */
+    @Test
+    void shouldMapToEntityWithFinancialType() {
+        FinancialTypes financialType = financialTypesRepository.save(
+                FinancialTypes.builder().name("Costi-Mapper").category(FinancialCategory.COST).build());
+
+        ContractDTO dto = new ContractDTO(
+                22L, savedCounterparty.getId(), null, "CN-022", "WBS-022", "WithFinancialType", ContractStatus.ACTIVE,
+                LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(6),
+                savedArea.getId(), null, null, null, null, null, null,
+                financialType.getId(), 6000.0, com.donatodev.bcm_backend.entity.BillingFrequency.QUARTERLY);
+
+        Contracts contract = contractMapper.toEntity(dto);
+
+        assertEquals(financialType.getId(), contract.getFinancialType().getId());
+        assertEquals(6000.0, contract.getAnnualValue());
+        assertEquals(com.donatodev.bcm_backend.entity.BillingFrequency.QUARTERLY, contract.getBillingFrequency());
+    }
+
+    /**
+     * Tests that a financial type belonging to the caller's own organization
+     * resolves normally when {@link TenantContext} is set.
+     */
+    @Test
+    void shouldMapToEntityWithFinancialTypeInOwnOrganization() {
+        Organization org = organizationRepository.save(Organization.builder().name("Org FT").slug("org-ft").build());
+        FinancialTypes scopedFinancialType = financialTypesRepository.save(
+                FinancialTypes.builder().name("Scoped Financial Type").category(FinancialCategory.REVENUE).organization(org).build());
+        Counterparty scopedCounterparty = counterpartiesRepository.save(
+                Counterparty.builder().name("Scoped FT Client").type(CounterpartyType.CUSTOMER).organization(org).build());
+
+        TenantContext.set(org.getId());
+        try {
+            ContractDTO dto = new ContractDTO(
+                    23L, scopedCounterparty.getId(), null, "CN-023", "WBS-023", "TenantFinancialType", ContractStatus.ACTIVE,
+                    LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(6),
+                    null, null, null, null, null, null, null,
+                    scopedFinancialType.getId(), 3000.0, com.donatodev.bcm_backend.entity.BillingFrequency.ANNUAL);
+
+            Contracts contract = contractMapper.toEntity(dto);
+
+            assertEquals(scopedFinancialType.getId(), contract.getFinancialType().getId());
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    /**
+     * Tests that a financial type belonging to a different organization is
+     * rejected (as not found) when {@link TenantContext} is set — guards
+     * against cross-tenant financial-type assignment.
+     */
+    @Test
+    void shouldRejectFinancialTypeFromDifferentOrganization() {
+        Organization callerOrg = organizationRepository.save(Organization.builder().name("Caller Org FT").slug("caller-org-ft").build());
+        Organization otherOrg = organizationRepository.save(Organization.builder().name("Other Org FT").slug("other-org-ft").build());
+        FinancialTypes otherOrgFinancialType = financialTypesRepository.save(
+                FinancialTypes.builder().name("Other Org Financial Type").category(FinancialCategory.REVENUE).organization(otherOrg).build());
+        Counterparty callerOrgCounterparty = counterpartiesRepository.save(
+                Counterparty.builder().name("Caller Org FT Client").type(CounterpartyType.CUSTOMER).organization(callerOrg).build());
+
+        TenantContext.set(callerOrg.getId());
+        try {
+            ContractDTO dto = new ContractDTO(
+                    24L, callerOrgCounterparty.getId(), null, "CN-024", "WBS-024", "TenantFinancialType", ContractStatus.ACTIVE,
+                    LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusMonths(6),
+                    null, null, null, null, null, null, null,
+                    otherOrgFinancialType.getId(), 3000.0, com.donatodev.bcm_backend.entity.BillingFrequency.ANNUAL);
+
+            RuntimeException ex = assertThrows(RuntimeException.class, () -> contractMapper.toEntity(dto));
+            assertEquals("Financial type not found: " + otherOrgFinancialType.getId(), ex.getMessage());
         } finally {
             TenantContext.clear();
         }

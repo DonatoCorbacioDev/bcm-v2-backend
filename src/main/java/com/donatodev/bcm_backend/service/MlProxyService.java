@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.service;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -82,48 +83,24 @@ public class MlProxyService {
         Long orgId = TenantContext.get();
         Long managerId = resolveManagerId();
         String key = "FORECAST_" + months + cacheKeySuffix(managerId);
-        Optional<String> cached = mlCacheService.get(orgId, key);
-        if (cached.isPresent()) {
-            return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
-        }
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/forecast").queryParam(QUERY_PARAM_MONTHS, months);
-        ResponseEntity<String> response = callMl(uriBuilder, orgId, managerId, "forecast");
-        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-            mlCacheService.put(orgId, key, response.getBody());
-        }
-        return response;
+        return cachedGet(key, uriBuilder, orgId, managerId, "forecast");
     }
 
     public ResponseEntity<String> getAgentInsights(int months) {
         Long orgId = TenantContext.get();
         Long managerId = resolveManagerId();
         String key = "AGENT_INSIGHTS_" + months + cacheKeySuffix(managerId);
-        Optional<String> cached = mlCacheService.get(orgId, key);
-        if (cached.isPresent()) {
-            return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
-        }
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/agent/insights").queryParam(QUERY_PARAM_MONTHS, months);
-        ResponseEntity<String> response = callMl(uriBuilder, orgId, managerId, "agent-insights");
-        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-            mlCacheService.put(orgId, key, response.getBody());
-        }
-        return response;
+        return cachedGet(key, uriBuilder, orgId, managerId, "agent-insights");
     }
 
     public ResponseEntity<String> getAnomalies() {
         Long orgId = TenantContext.get();
         Long managerId = resolveManagerId();
         String key = "ANOMALIES" + cacheKeySuffix(managerId);
-        Optional<String> cached = mlCacheService.get(orgId, key);
-        if (cached.isPresent()) {
-            return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
-        }
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/anomalies");
-        ResponseEntity<String> response = callMl(uriBuilder, orgId, managerId, "anomalies");
-        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-            mlCacheService.put(orgId, key, response.getBody());
-        }
-        return response;
+        return cachedGet(key, uriBuilder, orgId, managerId, "anomalies");
     }
 
     public ResponseEntity<String> getRiskScores() {
@@ -139,18 +116,8 @@ public class MlProxyService {
             headers.set("X-Internal-Api-Key", internalApiKey);
         }
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(Map.of("text", text), headers);
-        Timer.Sample sample = Timer.start(meterRegistry);
-        try {
-            ResponseEntity<String> response = restTemplate.exchange(
-                    fastApiUrl + "/clause-risk-analysis", HttpMethod.POST, entity, String.class);
-            recordCallTiming(sample, "clause-risk-analysis", OUTCOME_SUCCESS);
-            return ResponseEntity.status(response.getStatusCode())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(response.getBody());
-        } catch (RestClientException e) {
-            recordCallTiming(sample, "clause-risk-analysis", OUTCOME_ERROR);
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
-        }
+        return executeWithTiming("clause-risk-analysis", () -> restTemplate.exchange(
+                fastApiUrl + "/clause-risk-analysis", HttpMethod.POST, entity, String.class));
     }
 
     public ResponseEntity<String> askAgent(String question) {
@@ -166,18 +133,8 @@ public class MlProxyService {
         HttpHeaders headers = buildInternalHeaders(orgId, managerId);
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(Map.of("question", question), headers);
-        Timer.Sample sample = Timer.start(meterRegistry);
-        try {
-            ResponseEntity<String> response = restTemplate.exchange(
-                    uriBuilder.toUriString(), HttpMethod.POST, entity, String.class);
-            recordCallTiming(sample, "agent-ask", OUTCOME_SUCCESS);
-            return ResponseEntity.status(response.getStatusCode())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(response.getBody());
-        } catch (RestClientException e) {
-            recordCallTiming(sample, "agent-ask", OUTCOME_ERROR);
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
-        }
+        return executeWithTiming("agent-ask", () -> restTemplate.exchange(
+                uriBuilder.toUriString(), HttpMethod.POST, entity, String.class));
     }
 
     // ── Raw methods for the nightly refresher (bypass cache) ────────────────
@@ -245,6 +202,24 @@ public class MlProxyService {
         return headers;
     }
 
+    /**
+     * Checks the DB cache first, and on a miss delegates to {@link #callMl}
+     * and populates the cache with a successful response's body — the shared
+     * shape of every cache-aware GET endpoint (forecast/agent-insights/anomalies),
+     * which otherwise differ only in cache key and FastAPI path.
+     */
+    private ResponseEntity<String> cachedGet(String cacheKey, UriComponentsBuilder uriBuilder, Long orgId, Long managerId, String endpoint) {
+        Optional<String> cached = mlCacheService.get(orgId, cacheKey);
+        if (cached.isPresent()) {
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
+        }
+        ResponseEntity<String> response = callMl(uriBuilder, orgId, managerId, endpoint);
+        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            mlCacheService.put(orgId, cacheKey, response.getBody());
+        }
+        return response;
+    }
+
     private ResponseEntity<String> callMl(UriComponentsBuilder uriBuilder, Long orgId, Long managerId, String endpoint) {
         if (orgId != null) {
             uriBuilder.queryParam("org_id", orgId);
@@ -253,10 +228,20 @@ public class MlProxyService {
             uriBuilder.queryParam("manager_id", managerId);
         }
         HttpEntity<Void> entity = new HttpEntity<>(buildInternalHeaders(orgId, managerId));
+        return executeWithTiming(endpoint, () -> restTemplate.exchange(
+                uriBuilder.toUriString(), HttpMethod.GET, entity, String.class));
+    }
+
+    /**
+     * Runs one REST call to the ML service under a timer, recording the
+     * outcome as {@code bcm.ml.call} regardless of success/failure — the
+     * shared shape of every ML call site, which otherwise differ only in the
+     * endpoint tag and the REST call itself.
+     */
+    private ResponseEntity<String> executeWithTiming(String endpoint, Supplier<ResponseEntity<String>> restCall) {
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
-            ResponseEntity<String> response = restTemplate.exchange(
-                    uriBuilder.toUriString(), HttpMethod.GET, entity, String.class);
+            ResponseEntity<String> response = restCall.get();
             recordCallTiming(sample, endpoint, OUTCOME_SUCCESS);
             return ResponseEntity.status(response.getStatusCode())
                     .contentType(MediaType.APPLICATION_JSON)

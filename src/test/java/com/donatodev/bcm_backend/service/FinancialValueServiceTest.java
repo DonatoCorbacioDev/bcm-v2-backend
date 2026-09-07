@@ -340,6 +340,78 @@ class FinancialValueServiceTest {
             assertTrue(ex.getMessage().contains("non sei assegnato"));
         }
 
+        /**
+         * Test: a MANAGER can never access a value on an unassigned contract
+         * (Contracts.manager is nullable) — regression test for the NPE this
+         * null-guard fixes.
+         */
+        @Test
+        @Order(38)
+        @DisplayName("Get value by ID throws if the contract has no manager assigned")
+        void shouldDenyAccessIfContractHasNoManager() {
+            UserDetails userDetails = org.springframework.security.core.userdetails.User
+                    .withUsername("managerX")
+                    .password(TEST_PASSWORD)
+                    .roles("MANAGER")
+                    .build();
+
+            FinancialValues entity = FinancialValues.builder()
+                    .id(1L)
+                    .contract(Contracts.builder().manager(null).build())
+                    .build();
+
+            Users managerUser = Users.builder()
+                    .username("managerX")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(Managers.builder().id(100L).build())
+                    .build();
+
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
+            );
+
+            when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
+            when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
+
+            AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.getValueById(1L));
+            assertTrue(ex.getMessage().contains("non sei assegnato"));
+        }
+
+        @Test
+        @Order(39)
+        @DisplayName("Get value by ID succeeds when the MANAGER is the contract's own manager")
+        void shouldAllowAccessIfManagerIsOwner() {
+            UserDetails userDetails = org.springframework.security.core.userdetails.User
+                    .withUsername("managerX")
+                    .password(TEST_PASSWORD)
+                    .roles("MANAGER")
+                    .build();
+
+            FinancialValues entity = FinancialValues.builder()
+                    .id(1L)
+                    .contract(Contracts.builder().manager(Managers.builder().id(100L).build()).build())
+                    .build();
+            FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2024, 500.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
+
+            Users managerUser = Users.builder()
+                    .username("managerX")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(Managers.builder().id(100L).build())
+                    .build();
+
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
+            );
+
+            when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
+            when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(mapper.toDTO(entity)).thenReturn(dto);
+
+            FinancialValueDTO result = service.getValueById(1L);
+
+            assertEquals(500.0, result.financialAmount());
+        }
+
         @Test
         @Order(8)
         @DisplayName("getAuthenticatedUsername should return null if authentication is null")

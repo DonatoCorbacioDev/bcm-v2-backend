@@ -15,6 +15,7 @@ import io.jsonwebtoken.Jwts;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MlClaimsSignerTest {
@@ -75,6 +76,15 @@ class MlClaimsSignerTest {
 
         assertEquals(5, ((Number) claims.get("orgId")).longValue());
         assertNull(claims.get("managerId"));
+    }
+
+    @Test
+    @DisplayName("Wraps a malformed private key into IllegalStateException")
+    void wrapsMalformedPrivateKey() {
+        MlClaimsSigner signer = new MlClaimsSigner();
+        ReflectionTestUtils.setField(signer, "privateKeyBase64", "not-valid-base64-pkcs8!!");
+
+        assertThrows(IllegalStateException.class, () -> signer.sign(1L, null));
     }
 
     @Test

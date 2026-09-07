@@ -1,8 +1,11 @@
 package com.donatodev.bcm_backend.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -62,7 +65,9 @@ class ContractFinancialGenerationServiceTest {
                 financialValuesRepository, financialValueMapper, mlCacheService);
         // The result's DTO list content doesn't matter for these tests, only
         // its size (verified via the `created` count) — stub a fixed dummy.
-        when(financialValueMapper.toDTO(any(FinancialValues.class)))
+        // Lenient: some tests (hasFinancialTerms, slot-collision) never reach
+        // a toDTO call at all.
+        org.mockito.Mockito.lenient().when(financialValueMapper.toDTO(any(FinancialValues.class)))
                 .thenReturn(new FinancialValueDTO(null, 1, 2025, 0.0, 1L, 1L, 1L, "Vendite", "IT", "Client", FinancialCategory.REVENUE));
     }
 
@@ -244,6 +249,108 @@ class ContractFinancialGenerationServiceTest {
 
             // 2025, 2026, 2027, 2028, 2029, 2030 (startDate + 5 years, inclusive) = 6 annual rows
             assertEquals(6, result.created());
+        }
+    }
+
+    @Nested
+    @DisplayName("hasFinancialTerms")
+    class HasFinancialTerms {
+
+        @Test
+        @DisplayName("false when none of the three fields are set")
+        void falseWhenAllAbsent() {
+            Contracts contract = Contracts.builder().id(10L).build();
+            assertFalse(generationService.hasFinancialTerms(contract));
+        }
+
+        @Test
+        @DisplayName("false when only financialType is set")
+        void falseWhenOnlyFinancialTypeSet() {
+            Contracts contract = Contracts.builder().id(10L).financialType(financialType).build();
+            assertFalse(generationService.hasFinancialTerms(contract));
+        }
+
+        @Test
+        @DisplayName("false when financialType and annualValue are set but billingFrequency is missing")
+        void falseWhenBillingFrequencyMissing() {
+            Contracts contract = Contracts.builder().id(10L)
+                    .financialType(financialType).annualValue(1000.0).build();
+            assertFalse(generationService.hasFinancialTerms(contract));
+        }
+
+        @Test
+        @DisplayName("true when all three fields are set")
+        void trueWhenAllSet() {
+            Contracts contract = Contracts.builder().id(10L)
+                    .financialType(financialType).annualValue(1000.0).billingFrequency(BillingFrequency.MONTHLY).build();
+            assertTrue(generationService.hasFinancialTerms(contract));
+        }
+    }
+
+    @Nested
+    @DisplayName("Organization propagation")
+    class OrganizationPropagation {
+
+        @Test
+        @DisplayName("does not evict the ML cache when the contract has no organization")
+        void skipsCacheEvictionWhenOrganizationIsNull() {
+            Contracts contract = Contracts.builder()
+                    .id(10L)
+                    .startDate(LocalDate.of(2027, Month.JANUARY, 1))
+                    .endDate(LocalDate.of(2027, Month.JANUARY, 31))
+                    .businessArea(businessArea)
+                    .financialType(financialType)
+                    .annualValue(1000.0)
+                    .billingFrequency(BillingFrequency.MONTHLY)
+                    .build();
+            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L)).thenReturn(List.of());
+
+            generationService.generate(contract);
+
+            verify(mlCacheService, never()).evictAllForOrg(anyLong());
+        }
+
+        @Test
+        @DisplayName("evicts the ML cache for the contract's organization when one is set")
+        void evictsCacheWhenOrganizationIsSet() {
+            Contracts contract = baseContract(LocalDate.of(2027, Month.JANUARY, 1), LocalDate.of(2027, Month.JANUARY, 31))
+                    .annualValue(1000.0)
+                    .billingFrequency(BillingFrequency.MONTHLY)
+                    .build();
+            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L)).thenReturn(List.of());
+
+            generationService.generate(contract);
+
+            verify(mlCacheService).evictAllForOrg(1L);
+        }
+    }
+
+    @Nested
+    @DisplayName("Defensive duplicate-slot handling")
+    class DuplicateSlotHandling {
+
+        @Test
+        @DisplayName("keeps the first row when two existing rows land on the same slot (shouldn't happen under the DB unique constraint, but the merge must not throw)")
+        void keepsFirstRowOnSlotCollision() {
+            Contracts contract = baseContract(LocalDate.of(2027, Month.JANUARY, 1), LocalDate.of(2027, Month.JANUARY, 31))
+                    .annualValue(1000.0)
+                    .billingFrequency(BillingFrequency.MONTHLY)
+                    .build();
+            FinancialValues first = FinancialValues.builder()
+                    .id(1L).month(1).year(2027).financialAmount(100.0)
+                    .financialType(financialType).businessArea(businessArea).contract(contract)
+                    .source(FinancialValueSource.MANUAL).build();
+            FinancialValues duplicate = FinancialValues.builder()
+                    .id(2L).month(1).year(2027).financialAmount(200.0)
+                    .financialType(financialType).businessArea(businessArea).contract(contract)
+                    .source(FinancialValueSource.MANUAL).build();
+            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L))
+                    .thenReturn(List.of(first, duplicate));
+
+            FinancialGenerationResultDTO result = generationService.generate(contract);
+
+            assertEquals(0, result.created());
+            assertEquals(1, result.skippedManual());
         }
     }
 

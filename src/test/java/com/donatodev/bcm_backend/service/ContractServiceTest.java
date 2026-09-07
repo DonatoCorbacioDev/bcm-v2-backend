@@ -9,6 +9,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -57,8 +58,11 @@ import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
+import com.donatodev.bcm_backend.exception.CounterpartyNotFoundException;
+import com.donatodev.bcm_backend.exception.FinancialTypeNotFoundException;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
+import com.donatodev.bcm_backend.dto.FinancialGenerationResultDTO;
 import com.donatodev.bcm_backend.mapper.ContractMapper;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
@@ -390,6 +394,203 @@ class ContractServiceTest {
 
             // Verify history was saved (status changed from ACTIVE to EXPIRED)
             verify(contractHistoryRepository, times(1)).save(any());
+        }
+
+        @Test
+        @Order(200)
+        @DisplayName("Update contract throws when the counterparty is not found")
+        void shouldThrowWhenUpdateReferencesUnknownCounterparty() {
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
+                    .contractNumber("CNTR-CP")
+                    .status(ContractStatus.ACTIVE)
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
+                    .build();
+            ContractDTO updateDTO = new ContractDTO(1L, 999L, null, "CNTR-CP", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
+                    LocalDate.of(2027, Month.JUNE, 15).plusDays(5), null, null, null, null, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(counterpartiesRepository.findById(999L)).thenReturn(Optional.empty());
+
+            assertThrows(CounterpartyNotFoundException.class, () -> contractService.updateContract(1L, updateDTO));
+        }
+
+        @Test
+        @Order(201)
+        @DisplayName("Update contract throws when the financial type is not found")
+        void shouldThrowWhenUpdateReferencesUnknownFinancialType() {
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
+                    .contractNumber("CNTR-FT")
+                    .status(ContractStatus.ACTIVE)
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
+                    .build();
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, null, "CNTR-FT", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
+                    LocalDate.of(2027, Month.JUNE, 15).plusDays(5), null, null, null, null, null, null, null,
+                    999L, 12000.0, com.donatodev.bcm_backend.entity.BillingFrequency.MONTHLY);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(financialTypesRepository.findById(999L)).thenReturn(Optional.empty());
+
+            assertThrows(FinancialTypeNotFoundException.class, () -> contractService.updateContract(1L, updateDTO));
+        }
+
+        @Test
+        @Order(202)
+        @DisplayName("Update contract regenerates financial values when relevant terms change")
+        void shouldRegenerateFinancialValuesWhenTermsChangeOnUpdate() {
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
+                    .contractNumber("CNTR-GEN")
+                    .status(ContractStatus.ACTIVE)
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
+                    .build();
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, null, "CNTR-GEN", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
+                    LocalDate.of(2027, Month.JUNE, 15).plusDays(5), null, null, null, null, null, null, null,
+                    7L, 12000.0, com.donatodev.bcm_backend.entity.BillingFrequency.MONTHLY);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.save(existing)).thenReturn(existing);
+            when(financialTypesRepository.findById(7L)).thenReturn(Optional.of(
+                    com.donatodev.bcm_backend.entity.FinancialTypes.builder().id(7L)
+                            .name("Vendite").category(com.donatodev.bcm_backend.entity.FinancialCategory.REVENUE).build()));
+            when(contractFinancialGenerationService.hasFinancialTerms(existing)).thenReturn(true);
+
+            contractService.updateContract(1L, updateDTO);
+
+            verify(contractFinancialGenerationService, times(1)).generate(existing);
+        }
+
+        @Test
+        @Order(203)
+        @DisplayName("Update contract regenerates when only the annual value changes (financial type unchanged)")
+        void shouldRegenerateWhenOnlyAnnualValueChangesOnUpdate() {
+            com.donatodev.bcm_backend.entity.FinancialTypes financialType =
+                    com.donatodev.bcm_backend.entity.FinancialTypes.builder().id(7L)
+                            .name("Vendite").category(com.donatodev.bcm_backend.entity.FinancialCategory.REVENUE).build();
+            LocalDate start = LocalDate.of(2027, Month.JUNE, 15);
+            LocalDate end = start.plusDays(10);
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
+                    .contractNumber("CNTR-ANNUAL")
+                    .status(ContractStatus.ACTIVE)
+                    .startDate(start).endDate(end)
+                    .financialType(financialType)
+                    .annualValue(1000.0)
+                    .billingFrequency(com.donatodev.bcm_backend.entity.BillingFrequency.MONTHLY)
+                    .build();
+            // Same financialTypeId/billingFrequency/start/end/area as `existing` —
+            // only annualValue differs.
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, null, "CNTR-ANNUAL", null, null,
+                    ContractStatus.ACTIVE, start, end, null, null, null, null, null, null, null,
+                    7L, 2000.0, com.donatodev.bcm_backend.entity.BillingFrequency.MONTHLY);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.save(existing)).thenReturn(existing);
+            when(financialTypesRepository.findById(7L)).thenReturn(Optional.of(financialType));
+
+            contractService.updateContract(1L, updateDTO);
+
+            verify(contractFinancialGenerationService, times(1)).hasFinancialTerms(existing);
+        }
+
+        @Test
+        @Order(206)
+        @DisplayName("Update contract regenerates when only the billing frequency changes (financial type and annual value unchanged)")
+        void shouldRegenerateWhenOnlyBillingFrequencyChangesOnUpdate() {
+            com.donatodev.bcm_backend.entity.FinancialTypes financialType =
+                    com.donatodev.bcm_backend.entity.FinancialTypes.builder().id(7L)
+                            .name("Vendite").category(com.donatodev.bcm_backend.entity.FinancialCategory.REVENUE).build();
+            LocalDate start = LocalDate.of(2027, Month.JUNE, 15);
+            LocalDate end = start.plusDays(10);
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
+                    .contractNumber("CNTR-FREQ")
+                    .status(ContractStatus.ACTIVE)
+                    .startDate(start).endDate(end)
+                    .financialType(financialType)
+                    .annualValue(1000.0)
+                    .billingFrequency(com.donatodev.bcm_backend.entity.BillingFrequency.MONTHLY)
+                    .build();
+            // Same financialTypeId/annualValue/start/end/area as `existing` —
+            // only billingFrequency differs.
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, null, "CNTR-FREQ", null, null,
+                    ContractStatus.ACTIVE, start, end, null, null, null, null, null, null, null,
+                    7L, 1000.0, com.donatodev.bcm_backend.entity.BillingFrequency.QUARTERLY);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.save(existing)).thenReturn(existing);
+            when(financialTypesRepository.findById(7L)).thenReturn(Optional.of(financialType));
+
+            contractService.updateContract(1L, updateDTO);
+
+            verify(contractFinancialGenerationService, times(1)).hasFinancialTerms(existing);
+        }
+
+        @Test
+        @Order(204)
+        @DisplayName("Update contract does not regenerate when nothing generation-relevant changed")
+        void shouldNotRegenerateWhenNothingRelevantChangedOnUpdate() {
+            LocalDate start = LocalDate.of(2027, Month.JUNE, 15);
+            LocalDate end = start.plusDays(10);
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
+                    .contractNumber("CNTR-NOCHANGE")
+                    .status(ContractStatus.ACTIVE)
+                    .startDate(start)
+                    .endDate(end)
+                    .build();
+            // Same status/start/end/area/financial terms (all null) as `existing`
+            // — only the project name differs, which affects neither history
+            // tracking nor generation.
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, null, "CNTR-NOCHANGE", null, "Renamed",
+                    ContractStatus.ACTIVE, start, end, null, null, null, null, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.save(existing)).thenReturn(existing);
+
+            contractService.updateContract(1L, updateDTO);
+
+            verify(contractFinancialGenerationService, never()).generate(any());
+        }
+
+        @Test
+        @Order(205)
+        @DisplayName("Update contract swallows a financial-value generation failure without failing the update")
+        void shouldSwallowGenerationFailureOnUpdate() {
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
+                    .contractNumber("CNTR-FAIL")
+                    .status(ContractStatus.ACTIVE)
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
+                    .build();
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, null, "CNTR-FAIL", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
+                    LocalDate.of(2027, Month.JUNE, 15).plusDays(20), null, null, null, null, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.save(existing)).thenReturn(existing);
+            when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
+            when(contractFinancialGenerationService.hasFinancialTerms(existing)).thenReturn(true);
+            when(contractFinancialGenerationService.generate(existing)).thenThrow(new RuntimeException("boom"));
+
+            ContractDTO result = assertDoesNotThrow(() -> contractService.updateContract(1L, updateDTO));
+
+            assertEquals("CNTR-FAIL", result.contractNumber());
         }
 
         /**

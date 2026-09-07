@@ -46,17 +46,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.donatodev.bcm_backend.dto.ContractDTO;
+import com.donatodev.bcm_backend.entity.BillingFrequency;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.CounterpartyType;
+import com.donatodev.bcm_backend.entity.FinancialCategory;
+import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
+import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
@@ -94,6 +98,9 @@ class ContractControllerTest {
 
     @Autowired
     private BusinessAreasRepository businessAreasRepository;
+
+    @Autowired
+    private FinancialTypesRepository financialTypesRepository;
 
     @Autowired
     private UsersRepository usersRepository;
@@ -1105,6 +1112,72 @@ class ContractControllerTest {
                     .with(csrf()))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.status").value(400));
+        }
+
+        @Test
+        @Order(39)
+        @DisplayName("Should regenerate financial values for a contract that has financial terms")
+        @WithMockUser(roles = "ADMIN")
+        void shouldRegenerateFinancialValues() throws Exception {
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+                    .name("Area-Regen").description("Regen").build());
+            Counterparty counterparty = counterpartiesRepository.save(
+                    Counterparty.builder().name("Client Regen").type(CounterpartyType.CUSTOMER).build());
+            FinancialTypes financialType = financialTypesRepository.save(
+                    FinancialTypes.builder().name("Vendite-Regen").category(FinancialCategory.REVENUE).build());
+
+            Contracts contract = contractsRepository.save(Contracts.builder()
+                    .counterparty(counterparty).contractNumber("CNTR-REGEN-1").wbsCode("WBS-REGEN")
+                    .projectName("Project Regen").businessArea(area)
+                    .startDate(LocalDate.of(2027, Month.JANUARY, 1)).endDate(LocalDate.of(2027, Month.DECEMBER, 31))
+                    .status(ContractStatus.ACTIVE)
+                    .financialType(financialType).annualValue(12000.0).billingFrequency(BillingFrequency.MONTHLY)
+                    .build());
+
+            mockMvc.perform(post("/contracts/{id}/generate-financial-values", contract.getId()).with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.created").value(12))
+                    .andExpect(jsonPath("$.skippedManual").value(0));
+        }
+
+        @Test
+        @Order(40)
+        @DisplayName("Should return 400 when regenerating financial values for a contract without financial terms")
+        @WithMockUser(roles = "ADMIN")
+        void shouldReturn400WhenRegeneratingWithoutFinancialTerms() throws Exception {
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+                    .name("Area-NoTerms").description("NoTerms").build());
+            Counterparty counterparty = counterpartiesRepository.save(
+                    Counterparty.builder().name("Client NoTerms").type(CounterpartyType.CUSTOMER).build());
+
+            Contracts contract = contractsRepository.save(Contracts.builder()
+                    .counterparty(counterparty).contractNumber("CNTR-NOTERMS-1").wbsCode("WBS-NOTERMS")
+                    .projectName("Project NoTerms").businessArea(area)
+                    .startDate(LocalDate.of(2027, Month.JANUARY, 1)).endDate(LocalDate.of(2027, Month.DECEMBER, 31))
+                    .status(ContractStatus.ACTIVE)
+                    .build());
+
+            mockMvc.perform(post("/contracts/{id}/generate-financial-values", contract.getId()).with(csrf()))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("Il contratto non ha termini finanziari impostati"));
+        }
+
+        @Test
+        @Order(42)
+        @DisplayName("Should return 404 when regenerating financial values for a non-existent contract")
+        @WithMockUser(roles = "ADMIN")
+        void shouldReturn404WhenRegeneratingNonExistentContract() throws Exception {
+            mockMvc.perform(post("/contracts/{id}/generate-financial-values", 999999L).with(csrf()))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @Order(41)
+        @DisplayName("Should return 403 when a MANAGER tries to regenerate financial values")
+        @WithMockUser(roles = "MANAGER")
+        void shouldReturn403WhenManagerRegeneratesFinancialValues() throws Exception {
+            mockMvc.perform(post("/contracts/{id}/generate-financial-values", 1L).with(csrf()))
+                    .andExpect(status().isForbidden());
         }
     }
 

@@ -361,5 +361,39 @@ class NotificationServiceTest {
 
             verify(notificationRepository, never()).save(any());
         }
+
+        @Test
+        @Order(18)
+        @DisplayName("Should throw ContractNotFoundException when the caller has the MANAGER role but no manager assigned")
+        void shouldThrowWhenManagerRoleHasNoManagerAssigned() {
+            Managers contractManager = Managers.builder().id(42L).build();
+            Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("MANAGER")).manager(null).build();
+            Contracts contract = Contracts.builder().id(5L).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).manager(contractManager).build();
+
+            when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
+            when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> notificationService.createReminderForCurrentUser(5L, "hi"));
+
+            verify(notificationRepository, never()).save(any());
+        }
+
+        @Test
+        @Order(19)
+        @DisplayName("Should throw ContractNotFoundException when the contract has no manager assigned")
+        void shouldThrowWhenContractHasNoManagerAssigned() {
+            Managers callerManager = Managers.builder().id(42L).build();
+            Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("MANAGER")).manager(callerManager).build();
+            Contracts contract = Contracts.builder().id(5L).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).manager(null).build();
+
+            when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
+            when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> notificationService.createReminderForCurrentUser(5L, "hi"));
+
+            verify(notificationRepository, never()).save(any());
+        }
     }
 }
