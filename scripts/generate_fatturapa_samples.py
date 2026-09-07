@@ -102,7 +102,7 @@ def parse_args():
     parser.add_argument("--credit-note-ratio", type=float, default=0.15)
     parser.add_argument("--edge-case-ratio", type=float, default=0.15)
     parser.add_argument("--keep-existing", action="store_true", help="Don't clear the output directory before generating")
-    parser.add_argument("--buyer-name", default="Demo Corp Srl", help="CessionarioCommittente name (the org receiving the invoices)")
+    parser.add_argument("--buyer-name", default="Nortiva Solutions S.r.l.", help="CessionarioCommittente name (the org receiving the invoices)")
     parser.add_argument("--buyer-vat", default="IT00000000001", help="CessionarioCommittente VAT number")
 
     parser.add_argument("--upload", action="store_true", help="Upload a sample of the generated files via POST /contracts/{id}/invoices")
