@@ -40,6 +40,7 @@ public class ElectronicInvoiceService {
     private static final Logger logger = LoggerFactory.getLogger(ElectronicInvoiceService.class);
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024L;
     private static final String INVOICE_NOT_FOUND = "Fattura ID %d non trovata per il contratto %d";
+    private static final String CRLF_REGEX = "[\r\n]";
 
     @Value("${app.backend-base-url:http://localhost:8090/api/v1}")
     private String backendBaseUrl;
@@ -104,7 +105,8 @@ public class ElectronicInvoiceService {
             invoiceMatchingService.computeSuggestion(invoice);
             invoice = invoiceRepository.save(invoice);
         } catch (RuntimeException e) {
-            logger.warn("Invoice match suggestion failed for invoice {}: {}", invoice.getId(), e.getMessage());
+            String safeMessage = e.getMessage() == null ? null : e.getMessage().replaceAll(CRLF_REGEX, "_");
+            logger.warn("Invoice match suggestion failed for invoice {}: {}", invoice.getId(), safeMessage);
         }
 
         return toDTO(invoice);

@@ -136,7 +136,8 @@ public class ContractService {
         try {
             contractFinancialGenerationService.generate(contract);
         } catch (RuntimeException e) {
-            logger.warn("Financial value generation failed for contract {}: {}", contract.getId(), e.getMessage());
+            String safeMessage = e.getMessage() == null ? null : e.getMessage().replaceAll(CRLF_REGEX, "_");
+            logger.warn("Financial value generation failed for contract {}: {}", contract.getId(), safeMessage);
         }
     }
 
