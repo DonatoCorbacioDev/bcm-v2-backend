@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -599,7 +600,7 @@ class ElectronicInvoiceServiceTest {
 
             assertNotNull(result);
             assertEquals(INVOICE_ID, result.id());
-            verify(invoiceRepository, org.mockito.Mockito.times(1)).save(any(ElectronicInvoice.class));
+            verify(invoiceRepository, times(1)).save(any(ElectronicInvoice.class));
         }
 
         // ---- confirmMatch ----

@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -17,6 +18,9 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -100,6 +104,22 @@ class InvoiceMatchingServiceTest {
         return fv;
     }
 
+    static Stream<Arguments> vatOrNameMatchScenarios() {
+        return Stream.of(
+                Arguments.of("name formatting differs (S.r.l. vs Srl), invoice has no VAT",
+                        null, "VERTICE LEGAL SRL", null),
+                Arguments.of("only the invoice carries a VAT number",
+                        null, "Vertice Legal S.r.l.", "IT12345678901"),
+                Arguments.of("a blank invoice VAT is treated as missing",
+                        null, "Vertice Legal S.r.l.", "   "),
+                Arguments.of("a VAT number without a 2-letter country prefix is compared unchanged",
+                        "12345678901", "Vertice Legal S.r.l.", "12345678901"),
+                Arguments.of("invoice name is a substring of the counterparty name",
+                        null, "Legal", null),
+                Arguments.of("counterparty name is a (non-equal) substring of the invoice name",
+                        null, "Gruppo Vertice Legal S.r.l. Holding", null));
+    }
+
     @Nested
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
     @DisplayName("computeSuggestion")
@@ -178,14 +198,16 @@ class InvoiceMatchingServiceTest {
             verifyNoInteractions(financialValuesRepository);
         }
 
-        @Test
+        @ParameterizedTest(name = "[{index}] {0}")
         @Order(5)
-        @DisplayName("supplier name matches loosely (S.r.l. vs Srl) even when VAT is missing on one side")
-        void toleratesNameFormattingDifference() {
+        @MethodSource("com.donatodev.bcm_backend.service.InvoiceMatchingServiceTest#vatOrNameMatchScenarios")
+        @DisplayName("matches on VAT or name despite formatting/prefix/substring differences")
+        void matchesDespiteVatOrNameVariation(String scenario, String counterpartyVat,
+                                               String invoiceSupplierName, String invoiceSupplierVat) {
             Counterparty cp = counterparty();
-            cp.setVatNumber(null);
+            cp.setVatNumber(counterpartyVat);
             Contracts contract = contract(cp);
-            ElectronicInvoice invoice = invoice(contract, "VERTICE LEGAL SRL", null,
+            ElectronicInvoice invoice = invoice(contract, invoiceSupplierName, invoiceSupplierVat,
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
             FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
 
@@ -326,60 +348,6 @@ class InvoiceMatchingServiceTest {
         }
 
         @Test
-        @Order(13)
-        @DisplayName("falls back to name comparison when only the invoice carries a VAT number")
-        void usesNameWhenOnlyInvoiceHasVat() {
-            Counterparty cp = counterparty();
-            cp.setVatNumber(null);
-            Contracts contract = contract(cp);
-            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
-                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
-
-            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
-
-            invoiceMatchingService.computeSuggestion(invoice);
-
-            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
-        }
-
-        @Test
-        @Order(14)
-        @DisplayName("a blank invoice VAT is treated as missing, falling back to name comparison")
-        void treatsBlankInvoiceVatAsMissing() {
-            Counterparty cp = counterparty();
-            cp.setVatNumber(null);
-            Contracts contract = contract(cp);
-            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "   ",
-                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
-
-            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
-
-            invoiceMatchingService.computeSuggestion(invoice);
-
-            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
-        }
-
-        @Test
-        @Order(15)
-        @DisplayName("a VAT number without a 2-letter country prefix is compared unchanged")
-        void keepsVatUnchangedWhenNoCountryPrefixPresent() {
-            Counterparty cp = counterparty();
-            cp.setVatNumber("12345678901");
-            Contracts contract = contract(cp);
-            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "12345678901",
-                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
-
-            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
-
-            invoiceMatchingService.computeSuggestion(invoice);
-
-            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
-        }
-
-        @Test
         @Order(16)
         @DisplayName("a null invoice supplier name normalizes to empty and is treated as a mismatch")
         void treatsNullInvoiceSupplierNameAsMismatch() {
@@ -424,42 +392,6 @@ class InvoiceMatchingServiceTest {
 
             assertEquals(InvoiceMatchStatus.COUNTERPARTY_MISMATCH, invoice.getMatchStatus());
             verifyNoInteractions(financialValuesRepository);
-        }
-
-        @Test
-        @Order(23)
-        @DisplayName("matches when the counterparty's normalized name is a (non-equal) substring of the invoice's")
-        void matchesWhenCounterpartyNameIsASubstringOfInvoiceName() {
-            Counterparty cp = counterparty();
-            cp.setVatNumber(null);
-            Contracts contract = contract(cp);
-            ElectronicInvoice invoice = invoice(contract, "Gruppo Vertice Legal S.r.l. Holding", null,
-                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
-
-            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
-
-            invoiceMatchingService.computeSuggestion(invoice);
-
-            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
-        }
-
-        @Test
-        @Order(18)
-        @DisplayName("matches when the invoice's normalized supplier name is a substring of the counterparty's")
-        void matchesWhenInvoiceNameIsASubstringOfCounterpartyName() {
-            Counterparty cp = counterparty();
-            cp.setVatNumber(null);
-            Contracts contract = contract(cp);
-            ElectronicInvoice invoice = invoice(contract, "Legal", null,
-                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
-
-            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
-
-            invoiceMatchingService.computeSuggestion(invoice);
-
-            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
         }
 
         @Test
