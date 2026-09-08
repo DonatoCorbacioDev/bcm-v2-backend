@@ -71,47 +71,36 @@ public class FatturaPaXmlParserService {
         // than this class could produce on its own.
         Element root = parseDocument(xmlBytes);
 
+        // FatturaElettronicaHeader > CedentePrestatore > DatiAnagrafici and
+        // FatturaElettronicaBody > DatiGenerali > DatiGeneraliDocumento are
+        // all mandatory per the schema (no minOccurs="0" anywhere on that
+        // path), so they're guaranteed present once schema validation above
+        // has passed -- no defensive null-guards needed for them.
         Element header = findFirstChildByLocalName(root, "FatturaElettronicaHeader");
+        Element datiAnagrafici = findDescendantByLocalName(header, "CedentePrestatore", "DatiAnagrafici");
+        String supplierName = extractSupplierName(datiAnagrafici);
+        String supplierVatNumber = extractSupplierVatNumber(datiAnagrafici);
+
         Element body = findFirstChildByLocalName(root, "FatturaElettronicaBody");
+        Element datiGeneraliDocumento = findDescendantByLocalName(body, "DatiGenerali", "DatiGeneraliDocumento");
+        String documentType = getTextOrNull(datiGeneraliDocumento, "TipoDocumento");
+        String invoiceNumber = getTextOrNull(datiGeneraliDocumento, "Numero");
+        String currency = getTextOrNull(datiGeneraliDocumento, "Divisa");
+        LocalDate invoiceDate = parseOptionalDate(getTextOrNull(datiGeneraliDocumento, "Data"));
+        BigDecimal totalAmount = parseOptionalAmount(getTextOrNull(datiGeneraliDocumento, "ImportoTotaleDocumento"));
 
-        String supplierName = null;
-        String supplierVatNumber = null;
-        if (header != null) {
-            Element datiAnagrafici = findDescendantByLocalName(header, "CedentePrestatore", "DatiAnagrafici");
-            if (datiAnagrafici != null) {
-                supplierName = extractSupplierName(datiAnagrafici);
-                supplierVatNumber = extractSupplierVatNumber(datiAnagrafici);
-            }
-        }
+        List<InvoiceLineItemDTO> lineItems = extractLineItems(body);
 
-        String documentType = null;
-        String invoiceNumber = null;
-        LocalDate invoiceDate = null;
-        BigDecimal totalAmount = null;
-        String currency = null;
-        List<InvoiceLineItemDTO> lineItems = new ArrayList<>();
+        // DatiPagamento is genuinely optional (minOccurs="0"): not every
+        // invoice carries payment terms.
         String supplierIban = null;
         String supplierBic = null;
         LocalDate paymentDueDate = null;
-
-        if (body != null) {
-            Element datiGeneraliDocumento = findDescendantByLocalName(body, "DatiGenerali", "DatiGeneraliDocumento");
-            if (datiGeneraliDocumento != null) {
-                documentType = getTextOrNull(datiGeneraliDocumento, "TipoDocumento");
-                invoiceNumber = getTextOrNull(datiGeneraliDocumento, "Numero");
-                currency = getTextOrNull(datiGeneraliDocumento, "Divisa");
-                invoiceDate = parseOptionalDate(getTextOrNull(datiGeneraliDocumento, "Data"));
-                totalAmount = parseOptionalAmount(getTextOrNull(datiGeneraliDocumento, "ImportoTotaleDocumento"));
-            }
-
-            lineItems = extractLineItems(body);
-
-            Element dettaglioPagamento = findDescendantByLocalName(body, "DatiPagamento", "DettaglioPagamento");
-            if (dettaglioPagamento != null) {
-                supplierIban = extractSupplierIban(dettaglioPagamento);
-                supplierBic = getTextOrNull(dettaglioPagamento, "BIC");
-                paymentDueDate = parseOptionalDate(getTextOrNull(dettaglioPagamento, "DataScadenzaPagamento"));
-            }
+        Element dettaglioPagamento = findDescendantByLocalName(body, "DatiPagamento", "DettaglioPagamento");
+        if (dettaglioPagamento != null) {
+            supplierIban = extractSupplierIban(dettaglioPagamento);
+            supplierBic = getTextOrNull(dettaglioPagamento, "BIC");
+            paymentDueDate = parseOptionalDate(getTextOrNull(dettaglioPagamento, "DataScadenzaPagamento"));
         }
 
         return new FatturaPaInvoiceData(supplierName, supplierVatNumber, documentType,
@@ -246,9 +235,17 @@ public class FatturaPaXmlParserService {
     }
 
     private static Schema loadSchema() {
-        try (InputStream in = FatturaPaXmlParserService.class.getResourceAsStream(SCHEMA_RESOURCE_PATH)) {
+        return loadSchema(SCHEMA_RESOURCE_PATH);
+    }
+
+    // Resource path is a parameter (rather than always reading the private
+    // constant) so tests can exercise the "resource missing" / "resource
+    // malformed" failure paths below without corrupting the real bundled
+    // schema.
+    static Schema loadSchema(String resourcePath) {
+        try (InputStream in = FatturaPaXmlParserService.class.getResourceAsStream(resourcePath)) {
             if (in == null) {
-                throw new IllegalStateException("Bundled FatturaPA schema not found on classpath: " + SCHEMA_RESOURCE_PATH);
+                throw new IllegalStateException("Bundled FatturaPA schema not found on classpath: " + resourcePath);
             }
             SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
             factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
@@ -262,7 +259,7 @@ public class FatturaPaXmlParserService {
             // not the plain jar:/file: URLs seen under Maven/local test runs.
             factory.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "file,jar,nested");
             StreamSource source = new StreamSource(in);
-            source.setSystemId(FatturaPaXmlParserService.class.getResource(SCHEMA_RESOURCE_PATH).toString());
+            source.setSystemId(FatturaPaXmlParserService.class.getResource(resourcePath).toString());
             return factory.newSchema(source);
         } catch (IOException | SAXException e) {
             throw new IllegalStateException("Failed to compile the bundled FatturaPA schema", e);

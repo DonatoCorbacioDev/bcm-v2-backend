@@ -16,13 +16,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import java.util.stream.Stream;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -95,6 +99,27 @@ class FatturaPaXmlParserServiceTest {
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document document = builder.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
         return document.getDocumentElement();
+    }
+
+    @Nested
+    @DisplayName("loadSchema: bundled resource failure paths")
+    class LoadSchema {
+
+        @Test
+        @DisplayName("throws when the resource is not found on the classpath")
+        void throwsWhenResourceMissing() {
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> FatturaPaXmlParserService.loadSchema("/fatturapa/does-not-exist.xsd"));
+            assertTrue(ex.getMessage().contains("not found on classpath"));
+        }
+
+        @Test
+        @DisplayName("throws when the resource is not a valid XSD")
+        void throwsWhenResourceIsMalformed() {
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> FatturaPaXmlParserService.loadSchema("/broken-schema.xsd"));
+            assertEquals("Failed to compile the bundled FatturaPA schema", ex.getMessage());
+        }
     }
 
     @Nested
@@ -302,67 +327,26 @@ class FatturaPaXmlParserServiceTest {
                 + "<FatturaElettronicaBody/>"
                 + "</FatturaElettronica>";
 
-        @Test
-        @DisplayName("missing DatiTrasmissione/CessionarioCommittente/etc. is now rejected by schema validation")
-        void shouldRejectDocumentMissingMandatoryHeaderBlocks() {
-            byte[] xml = NO_ANAGRAFICA_XML.getBytes(StandardCharsets.UTF_8);
-            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
+        @ParameterizedTest(name = "[{index}] {0}")
+        @MethodSource("schemaRejectionScenarios")
+        @DisplayName("documents violating the FatturaPA schema are rejected")
+        void shouldRejectSchemaInvalidDocument(String description, String xml) {
+            byte[] bytes = xml.getBytes(StandardCharsets.UTF_8);
+            assertThrows(IllegalArgumentException.class, () -> parserService.parse(bytes));
         }
 
-        @Test
-        @DisplayName("empty Anagrafica (no Denominazione/Nome/Cognome) violates the mandatory xs:choice, rejected by schema validation")
-        void shouldRejectEmptyAnagrafica() {
-            byte[] xml = EMPTY_ANAGRAFICA_XML.getBytes(StandardCharsets.UTF_8);
-            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
-        }
-
-        @Test
-        @DisplayName("malformed Data throws IllegalArgumentException")
-        void shouldRejectInvalidDate() {
-            byte[] xml = INVALID_DATE_XML.getBytes(StandardCharsets.UTF_8);
-            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
-        }
-
-        @Test
-        @DisplayName("malformed ImportoTotaleDocumento throws IllegalArgumentException")
-        void shouldRejectInvalidAmount() {
-            byte[] xml = INVALID_AMOUNT_XML.getBytes(StandardCharsets.UTF_8);
-            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
-        }
-
-        @Test
-        @DisplayName("malformed NumeroLinea throws IllegalArgumentException")
-        void shouldRejectInvalidLineNumber() {
-            byte[] xml = INVALID_LINE_NUMBER_XML.getBytes(StandardCharsets.UTF_8);
-            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
-        }
-
-        @Test
-        @DisplayName("an empty FatturaElettronica (no Header, no Body) is rejected by schema validation")
-        void shouldRejectMissingHeaderAndBody() {
-            byte[] xml = EMPTY_ROOT_XML.getBytes(StandardCharsets.UTF_8);
-            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
-        }
-
-        @Test
-        @DisplayName("Anagrafica with Nome but no Cognome violates the mandatory xs:choice, rejected by schema validation")
-        void shouldRejectAnagraficaWithNomeButNoCognome() {
-            byte[] xml = NOME_ONLY_XML.getBytes(StandardCharsets.UTF_8);
-            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
-        }
-
-        @Test
-        @DisplayName("an empty IdFiscaleIVA (missing its mandatory IdPaese/IdCodice children) is rejected by schema validation")
-        void shouldRejectEmptyIdFiscaleIva() {
-            byte[] xml = EMPTY_ID_FISCALE_IVA_XML.getBytes(StandardCharsets.UTF_8);
-            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
-        }
-
-        @Test
-        @DisplayName("an IdFiscaleIVA missing IdCodice is rejected by schema validation")
-        void shouldRejectPartialIdFiscaleIva() {
-            byte[] xml = PARTIAL_ID_FISCALE_IVA_XML.getBytes(StandardCharsets.UTF_8);
-            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
+        static Stream<Arguments> schemaRejectionScenarios() {
+            return Stream.of(
+                    Arguments.of("missing DatiTrasmissione/CessionarioCommittente/etc.", NO_ANAGRAFICA_XML),
+                    Arguments.of("empty Anagrafica violates the mandatory xs:choice", EMPTY_ANAGRAFICA_XML),
+                    Arguments.of("malformed Data", INVALID_DATE_XML),
+                    Arguments.of("malformed ImportoTotaleDocumento", INVALID_AMOUNT_XML),
+                    Arguments.of("malformed NumeroLinea", INVALID_LINE_NUMBER_XML),
+                    Arguments.of("empty FatturaElettronica (no Header, no Body)", EMPTY_ROOT_XML),
+                    Arguments.of("Anagrafica with Nome but no Cognome violates the mandatory xs:choice", NOME_ONLY_XML),
+                    Arguments.of("empty IdFiscaleIVA (missing mandatory IdPaese/IdCodice)", EMPTY_ID_FISCALE_IVA_XML),
+                    Arguments.of("IdFiscaleIVA missing IdCodice", PARTIAL_ID_FISCALE_IVA_XML)
+            );
         }
     }
 
