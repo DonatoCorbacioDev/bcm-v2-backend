@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Month;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -26,19 +28,27 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.donatodev.bcm_backend.dto.ConfirmInvoiceMatchRequest;
 import com.donatodev.bcm_backend.dto.ElectronicInvoiceDTO;
 import com.donatodev.bcm_backend.dto.FatturaPaInvoiceData;
 import com.donatodev.bcm_backend.dto.InvoiceLineItemDTO;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
+import com.donatodev.bcm_backend.entity.FinancialValues;
+import com.donatodev.bcm_backend.entity.InvoiceMatchStatus;
+import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -68,6 +78,15 @@ class ElectronicInvoiceServiceTest {
                 invoiceRepository, contractAccessGuard, localStorageService, fatturaPaXmlParserService,
                 invoiceMatchingService, objectMapper);
         ReflectionTestUtils.setField(electronicInvoiceService, "backendBaseUrl", BACKEND_URL);
+
+        SecurityContext ctx = SecurityContextHolder.createEmptyContext();
+        ctx.setAuthentication(new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList()));
+        SecurityContextHolder.setContext(ctx);
+    }
+
+    @AfterEach
+    void clearContext() {
+        SecurityContextHolder.clearContext();
     }
 
     private Contracts fakeContract() {
@@ -554,6 +573,146 @@ class ElectronicInvoiceServiceTest {
             assertThrows(IllegalArgumentException.class,
                     () -> electronicInvoiceService.updatePaymentDetails(CONTRACT_ID, INVOICE_ID, request));
             verify(invoiceRepository, never()).save(any());
+        }
+
+        // ---- uploadInvoice: match-suggestion failure degrades without breaking the upload ----
+
+        @Test
+        @Order(26)
+        @DisplayName("uploadInvoice: a match-suggestion failure is logged and swallowed, upload still succeeds")
+        void shouldDegradeGracefullyWhenMatchSuggestionFails() throws IOException {
+            Contracts contract = fakeContract();
+            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
+            ElectronicInvoice saved = fakeInvoice(contract, lineItemsJson);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(fatturaPaXmlParserService.parse(any())).thenReturn(sampleParsedData());
+            when(localStorageService.storeInvoice(any(), eq(CONTRACT_ID), any()))
+                    .thenReturn("invoices/0/1/uuid-invoice.xml");
+            when(invoiceRepository.save(any(ElectronicInvoice.class))).thenReturn(saved);
+            doThrow(new RuntimeException("scoring blew up")).when(invoiceMatchingService).computeSuggestion(any());
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "invoice.xml", "application/xml", VALID_XML);
+
+            ElectronicInvoiceDTO result = electronicInvoiceService.uploadInvoice(CONTRACT_ID, file);
+
+            assertNotNull(result);
+            assertEquals(INVOICE_ID, result.id());
+            verify(invoiceRepository, org.mockito.Mockito.times(1)).save(any(ElectronicInvoice.class));
+        }
+
+        // ---- confirmMatch ----
+
+        @Test
+        @Order(27)
+        @DisplayName("confirmMatch: delegates to InvoiceMatchingService with the override id and returns the mapped DTO")
+        void shouldConfirmMatchWithOverride() throws IOException {
+            Contracts contract = fakeContract();
+            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
+            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            FinancialValues matched = new FinancialValues();
+            matched.setId(55L);
+            Users user = new Users();
+            user.setUsername("admin");
+            invoice.setMatchStatus(InvoiceMatchStatus.CONFIRMED);
+            invoice.setMatchedFinancialValue(matched);
+            invoice.setMatchedByUser(user);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(invoice));
+            when(invoiceMatchingService.confirmMatch(invoice, 55L, "admin")).thenReturn(invoice);
+
+            ElectronicInvoiceDTO result = electronicInvoiceService.confirmMatch(
+                    CONTRACT_ID, INVOICE_ID, new ConfirmInvoiceMatchRequest(55L));
+
+            assertEquals(InvoiceMatchStatus.CONFIRMED, result.matchStatus());
+            assertEquals(55L, result.matchedFinancialValueId());
+            assertEquals("admin", result.matchedByUsername());
+            verify(contractAccessGuard).checkManagerCanAccess(contract);
+        }
+
+        @Test
+        @Order(28)
+        @DisplayName("confirmMatch: a null request body confirms whatever was already suggested")
+        void shouldConfirmMatchWithNullRequest() {
+            Contracts contract = fakeContract();
+            ElectronicInvoice invoice = fakeInvoice(contract, "[]");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(invoice));
+            when(invoiceMatchingService.confirmMatch(invoice, null, "admin")).thenReturn(invoice);
+
+            ElectronicInvoiceDTO result = electronicInvoiceService.confirmMatch(CONTRACT_ID, INVOICE_ID, null);
+
+            assertNotNull(result);
+            verify(invoiceMatchingService).confirmMatch(invoice, null, "admin");
+        }
+
+        @Test
+        @Order(29)
+        @DisplayName("confirmMatch: throws ContractNotFoundException when the invoice is missing")
+        void shouldThrowWhenConfirmMatchInvoiceNotFound() {
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.empty());
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> electronicInvoiceService.confirmMatch(CONTRACT_ID, INVOICE_ID, null));
+        }
+
+        // ---- rejectMatch ----
+
+        @Test
+        @Order(30)
+        @DisplayName("rejectMatch: delegates to InvoiceMatchingService and returns the mapped DTO")
+        void shouldRejectMatch() {
+            Contracts contract = fakeContract();
+            ElectronicInvoice invoice = fakeInvoice(contract, "[]");
+            invoice.setMatchStatus(InvoiceMatchStatus.REJECTED);
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(invoice));
+            when(invoiceMatchingService.rejectMatch(invoice)).thenReturn(invoice);
+
+            ElectronicInvoiceDTO result = electronicInvoiceService.rejectMatch(CONTRACT_ID, INVOICE_ID);
+
+            assertEquals(InvoiceMatchStatus.REJECTED, result.matchStatus());
+            verify(contractAccessGuard).checkManagerCanAccess(contract);
+        }
+
+        @Test
+        @Order(31)
+        @DisplayName("rejectMatch: throws ContractNotFoundException when the invoice is missing")
+        void shouldThrowWhenRejectMatchInvoiceNotFound() {
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.empty());
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> electronicInvoiceService.rejectMatch(CONTRACT_ID, INVOICE_ID));
+        }
+
+        // ---- recomputeMatches ----
+
+        @Test
+        @Order(32)
+        @DisplayName("recomputeMatches: delegates to InvoiceMatchingService and returns the mapped DTOs")
+        void shouldRecomputeMatches() {
+            Contracts contract = fakeContract();
+            ElectronicInvoice invoice = fakeInvoice(contract, "[]");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceMatchingService.recomputeForContract(CONTRACT_ID)).thenReturn(List.of(invoice));
+
+            List<ElectronicInvoiceDTO> result = electronicInvoiceService.recomputeMatches(CONTRACT_ID);
+
+            assertEquals(1, result.size());
+            assertEquals(INVOICE_ID, result.get(0).id());
+            verify(contractAccessGuard).checkManagerCanAccess(contract);
         }
     }
 

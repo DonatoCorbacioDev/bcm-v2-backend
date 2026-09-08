@@ -237,6 +237,302 @@ class InvoiceMatchingServiceTest {
             assertEquals(InvoiceMatchStatus.CONFIRMED, invoice.getMatchStatus());
             verifyNoInteractions(financialValuesRepository);
         }
+
+        @Test
+        @Order(8)
+        @DisplayName("no-op when the invoice is already REJECTED")
+        void noOpWhenAlreadyRejected() {
+            Counterparty cp = counterparty();
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+            invoice.setMatchStatus(InvoiceMatchStatus.REJECTED);
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.REJECTED, invoice.getMatchStatus());
+            verifyNoInteractions(financialValuesRepository);
+        }
+
+        @Test
+        @Order(9)
+        @DisplayName("flags mismatch when the contract has no counterparty at all")
+        void flagsMismatchWhenCounterpartyIsNull() {
+            Contracts contract = contract(null);
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.COUNTERPARTY_MISMATCH, invoice.getMatchStatus());
+            verifyNoInteractions(financialValuesRepository);
+        }
+
+        @Test
+        @Order(10)
+        @DisplayName("keeps the first, higher-scoring candidate when a later one scores lower")
+        void keepsBestCandidateWhenLaterOneScoresLower() {
+            Counterparty cp = counterparty();
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+            FinancialValues bestCandidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            FinancialValues worseCandidate = financialValue(101L, contract, 3, 2026, 5000.0);
+
+            when(financialValuesRepository.findByContractId(CONTRACT_ID))
+                    .thenReturn(List.of(bestCandidate, worseCandidate));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(bestCandidate, invoice.getMatchedFinancialValue());
+        }
+
+        @Test
+        @Order(11)
+        @DisplayName("UNMATCHED when the contract has no financial-value candidates at all")
+        void unmatchedWhenNoCandidatesExist() {
+            Counterparty cp = counterparty();
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+
+            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of());
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.UNMATCHED, invoice.getMatchStatus());
+            assertNull(invoice.getMatchedFinancialValue());
+        }
+
+        @Test
+        @Order(12)
+        @DisplayName("does not skip a candidate whose only CONFIRMED match is this same invoice")
+        void ignoresCandidateAlreadyConfirmedToSelf() {
+            Counterparty cp = counterparty();
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+            invoice.setId(10L);
+            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+
+            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
+            when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(100L, InvoiceMatchStatus.CONFIRMED))
+                    .thenReturn(Optional.of(invoice));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
+            assertEquals(candidate, invoice.getMatchedFinancialValue());
+        }
+
+        @Test
+        @Order(13)
+        @DisplayName("falls back to name comparison when only the invoice carries a VAT number")
+        void usesNameWhenOnlyInvoiceHasVat() {
+            Counterparty cp = counterparty();
+            cp.setVatNumber(null);
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+
+            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
+        }
+
+        @Test
+        @Order(14)
+        @DisplayName("a blank invoice VAT is treated as missing, falling back to name comparison")
+        void treatsBlankInvoiceVatAsMissing() {
+            Counterparty cp = counterparty();
+            cp.setVatNumber(null);
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "   ",
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+
+            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
+        }
+
+        @Test
+        @Order(15)
+        @DisplayName("a VAT number without a 2-letter country prefix is compared unchanged")
+        void keepsVatUnchangedWhenNoCountryPrefixPresent() {
+            Counterparty cp = counterparty();
+            cp.setVatNumber("12345678901");
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "12345678901",
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+
+            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
+        }
+
+        @Test
+        @Order(16)
+        @DisplayName("a null invoice supplier name normalizes to empty and is treated as a mismatch")
+        void treatsNullInvoiceSupplierNameAsMismatch() {
+            Counterparty cp = counterparty();
+            cp.setVatNumber(null);
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, null, null,
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.COUNTERPARTY_MISMATCH, invoice.getMatchStatus());
+        }
+
+        @Test
+        @Order(17)
+        @DisplayName("a counterparty name with no alphanumeric characters normalizes to empty and is treated as a mismatch")
+        void treatsSymbolOnlyCounterpartyNameAsMismatch() {
+            Counterparty cp = counterparty();
+            cp.setVatNumber(null);
+            cp.setName("!!!");
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Some Real Name", null,
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.COUNTERPARTY_MISMATCH, invoice.getMatchStatus());
+        }
+
+        @Test
+        @Order(24)
+        @DisplayName("flags mismatch on name comparison alone when neither VAT is present and neither name contains the other")
+        void flagsCounterpartyMismatchOnNameComparisonAlone() {
+            Counterparty cp = counterparty();
+            cp.setVatNumber(null);
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Completely Different Name", null,
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.COUNTERPARTY_MISMATCH, invoice.getMatchStatus());
+            verifyNoInteractions(financialValuesRepository);
+        }
+
+        @Test
+        @Order(23)
+        @DisplayName("matches when the counterparty's normalized name is a (non-equal) substring of the invoice's")
+        void matchesWhenCounterpartyNameIsASubstringOfInvoiceName() {
+            Counterparty cp = counterparty();
+            cp.setVatNumber(null);
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Gruppo Vertice Legal S.r.l. Holding", null,
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+
+            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
+        }
+
+        @Test
+        @Order(18)
+        @DisplayName("matches when the invoice's normalized supplier name is a substring of the counterparty's")
+        void matchesWhenInvoiceNameIsASubstringOfCounterpartyName() {
+            Counterparty cp = counterparty();
+            cp.setVatNumber(null);
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Legal", null,
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+
+            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
+        }
+
+        @Test
+        @Order(19)
+        @DisplayName("a null invoice amount scores 0 on the amount component")
+        void treatsNullInvoiceAmountAsZeroAmountScore() {
+            Counterparty cp = counterparty();
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
+                    null, LocalDate.of(2026, Month.JANUARY, 10));
+            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+
+            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
+            assertEquals(0.4, invoice.getMatchConfidence(), 0.0001);
+        }
+
+        @Test
+        @Order(20)
+        @DisplayName("a candidate with a zero financial amount scores 0 on the amount component")
+        void treatsZeroFinancialAmountAsZeroAmountScore() {
+            Counterparty cp = counterparty();
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
+                    new BigDecimal("1000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 0.0);
+
+            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
+            assertEquals(0.4, invoice.getMatchConfidence(), 0.0001);
+        }
+
+        @Test
+        @Order(21)
+        @DisplayName("a null invoice date scores 0 on the date component")
+        void treatsNullInvoiceDateAsZeroDateScore() {
+            Counterparty cp = counterparty();
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
+                    new BigDecimal("15000.00"), null);
+            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+
+            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
+            assertEquals(0.6, invoice.getMatchConfidence(), 0.0001);
+        }
+
+        @Test
+        @Order(22)
+        @DisplayName("an invoice date two months from the candidate's slot scores 0.3 on the date component")
+        void scoresTwoMonthsApartAsPartialDateMatch() {
+            Counterparty cp = counterparty();
+            Contracts contract = contract(cp);
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.MARCH, 10));
+            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+
+            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
+            assertEquals(0.72, invoice.getMatchConfidence(), 0.0001);
+        }
     }
 
     @Nested
@@ -358,6 +654,20 @@ class InvoiceMatchingServiceTest {
             ElectronicInvoice result = invoiceMatchingService.confirmMatch(invoice, null, "admin");
 
             assertEquals(InvoiceMatchStatus.CONFIRMED, result.getMatchStatus());
+        }
+
+        @Test
+        @Order(7)
+        @DisplayName("throws when the manual override financial value id does not exist")
+        void throwsWhenManualOverrideFinancialValueNotFound() {
+            Contracts contract = contract(counterparty());
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
+                    new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
+
+            when(financialValuesRepository.findById(999L)).thenReturn(Optional.empty());
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> invoiceMatchingService.confirmMatch(invoice, 999L, "admin"));
         }
     }
 
