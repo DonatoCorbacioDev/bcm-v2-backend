@@ -9,7 +9,6 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -21,6 +20,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -54,7 +56,7 @@ class InvoiceMatchingServiceTest {
     }
 
     private void lenientNoOtherConfirmedMatch() {
-        org.mockito.Mockito.lenient()
+        lenient()
                 .when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(anyLong(), any()))
                 .thenReturn(Optional.empty());
     }
@@ -173,7 +175,7 @@ class InvoiceMatchingServiceTest {
 
             assertEquals(InvoiceMatchStatus.COUNTERPARTY_MISMATCH, invoice.getMatchStatus());
             assertNull(invoice.getMatchedFinancialValue());
-            org.mockito.Mockito.verifyNoInteractions(financialValuesRepository);
+            verifyNoInteractions(financialValuesRepository);
         }
 
         @Test
@@ -233,7 +235,7 @@ class InvoiceMatchingServiceTest {
             invoiceMatchingService.computeSuggestion(invoice);
 
             assertEquals(InvoiceMatchStatus.CONFIRMED, invoice.getMatchStatus());
-            org.mockito.Mockito.verifyNoInteractions(financialValuesRepository);
+            verifyNoInteractions(financialValuesRepository);
         }
     }
 
@@ -402,7 +404,7 @@ class InvoiceMatchingServiceTest {
 
             invoiceMatchingService.recomputeForContract(CONTRACT_ID);
 
-            org.mockito.Mockito.verify(invoiceRepository).findByContractIdAndMatchStatusIn(
+            verify(invoiceRepository).findByContractIdAndMatchStatusIn(
                     CONTRACT_ID,
                     List.of(InvoiceMatchStatus.UNMATCHED, InvoiceMatchStatus.SUGGESTED, InvoiceMatchStatus.COUNTERPARTY_MISMATCH));
         }
