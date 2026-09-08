@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2025 Donato Corbacio. All rights reserved.
+# Licensed under the terms of the LICENSE file at the repository root.
+
 """Generate synthetic FatturaPA XML invoices to test FatturaPaXmlParserService
 and the electronic invoice upload flow (ElectronicInvoiceController ->
 ElectronicInvoiceService) with realistic, varied data.
