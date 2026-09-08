@@ -51,6 +51,7 @@ class ElectronicInvoiceServiceTest {
     @Mock private ContractAccessGuard contractAccessGuard;
     @Mock private LocalStorageService localStorageService;
     @Mock private FatturaPaXmlParserService fatturaPaXmlParserService;
+    @Mock private InvoiceMatchingService invoiceMatchingService;
 
     private ElectronicInvoiceService electronicInvoiceService;
     private ObjectMapper objectMapper;
@@ -64,7 +65,8 @@ class ElectronicInvoiceServiceTest {
     void setup() {
         objectMapper = new ObjectMapper();
         electronicInvoiceService = new ElectronicInvoiceService(
-                invoiceRepository, contractAccessGuard, localStorageService, fatturaPaXmlParserService, objectMapper);
+                invoiceRepository, contractAccessGuard, localStorageService, fatturaPaXmlParserService,
+                invoiceMatchingService, objectMapper);
         ReflectionTestUtils.setField(electronicInvoiceService, "backendBaseUrl", BACKEND_URL);
     }
 

@@ -10,6 +10,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.donatodev.bcm_backend.entity.InvoiceMatchStatus;
+
 public record ElectronicInvoiceDTO(
         Long id,
         Long contractId,
@@ -28,5 +30,10 @@ public record ElectronicInvoiceDTO(
         String supplierIban,
         String supplierBic,
         LocalDate paymentDueDate,
-        Long sepaBatchId
+        Long sepaBatchId,
+        InvoiceMatchStatus matchStatus,
+        Long matchedFinancialValueId,
+        Double matchConfidence,
+        Instant matchedAt,
+        String matchedByUsername
 ) {}

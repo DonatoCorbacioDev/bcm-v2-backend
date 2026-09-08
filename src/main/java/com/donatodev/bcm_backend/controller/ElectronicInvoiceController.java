@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.donatodev.bcm_backend.dto.ConfirmInvoiceMatchRequest;
 import com.donatodev.bcm_backend.dto.ElectronicInvoiceDTO;
 import com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest;
 import com.donatodev.bcm_backend.service.ElectronicInvoiceService;
@@ -94,5 +95,28 @@ public class ElectronicInvoiceController {
             @PathVariable Long invoiceId,
             @Valid @RequestBody UpdateInvoicePaymentDetailsRequest request) {
         return ResponseEntity.ok(invoiceService.updatePaymentDetails(contractId, invoiceId, request));
+    }
+
+    @PostMapping("/{invoiceId}/match/confirm")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ElectronicInvoiceDTO> confirmMatch(
+            @PathVariable Long contractId,
+            @PathVariable Long invoiceId,
+            @RequestBody(required = false) ConfirmInvoiceMatchRequest request) {
+        return ResponseEntity.ok(invoiceService.confirmMatch(contractId, invoiceId, request));
+    }
+
+    @PostMapping("/{invoiceId}/match/reject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ElectronicInvoiceDTO> rejectMatch(
+            @PathVariable Long contractId,
+            @PathVariable Long invoiceId) {
+        return ResponseEntity.ok(invoiceService.rejectMatch(contractId, invoiceId));
+    }
+
+    @PostMapping("/match/recompute")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ElectronicInvoiceDTO>> recomputeMatches(@PathVariable Long contractId) {
+        return ResponseEntity.ok(invoiceService.recomputeMatches(contractId));
     }
 }

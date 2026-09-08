@@ -6,14 +6,18 @@
 package com.donatodev.bcm_backend.entity;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -63,4 +67,23 @@ public class ElectronicInvoice extends StoredFile {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sepa_batch_id")
     private SepaPaymentBatch sepaBatch;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "matched_financial_value_id")
+    private FinancialValues matchedFinancialValue;
+
+    @Column(name = "match_confidence")
+    private Double matchConfidence;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "match_status", nullable = false)
+    @Builder.Default
+    private InvoiceMatchStatus matchStatus = InvoiceMatchStatus.UNMATCHED;
+
+    @Column(name = "matched_at")
+    private Instant matchedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "matched_by_user_id")
+    private Users matchedByUser;
 }

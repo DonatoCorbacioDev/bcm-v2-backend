@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
+import com.donatodev.bcm_backend.entity.InvoiceMatchStatus;
 
 @Repository
 public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInvoice, Long> {
@@ -21,4 +22,8 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
     Optional<ElectronicInvoice> findByIdAndContractId(Long id, Long contractId);
 
     List<ElectronicInvoice> findByContractIdAndIdIn(Long contractId, List<Long> ids);
+
+    List<ElectronicInvoice> findByContractIdAndMatchStatusIn(Long contractId, List<InvoiceMatchStatus> statuses);
+
+    Optional<ElectronicInvoice> findByMatchedFinancialValue_IdAndMatchStatus(Long financialValueId, InvoiceMatchStatus status);
 }

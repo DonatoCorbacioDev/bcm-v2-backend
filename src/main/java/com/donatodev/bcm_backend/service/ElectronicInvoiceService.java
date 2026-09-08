@@ -11,12 +11,16 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.donatodev.bcm_backend.config.TenantContext;
+import com.donatodev.bcm_backend.dto.ConfirmInvoiceMatchRequest;
 import com.donatodev.bcm_backend.dto.ElectronicInvoiceDTO;
 import com.donatodev.bcm_backend.dto.FatturaPaInvoiceData;
 import com.donatodev.bcm_backend.dto.InvoiceLineItemDTO;
@@ -33,6 +37,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class ElectronicInvoiceService {
 
+    private static final Logger logger = LoggerFactory.getLogger(ElectronicInvoiceService.class);
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024L;
     private static final String INVOICE_NOT_FOUND = "Fattura ID %d non trovata per il contratto %d";
 
@@ -43,17 +48,20 @@ public class ElectronicInvoiceService {
     private final ContractAccessGuard contractAccessGuard;
     private final LocalStorageService localStorageService;
     private final FatturaPaXmlParserService fatturaPaXmlParserService;
+    private final InvoiceMatchingService invoiceMatchingService;
     private final ObjectMapper objectMapper;
 
     public ElectronicInvoiceService(ElectronicInvoiceRepository invoiceRepository,
                                      ContractAccessGuard contractAccessGuard,
                                      LocalStorageService localStorageService,
                                      FatturaPaXmlParserService fatturaPaXmlParserService,
+                                     InvoiceMatchingService invoiceMatchingService,
                                      ObjectMapper objectMapper) {
         this.invoiceRepository = invoiceRepository;
         this.contractAccessGuard = contractAccessGuard;
         this.localStorageService = localStorageService;
         this.fatturaPaXmlParserService = fatturaPaXmlParserService;
+        this.invoiceMatchingService = invoiceMatchingService;
         this.objectMapper = objectMapper;
     }
 
@@ -91,6 +99,13 @@ public class ElectronicInvoiceService {
                 .supplierBic(parsed.supplierBic())
                 .paymentDueDate(parsed.paymentDueDate())
                 .build());
+
+        try {
+            invoiceMatchingService.computeSuggestion(invoice);
+            invoice = invoiceRepository.save(invoice);
+        } catch (RuntimeException e) {
+            logger.warn("Invoice match suggestion failed for invoice {}: {}", invoice.getId(), e.getMessage());
+        }
 
         return toDTO(invoice);
     }
@@ -164,6 +179,36 @@ public class ElectronicInvoiceService {
         return toDTO(invoiceRepository.save(invoice));
     }
 
+    @Transactional
+    public ElectronicInvoiceDTO confirmMatch(Long contractId, Long invoiceId, ConfirmInvoiceMatchRequest request) {
+        Contracts contract = contractAccessGuard.getContractInScope(contractId);
+        contractAccessGuard.checkManagerCanAccess(contract);
+        ElectronicInvoice invoice = invoiceRepository.findByIdAndContractId(invoiceId, contractId)
+                .orElseThrow(() -> new ContractNotFoundException(
+                        String.format(INVOICE_NOT_FOUND, invoiceId, contractId)));
+
+        Long financialValueId = request != null ? request.financialValueId() : null;
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return toDTO(invoiceMatchingService.confirmMatch(invoice, financialValueId, username));
+    }
+
+    @Transactional
+    public ElectronicInvoiceDTO rejectMatch(Long contractId, Long invoiceId) {
+        Contracts contract = contractAccessGuard.getContractInScope(contractId);
+        contractAccessGuard.checkManagerCanAccess(contract);
+        ElectronicInvoice invoice = invoiceRepository.findByIdAndContractId(invoiceId, contractId)
+                .orElseThrow(() -> new ContractNotFoundException(
+                        String.format(INVOICE_NOT_FOUND, invoiceId, contractId)));
+
+        return toDTO(invoiceMatchingService.rejectMatch(invoice));
+    }
+
+    @Transactional
+    public List<ElectronicInvoiceDTO> recomputeMatches(Long contractId) {
+        contractAccessGuard.checkManagerCanAccess(contractAccessGuard.getContractInScope(contractId));
+        return invoiceMatchingService.recomputeForContract(contractId).stream().map(this::toDTO).toList();
+    }
+
     private void validateFile(MultipartFile file) throws IOException {
         if (file.isEmpty()) {
             throw new IllegalArgumentException("Il file è vuoto");
@@ -198,7 +243,12 @@ public class ElectronicInvoiceService {
                 invoice.getSupplierIban(),
                 invoice.getSupplierBic(),
                 invoice.getPaymentDueDate(),
-                invoice.getSepaBatch() != null ? invoice.getSepaBatch().getId() : null);
+                invoice.getSepaBatch() != null ? invoice.getSepaBatch().getId() : null,
+                invoice.getMatchStatus(),
+                invoice.getMatchedFinancialValue() != null ? invoice.getMatchedFinancialValue().getId() : null,
+                invoice.getMatchConfidence(),
+                invoice.getMatchedAt(),
+                invoice.getMatchedByUser() != null ? invoice.getMatchedByUser().getUsername() : null);
     }
 
     private List<InvoiceLineItemDTO> deserializeLineItems(String lineItemsJson) {

@@ -91,7 +91,8 @@ class ElectronicInvoiceControllerTest {
                 "http://localhost:8090/api/v1/contracts/" + contractId + "/invoices/1/download",
                 "Acme Forniture S.r.l.", "IT12345678901", "TD01", "2024/001",
                 LocalDate.of(2024, Month.MARCH, 15), new BigDecimal("1220.00"), "EUR", sampleLineItems(),
-                null, null, null, null);
+                null, null, null, null,
+                com.donatodev.bcm_backend.entity.InvoiceMatchStatus.UNMATCHED, null, null, null, null);
     }
 
     @BeforeEach
@@ -381,6 +382,112 @@ class ElectronicInvoiceControllerTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /contracts/{id}/invoices/{invoiceId}/match/confirm")
+    @org.junit.jupiter.api.TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @SuppressWarnings("unused")
+    class ConfirmMatch {
+
+        @Test
+        @Order(1)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Admin confirms the suggested match — returns 200")
+        void shouldConfirmSuccessfully() throws Exception {
+            when(electronicInvoiceService.confirmMatch(anyLong(), anyLong(), any()))
+                    .thenReturn(sampleInvoiceDTO(contractId));
+
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .post("/contracts/" + contractId + "/invoices/1/match/confirm")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @Order(2)
+        @WithMockUser(roles = "MANAGER")
+        @DisplayName("Manager cannot confirm — returns 403")
+        void shouldReturn403ForManager() throws Exception {
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .post("/contracts/" + contractId + "/invoices/1/match/confirm"))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @Order(3)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Confirming with no candidate returns 400")
+        void shouldReturn400WhenNoCandidate() throws Exception {
+            when(electronicInvoiceService.confirmMatch(anyLong(), anyLong(), any()))
+                    .thenThrow(new IllegalArgumentException("Nessun abbinamento da confermare per la fattura 1"));
+
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .post("/contracts/" + contractId + "/invoices/1/match/confirm"))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /contracts/{id}/invoices/{invoiceId}/match/reject")
+    @org.junit.jupiter.api.TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @SuppressWarnings("unused")
+    class RejectMatch {
+
+        @Test
+        @Order(1)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Admin rejects the suggested match — returns 200")
+        void shouldRejectSuccessfully() throws Exception {
+            when(electronicInvoiceService.rejectMatch(anyLong(), anyLong()))
+                    .thenReturn(sampleInvoiceDTO(contractId));
+
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .post("/contracts/" + contractId + "/invoices/1/match/reject"))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @Order(2)
+        @WithMockUser(roles = "MANAGER")
+        @DisplayName("Manager cannot reject — returns 403")
+        void shouldReturn403ForManager() throws Exception {
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .post("/contracts/" + contractId + "/invoices/1/match/reject"))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /contracts/{id}/invoices/match/recompute")
+    @org.junit.jupiter.api.TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @SuppressWarnings("unused")
+    class RecomputeMatches {
+
+        @Test
+        @Order(1)
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Admin recomputes matches for the contract — returns 200 with the updated list")
+        void shouldRecomputeSuccessfully() throws Exception {
+            when(electronicInvoiceService.recomputeMatches(anyLong()))
+                    .thenReturn(List.of(sampleInvoiceDTO(contractId)));
+
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .post("/contracts/" + contractId + "/invoices/match/recompute"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$", hasSize(1)));
+        }
+
+        @Test
+        @Order(2)
+        @WithMockUser(roles = "MANAGER")
+        @DisplayName("Manager cannot recompute — returns 403")
+        void shouldReturn403ForManager() throws Exception {
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                            .post("/contracts/" + contractId + "/invoices/match/recompute"))
+                    .andExpect(status().isForbidden());
         }
     }
 }
