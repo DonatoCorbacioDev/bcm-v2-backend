@@ -623,44 +623,34 @@ class FatturaPaXmlParserServiceTest {
             assertNull(parserService.extractSupplierName(datiAnagrafici));
         }
 
-        @Test
-        @DisplayName("extractSupplierVatNumber: IdFiscaleIVA with both IdPaese/IdCodice -> concatenated")
-        void extractSupplierVatNumberFullIdFiscaleIva() throws Exception {
-            Element datiAnagrafici = datiAnagraficiFrom(
-                    "<IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>12345678901</IdCodice></IdFiscaleIVA>");
-            assertEquals("IT12345678901", parserService.extractSupplierVatNumber(datiAnagrafici));
+        @ParameterizedTest(name = "[{index}] {0}")
+        @MethodSource("supplierVatNumberScenarios")
+        @DisplayName("extractSupplierVatNumber resolves VAT from IdFiscaleIVA or falls back to CodiceFiscale")
+        void shouldExtractSupplierVatNumber(String description, String datiAnagraficiXml, String expected) throws Exception {
+            Element datiAnagrafici = datiAnagraficiFrom(datiAnagraficiXml);
+            assertEquals(expected, parserService.extractSupplierVatNumber(datiAnagrafici));
         }
 
-        @Test
-        @DisplayName("extractSupplierVatNumber: no IdFiscaleIVA -> falls back to CodiceFiscale")
-        void extractSupplierVatNumberNoIdFiscaleIva() throws Exception {
-            Element datiAnagrafici = datiAnagraficiFrom("<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>");
-            assertEquals("RSSMRA80A01H501U", parserService.extractSupplierVatNumber(datiAnagrafici));
-        }
-
-        @Test
-        @DisplayName("extractSupplierVatNumber: IdFiscaleIVA missing IdPaese -> falls back to CodiceFiscale")
-        void extractSupplierVatNumberMissingIdPaese() throws Exception {
-            Element datiAnagrafici = datiAnagraficiFrom(
-                    "<IdFiscaleIVA><IdCodice>12345678901</IdCodice></IdFiscaleIVA>"
-                    + "<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>");
-            assertEquals("RSSMRA80A01H501U", parserService.extractSupplierVatNumber(datiAnagrafici));
-        }
-
-        @Test
-        @DisplayName("extractSupplierVatNumber: IdFiscaleIVA missing IdCodice -> falls back to CodiceFiscale")
-        void extractSupplierVatNumberMissingIdCodice() throws Exception {
-            Element datiAnagrafici = datiAnagraficiFrom(
-                    "<IdFiscaleIVA><IdPaese>IT</IdPaese></IdFiscaleIVA>"
-                    + "<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>");
-            assertEquals("RSSMRA80A01H501U", parserService.extractSupplierVatNumber(datiAnagrafici));
-        }
-
-        @Test
-        @DisplayName("extractSupplierVatNumber: neither IdFiscaleIVA nor CodiceFiscale -> null")
-        void extractSupplierVatNumberNeitherPresent() throws Exception {
-            Element datiAnagrafici = datiAnagraficiFrom("<Anagrafica><Denominazione>Acme</Denominazione></Anagrafica>");
-            assertNull(parserService.extractSupplierVatNumber(datiAnagrafici));
+        static Stream<Arguments> supplierVatNumberScenarios() {
+            return Stream.of(
+                    Arguments.of("IdFiscaleIVA with both IdPaese/IdCodice -> concatenated",
+                            "<IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>12345678901</IdCodice></IdFiscaleIVA>",
+                            "IT12345678901"),
+                    Arguments.of("no IdFiscaleIVA -> falls back to CodiceFiscale",
+                            "<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>",
+                            "RSSMRA80A01H501U"),
+                    Arguments.of("IdFiscaleIVA missing IdPaese -> falls back to CodiceFiscale",
+                            "<IdFiscaleIVA><IdCodice>12345678901</IdCodice></IdFiscaleIVA>"
+                                    + "<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>",
+                            "RSSMRA80A01H501U"),
+                    Arguments.of("IdFiscaleIVA missing IdCodice -> falls back to CodiceFiscale",
+                            "<IdFiscaleIVA><IdPaese>IT</IdPaese></IdFiscaleIVA>"
+                                    + "<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>",
+                            "RSSMRA80A01H501U"),
+                    Arguments.of("neither IdFiscaleIVA nor CodiceFiscale -> null",
+                            "<Anagrafica><Denominazione>Acme</Denominazione></Anagrafica>",
+                            null)
+            );
         }
 
         @Test
