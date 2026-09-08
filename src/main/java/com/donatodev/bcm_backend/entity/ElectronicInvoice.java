@@ -76,7 +76,7 @@ public class ElectronicInvoice extends StoredFile {
     private Double matchConfidence;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "match_status", nullable = false)
+    @Column(name = "match_status", nullable = false, length = 30)
     @Builder.Default
     private InvoiceMatchStatus matchStatus = InvoiceMatchStatus.UNMATCHED;
 

@@ -15,7 +15,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import com.donatodev.bcm_backend.support.AbstractMySQLIntegrationTest;
 
 /**
- * Proves the full migration history (V1-V39) applies cleanly to real MySQL
+ * Proves the full migration history (V1-V40) applies cleanly to real MySQL
  * 8.0 and that every JPA entity mapping validates against the resulting
  * schema ({@code ddl-auto=validate} in the base class) — something the H2
  * "MySQL mode" used by the fast unit suite cannot guarantee, since H2 is not
@@ -23,7 +23,11 @@ import com.donatodev.bcm_backend.support.AbstractMySQLIntegrationTest;
  * V27, which had to widen a native MySQL ENUM column H2 never enforced;
  * V37, which introduced a collation mismatch between its explicit
  * utf8mb4_unicode_ci and the server default that only reproduces against a
- * real MySQL server — see AbstractMySQLIntegrationTest).
+ * real MySQL server; V39, whose {@code match_status VARCHAR(20)} silently
+ * truncated the 21-character enum value {@code COUNTERPARTY_MISMATCH} on
+ * real MySQL (strict SQL mode rejects the truncation outright) while H2
+ * never exercised that code path in the fast unit suite — see
+ * AbstractMySQLIntegrationTest).
  */
 @SpringBootTest
 @DisplayName("Integration Test: Flyway migrations against real MySQL")
@@ -41,21 +45,21 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
     }
 
     @Test
-    @DisplayName("flyway_schema_history: all 39 migrations recorded as successful, none pending")
+    @DisplayName("flyway_schema_history: all 40 migrations recorded as successful, none pending")
     void allMigrationsAppliedSuccessfully() {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
 
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 39,
-                "Expected at least 39 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 40,
+                "Expected at least 40 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(39, maxVersion, "Highest applied migration version should be V39");
+        assertEquals(40, maxVersion, "Highest applied migration version should be V40");
     }
 
     @Test
@@ -170,5 +174,37 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         assertEquals(0, remainingInviteTokens, "invite_token rows should cascade-delete with their manager");
 
         jdbc.update("DELETE FROM organizations WHERE id = 9004");
+    }
+
+    @Test
+    @DisplayName("electronic_invoices.match_status accepts the longest enum value (COUNTERPARTY_MISMATCH, 21 chars) without truncation")
+    void matchStatusColumnAcceptsLongestEnumValue() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        jdbc.update("INSERT INTO organizations (id, name, slug) VALUES (9005, 'Match Status Length Test Org', 'match-status-length-test-org')");
+        jdbc.update("INSERT INTO managers (id, first_name, last_name, email, organization_id) "
+                + "VALUES (9005, 'Test', 'Manager', 'match-status-length-test@example.com', 9005)");
+        jdbc.update("INSERT INTO counterparties (id, name, type, organization_id) "
+                + "VALUES (9005, 'Test Customer', 'CUSTOMER', 9005)");
+        jdbc.update("INSERT INTO contracts (id, counterparty_id, contract_number, manager_id, start_date, status, organization_id) "
+                + "VALUES (9005, 9005, 'MATCH-STATUS-LENGTH-001', 9005, '2026-01-01', 'ACTIVE', 9005)");
+        // The insert itself is the assertion: V39 sized this column VARCHAR(20),
+        // one character too short for COUNTERPARTY_MISMATCH -- MySQL's strict
+        // mode rejects the truncation with SQLState 22001 instead of silently
+        // cutting the value short, which is exactly what surfaced this bug in
+        // production (see V40).
+        jdbc.update("INSERT INTO electronic_invoices "
+                + "(id, contract_id, storage_path, file_name, file_size, content_type, match_status) "
+                + "VALUES (9005, 9005, 'invoices/9005/9005/match-status-length-test.xml', 'test.xml', 1, 'application/xml', 'COUNTERPARTY_MISMATCH')");
+
+        String matchStatus = jdbc.queryForObject(
+                "SELECT match_status FROM electronic_invoices WHERE id = 9005", String.class);
+        assertEquals("COUNTERPARTY_MISMATCH", matchStatus, "the enum value must round-trip untruncated");
+
+        jdbc.update("DELETE FROM electronic_invoices WHERE id = 9005");
+        jdbc.update("DELETE FROM contracts WHERE id = 9005");
+        jdbc.update("DELETE FROM managers WHERE id = 9005");
+        jdbc.update("DELETE FROM counterparties WHERE id = 9005");
+        jdbc.update("DELETE FROM organizations WHERE id = 9005");
     }
 }
