@@ -254,10 +254,13 @@ public class FatturaPaXmlParserService {
             factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
             // FEATURE_SECURE_PROCESSING denies external schema access by
             // default, which also blocks the <xs:import> below resolving its
-            // own sibling file on the classpath. Scoped to "file,jar" only
+            // own sibling file on the classpath. Scoped to local schemes only
             // (never "http") so this stays a purely local, network-free
             // resolution -- see xmldsig-core-schema.xsd's own comment.
-            factory.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "file,jar");
+            // "nested" is required in production: Spring Boot's executable jar
+            // layout resolves classpath resources via jar:nested:... URLs,
+            // not the plain jar:/file: URLs seen under Maven/local test runs.
+            factory.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "file,jar,nested");
             StreamSource source = new StreamSource(in);
             source.setSystemId(FatturaPaXmlParserService.class.getResource(SCHEMA_RESOURCE_PATH).toString());
             return factory.newSchema(source);
