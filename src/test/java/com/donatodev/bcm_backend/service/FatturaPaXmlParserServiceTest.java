@@ -35,6 +35,53 @@ class FatturaPaXmlParserServiceTest {
 
     private final FatturaPaXmlParserService parserService = new FatturaPaXmlParserService();
 
+    /**
+     * Every {@code FatturaElettronicaHeader} block mandated by the official
+     * schema (DatiTrasmissione, full CedentePrestatore/CessionarioCommittente
+     * with Sede), so fixtures below can vary just the {@code Body} (or a
+     * specific header sub-field) and still pass schema validation.
+     */
+    private static final String MANDATORY_HEADER_XML =
+            "<DatiTrasmissione>"
+            + "<IdTrasmittente><IdPaese>IT</IdPaese><IdCodice>01234567890</IdCodice></IdTrasmittente>"
+            + "<ProgressivoInvio>00001</ProgressivoInvio>"
+            + "<FormatoTrasmissione>FPR12</FormatoTrasmissione>"
+            + "<CodiceDestinatario>0000000</CodiceDestinatario>"
+            + "</DatiTrasmissione>"
+            + "<CedentePrestatore>"
+            + "<DatiAnagrafici>"
+            + "<IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>12345678901</IdCodice></IdFiscaleIVA>"
+            + "<Anagrafica><Denominazione>Fornitore Test S.r.l.</Denominazione></Anagrafica>"
+            + "<RegimeFiscale>RF01</RegimeFiscale>"
+            + "</DatiAnagrafici>"
+            + "<Sede><Indirizzo>Via Test 1</Indirizzo><CAP>00100</CAP><Comune>Roma</Comune>"
+            + "<Provincia>RM</Provincia><Nazione>IT</Nazione></Sede>"
+            + "</CedentePrestatore>"
+            + "<CessionarioCommittente>"
+            + "<DatiAnagrafici>"
+            + "<IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>98765432109</IdCodice></IdFiscaleIVA>"
+            + "<Anagrafica><Denominazione>Cliente Test S.p.A.</Denominazione></Anagrafica>"
+            + "</DatiAnagrafici>"
+            + "<Sede><Indirizzo>Via Cliente 1</Indirizzo><CAP>20100</CAP><Comune>Milano</Comune>"
+            + "<Provincia>MI</Provincia><Nazione>IT</Nazione></Sede>"
+            + "</CessionarioCommittente>";
+
+    /**
+     * Wraps a caller-supplied {@code FatturaElettronicaBody} in a
+     * schema-mandatory envelope. Uses a prefixed namespace declaration on
+     * just the root element (matching fattura-pa-sample.xml) rather than a
+     * default {@code xmlns}, since the schema's local elements are
+     * unqualified -- a default namespace on the root would incorrectly pull
+     * every descendant into the target namespace too.
+     */
+    private static String withMandatoryHeader(String bodyXml) {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<p:FatturaElettronica xmlns:p=\"http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2\" versione=\"FPR12\">"
+                + "<FatturaElettronicaHeader>" + MANDATORY_HEADER_XML + "</FatturaElettronicaHeader>"
+                + bodyXml
+                + "</p:FatturaElettronica>";
+    }
+
     private byte[] loadResource(String name) throws IOException {
         try (InputStream is = getClass().getResourceAsStream("/" + name)) {
             assertNotNull(is, "Test resource not found: " + name);
@@ -82,12 +129,12 @@ class FatturaPaXmlParserServiceTest {
         }
 
         @Test
-        @DisplayName("minimal invoice: CodiceFiscale + Nome/Cognome fallback, optional fields null")
+        @DisplayName("minimal invoice: Nome/Cognome fallback (Denominazione absent), optional fields null")
         void shouldParseMinimalInvoice() throws Exception {
             FatturaPaInvoiceData data = parserService.parse(loadResource("fattura-pa-minimal.xml"));
 
             assertEquals("Mario Rossi", data.supplierName());
-            assertEquals("RSSMRA80A01H501U", data.supplierVatNumber());
+            assertEquals("ITRSSMRA80A01H501U", data.supplierVatNumber());
             assertEquals("TD01", data.documentType());
             assertEquals("1", data.invoiceNumber());
             assertEquals(LocalDate.of(2024, Month.MAY, 1), data.invoiceDate());
@@ -117,6 +164,18 @@ class FatturaPaXmlParserServiceTest {
             assertEquals(1, data.lineItems().get(0).lineNumber());
             assertEquals(2, data.lineItems().get(1).lineNumber());
             assertEquals(3, data.lineItems().get(2).lineNumber());
+        }
+
+        @Test
+        @DisplayName("real output from scripts/generate_fatturapa_samples.py (used by demo-reset.sh) passes schema validation")
+        void shouldParseGeneratorOutput() throws Exception {
+            FatturaPaInvoiceData data = parserService.parse(loadResource("fattura-pa-generator-output.xml"));
+
+            assertNotNull(data.supplierName());
+            assertNotNull(data.supplierVatNumber());
+            assertNotNull(data.documentType());
+            assertNotNull(data.invoiceDate());
+            assertEquals(1, data.lineItems().size());
         }
     }
 
@@ -244,24 +303,17 @@ class FatturaPaXmlParserServiceTest {
                 + "</FatturaElettronica>";
 
         @Test
-        @DisplayName("missing Anagrafica/Data/NumeroLinea: supplierName, invoiceDate, lineNumber are null")
-        void shouldReturnNullForMissingOptionalFields() {
-            FatturaPaInvoiceData data = parserService.parse(NO_ANAGRAFICA_XML.getBytes(StandardCharsets.UTF_8));
-
-            assertNull(data.supplierName());
-            assertEquals("RSSMRA80A01H501U", data.supplierVatNumber());
-            assertNull(data.invoiceDate());
-
-            assertEquals(1, data.lineItems().size());
-            assertNull(data.lineItems().get(0).lineNumber());
+        @DisplayName("missing DatiTrasmissione/CessionarioCommittente/etc. is now rejected by schema validation")
+        void shouldRejectDocumentMissingMandatoryHeaderBlocks() {
+            byte[] xml = NO_ANAGRAFICA_XML.getBytes(StandardCharsets.UTF_8);
+            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
         }
 
         @Test
-        @DisplayName("empty Anagrafica (no Denominazione/Nome/Cognome): supplierName is null")
-        void shouldReturnNullSupplierNameWhenAnagraficaHasNoNameFields() {
-            FatturaPaInvoiceData data = parserService.parse(EMPTY_ANAGRAFICA_XML.getBytes(StandardCharsets.UTF_8));
-
-            assertNull(data.supplierName());
+        @DisplayName("empty Anagrafica (no Denominazione/Nome/Cognome) violates the mandatory xs:choice, rejected by schema validation")
+        void shouldRejectEmptyAnagrafica() {
+            byte[] xml = EMPTY_ANAGRAFICA_XML.getBytes(StandardCharsets.UTF_8);
+            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
         }
 
         @Test
@@ -286,42 +338,31 @@ class FatturaPaXmlParserServiceTest {
         }
 
         @Test
-        @DisplayName("missing Header and Body elements entirely: all fields null, empty line items")
-        void shouldHandleMissingHeaderAndBody() {
-            FatturaPaInvoiceData data = parserService.parse(EMPTY_ROOT_XML.getBytes(StandardCharsets.UTF_8));
-
-            assertNull(data.supplierName());
-            assertNull(data.supplierVatNumber());
-            assertNull(data.documentType());
-            assertNull(data.invoiceNumber());
-            assertNull(data.invoiceDate());
-            assertNull(data.totalAmount());
-            assertNull(data.currency());
-            assertEquals(0, data.lineItems().size());
+        @DisplayName("an empty FatturaElettronica (no Header, no Body) is rejected by schema validation")
+        void shouldRejectMissingHeaderAndBody() {
+            byte[] xml = EMPTY_ROOT_XML.getBytes(StandardCharsets.UTF_8);
+            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
         }
 
         @Test
-        @DisplayName("Anagrafica with Nome but no Cognome: supplierName is null")
-        void shouldReturnNullSupplierNameWhenCognomeMissing() {
-            FatturaPaInvoiceData data = parserService.parse(NOME_ONLY_XML.getBytes(StandardCharsets.UTF_8));
-
-            assertNull(data.supplierName());
+        @DisplayName("Anagrafica with Nome but no Cognome violates the mandatory xs:choice, rejected by schema validation")
+        void shouldRejectAnagraficaWithNomeButNoCognome() {
+            byte[] xml = NOME_ONLY_XML.getBytes(StandardCharsets.UTF_8);
+            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
         }
 
         @Test
-        @DisplayName("empty IdFiscaleIVA: falls back to CodiceFiscale")
-        void shouldFallBackToCodiceFiscaleWhenIdFiscaleIvaEmpty() {
-            FatturaPaInvoiceData data = parserService.parse(EMPTY_ID_FISCALE_IVA_XML.getBytes(StandardCharsets.UTF_8));
-
-            assertEquals("RSSMRA80A01H501U", data.supplierVatNumber());
+        @DisplayName("an empty IdFiscaleIVA (missing its mandatory IdPaese/IdCodice children) is rejected by schema validation")
+        void shouldRejectEmptyIdFiscaleIva() {
+            byte[] xml = EMPTY_ID_FISCALE_IVA_XML.getBytes(StandardCharsets.UTF_8);
+            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
         }
 
         @Test
-        @DisplayName("IdFiscaleIVA with only IdPaese: falls back to CodiceFiscale")
-        void shouldFallBackToCodiceFiscaleWhenIdCodiceMissing() {
-            FatturaPaInvoiceData data = parserService.parse(PARTIAL_ID_FISCALE_IVA_XML.getBytes(StandardCharsets.UTF_8));
-
-            assertEquals("RSSMRA80A01H501U", data.supplierVatNumber());
+        @DisplayName("an IdFiscaleIVA missing IdCodice is rejected by schema validation")
+        void shouldRejectPartialIdFiscaleIva() {
+            byte[] xml = PARTIAL_ID_FISCALE_IVA_XML.getBytes(StandardCharsets.UTF_8);
+            assertThrows(IllegalArgumentException.class, () -> parserService.parse(xml));
         }
     }
 
@@ -329,61 +370,55 @@ class FatturaPaXmlParserServiceTest {
     @DisplayName("parse: DatiPagamento (supplier IBAN/BIC/due date)")
     class ParseDatiPagamento {
 
-        private static final String WITH_VALID_IBAN_XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-                + "<FatturaElettronica>"
-                + "<FatturaElettronicaHeader/>"
-                + "<FatturaElettronicaBody>"
-                + "<DatiGenerali><DatiGeneraliDocumento>"
-                + "<TipoDocumento>TD01</TipoDocumento><Numero>1</Numero><Divisa>EUR</Divisa>"
-                + "</DatiGeneraliDocumento></DatiGenerali>"
-                + "<DatiPagamento><DettaglioPagamento>"
+        private static final String BASE_DATI_GENERALI_XML =
+                "<DatiGenerali><DatiGeneraliDocumento>"
+                + "<TipoDocumento>TD01</TipoDocumento><Divisa>EUR</Divisa><Data>2024-01-01</Data><Numero>1</Numero>"
+                + "</DatiGeneraliDocumento></DatiGenerali>";
+
+        private static final String BASE_DATI_BENI_SERVIZI_XML =
+                "<DatiBeniServizi><DettaglioLinee>"
+                + "<NumeroLinea>1</NumeroLinea><Descrizione>Test</Descrizione>"
+                + "<PrezzoUnitario>10.00</PrezzoUnitario><PrezzoTotale>10.00</PrezzoTotale><AliquotaIVA>22.00</AliquotaIVA>"
+                + "</DettaglioLinee>"
+                + "<DatiRiepilogo><AliquotaIVA>22.00</AliquotaIVA>"
+                + "<ImponibileImporto>10.00</ImponibileImporto><Imposta>2.20</Imposta></DatiRiepilogo>"
+                + "</DatiBeniServizi>";
+
+        private static final String WITH_VALID_IBAN_XML = withMandatoryHeader(
+                "<FatturaElettronicaBody>" + BASE_DATI_GENERALI_XML + BASE_DATI_BENI_SERVIZI_XML
+                + "<DatiPagamento><CondizioniPagamento>TP02</CondizioniPagamento><DettaglioPagamento>"
                 + "<ModalitaPagamento>MP05</ModalitaPagamento>"
                 + "<DataScadenzaPagamento>2024-06-30</DataScadenzaPagamento>"
                 + "<ImportoPagamento>1220.00</ImportoPagamento>"
                 + "<IBAN>DE89370400440532013000</IBAN>"
                 + "<BIC>COBADEFFXXX</BIC>"
                 + "</DettaglioPagamento></DatiPagamento>"
-                + "</FatturaElettronicaBody>"
-                + "</FatturaElettronica>";
+                + "</FatturaElettronicaBody>");
 
-        private static final String WITH_MALFORMED_IBAN_XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-                + "<FatturaElettronica>"
-                + "<FatturaElettronicaHeader/>"
-                + "<FatturaElettronicaBody>"
-                + "<DatiGenerali><DatiGeneraliDocumento>"
-                + "<TipoDocumento>TD01</TipoDocumento><Numero>1</Numero><Divisa>EUR</Divisa>"
-                + "</DatiGeneraliDocumento></DatiGenerali>"
-                + "<DatiPagamento><DettaglioPagamento>"
+        private static final String WITH_MALFORMED_IBAN_XML = withMandatoryHeader(
+                "<FatturaElettronicaBody>" + BASE_DATI_GENERALI_XML + BASE_DATI_BENI_SERVIZI_XML
+                + "<DatiPagamento><CondizioniPagamento>TP02</CondizioniPagamento><DettaglioPagamento>"
+                + "<ModalitaPagamento>MP05</ModalitaPagamento>"
                 + "<DataScadenzaPagamento>2024-06-30</DataScadenzaPagamento>"
+                + "<ImportoPagamento>1220.00</ImportoPagamento>"
                 + "<IBAN>IT00X0000000000000000000000</IBAN>"
                 + "<BIC>COBADEFFXXX</BIC>"
                 + "</DettaglioPagamento></DatiPagamento>"
-                + "</FatturaElettronicaBody>"
-                + "</FatturaElettronica>";
+                + "</FatturaElettronicaBody>");
 
-        private static final String WITHOUT_IBAN_XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-                + "<FatturaElettronica>"
-                + "<FatturaElettronicaHeader/>"
-                + "<FatturaElettronicaBody>"
-                + "<DatiGenerali><DatiGeneraliDocumento>"
-                + "<TipoDocumento>TD01</TipoDocumento><Numero>1</Numero><Divisa>EUR</Divisa>"
-                + "</DatiGeneraliDocumento></DatiGenerali>"
-                + "<DatiPagamento><DettaglioPagamento>"
+        private static final String WITHOUT_IBAN_XML = withMandatoryHeader(
+                "<FatturaElettronicaBody>" + BASE_DATI_GENERALI_XML + BASE_DATI_BENI_SERVIZI_XML
+                + "<DatiPagamento><CondizioniPagamento>TP02</CondizioniPagamento><DettaglioPagamento>"
+                + "<ModalitaPagamento>MP05</ModalitaPagamento>"
                 + "<DataScadenzaPagamento>2024-06-30</DataScadenzaPagamento>"
+                + "<ImportoPagamento>1220.00</ImportoPagamento>"
                 + "<BIC>COBADEFFXXX</BIC>"
                 + "</DettaglioPagamento></DatiPagamento>"
-                + "</FatturaElettronicaBody>"
-                + "</FatturaElettronica>";
+                + "</FatturaElettronicaBody>");
 
-        private static final String WITHOUT_DATI_PAGAMENTO_XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-                + "<FatturaElettronica>"
-                + "<FatturaElettronicaHeader/>"
-                + "<FatturaElettronicaBody>"
-                + "<DatiGenerali><DatiGeneraliDocumento>"
-                + "<TipoDocumento>TD01</TipoDocumento><Numero>1</Numero>"
-                + "</DatiGeneraliDocumento></DatiGenerali>"
-                + "</FatturaElettronicaBody>"
-                + "</FatturaElettronica>";
+        private static final String WITHOUT_DATI_PAGAMENTO_XML = withMandatoryHeader(
+                "<FatturaElettronicaBody>" + BASE_DATI_GENERALI_XML + BASE_DATI_BENI_SERVIZI_XML
+                + "</FatturaElettronicaBody>");
 
         @Test
         @DisplayName("valid IBAN/BIC/DataScadenzaPagamento are extracted and normalized")
@@ -541,6 +576,184 @@ class FatturaPaXmlParserServiceTest {
             when(child.getTextContent()).thenReturn(null);
 
             assertNull(FatturaPaXmlParserService.getTextOrNull(parent, "Target"));
+        }
+    }
+
+    /**
+     * Direct unit tests of the package-private extraction/parsing helpers.
+     * Several of their defensive branches (missing Anagrafica, IdFiscaleIVA
+     * without both children, etc.) describe shapes the FatturaPA schema now
+     * forbids outright -- {@code parse()} itself can never reach them once
+     * schema validation runs first (see the "rejected by schema validation"
+     * tests above). Tested directly here anyway, both to document the
+     * fallback behavior for anyone calling these helpers in isolation and to
+     * keep them from silently rotting into unreachable dead code.
+     */
+    @Nested
+    @DisplayName("direct unit tests: extraction and value-parsing helpers")
+    class ExtractionHelpers {
+
+        private Element datiAnagraficiFrom(String innerXml) throws Exception {
+            return buildElement("<DatiAnagrafici>" + innerXml + "</DatiAnagrafici>", true);
+        }
+
+        @Test
+        @DisplayName("extractSupplierName: no Anagrafica element at all -> null")
+        void extractSupplierNameNoAnagrafica() throws Exception {
+            Element datiAnagrafici = datiAnagraficiFrom("<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>");
+            assertNull(parserService.extractSupplierName(datiAnagrafici));
+        }
+
+        @Test
+        @DisplayName("extractSupplierName: Denominazione present -> returned as-is")
+        void extractSupplierNameDenominazione() throws Exception {
+            Element datiAnagrafici = datiAnagraficiFrom("<Anagrafica><Denominazione>Acme S.r.l.</Denominazione></Anagrafica>");
+            assertEquals("Acme S.r.l.", parserService.extractSupplierName(datiAnagrafici));
+        }
+
+        @Test
+        @DisplayName("extractSupplierName: Nome+Cognome present, no Denominazione -> concatenated")
+        void extractSupplierNameNomeCognome() throws Exception {
+            Element datiAnagrafici = datiAnagraficiFrom("<Anagrafica><Nome>Mario</Nome><Cognome>Rossi</Cognome></Anagrafica>");
+            assertEquals("Mario Rossi", parserService.extractSupplierName(datiAnagrafici));
+        }
+
+        @Test
+        @DisplayName("extractSupplierName: Nome without Cognome -> null")
+        void extractSupplierNameNomeOnly() throws Exception {
+            Element datiAnagrafici = datiAnagraficiFrom("<Anagrafica><Nome>Mario</Nome></Anagrafica>");
+            assertNull(parserService.extractSupplierName(datiAnagrafici));
+        }
+
+        @Test
+        @DisplayName("extractSupplierName: Cognome without Nome -> null")
+        void extractSupplierNameCognomeOnly() throws Exception {
+            Element datiAnagrafici = datiAnagraficiFrom("<Anagrafica><Cognome>Rossi</Cognome></Anagrafica>");
+            assertNull(parserService.extractSupplierName(datiAnagrafici));
+        }
+
+        @Test
+        @DisplayName("extractSupplierName: empty Anagrafica (neither choice populated) -> null")
+        void extractSupplierNameEmptyAnagrafica() throws Exception {
+            Element datiAnagrafici = datiAnagraficiFrom("<Anagrafica/>");
+            assertNull(parserService.extractSupplierName(datiAnagrafici));
+        }
+
+        @Test
+        @DisplayName("extractSupplierVatNumber: IdFiscaleIVA with both IdPaese/IdCodice -> concatenated")
+        void extractSupplierVatNumberFullIdFiscaleIva() throws Exception {
+            Element datiAnagrafici = datiAnagraficiFrom(
+                    "<IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>12345678901</IdCodice></IdFiscaleIVA>");
+            assertEquals("IT12345678901", parserService.extractSupplierVatNumber(datiAnagrafici));
+        }
+
+        @Test
+        @DisplayName("extractSupplierVatNumber: no IdFiscaleIVA -> falls back to CodiceFiscale")
+        void extractSupplierVatNumberNoIdFiscaleIva() throws Exception {
+            Element datiAnagrafici = datiAnagraficiFrom("<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>");
+            assertEquals("RSSMRA80A01H501U", parserService.extractSupplierVatNumber(datiAnagrafici));
+        }
+
+        @Test
+        @DisplayName("extractSupplierVatNumber: IdFiscaleIVA missing IdPaese -> falls back to CodiceFiscale")
+        void extractSupplierVatNumberMissingIdPaese() throws Exception {
+            Element datiAnagrafici = datiAnagraficiFrom(
+                    "<IdFiscaleIVA><IdCodice>12345678901</IdCodice></IdFiscaleIVA>"
+                    + "<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>");
+            assertEquals("RSSMRA80A01H501U", parserService.extractSupplierVatNumber(datiAnagrafici));
+        }
+
+        @Test
+        @DisplayName("extractSupplierVatNumber: IdFiscaleIVA missing IdCodice -> falls back to CodiceFiscale")
+        void extractSupplierVatNumberMissingIdCodice() throws Exception {
+            Element datiAnagrafici = datiAnagraficiFrom(
+                    "<IdFiscaleIVA><IdPaese>IT</IdPaese></IdFiscaleIVA>"
+                    + "<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>");
+            assertEquals("RSSMRA80A01H501U", parserService.extractSupplierVatNumber(datiAnagrafici));
+        }
+
+        @Test
+        @DisplayName("extractSupplierVatNumber: neither IdFiscaleIVA nor CodiceFiscale -> null")
+        void extractSupplierVatNumberNeitherPresent() throws Exception {
+            Element datiAnagrafici = datiAnagraficiFrom("<Anagrafica><Denominazione>Acme</Denominazione></Anagrafica>");
+            assertNull(parserService.extractSupplierVatNumber(datiAnagrafici));
+        }
+
+        @Test
+        @DisplayName("extractSupplierIban: no IBAN element -> null")
+        void extractSupplierIbanAbsent() throws Exception {
+            Element dettaglioPagamento = buildElement("<DettaglioPagamento><BIC>COBADEFFXXX</BIC></DettaglioPagamento>", true);
+            assertNull(parserService.extractSupplierIban(dettaglioPagamento));
+        }
+
+        @Test
+        @DisplayName("extractSupplierIban: valid IBAN -> normalized (spaces stripped, uppercased)")
+        void extractSupplierIbanValid() throws Exception {
+            Element dettaglioPagamento = buildElement(
+                    "<DettaglioPagamento><IBAN>de89 3704 0044 0532 0130 00</IBAN></DettaglioPagamento>", true);
+            assertEquals("DE89370400440532013000", parserService.extractSupplierIban(dettaglioPagamento));
+        }
+
+        @Test
+        @DisplayName("extractSupplierIban: malformed IBAN (bad checksum) -> null")
+        void extractSupplierIbanMalformed() throws Exception {
+            Element dettaglioPagamento = buildElement(
+                    "<DettaglioPagamento><IBAN>IT00X0000000000000000000000</IBAN></DettaglioPagamento>", true);
+            assertNull(parserService.extractSupplierIban(dettaglioPagamento));
+        }
+
+        @Test
+        @DisplayName("parseOptionalAmount: null text -> null")
+        void parseOptionalAmountNull() {
+            assertNull(parserService.parseOptionalAmount(null));
+        }
+
+        @Test
+        @DisplayName("parseOptionalAmount: valid text -> parsed BigDecimal")
+        void parseOptionalAmountValid() {
+            assertEquals(0, new BigDecimal("1220.00").compareTo(parserService.parseOptionalAmount("1220.00")));
+        }
+
+        @Test
+        @DisplayName("parseOptionalAmount: malformed text -> IllegalArgumentException")
+        void parseOptionalAmountMalformed() {
+            assertThrows(IllegalArgumentException.class, () -> parserService.parseOptionalAmount("not-a-number"));
+        }
+
+        @Test
+        @DisplayName("parseOptionalDate: null text -> null")
+        void parseOptionalDateNull() {
+            assertNull(parserService.parseOptionalDate(null));
+        }
+
+        @Test
+        @DisplayName("parseOptionalDate: valid text -> parsed LocalDate")
+        void parseOptionalDateValid() {
+            assertEquals(LocalDate.of(2024, Month.MARCH, 15), parserService.parseOptionalDate("2024-03-15"));
+        }
+
+        @Test
+        @DisplayName("parseOptionalDate: malformed text -> IllegalArgumentException")
+        void parseOptionalDateMalformed() {
+            assertThrows(IllegalArgumentException.class, () -> parserService.parseOptionalDate("not-a-date"));
+        }
+
+        @Test
+        @DisplayName("parseOptionalInt: null text -> null")
+        void parseOptionalIntNull() {
+            assertNull(parserService.parseOptionalInt(null));
+        }
+
+        @Test
+        @DisplayName("parseOptionalInt: valid text -> parsed Integer")
+        void parseOptionalIntValid() {
+            assertEquals(1, parserService.parseOptionalInt("1"));
+        }
+
+        @Test
+        @DisplayName("parseOptionalInt: malformed text -> IllegalArgumentException")
+        void parseOptionalIntMalformed() {
+            assertThrows(IllegalArgumentException.class, () -> parserService.parseOptionalInt("abc"));
         }
     }
 }

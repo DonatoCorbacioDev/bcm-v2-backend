@@ -7,6 +7,7 @@ package com.donatodev.bcm_backend.service;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -15,9 +16,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.Schema;
+import javax.xml.validation.SchemaFactory;
+import javax.xml.validation.Validator;
 
 import org.springframework.stereotype.Service;
 import org.w3c.dom.Document;
@@ -37,20 +44,32 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p>Only the first {@code FatturaElettronicaBody} block is read; batch files
  * containing multiple invoice bodies are out of scope.</p>
+ *
+ * <p>Every document is validated against the official FatturaPA XSD (v1.2.2,
+ * bundled under {@code src/main/resources/fatturapa/} — never fetched from
+ * the network at runtime, see that directory's schema file for why) before
+ * any field is extracted. This rejects well-formed-but-non-conformant XML
+ * (missing mandatory blocks, wrong element order, out-of-range enum values,
+ * etc.) that the lenient by-local-name extraction below would otherwise
+ * silently tolerate.</p>
  */
 @Slf4j
 @Service
 public class FatturaPaXmlParserService {
 
     private static final String INVALID_XML = "Invalid or malformed XML";
+    private static final String INVALID_SCHEMA = "XML does not conform to the FatturaPA schema";
     private static final String INVALID_VALUE = "Invalid value in FatturaPA document";
+    private static final String SCHEMA_RESOURCE_PATH = "/fatturapa/Schema_del_file_xml_FatturaPA_v1.2.2.xsd";
+
+    private static final Schema FATTURAPA_SCHEMA = loadSchema();
 
     public FatturaPaInvoiceData parse(byte[] xmlBytes) {
+        // No root-element-name check here: schema validation in parseDocument
+        // already rejects a document with the wrong root element (it can't
+        // find a matching global element declaration), with a clearer error
+        // than this class could produce on its own.
         Element root = parseDocument(xmlBytes);
-
-        if (!"FatturaElettronica".equals(localName(root))) {
-            throw new IllegalArgumentException(INVALID_XML);
-        }
 
         Element header = findFirstChildByLocalName(root, "FatturaElettronicaHeader");
         Element body = findFirstChildByLocalName(root, "FatturaElettronicaBody");
@@ -100,7 +119,7 @@ public class FatturaPaXmlParserService {
                 supplierIban, supplierBic, paymentDueDate);
     }
 
-    private String extractSupplierIban(Element dettaglioPagamento) {
+    String extractSupplierIban(Element dettaglioPagamento) {
         String rawIban = getTextOrNull(dettaglioPagamento, "IBAN");
         if (rawIban == null) {
             return null;
@@ -113,7 +132,7 @@ public class FatturaPaXmlParserService {
         return normalized;
     }
 
-    private String extractSupplierName(Element datiAnagrafici) {
+    String extractSupplierName(Element datiAnagrafici) {
         Element anagrafica = findFirstChildByLocalName(datiAnagrafici, "Anagrafica");
         if (anagrafica == null) {
             return null;
@@ -130,7 +149,7 @@ public class FatturaPaXmlParserService {
         return null;
     }
 
-    private String extractSupplierVatNumber(Element datiAnagrafici) {
+    String extractSupplierVatNumber(Element datiAnagrafici) {
         Element idFiscaleIVA = findFirstChildByLocalName(datiAnagrafici, "IdFiscaleIVA");
         if (idFiscaleIVA != null) {
             String idPaese = getTextOrNull(idFiscaleIVA, "IdPaese");
@@ -163,7 +182,7 @@ public class FatturaPaXmlParserService {
         return new InvoiceLineItemDTO(lineNumber, description, quantity, unitOfMeasure, unitPrice, totalPrice, vatRate);
     }
 
-    private BigDecimal parseOptionalAmount(String text) {
+    BigDecimal parseOptionalAmount(String text) {
         if (text == null) {
             return null;
         }
@@ -174,7 +193,7 @@ public class FatturaPaXmlParserService {
         }
     }
 
-    private LocalDate parseOptionalDate(String text) {
+    LocalDate parseOptionalDate(String text) {
         if (text == null) {
             return null;
         }
@@ -185,7 +204,7 @@ public class FatturaPaXmlParserService {
         }
     }
 
-    private Integer parseOptionalInt(String text) {
+    Integer parseOptionalInt(String text) {
         if (text == null) {
             return null;
         }
@@ -209,9 +228,41 @@ public class FatturaPaXmlParserService {
 
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document document = builder.parse(new ByteArrayInputStream(xmlBytes));
+            validateAgainstSchema(document);
             return document.getDocumentElement();
         } catch (ParserConfigurationException | SAXException | IOException e) {
             throw new IllegalArgumentException(INVALID_XML, e);
+        }
+    }
+
+    private void validateAgainstSchema(Document document) {
+        try {
+            Validator validator = FATTURAPA_SCHEMA.newValidator();
+            validator.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            validator.validate(new DOMSource(document));
+        } catch (SAXException | IOException e) {
+            throw new IllegalArgumentException(INVALID_SCHEMA, e);
+        }
+    }
+
+    private static Schema loadSchema() {
+        try (InputStream in = FatturaPaXmlParserService.class.getResourceAsStream(SCHEMA_RESOURCE_PATH)) {
+            if (in == null) {
+                throw new IllegalStateException("Bundled FatturaPA schema not found on classpath: " + SCHEMA_RESOURCE_PATH);
+            }
+            SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            // FEATURE_SECURE_PROCESSING denies external schema access by
+            // default, which also blocks the <xs:import> below resolving its
+            // own sibling file on the classpath. Scoped to "file,jar" only
+            // (never "http") so this stays a purely local, network-free
+            // resolution -- see xmldsig-core-schema.xsd's own comment.
+            factory.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "file,jar");
+            StreamSource source = new StreamSource(in);
+            source.setSystemId(FatturaPaXmlParserService.class.getResource(SCHEMA_RESOURCE_PATH).toString());
+            return factory.newSchema(source);
+        } catch (IOException | SAXException e) {
+            throw new IllegalStateException("Failed to compile the bundled FatturaPA schema", e);
         }
     }
 

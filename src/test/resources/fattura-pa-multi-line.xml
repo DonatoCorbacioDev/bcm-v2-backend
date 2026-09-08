@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <p:FatturaElettronica xmlns:p="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2" versione="FPR12">
     <FatturaElettronicaHeader>
+        <DatiTrasmissione>
+            <IdTrasmittente>
+                <IdPaese>IT</IdPaese>
+                <IdCodice>01234567890</IdCodice>
+            </IdTrasmittente>
+            <ProgressivoInvio>00001</ProgressivoInvio>
+            <FormatoTrasmissione>FPR12</FormatoTrasmissione>
+            <CodiceDestinatario>0000000</CodiceDestinatario>
+        </DatiTrasmissione>
         <CedentePrestatore>
             <DatiAnagrafici>
                 <IdFiscaleIVA>
@@ -10,8 +19,34 @@
                 <Anagrafica>
                     <Denominazione>Multi Linea S.r.l.</Denominazione>
                 </Anagrafica>
+                <RegimeFiscale>RF01</RegimeFiscale>
             </DatiAnagrafici>
+            <Sede>
+                <Indirizzo>Via Test 1</Indirizzo>
+                <CAP>00100</CAP>
+                <Comune>Roma</Comune>
+                <Provincia>RM</Provincia>
+                <Nazione>IT</Nazione>
+            </Sede>
         </CedentePrestatore>
+        <CessionarioCommittente>
+            <DatiAnagrafici>
+                <IdFiscaleIVA>
+                    <IdPaese>IT</IdPaese>
+                    <IdCodice>98765432109</IdCodice>
+                </IdFiscaleIVA>
+                <Anagrafica>
+                    <Denominazione>Cliente Test S.p.A.</Denominazione>
+                </Anagrafica>
+            </DatiAnagrafici>
+            <Sede>
+                <Indirizzo>Via Cliente 1</Indirizzo>
+                <CAP>20100</CAP>
+                <Comune>Milano</Comune>
+                <Provincia>MI</Provincia>
+                <Nazione>IT</Nazione>
+            </Sede>
+        </CessionarioCommittente>
     </FatturaElettronicaHeader>
     <FatturaElettronicaBody>
         <DatiGenerali>
@@ -42,8 +77,6 @@
                 <PrezzoTotale>200.00</PrezzoTotale>
                 <AliquotaIVA>22.00</AliquotaIVA>
             </DettaglioLinee>
-        </DatiBeniServizi>
-        <DatiBeniServizi>
             <DettaglioLinee>
                 <NumeroLinea>3</NumeroLinea>
                 <Descrizione>Servizio C</Descrizione>
@@ -53,6 +86,16 @@
                 <PrezzoTotale>100.00</PrezzoTotale>
                 <AliquotaIVA>10.00</AliquotaIVA>
             </DettaglioLinee>
+            <DatiRiepilogo>
+                <AliquotaIVA>22.00</AliquotaIVA>
+                <ImponibileImporto>400.00</ImponibileImporto>
+                <Imposta>88.00</Imposta>
+            </DatiRiepilogo>
+            <DatiRiepilogo>
+                <AliquotaIVA>10.00</AliquotaIVA>
+                <ImponibileImporto>100.00</ImponibileImporto>
+                <Imposta>10.00</Imposta>
+            </DatiRiepilogo>
         </DatiBeniServizi>
     </FatturaElettronicaBody>
 </p:FatturaElettronica>

@@ -4,7 +4,7 @@
         <DatiTrasmissione>
             <IdTrasmittente>
                 <IdPaese>IT</IdPaese>
-                <IdCodice>01234567890</IdCodice>
+                <IdCodice>41777631706</IdCodice>
             </IdTrasmittente>
             <ProgressivoInvio>00001</ProgressivoInvio>
             <FormatoTrasmissione>FPR12</FormatoTrasmissione>
@@ -14,19 +14,18 @@
             <DatiAnagrafici>
                 <IdFiscaleIVA>
                     <IdPaese>IT</IdPaese>
-                    <IdCodice>RSSMRA80A01H501U</IdCodice>
+                    <IdCodice>41777631706</IdCodice>
                 </IdFiscaleIVA>
                 <Anagrafica>
-                    <Nome>Mario</Nome>
-                    <Cognome>Rossi</Cognome>
+                    <Denominazione>Verdi Software S.r.l.</Denominazione>
                 </Anagrafica>
                 <RegimeFiscale>RF01</RegimeFiscale>
             </DatiAnagrafici>
             <Sede>
-                <Indirizzo>Via Test 1</Indirizzo>
-                <CAP>00100</CAP>
-                <Comune>Roma</Comune>
-                <Provincia>RM</Provincia>
+                <Indirizzo>Via Russo 78</Indirizzo>
+                <CAP>10276</CAP>
+                <Comune>Napoli</Comune>
+                <Provincia>PA</Provincia>
                 <Nazione>IT</Nazione>
             </Sede>
         </CedentePrestatore>
@@ -34,17 +33,17 @@
             <DatiAnagrafici>
                 <IdFiscaleIVA>
                     <IdPaese>IT</IdPaese>
-                    <IdCodice>98765432109</IdCodice>
+                    <IdCodice>00000000001</IdCodice>
                 </IdFiscaleIVA>
                 <Anagrafica>
-                    <Denominazione>Cliente Test S.p.A.</Denominazione>
+                    <Denominazione>Nortiva Solutions S.r.l.</Denominazione>
                 </Anagrafica>
             </DatiAnagrafici>
             <Sede>
-                <Indirizzo>Via Cliente 1</Indirizzo>
-                <CAP>20100</CAP>
-                <Comune>Milano</Comune>
-                <Provincia>MI</Provincia>
+                <Indirizzo>Via Colombo 93</Indirizzo>
+                <CAP>39984</CAP>
+                <Comune>Bologna</Comune>
+                <Provincia>RM</Provincia>
                 <Nazione>IT</Nazione>
             </Sede>
         </CessionarioCommittente>
@@ -52,24 +51,28 @@
     <FatturaElettronicaBody>
         <DatiGenerali>
             <DatiGeneraliDocumento>
-                <TipoDocumento>TD01</TipoDocumento>
+                <TipoDocumento>TD04</TipoDocumento>
                 <Divisa>EUR</Divisa>
-                <Data>2024-05-01</Data>
+                <Data>2025-10-18</Data>
                 <Numero>1</Numero>
+                <ImportoTotaleDocumento>0.00</ImportoTotaleDocumento>
             </DatiGeneraliDocumento>
         </DatiGenerali>
         <DatiBeniServizi>
             <DettaglioLinee>
                 <NumeroLinea>1</NumeroLinea>
-                <Descrizione>Prestazione occasionale</Descrizione>
-                <PrezzoUnitario>500.00</PrezzoUnitario>
-                <PrezzoTotale>500.00</PrezzoTotale>
-                <AliquotaIVA>0.00</AliquotaIVA>
+                <Descrizione>Servizio di consulenza informatica</Descrizione>
+                <Quantita>1.00</Quantita>
+                <UnitaMisura>HUR</UnitaMisura>
+                <PrezzoUnitario>0.00</PrezzoUnitario>
+                <PrezzoTotale>0.00</PrezzoTotale>
+                <AliquotaIVA>22.00</AliquotaIVA>
             </DettaglioLinee>
             <DatiRiepilogo>
-                <AliquotaIVA>0.00</AliquotaIVA>
-                <ImponibileImporto>500.00</ImponibileImporto>
+                <AliquotaIVA>22.00</AliquotaIVA>
+                <ImponibileImporto>0.00</ImponibileImporto>
                 <Imposta>0.00</Imposta>
+                <EsigibilitaIVA>I</EsigibilitaIVA>
             </DatiRiepilogo>
         </DatiBeniServizi>
     </FatturaElettronicaBody>
