@@ -26,6 +26,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.Year;
 
 import com.donatodev.bcm_backend.config.TenantContext;
@@ -274,7 +275,7 @@ class CounterpartyServiceTest {
             when(invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(1L, year))
                     .thenReturn(new BigDecimal("8000.00"));
             when(invoiceRepository.countByContractCounterpartyId(1L)).thenReturn(5L);
-            when(invoiceRepository.findLastInvoiceDateByCounterpartyId(1L)).thenReturn(LocalDate.of(2026, 3, 1));
+            when(invoiceRepository.findLastInvoiceDateByCounterpartyId(1L)).thenReturn(LocalDate.of(2026, Month.MARCH, 1));
 
             CounterpartyInvoicingSummaryDTO result = service.getInvoicingSummary(1L);
 
@@ -284,7 +285,7 @@ class CounterpartyServiceTest {
             assertEquals(10000.0, result.contractedValue());
             assertEquals(8000.0, result.invoicedYtd());
             assertEquals(5L, result.invoiceCount());
-            assertEquals(LocalDate.of(2026, 3, 1), result.lastInvoiceDate());
+            assertEquals(LocalDate.of(2026, Month.MARCH, 1), result.lastInvoiceDate());
             assertEquals(-20.0, result.variancePercent(), 0.0001);
         }
 

@@ -265,7 +265,7 @@ class ElectronicInvoiceServiceTest {
         @Test
         @Order(7)
         @DisplayName("getInvoices: returns mapped DTOs with line items")
-        void shouldReturnInvoiceList() throws IOException {
+        void shouldReturnInvoiceList() {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
@@ -308,7 +308,7 @@ class ElectronicInvoiceServiceTest {
         @Test
         @Order(11)
         @DisplayName("getInvoice: returns DTO with deserialized line items")
-        void shouldReturnInvoiceDetail() throws IOException {
+        void shouldReturnInvoiceDetail() {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
@@ -326,7 +326,7 @@ class ElectronicInvoiceServiceTest {
         @Test
         @Order(10)
         @DisplayName("getInvoice: includes the SEPA batch id when the invoice was already paid")
-        void shouldReturnInvoiceDetailWithSepaBatchId() throws IOException {
+        void shouldReturnInvoiceDetailWithSepaBatchId() {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
             com.donatodev.bcm_backend.entity.SepaPaymentBatch batch =
@@ -359,7 +359,7 @@ class ElectronicInvoiceServiceTest {
         @Test
         @Order(13)
         @DisplayName("downloadInvoice: returns bytes and metadata")
-        void shouldDownloadInvoice() throws IOException {
+        void shouldDownloadInvoice() {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
@@ -392,7 +392,7 @@ class ElectronicInvoiceServiceTest {
         @Test
         @Order(15)
         @DisplayName("deleteInvoice: deletes from local storage and repository")
-        void shouldDeleteInvoice() throws IOException {
+        void shouldDeleteInvoice() {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
@@ -423,7 +423,7 @@ class ElectronicInvoiceServiceTest {
         @Test
         @Order(17)
         @DisplayName("getInvoices: delegates contract lookup and manager-access check to ContractAccessGuard")
-        void shouldDelegateAccessChecksToGuard() throws IOException {
+        void shouldDelegateAccessChecksToGuard() {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
@@ -483,7 +483,7 @@ class ElectronicInvoiceServiceTest {
         @Test
         @Order(21)
         @DisplayName("updatePaymentDetails: normalizes and saves a valid IBAN/BIC/due date")
-        void shouldUpdatePaymentDetails() throws Exception {
+        void shouldUpdatePaymentDetails() {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
@@ -505,7 +505,7 @@ class ElectronicInvoiceServiceTest {
         @Test
         @Order(22)
         @DisplayName("updatePaymentDetails: clears the BIC when the request omits it")
-        void shouldClearBicWhenOmitted() throws Exception {
+        void shouldClearBicWhenOmitted() {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
@@ -540,7 +540,7 @@ class ElectronicInvoiceServiceTest {
         @Test
         @Order(24)
         @DisplayName("updatePaymentDetails: rejects an invalid IBAN")
-        void shouldRejectInvalidIbanOnPaymentDetails() throws Exception {
+        void shouldRejectInvalidIbanOnPaymentDetails() {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
@@ -558,7 +558,7 @@ class ElectronicInvoiceServiceTest {
         @Test
         @Order(25)
         @DisplayName("updatePaymentDetails: rejects edits once the invoice is already in a SEPA batch")
-        void shouldRejectPaymentDetailsEditWhenAlreadyBatched() throws Exception {
+        void shouldRejectPaymentDetailsEditWhenAlreadyBatched() {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
             invoice.setSepaBatch(new com.donatodev.bcm_backend.entity.SepaPaymentBatch());

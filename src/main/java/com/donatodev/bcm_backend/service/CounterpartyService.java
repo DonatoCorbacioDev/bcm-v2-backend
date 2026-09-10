@@ -7,6 +7,7 @@ package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDate;
 import java.time.Year;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -71,7 +72,7 @@ public class CounterpartyService {
         Counterparty counterparty = findCounterpartyInScope(id)
                 .orElseThrow(() -> new CounterpartyNotFoundException(COUNTERPARTY_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
-        int year = Year.now().getValue();
+        int year = Year.now(ZoneId.systemDefault()).getValue();
         int activeContracts = contractsRepository.countActiveContractsByCounterpartyId(id);
         double contractedValue = contractsRepository.sumActiveAnnualValueByCounterpartyId(id);
         double invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(id, year).doubleValue();

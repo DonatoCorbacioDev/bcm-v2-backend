@@ -420,7 +420,7 @@ public class ContractService {
      */
     public OrganizationInvoicingSummaryDTO getInvoicingSummary() {
         AuthCtx auth = getAuthCtx();
-        int year = Year.now().getValue();
+        int year = Year.now(ZoneId.systemDefault()).getValue();
         double expectedYtd;
         double invoicedYtd;
 
