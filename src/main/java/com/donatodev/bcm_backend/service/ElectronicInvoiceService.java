@@ -28,6 +28,7 @@ import com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
+import com.donatodev.bcm_backend.exception.DuplicateInvoiceException;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.donatodev.bcm_backend.util.IbanValidator;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -77,6 +78,13 @@ public class ElectronicInvoiceService {
         FatturaPaInvoiceData parsed = fatturaPaXmlParserService.parse(bytes);
 
         Long orgId = TenantContext.get();
+
+        if (invoiceRepository.existsByOrgIdAndSupplierVatNumberAndInvoiceNumberAndDocumentType(
+                orgId, parsed.supplierVatNumber(), parsed.invoiceNumber(), parsed.documentType())) {
+            throw new DuplicateInvoiceException(
+                    "Questa fattura risulta già caricata (fornitore, numero e tipo documento coincidono)");
+        }
+
         String storagePath = localStorageService.storeInvoice(orgId, contractId, bytes);
 
         String lineItemsJson = objectMapper.writeValueAsString(parsed.lineItems());

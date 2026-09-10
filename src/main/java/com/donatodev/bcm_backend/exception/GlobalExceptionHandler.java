@@ -156,6 +156,14 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.FORBIDDEN, "Accesso negato: " + ex.getMessage());
     }
 
+    /**
+     * Handles cases where an uploaded invoice duplicates one already on file.
+     */
+    @ExceptionHandler(DuplicateInvoiceException.class)
+    public ResponseEntity<ApiErrorResponse> handleDuplicateInvoice(DuplicateInvoiceException ex) {
+        return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
         return buildErrorResponse(HttpStatus.CONFLICT, "Conflitto: esiste già un record con lo stesso valore univoco");

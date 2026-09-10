@@ -51,6 +51,7 @@ import com.donatodev.bcm_backend.entity.FinancialValues;
 import com.donatodev.bcm_backend.entity.InvoiceMatchStatus;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
+import com.donatodev.bcm_backend.exception.DuplicateInvoiceException;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -187,6 +188,23 @@ class ElectronicInvoiceServiceTest {
 
             assertThrows(IllegalArgumentException.class,
                     () -> electronicInvoiceService.uploadInvoice(CONTRACT_ID, file));
+        }
+
+        @Test
+        @Order(30)
+        @DisplayName("uploadInvoice: throws DuplicateInvoiceException when supplier/number/type already on file")
+        void shouldThrowOnDuplicateInvoice() {
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
+            when(fatturaPaXmlParserService.parse(any())).thenReturn(sampleParsedData());
+            when(invoiceRepository.existsByOrgIdAndSupplierVatNumberAndInvoiceNumberAndDocumentType(
+                    any(), eq("IT12345678901"), eq("2024/001"), any())).thenReturn(true);
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "invoice.xml", "application/xml", VALID_XML);
+
+            assertThrows(DuplicateInvoiceException.class,
+                    () -> electronicInvoiceService.uploadInvoice(CONTRACT_ID, file));
+            verify(localStorageService, never()).storeInvoice(any(), any(), any());
         }
 
         @Test

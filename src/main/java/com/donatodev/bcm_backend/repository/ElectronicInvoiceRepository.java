@@ -26,4 +26,7 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
     List<ElectronicInvoice> findByContractIdAndMatchStatusIn(Long contractId, List<InvoiceMatchStatus> statuses);
 
     Optional<ElectronicInvoice> findByMatchedFinancialValue_IdAndMatchStatus(Long financialValueId, InvoiceMatchStatus status);
+
+    boolean existsByOrgIdAndSupplierVatNumberAndInvoiceNumberAndDocumentType(
+            Long orgId, String supplierVatNumber, String invoiceNumber, String documentType);
 }

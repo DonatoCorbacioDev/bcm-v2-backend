@@ -5,17 +5,20 @@ import javax.sql.DataSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.donatodev.bcm_backend.support.AbstractMySQLIntegrationTest;
 
 /**
- * Proves the full migration history (V1-V40) applies cleanly to real MySQL
+ * Proves the full migration history (V1-V41) applies cleanly to real MySQL
  * 8.0 and that every JPA entity mapping validates against the resulting
  * schema ({@code ddl-auto=validate} in the base class) — something the H2
  * "MySQL mode" used by the fast unit suite cannot guarantee, since H2 is not
@@ -45,21 +48,21 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
     }
 
     @Test
-    @DisplayName("flyway_schema_history: all 40 migrations recorded as successful, none pending")
+    @DisplayName("flyway_schema_history: all 41 migrations recorded as successful, none pending")
     void allMigrationsAppliedSuccessfully() {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
 
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 40,
-                "Expected at least 40 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 41,
+                "Expected at least 41 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(40, maxVersion, "Highest applied migration version should be V40");
+        assertEquals(41, maxVersion, "Highest applied migration version should be V41");
     }
 
     @Test
@@ -206,5 +209,35 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         jdbc.update("DELETE FROM managers WHERE id = 9005");
         jdbc.update("DELETE FROM counterparties WHERE id = 9005");
         jdbc.update("DELETE FROM organizations WHERE id = 9005");
+    }
+
+    @Test
+    @DisplayName("electronic_invoices: rejects a second invoice with the same org/supplier/number/type as a duplicate")
+    void rejectsDuplicateInvoiceOnUniqueConstraint() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        jdbc.update("INSERT INTO organizations (id, name, slug) VALUES (9006, 'Invoice Dedupe Test Org', 'invoice-dedupe-test-org')");
+        jdbc.update("INSERT INTO managers (id, first_name, last_name, email, organization_id) "
+                + "VALUES (9006, 'Test', 'Manager', 'invoice-dedupe-test@example.com', 9006)");
+        jdbc.update("INSERT INTO counterparties (id, name, type, organization_id) "
+                + "VALUES (9006, 'Test Customer', 'CUSTOMER', 9006)");
+        jdbc.update("INSERT INTO contracts (id, counterparty_id, contract_number, manager_id, start_date, status, organization_id) "
+                + "VALUES (9006, 9006, 'INVOICE-DEDUPE-001', 9006, '2026-01-01', 'ACTIVE', 9006)");
+        jdbc.update("INSERT INTO electronic_invoices "
+                + "(id, contract_id, storage_path, file_name, file_size, content_type, org_id, supplier_vat_number, invoice_number, document_type) "
+                + "VALUES (9006, 9006, 'invoices/9006/9006/dedupe-test-1.xml', 'test1.xml', 1, 'application/xml', 9006, 'IT12345678901', '2026/001', 'TD01')");
+
+        DataAccessException duplicate = assertThrows(DataAccessException.class, () ->
+                jdbc.update("INSERT INTO electronic_invoices "
+                        + "(id, contract_id, storage_path, file_name, file_size, content_type, org_id, supplier_vat_number, invoice_number, document_type) "
+                        + "VALUES (9007, 9006, 'invoices/9006/9006/dedupe-test-2.xml', 'test2.xml', 1, 'application/xml', 9006, 'IT12345678901', '2026/001', 'TD01')"));
+        assertTrue(duplicate instanceof DataIntegrityViolationException,
+                "a duplicate org_id/supplier_vat_number/invoice_number/document_type should violate the unique constraint");
+
+        jdbc.update("DELETE FROM electronic_invoices WHERE id = 9006");
+        jdbc.update("DELETE FROM contracts WHERE id = 9006");
+        jdbc.update("DELETE FROM managers WHERE id = 9006");
+        jdbc.update("DELETE FROM counterparties WHERE id = 9006");
+        jdbc.update("DELETE FROM organizations WHERE id = 9006");
     }
 }
