@@ -606,7 +606,7 @@ class ElectronicInvoiceServiceTest {
         @Test
         @Order(27)
         @DisplayName("confirmMatch: delegates to InvoiceMatchingService with the override id and returns the mapped DTO")
-        void shouldConfirmMatchWithOverride() throws IOException {
+        void shouldConfirmMatchWithOverride() {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
             FinancialValues matched = new FinancialValues();
