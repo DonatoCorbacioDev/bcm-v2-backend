@@ -1,6 +1,8 @@
 package com.donatodev.bcm_backend.integration;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,7 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import com.donatodev.bcm_backend.support.AbstractMySQLIntegrationTest;
 
 /**
- * Proves the full migration history (V1-V41) applies cleanly to real MySQL
+ * Proves the full migration history (V1-V42) applies cleanly to real MySQL
  * 8.0 and that every JPA entity mapping validates against the resulting
  * schema ({@code ddl-auto=validate} in the base class) — something the H2
  * "MySQL mode" used by the fast unit suite cannot guarantee, since H2 is not
@@ -48,21 +50,21 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
     }
 
     @Test
-    @DisplayName("flyway_schema_history: all 41 migrations recorded as successful, none pending")
+    @DisplayName("flyway_schema_history: all 42 migrations recorded as successful, none pending")
     void allMigrationsAppliedSuccessfully() {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
 
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 41,
-                "Expected at least 41 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 42,
+                "Expected at least 42 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(41, maxVersion, "Highest applied migration version should be V41");
+        assertEquals(42, maxVersion, "Highest applied migration version should be V42");
     }
 
     @Test
@@ -239,5 +241,73 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         jdbc.update("DELETE FROM managers WHERE id = 9006");
         jdbc.update("DELETE FROM counterparties WHERE id = 9006");
         jdbc.update("DELETE FROM organizations WHERE id = 9006");
+    }
+
+    @Test
+    @DisplayName("V42's JSON_TABLE extraction correctly explodes a FatturaPA-shaped line-items JSON array")
+    void jsonTableExtractsLineItemsCorrectly() {
+        // V42 dropped electronic_invoices.line_items_json after copying its data,
+        // so this exercises the exact same JSON_TABLE clause the migration used
+        // against a literal, Jackson-shaped JSON array instead of a pre-existing
+        // row -- a fresh Testcontainers database has no pre-migration data for
+        // the migration itself to have transformed by the time this test runs.
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        String json = "[{\"lineNumber\":1,\"description\":\"Riga A\",\"quantity\":2.0000,"
+                + "\"unitOfMeasure\":\"HUR\",\"unitPrice\":100.0000,\"totalPrice\":200.00,\"vatRate\":22.00},"
+                + "{\"lineNumber\":2,\"description\":\"Riga B\",\"quantity\":1.0000,"
+                + "\"unitOfMeasure\":\"NR\",\"unitPrice\":50.0000,\"totalPrice\":50.00,\"vatRate\":10.00}]";
+
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT jt.* FROM JSON_TABLE(?, '$[*]' COLUMNS ("
+                        + "line_number INT PATH '$.lineNumber',"
+                        + "description VARCHAR(1000) PATH '$.description',"
+                        + "quantity DECIMAL(15,4) PATH '$.quantity',"
+                        + "unit_of_measure VARCHAR(20) PATH '$.unitOfMeasure',"
+                        + "unit_price DECIMAL(15,4) PATH '$.unitPrice',"
+                        + "total_price DECIMAL(15,2) PATH '$.totalPrice',"
+                        + "vat_rate DECIMAL(5,2) PATH '$.vatRate'"
+                        + ")) AS jt",
+                json);
+
+        assertEquals(2, rows.size());
+        assertEquals(1, ((Number) rows.get(0).get("line_number")).intValue());
+        assertEquals("Riga A", rows.get(0).get("description"));
+        assertEquals(0, new BigDecimal("200.00").compareTo((BigDecimal) rows.get(0).get("total_price")));
+        assertEquals(2, ((Number) rows.get(1).get("line_number")).intValue());
+        assertEquals("Riga B", rows.get(1).get("description"));
+    }
+
+    @Test
+    @DisplayName("invoice_line_items: stores rows with a working FK cascade down from contracts through electronic_invoices")
+    void invoiceLineItemsCascadesFromContractDeletion() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        jdbc.update("INSERT INTO organizations (id, name, slug) VALUES (9008, 'Line Item Migration Test Org', 'line-item-migration-test-org')");
+        jdbc.update("INSERT INTO managers (id, first_name, last_name, email, organization_id) "
+                + "VALUES (9008, 'Test', 'Manager', 'line-item-migration-test@example.com', 9008)");
+        jdbc.update("INSERT INTO counterparties (id, name, type, organization_id) "
+                + "VALUES (9008, 'Test Customer', 'CUSTOMER', 9008)");
+        jdbc.update("INSERT INTO contracts (id, counterparty_id, contract_number, manager_id, start_date, status, organization_id) "
+                + "VALUES (9008, 9008, 'LINE-ITEM-MIGRATION-001', 9008, '2026-01-01', 'ACTIVE', 9008)");
+        jdbc.update("INSERT INTO electronic_invoices (id, contract_id, storage_path, file_name, file_size, content_type) "
+                + "VALUES (9008, 9008, 'invoices/9008/9008/line-item-migration-test.xml', 'test.xml', 1, 'application/xml')");
+        jdbc.update("INSERT INTO invoice_line_items "
+                + "(invoice_id, line_number, description, quantity, unit_of_measure, unit_price, total_price, vat_rate) "
+                + "VALUES (9008, 1, 'Riga di test', 1.0000, 'NR', 10.0000, 10.00, 22.00)");
+
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM invoice_line_items WHERE invoice_id = 9008", Integer.class);
+        assertEquals(1, count);
+
+        jdbc.update("DELETE FROM contracts WHERE id = 9008");
+
+        Integer remaining = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM invoice_line_items WHERE invoice_id = 9008", Integer.class);
+        assertEquals(0, remaining, "invoice_line_items rows should cascade-delete through electronic_invoices with their contract");
+
+        jdbc.update("DELETE FROM managers WHERE id = 9008");
+        jdbc.update("DELETE FROM counterparties WHERE id = 9008");
+        jdbc.update("DELETE FROM organizations WHERE id = 9008");
     }
 }

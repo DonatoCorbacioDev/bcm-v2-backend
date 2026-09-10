@@ -6,7 +6,6 @@
 package com.donatodev.bcm_backend.service;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
@@ -27,13 +26,11 @@ import com.donatodev.bcm_backend.dto.InvoiceLineItemDTO;
 import com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
+import com.donatodev.bcm_backend.entity.InvoiceLineItem;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.DuplicateInvoiceException;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.donatodev.bcm_backend.util.IbanValidator;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class ElectronicInvoiceService {
@@ -51,20 +48,17 @@ public class ElectronicInvoiceService {
     private final LocalStorageService localStorageService;
     private final FatturaPaXmlParserService fatturaPaXmlParserService;
     private final InvoiceMatchingService invoiceMatchingService;
-    private final ObjectMapper objectMapper;
 
     public ElectronicInvoiceService(ElectronicInvoiceRepository invoiceRepository,
                                      ContractAccessGuard contractAccessGuard,
                                      LocalStorageService localStorageService,
                                      FatturaPaXmlParserService fatturaPaXmlParserService,
-                                     InvoiceMatchingService invoiceMatchingService,
-                                     ObjectMapper objectMapper) {
+                                     InvoiceMatchingService invoiceMatchingService) {
         this.invoiceRepository = invoiceRepository;
         this.contractAccessGuard = contractAccessGuard;
         this.localStorageService = localStorageService;
         this.fatturaPaXmlParserService = fatturaPaXmlParserService;
         this.invoiceMatchingService = invoiceMatchingService;
-        this.objectMapper = objectMapper;
     }
 
     @Transactional(rollbackFor = IOException.class)
@@ -87,9 +81,7 @@ public class ElectronicInvoiceService {
 
         String storagePath = localStorageService.storeInvoice(orgId, contractId, bytes);
 
-        String lineItemsJson = objectMapper.writeValueAsString(parsed.lineItems());
-
-        ElectronicInvoice invoice = invoiceRepository.save(ElectronicInvoice.builder()
+        ElectronicInvoice invoice = ElectronicInvoice.builder()
                 .contract(contract)
                 .storagePath(storagePath)
                 .fileName(file.getOriginalFilename())
@@ -103,11 +95,12 @@ public class ElectronicInvoiceService {
                 .invoiceDate(parsed.invoiceDate())
                 .totalAmount(parsed.totalAmount())
                 .currency(parsed.currency())
-                .lineItemsJson(lineItemsJson)
                 .supplierIban(parsed.supplierIban())
                 .supplierBic(parsed.supplierBic())
                 .paymentDueDate(parsed.paymentDueDate())
-                .build());
+                .build();
+        invoice.setLineItems(toLineItemEntities(parsed.lineItems(), invoice));
+        invoice = invoiceRepository.save(invoice);
 
         try {
             invoiceMatchingService.computeSuggestion(invoice);
@@ -249,7 +242,7 @@ public class ElectronicInvoiceService {
                 invoice.getInvoiceDate(),
                 invoice.getTotalAmount(),
                 invoice.getCurrency(),
-                deserializeLineItems(invoice.getLineItemsJson()),
+                toLineItemDTOs(invoice.getLineItems()),
                 invoice.getSupplierIban(),
                 invoice.getSupplierBic(),
                 invoice.getPaymentDueDate(),
@@ -261,11 +254,31 @@ public class ElectronicInvoiceService {
                 invoice.getMatchedByUser() != null ? invoice.getMatchedByUser().getUsername() : null);
     }
 
-    private List<InvoiceLineItemDTO> deserializeLineItems(String lineItemsJson) {
-        try {
-            return objectMapper.readValue(lineItemsJson, new TypeReference<List<InvoiceLineItemDTO>>() {});
-        } catch (JsonProcessingException e) {
-            throw new UncheckedIOException("Failed to deserialize invoice line items", e);
-        }
+    private List<InvoiceLineItem> toLineItemEntities(List<InvoiceLineItemDTO> dtos, ElectronicInvoice invoice) {
+        return dtos.stream()
+                .map(dto -> InvoiceLineItem.builder()
+                        .invoice(invoice)
+                        .lineNumber(dto.lineNumber())
+                        .description(dto.description())
+                        .quantity(dto.quantity())
+                        .unitOfMeasure(dto.unitOfMeasure())
+                        .unitPrice(dto.unitPrice())
+                        .totalPrice(dto.totalPrice())
+                        .vatRate(dto.vatRate())
+                        .build())
+                .toList();
+    }
+
+    private List<InvoiceLineItemDTO> toLineItemDTOs(List<InvoiceLineItem> lineItems) {
+        return lineItems.stream()
+                .map(item -> new InvoiceLineItemDTO(
+                        item.getLineNumber(),
+                        item.getDescription(),
+                        item.getQuantity(),
+                        item.getUnitOfMeasure(),
+                        item.getUnitPrice(),
+                        item.getTotalPrice(),
+                        item.getVatRate()))
+                .toList();
     }
 }

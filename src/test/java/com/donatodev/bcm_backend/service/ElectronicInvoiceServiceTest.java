@@ -1,7 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -48,12 +47,12 @@ import com.donatodev.bcm_backend.dto.InvoiceLineItemDTO;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
 import com.donatodev.bcm_backend.entity.FinancialValues;
+import com.donatodev.bcm_backend.entity.InvoiceLineItem;
 import com.donatodev.bcm_backend.entity.InvoiceMatchStatus;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.DuplicateInvoiceException;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
@@ -66,7 +65,6 @@ class ElectronicInvoiceServiceTest {
     @Mock private InvoiceMatchingService invoiceMatchingService;
 
     private ElectronicInvoiceService electronicInvoiceService;
-    private ObjectMapper objectMapper;
 
     private static final byte[] VALID_XML = "<?xml version=\"1.0\"?><FatturaElettronica></FatturaElettronica>".getBytes();
     private static final long CONTRACT_ID = 1L;
@@ -75,10 +73,9 @@ class ElectronicInvoiceServiceTest {
 
     @BeforeEach
     void setup() {
-        objectMapper = new ObjectMapper();
         electronicInvoiceService = new ElectronicInvoiceService(
                 invoiceRepository, contractAccessGuard, localStorageService, fatturaPaXmlParserService,
-                invoiceMatchingService, objectMapper);
+                invoiceMatchingService);
         ReflectionTestUtils.setField(electronicInvoiceService, "backendBaseUrl", BACKEND_URL);
 
         SecurityContext ctx = SecurityContextHolder.createEmptyContext();
@@ -108,7 +105,7 @@ class ElectronicInvoiceServiceTest {
                 null, null, null);
     }
 
-    private ElectronicInvoice fakeInvoice(Contracts contract, String lineItemsJson) {
+    private ElectronicInvoice fakeInvoice(Contracts contract, List<InvoiceLineItemDTO> lineItems) {
         ElectronicInvoice invoice = new ElectronicInvoice();
         invoice.setId(INVOICE_ID);
         invoice.setContract(contract);
@@ -124,7 +121,18 @@ class ElectronicInvoiceServiceTest {
         invoice.setInvoiceDate(LocalDate.of(2024, Month.MARCH, 15));
         invoice.setTotalAmount(new BigDecimal("1220.00"));
         invoice.setCurrency("EUR");
-        invoice.setLineItemsJson(lineItemsJson);
+        invoice.setLineItems(lineItems.stream()
+                .map(dto -> InvoiceLineItem.builder()
+                        .invoice(invoice)
+                        .lineNumber(dto.lineNumber())
+                        .description(dto.description())
+                        .quantity(dto.quantity())
+                        .unitOfMeasure(dto.unitOfMeasure())
+                        .unitPrice(dto.unitPrice())
+                        .totalPrice(dto.totalPrice())
+                        .vatRate(dto.vatRate())
+                        .build())
+                .toList());
         return invoice;
     }
 
@@ -141,8 +149,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("uploadInvoice: happy path returns DTO with parsed data and line items")
         void shouldUploadInvoiceSuccessfully() throws IOException {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice saved = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice saved = fakeInvoice(contract, sampleLineItems());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(fatturaPaXmlParserService.parse(any())).thenReturn(sampleParsedData());
@@ -260,8 +267,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("getInvoices: returns mapped DTOs with line items")
         void shouldReturnInvoiceList() throws IOException {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
@@ -304,8 +310,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("getInvoice: returns DTO with deserialized line items")
         void shouldReturnInvoiceDetail() throws IOException {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
@@ -323,8 +328,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("getInvoice: includes the SEPA batch id when the invoice was already paid")
         void shouldReturnInvoiceDetailWithSepaBatchId() throws IOException {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
             com.donatodev.bcm_backend.entity.SepaPaymentBatch batch =
                     com.donatodev.bcm_backend.entity.SepaPaymentBatch.builder().id(77L).build();
             invoice.setSepaBatch(batch);
@@ -357,8 +361,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("downloadInvoice: returns bytes and metadata")
         void shouldDownloadInvoice() throws IOException {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
@@ -391,8 +394,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("deleteInvoice: deletes from local storage and repository")
         void shouldDeleteInvoice() throws IOException {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
@@ -423,8 +425,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("getInvoices: delegates contract lookup and manager-access check to ContractAccessGuard")
         void shouldDelegateAccessChecksToGuard() throws IOException {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
@@ -437,14 +438,14 @@ class ElectronicInvoiceServiceTest {
             verify(contractAccessGuard).checkManagerCanAccess(contract);
         }
 
-        // ---- lineItemsJson round trip ----
+        // ---- line items round trip ----
 
         @Test
         @Order(18)
-        @DisplayName("getInvoice: empty lineItemsJson array deserializes to empty list, not null")
+        @DisplayName("getInvoice: no line items maps to an empty list, not null")
         void shouldRoundTripEmptyLineItems() {
             Contracts contract = fakeContract();
-            ElectronicInvoice invoice = fakeInvoice(contract, "[]");
+            ElectronicInvoice invoice = fakeInvoice(contract, List.of());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
@@ -457,27 +458,11 @@ class ElectronicInvoiceServiceTest {
         }
 
         @Test
-        @Order(19)
-        @DisplayName("getInvoice: throws UncheckedIOException when lineItemsJson is malformed")
-        void shouldThrowWhenLineItemsJsonIsMalformed() {
-            Contracts contract = fakeContract();
-            ElectronicInvoice invoice = fakeInvoice(contract, "not valid json");
-
-            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
-                    .thenReturn(Optional.of(invoice));
-
-            assertThrows(UncheckedIOException.class,
-                    () -> electronicInvoiceService.getInvoice(CONTRACT_ID, INVOICE_ID));
-        }
-
-        @Test
         @Order(20)
         @DisplayName("uploadInvoice: accepts XML content without an XML declaration")
         void shouldAcceptXmlWithoutDeclaration() throws IOException {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice saved = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice saved = fakeInvoice(contract, sampleLineItems());
 
             byte[] xmlWithoutDeclaration = "<FatturaElettronica></FatturaElettronica>".getBytes(StandardCharsets.UTF_8);
 
@@ -500,8 +485,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("updatePaymentDetails: normalizes and saves a valid IBAN/BIC/due date")
         void shouldUpdatePaymentDetails() throws Exception {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
@@ -523,8 +507,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("updatePaymentDetails: clears the BIC when the request omits it")
         void shouldClearBicWhenOmitted() throws Exception {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
@@ -559,8 +542,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("updatePaymentDetails: rejects an invalid IBAN")
         void shouldRejectInvalidIbanOnPaymentDetails() throws Exception {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
@@ -578,8 +560,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("updatePaymentDetails: rejects edits once the invoice is already in a SEPA batch")
         void shouldRejectPaymentDetailsEditWhenAlreadyBatched() throws Exception {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
             invoice.setSepaBatch(new com.donatodev.bcm_backend.entity.SepaPaymentBatch());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
@@ -601,8 +582,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("uploadInvoice: a match-suggestion failure is logged and swallowed, upload still succeeds")
         void shouldDegradeGracefullyWhenMatchSuggestionFails() throws IOException {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice saved = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice saved = fakeInvoice(contract, sampleLineItems());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(fatturaPaXmlParserService.parse(any())).thenReturn(sampleParsedData());
@@ -628,8 +608,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("confirmMatch: delegates to InvoiceMatchingService with the override id and returns the mapped DTO")
         void shouldConfirmMatchWithOverride() throws IOException {
             Contracts contract = fakeContract();
-            String lineItemsJson = objectMapper.writeValueAsString(sampleLineItems());
-            ElectronicInvoice invoice = fakeInvoice(contract, lineItemsJson);
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
             FinancialValues matched = new FinancialValues();
             matched.setId(55L);
             Users user = new Users();
@@ -657,7 +636,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("confirmMatch: a null request body confirms whatever was already suggested")
         void shouldConfirmMatchWithNullRequest() {
             Contracts contract = fakeContract();
-            ElectronicInvoice invoice = fakeInvoice(contract, "[]");
+            ElectronicInvoice invoice = fakeInvoice(contract, List.of());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
@@ -689,7 +668,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("rejectMatch: delegates to InvoiceMatchingService and returns the mapped DTO")
         void shouldRejectMatch() {
             Contracts contract = fakeContract();
-            ElectronicInvoice invoice = fakeInvoice(contract, "[]");
+            ElectronicInvoice invoice = fakeInvoice(contract, List.of());
             invoice.setMatchStatus(InvoiceMatchStatus.REJECTED);
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
@@ -722,7 +701,7 @@ class ElectronicInvoiceServiceTest {
         @DisplayName("recomputeMatches: delegates to InvoiceMatchingService and returns the mapped DTOs")
         void shouldRecomputeMatches() {
             Contracts contract = fakeContract();
-            ElectronicInvoice invoice = fakeInvoice(contract, "[]");
+            ElectronicInvoice invoice = fakeInvoice(contract, List.of());
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceMatchingService.recomputeForContract(CONTRACT_ID)).thenReturn(List.of(invoice));
