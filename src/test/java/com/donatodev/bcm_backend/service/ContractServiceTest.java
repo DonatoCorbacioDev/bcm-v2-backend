@@ -25,6 +25,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -115,6 +116,12 @@ class ContractServiceTest {
 
     @Mock
     private ContractFinancialGenerationService contractFinancialGenerationService;
+
+    @Mock
+    private com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository invoiceRepository;
+
+    @Mock
+    private com.donatodev.bcm_backend.repository.FinancialValuesRepository financialValuesRepository;
 
     @InjectMocks
     private ContractService contractService;
@@ -1141,6 +1148,90 @@ class ContractServiceTest {
             assertEquals(30, result.getExpiring());
             assertEquals(20, result.getExpired());
             assertEquals(10, result.getDraft());
+        }
+
+        @Test
+        @Order(207)
+        @DisplayName("getInvoicingSummary as ADMIN with a tenant uses org-scoped queries")
+        void shouldGetInvoicingSummaryAsAdminWithTenant() {
+            mockAdminAuth();
+            TenantContext.set(1L);
+            try {
+                int year = java.time.Year.now().getValue();
+                when(financialValuesRepository.sumAmountByOrgAndYear(1L, year)).thenReturn(10000.0);
+                when(invoiceRepository.sumConfirmedInvoicedAmountByOrgIdAndYear(1L, year))
+                        .thenReturn(new java.math.BigDecimal("7500.00"));
+
+                com.donatodev.bcm_backend.dto.OrganizationInvoicingSummaryDTO result = contractService.getInvoicingSummary();
+
+                assertEquals(year, result.year());
+                assertEquals(10000.0, result.expectedYtd());
+                assertEquals(7500.0, result.invoicedYtd());
+                assertEquals(-2500.0, result.variance());
+                assertEquals(-25.0, result.variancePercent(), 0.0001);
+            } finally {
+                TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(208)
+        @DisplayName("getInvoicingSummary as ADMIN without a tenant falls back to non-org-scoped queries")
+        void shouldGetInvoicingSummaryAsAdminWithoutTenant() {
+            mockAdminAuth();
+            int year = java.time.Year.now().getValue();
+            when(financialValuesRepository.sumAmountByYear(year)).thenReturn(5000.0);
+            when(invoiceRepository.sumConfirmedInvoicedAmountByYear(year)).thenReturn(new java.math.BigDecimal("5000.00"));
+
+            com.donatodev.bcm_backend.dto.OrganizationInvoicingSummaryDTO result = contractService.getInvoicingSummary();
+
+            assertEquals(5000.0, result.expectedYtd());
+            assertEquals(5000.0, result.invoicedYtd());
+            assertEquals(0.0, result.variancePercent());
+        }
+
+        @Test
+        @Order(209)
+        @DisplayName("getInvoicingSummary as MANAGER uses own-contracts-scoped queries")
+        void shouldGetInvoicingSummaryAsManager() {
+            Managers manager = Managers.builder().id(5L).build();
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(manager)
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            int year = java.time.Year.now().getValue();
+            when(financialValuesRepository.sumAmountByManagerAndYear(5L, year)).thenReturn(2000.0);
+            when(invoiceRepository.sumConfirmedInvoicedAmountByManagerIdAndYear(5L, year))
+                    .thenReturn(new java.math.BigDecimal("2000.00"));
+
+            com.donatodev.bcm_backend.dto.OrganizationInvoicingSummaryDTO result = contractService.getInvoicingSummary();
+
+            assertEquals(2000.0, result.expectedYtd());
+            assertEquals(2000.0, result.invoicedYtd());
+            assertEquals(0.0, result.variancePercent());
+        }
+
+        @Test
+        @Order(210)
+        @DisplayName("getInvoicingSummary as MANAGER with no manager profile returns an all-zero summary")
+        void shouldGetInvoicingSummaryForManagerWithNoProfile() {
+            Users managerUser = Users.builder()
+                    .username("manager1")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .build();
+            mockAuthentication("manager1", "MANAGER");
+            when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
+
+            com.donatodev.bcm_backend.dto.OrganizationInvoicingSummaryDTO result = contractService.getInvoicingSummary();
+
+            assertEquals(0.0, result.expectedYtd());
+            assertEquals(0.0, result.invoicedYtd());
+            assertEquals(0.0, result.variancePercent());
+            verify(invoiceRepository, never()).sumConfirmedInvoicedAmountByManagerIdAndYear(any(), anyInt());
         }
 
         @Test

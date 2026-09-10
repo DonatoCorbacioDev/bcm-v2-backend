@@ -8,6 +8,7 @@ package com.donatodev.bcm_backend.service;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Year;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
@@ -34,6 +35,7 @@ import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ContractStatsResponse;
 import com.donatodev.bcm_backend.dto.ContractsByAreaDTO;
 import com.donatodev.bcm_backend.dto.ContractsTimelineDTO;
+import com.donatodev.bcm_backend.dto.OrganizationInvoicingSummaryDTO;
 import com.donatodev.bcm_backend.dto.TopManagerDTO;
 import com.donatodev.bcm_backend.dto.FinancialGenerationResultDTO;
 import com.donatodev.bcm_backend.entity.BillingFrequency;
@@ -59,7 +61,9 @@ import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
+import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
+import com.donatodev.bcm_backend.repository.FinancialValuesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 
 /**
@@ -88,6 +92,8 @@ public class ContractService {
     private final CounterpartiesRepository counterpartiesRepository;
     private final FinancialTypesRepository financialTypesRepository;
     private final ContractFinancialGenerationService contractFinancialGenerationService;
+    private final ElectronicInvoiceRepository invoiceRepository;
+    private final FinancialValuesRepository financialValuesRepository;
 
     public ContractService(
             ContractsRepository contractsRepository,
@@ -99,7 +105,9 @@ public class ContractService {
             BusinessAreasRepository businessAreasRepository,
             CounterpartiesRepository counterpartiesRepository,
             FinancialTypesRepository financialTypesRepository,
-            ContractFinancialGenerationService contractFinancialGenerationService
+            ContractFinancialGenerationService contractFinancialGenerationService,
+            ElectronicInvoiceRepository invoiceRepository,
+            FinancialValuesRepository financialValuesRepository
     ) {
         this.contractsRepository = contractsRepository;
         this.contractMapper = contractMapper;
@@ -111,6 +119,8 @@ public class ContractService {
         this.counterpartiesRepository = counterpartiesRepository;
         this.financialTypesRepository = financialTypesRepository;
         this.contractFinancialGenerationService = contractFinancialGenerationService;
+        this.invoiceRepository = invoiceRepository;
+        this.financialValuesRepository = financialValuesRepository;
     }
 
     private Counterparty resolveCounterpartyForUpdate(Long counterpartyId) {
@@ -400,6 +410,40 @@ public class ContractService {
             draft    = contractsRepository.countDraftContracts();
         }
         return new ContractStatsResponse(total, active, expiring, expired, draft);
+    }
+
+    /**
+     * Expected value (this year's {@code FinancialValues}) vs. what has
+     * actually been confirmed-invoiced. Admins: organization-wide; Managers:
+     * only their assigned contracts. Only {@code CONFIRMED} invoice matches
+     * count as invoiced.
+     */
+    public OrganizationInvoicingSummaryDTO getInvoicingSummary() {
+        AuthCtx auth = getAuthCtx();
+        int year = Year.now().getValue();
+        double expectedYtd;
+        double invoicedYtd;
+
+        if (!ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
+            if (auth.managerId() == null) {
+                return new OrganizationInvoicingSummaryDTO(year, 0, 0, 0, 0);
+            }
+            expectedYtd = financialValuesRepository.sumAmountByManagerAndYear(auth.managerId(), year);
+            invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByManagerIdAndYear(auth.managerId(), year).doubleValue();
+        } else {
+            Long orgId = TenantContext.get();
+            if (orgId != null) {
+                expectedYtd = financialValuesRepository.sumAmountByOrgAndYear(orgId, year);
+                invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByOrgIdAndYear(orgId, year).doubleValue();
+            } else {
+                expectedYtd = financialValuesRepository.sumAmountByYear(year);
+                invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByYear(year).doubleValue();
+            }
+        }
+
+        double variance = invoicedYtd - expectedYtd;
+        double variancePercent = expectedYtd == 0 ? 0.0 : (variance / expectedYtd) * 100.0;
+        return new OrganizationInvoicingSummaryDTO(year, expectedYtd, invoicedYtd, variance, variancePercent);
     }
 
     /**

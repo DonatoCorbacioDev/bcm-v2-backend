@@ -132,6 +132,12 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
     @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.DRAFT AND c.manager.id = :managerId")
     int countDraftContractsByManager(@Param("managerId") Long managerId);
 
+    @Query("SELECT COUNT(c) FROM Contracts c WHERE c.counterparty.id = :counterpartyId AND c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE")
+    int countActiveContractsByCounterpartyId(@Param("counterpartyId") Long counterpartyId);
+
+    @Query("SELECT COALESCE(SUM(c.annualValue), 0.0) FROM Contracts c WHERE c.counterparty.id = :counterpartyId AND c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE")
+    double sumActiveAnnualValueByCounterpartyId(@Param("counterpartyId") Long counterpartyId);
+
     @Query("""
           SELECT COUNT(c) FROM Contracts c
           WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE

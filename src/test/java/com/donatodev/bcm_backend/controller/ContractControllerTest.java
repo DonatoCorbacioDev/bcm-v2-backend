@@ -419,6 +419,21 @@ class ContractControllerTest {
                     .andExpect(jsonPath("$.active").exists());
         }
 
+        @Test
+        @Order(43)
+        @DisplayName("Should get org-wide invoicing summary")
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        void shouldGetInvoicingSummary() throws Exception {
+            createUser("admin", "ADMIN", null);
+
+            mockMvc.perform(get("/contracts/stats/invoicing-summary"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.year").exists())
+                    .andExpect(jsonPath("$.expectedYtd").exists())
+                    .andExpect(jsonPath("$.invoicedYtd").exists())
+                    .andExpect(jsonPath("$.variancePercent").exists());
+        }
+
         /**
          * Test searching contracts with pagination.
          */

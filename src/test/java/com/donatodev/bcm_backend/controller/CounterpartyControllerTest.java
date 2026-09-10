@@ -202,5 +202,33 @@ class CounterpartyControllerTest {
             mockMvc.perform(delete("/counterparties/{id}", counterparty.getId()))
                     .andExpect(status().isForbidden());
         }
+
+        @Test
+        @Order(11)
+        @DisplayName("Invoicing summary is retrieved successfully by ID")
+        @WithMockUser(roles = "ADMIN")
+        void shouldGetInvoicingSummary() throws Exception {
+            Counterparty saved = repository.save(Counterparty.builder()
+                    .name("Delta Srl").type(CounterpartyType.CUSTOMER).build());
+
+            mockMvc.perform(get("/counterparties/{id}/invoicing-summary", saved.getId()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.counterpartyId").value(saved.getId()))
+                    .andExpect(jsonPath("$.counterpartyName").value("Delta Srl"))
+                    .andExpect(jsonPath("$.activeContracts").value(0))
+                    .andExpect(jsonPath("$.invoiceCount").value(0));
+        }
+
+        @Test
+        @Order(12)
+        @DisplayName("MANAGER can read the invoicing summary (GET allowed)")
+        @WithMockUser(roles = "MANAGER")
+        void shouldAllowManagerToReadInvoicingSummary() throws Exception {
+            Counterparty saved = repository.save(Counterparty.builder()
+                    .name("Epsilon Srl").type(CounterpartyType.CUSTOMER).build());
+
+            mockMvc.perform(get("/counterparties/{id}/invoicing-summary", saved.getId()))
+                    .andExpect(status().isOk());
+        }
     }
 }

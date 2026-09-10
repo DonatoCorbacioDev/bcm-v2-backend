@@ -56,4 +56,23 @@ public interface FinancialValuesRepository extends JpaRepository<FinancialValues
             @Param("areaId") Long areaId,
             @Param("category") FinancialCategory category,
             @Param("year") int year);
+
+    @Query("""
+            SELECT COALESCE(SUM(fv.financialAmount), 0.0)
+            FROM FinancialValues fv
+            WHERE fv.organization.id = :orgId
+              AND fv.year = :year
+            """)
+    double sumAmountByOrgAndYear(@Param("orgId") Long orgId, @Param("year") int year);
+
+    @Query("SELECT COALESCE(SUM(fv.financialAmount), 0.0) FROM FinancialValues fv WHERE fv.year = :year")
+    double sumAmountByYear(@Param("year") int year);
+
+    @Query("""
+            SELECT COALESCE(SUM(fv.financialAmount), 0.0)
+            FROM FinancialValues fv
+            WHERE fv.contract.manager.id = :managerId
+              AND fv.year = :year
+            """)
+    double sumAmountByManagerAndYear(@Param("managerId") Long managerId, @Param("year") int year);
 }

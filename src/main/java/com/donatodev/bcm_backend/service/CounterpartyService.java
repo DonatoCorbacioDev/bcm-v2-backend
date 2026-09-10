@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.time.LocalDate;
+import java.time.Year;
 import java.util.List;
 import java.util.Optional;
 
@@ -12,12 +14,15 @@ import org.springframework.stereotype.Service;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.CounterpartyDTO;
+import com.donatodev.bcm_backend.dto.CounterpartyInvoicingSummaryDTO;
 import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.exception.CounterpartyNotFoundException;
 import com.donatodev.bcm_backend.mapper.CounterpartyMapper;
+import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
+import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 
 /**
  * Service class responsible for business logic related to counterparties.
@@ -33,10 +38,15 @@ public class CounterpartyService {
 
     private final CounterpartiesRepository counterpartiesRepository;
     private final CounterpartyMapper counterpartyMapper;
+    private final ContractsRepository contractsRepository;
+    private final ElectronicInvoiceRepository invoiceRepository;
 
-    public CounterpartyService(CounterpartiesRepository counterpartiesRepository, CounterpartyMapper counterpartyMapper) {
+    public CounterpartyService(CounterpartiesRepository counterpartiesRepository, CounterpartyMapper counterpartyMapper,
+                                ContractsRepository contractsRepository, ElectronicInvoiceRepository invoiceRepository) {
         this.counterpartiesRepository = counterpartiesRepository;
         this.counterpartyMapper = counterpartyMapper;
+        this.contractsRepository = contractsRepository;
+        this.invoiceRepository = invoiceRepository;
     }
 
     public List<CounterpartyDTO> getAllCounterparties() {
@@ -51,6 +61,27 @@ public class CounterpartyService {
         return findCounterpartyInScope(id)
                 .map(counterpartyMapper::toDTO)
                 .orElseThrow(() -> new CounterpartyNotFoundException(COUNTERPARTY_ID_PREFIX + id + NOT_FOUND_SUFFIX));
+    }
+
+    /**
+     * Contracted value vs. confirmed-invoiced-to-date for the current year.
+     * Only {@code CONFIRMED} invoice matches count as invoiced.
+     */
+    public CounterpartyInvoicingSummaryDTO getInvoicingSummary(Long id) {
+        Counterparty counterparty = findCounterpartyInScope(id)
+                .orElseThrow(() -> new CounterpartyNotFoundException(COUNTERPARTY_ID_PREFIX + id + NOT_FOUND_SUFFIX));
+
+        int year = Year.now().getValue();
+        int activeContracts = contractsRepository.countActiveContractsByCounterpartyId(id);
+        double contractedValue = contractsRepository.sumActiveAnnualValueByCounterpartyId(id);
+        double invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(id, year).doubleValue();
+        long invoiceCount = invoiceRepository.countByContractCounterpartyId(id);
+        LocalDate lastInvoiceDate = invoiceRepository.findLastInvoiceDateByCounterpartyId(id);
+        double variancePercent = contractedValue == 0 ? 0.0 : ((invoicedYtd - contractedValue) / contractedValue) * 100.0;
+
+        return new CounterpartyInvoicingSummaryDTO(
+                counterparty.getId(), counterparty.getName(), activeContracts, contractedValue,
+                invoicedYtd, variancePercent, invoiceCount, lastInvoiceDate);
     }
 
     /**

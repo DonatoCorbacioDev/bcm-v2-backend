@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.donatodev.bcm_backend.dto.CounterpartyDTO;
+import com.donatodev.bcm_backend.dto.CounterpartyInvoicingSummaryDTO;
 import com.donatodev.bcm_backend.service.CounterpartyService;
 
 import jakarta.validation.Valid;
@@ -43,6 +44,12 @@ public class CounterpartyController {
     @GetMapping("/{id}")
     public ResponseEntity<CounterpartyDTO> getCounterpartyById(@PathVariable Long id) {
         return ResponseEntity.ok(counterpartyService.getCounterpartyById(id));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @GetMapping("/{id}/invoicing-summary")
+    public ResponseEntity<CounterpartyInvoicingSummaryDTO> getInvoicingSummary(@PathVariable Long id) {
+        return ResponseEntity.ok(counterpartyService.getInvoicingSummary(id));
     }
 
     @PreAuthorize("hasRole('ADMIN')")

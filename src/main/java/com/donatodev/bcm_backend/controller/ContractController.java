@@ -36,6 +36,7 @@ import com.donatodev.bcm_backend.dto.CollaboratorsRequest;
 import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ContractImportResultDTO;
 import com.donatodev.bcm_backend.dto.ContractStatsResponse;
+import com.donatodev.bcm_backend.dto.OrganizationInvoicingSummaryDTO;
 import com.donatodev.bcm_backend.dto.ContractsByAreaDTO;
 import com.donatodev.bcm_backend.dto.ContractsTimelineDTO;
 import com.donatodev.bcm_backend.dto.FinancialGenerationResultDTO;
@@ -166,6 +167,12 @@ public class ContractController {
     public ResponseEntity<ContractStatsResponse> getStats() {
         ContractStatsResponse stats = contractService.getContractStats();
         return ResponseEntity.ok(stats);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @GetMapping("/stats/invoicing-summary")
+    public ResponseEntity<OrganizationInvoicingSummaryDTO> getInvoicingSummary() {
+        return ResponseEntity.ok(contractService.getInvoicingSummary());
     }
 
     /**
