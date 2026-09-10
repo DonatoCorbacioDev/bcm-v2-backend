@@ -581,46 +581,29 @@ class FatturaPaXmlParserServiceTest {
             return buildElement("<DatiAnagrafici>" + innerXml + "</DatiAnagrafici>", true);
         }
 
-        @Test
-        @DisplayName("extractSupplierName: no Anagrafica element at all -> null")
-        void extractSupplierNameNoAnagrafica() throws Exception {
-            Element datiAnagrafici = datiAnagraficiFrom("<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>");
-            assertNull(parserService.extractSupplierName(datiAnagrafici));
+        @ParameterizedTest(name = "[{index}] {0}")
+        @MethodSource("supplierNameScenarios")
+        @DisplayName("extractSupplierName resolves Denominazione or Nome+Cognome, else null")
+        void shouldExtractSupplierName(String description, String datiAnagraficiXml, String expected) throws Exception {
+            Element datiAnagrafici = datiAnagraficiFrom(datiAnagraficiXml);
+            assertEquals(expected, parserService.extractSupplierName(datiAnagrafici));
         }
 
-        @Test
-        @DisplayName("extractSupplierName: Denominazione present -> returned as-is")
-        void extractSupplierNameDenominazione() throws Exception {
-            Element datiAnagrafici = datiAnagraficiFrom("<Anagrafica><Denominazione>Acme S.r.l.</Denominazione></Anagrafica>");
-            assertEquals("Acme S.r.l.", parserService.extractSupplierName(datiAnagrafici));
-        }
-
-        @Test
-        @DisplayName("extractSupplierName: Nome+Cognome present, no Denominazione -> concatenated")
-        void extractSupplierNameNomeCognome() throws Exception {
-            Element datiAnagrafici = datiAnagraficiFrom("<Anagrafica><Nome>Mario</Nome><Cognome>Rossi</Cognome></Anagrafica>");
-            assertEquals("Mario Rossi", parserService.extractSupplierName(datiAnagrafici));
-        }
-
-        @Test
-        @DisplayName("extractSupplierName: Nome without Cognome -> null")
-        void extractSupplierNameNomeOnly() throws Exception {
-            Element datiAnagrafici = datiAnagraficiFrom("<Anagrafica><Nome>Mario</Nome></Anagrafica>");
-            assertNull(parserService.extractSupplierName(datiAnagrafici));
-        }
-
-        @Test
-        @DisplayName("extractSupplierName: Cognome without Nome -> null")
-        void extractSupplierNameCognomeOnly() throws Exception {
-            Element datiAnagrafici = datiAnagraficiFrom("<Anagrafica><Cognome>Rossi</Cognome></Anagrafica>");
-            assertNull(parserService.extractSupplierName(datiAnagrafici));
-        }
-
-        @Test
-        @DisplayName("extractSupplierName: empty Anagrafica (neither choice populated) -> null")
-        void extractSupplierNameEmptyAnagrafica() throws Exception {
-            Element datiAnagrafici = datiAnagraficiFrom("<Anagrafica/>");
-            assertNull(parserService.extractSupplierName(datiAnagrafici));
+        static Stream<Arguments> supplierNameScenarios() {
+            return Stream.of(
+                    Arguments.of("no Anagrafica element at all -> null",
+                            "<CodiceFiscale>RSSMRA80A01H501U</CodiceFiscale>", null),
+                    Arguments.of("Denominazione present -> returned as-is",
+                            "<Anagrafica><Denominazione>Acme S.r.l.</Denominazione></Anagrafica>", "Acme S.r.l."),
+                    Arguments.of("Nome+Cognome present, no Denominazione -> concatenated",
+                            "<Anagrafica><Nome>Mario</Nome><Cognome>Rossi</Cognome></Anagrafica>", "Mario Rossi"),
+                    Arguments.of("Nome without Cognome -> null",
+                            "<Anagrafica><Nome>Mario</Nome></Anagrafica>", null),
+                    Arguments.of("Cognome without Nome -> null",
+                            "<Anagrafica><Cognome>Rossi</Cognome></Anagrafica>", null),
+                    Arguments.of("empty Anagrafica (neither choice populated) -> null",
+                            "<Anagrafica/>", null)
+            );
         }
 
         @ParameterizedTest(name = "[{index}] {0}")
