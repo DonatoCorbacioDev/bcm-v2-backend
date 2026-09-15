@@ -5,8 +5,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Base for integration tests (*IT.java, run via `mvn verify`/failsafe, never
@@ -15,12 +13,23 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * migrations, real ENUM/JSON column semantics, real FK constraints.
  *
  * The container is a single static instance shared by every subclass in the
- * same JVM (Testcontainers' "singleton container" pattern): it starts once,
- * Flyway migrates it once, and Spring's test context cache reuses the same
- * ApplicationContext across IT classes since they all resolve to the same
- * dynamic properties. Requires a running Docker daemon.
+ * same JVM. Deliberately NOT annotated with JUnit 5's {@code @Container}:
+ * that annotation makes the {@code @Testcontainers} extension stop the
+ * container in whichever subclass's {@code afterAll} runs first, since each
+ * test class gets its own extension-context callback -- the next subclass
+ * then restarts it on a *different* random host port, but any Spring
+ * ApplicationContext already cached from an earlier subclass (Spring reuses
+ * one context across test classes with identical config, e.g. two
+ * {@code @DataJpaTest} classes here) keeps pointing at the now-dead old
+ * port, since {@code @DynamicPropertySource} is only evaluated once per
+ * context. The result is a real, but misleading, "Connection refused" --
+ * discovered 2026-09-15 when a second {@code @DataJpaTest} IT class was
+ * added and started intermittently failing depending on run order, never
+ * on its own. Starting the container ourselves in a static initializer
+ * (Testcontainers' documented "singleton container" pattern) makes it live
+ * for the whole JVM regardless of which subclass runs when; only Ryuk (or
+ * JVM exit) ever stops it.
  */
-@Testcontainers
 @ActiveProfiles("test")
 @Tag("integration")
 public abstract class AbstractMySQLIntegrationTest {
@@ -32,12 +41,15 @@ public abstract class AbstractMySQLIntegrationTest {
     // explicitly declare utf8mb4_unicode_ci (e.g. V37's `counterparties`
     // table) with "Illegal mix of collations" the moment a query compares a
     // column from each.
-    @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0")
             .withDatabaseName("bcm_it")
             .withUsername("bcm_it")
             .withPassword("bcm_it_password")
             .withCommand("--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci");
+
+    static {
+        MYSQL.start();
+    }
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
@@ -54,5 +66,10 @@ public abstract class AbstractMySQLIntegrationTest {
         // Flyway actually enabled it creates a circular depends-on between
         // the flyway and entityManagerFactory beans at context startup.
         registry.add("spring.jpa.defer-datasource-initialization", () -> "false");
+        // The "test" profile's 5s Hikari connection-timeout is tuned for
+        // instant-connect H2, not a real MySQL container competing for CPU on
+        // a loaded CI runner (especially after ~1500 unit tests already ran
+        // in the same `mvn verify`) -- match prod's 30s instead.
+        registry.add("spring.datasource.hikari.connection-timeout", () -> "30000");
     }
 }
