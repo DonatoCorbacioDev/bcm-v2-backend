@@ -7,8 +7,10 @@ package com.donatodev.bcm_backend.service;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -255,6 +257,10 @@ public class ElectronicInvoiceService {
     }
 
     private List<InvoiceLineItem> toLineItemEntities(List<InvoiceLineItemDTO> dtos, ElectronicInvoice invoice) {
+        // Mutable on purpose: Hibernate wraps this in a PersistentBag and needs
+        // to clear()/repopulate it on a later merge (e.g. the second save() in
+        // uploadInvoice, after computeSuggestion sets the match fields) -- an
+        // immutable list here throws UnsupportedOperationException at that point.
         return dtos.stream()
                 .map(dto -> InvoiceLineItem.builder()
                         .invoice(invoice)
@@ -266,7 +272,7 @@ public class ElectronicInvoiceService {
                         .totalPrice(dto.totalPrice())
                         .vatRate(dto.vatRate())
                         .build())
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     private List<InvoiceLineItemDTO> toLineItemDTOs(List<InvoiceLineItem> lineItems) {
