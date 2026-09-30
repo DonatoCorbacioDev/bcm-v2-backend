@@ -2,9 +2,11 @@
 
 Questo documento formalizza il ragionamento GDPR applicato a BCM finora sparso
 tra varie sessioni di sviluppo. Riflette lo stato del codice come verificato il
-2026-07-16 — non è una dichiarazione aspirazionale, va aggiornato ogni volta
-che cambia un controllo. Non sostituisce una consulenza legale: è la base
-tecnica su cui un legale può lavorare, non il documento finale.
+2026-07-16, con un controllo di dettaglio aggiuntivo su log, email ed export
+il 2026-09-30 (sezioni 2 e 5, gap in fondo alla sezione 9) — non è una
+dichiarazione aspirazionale, va aggiornato ogni volta che cambia un controllo.
+Non sostituisce una consulenza legale: è la base tecnica su cui un legale può
+lavorare, non il documento finale.
 
 ## 1. Titolare e finalità del trattamento
 
@@ -24,9 +26,11 @@ organizzazioni clienti.
 | Dati identificativi di dipendenti/responsabili (`managers`) | DB `bcm` | nome, cognome, email, telefono, reparto |
 | Credenziali utente (`users`) | DB `bcm` | username (email), hash bcrypt della password, secret TOTP cifrato AES-GCM |
 | Dati di controparti contrattuali | DB `bcm`, colonna `customer_name` su `contracts` | ragione sociale (raramente persona fisica) |
-| Coordinate bancarie | DB `bcm` | IBAN/BIC dell'organizzazione (`organizations`), non di persone fisiche |
+| Coordinate bancarie | DB `bcm` (`organizations.iban`/`bic`, `electronic_invoices.supplier_iban`/`bic`) | IBAN/BIC dell'organizzazione titolare **e** del fornitore indicato in ogni fattura elettronica caricata — quest'ultimo può coincidere con una persona fisica se il fornitore è una ditta individuale, non è quindi sempre "dato di sola organizzazione" come indicato in precedenza. **Non è mai mascherato**: restituito per intero da `OrganizationDTO`/`ElectronicInvoiceDTO`, modificabile per intero, visualizzato per intero in `organization/page.tsx` e `InvoicesTab.tsx` |
 | Contenuto documenti contrattuali | Filesystem (`uploads/`), mai nel DB | testo libero nei PDF caricati dall'utente — può contenere qualunque dato personale il contratto stesso contenga |
-| Log applicativi | Tabella `audit_logs` | azione, tipo entità, id entità, username, org id — **mai il corpo del documento o i valori modificati** |
+| File di pagamento SEPA generati | Filesystem, via `LocalStorageService.storeSepaPayment` (`SepaPaymentService`) | XML `pain.001.001.03` con IBAN/BIC del titolare e del fornitore incorporati in chiaro — vedi retention in sezione 5 |
+| Log applicativi | Tabella `audit_logs` (pulita) + log applicativo testuale (non filtrato) | `audit_logs`: azione, tipo entità, id entità, username, org id — **mai il corpo del documento o i valori modificati**. Il log applicativo testuale invece riporta in chiaro email/nome del responsabile in alcuni punti (`ContractSchedulerService`, `DummyEmailService`, `MonthlyReporter`) — non è un dato strutturato consultabile dall'interessato, ma resta un'esposizione da considerare per la retention dei log di sistema (oggi non coperta da `AuditLogRetentionService`, che riguarda solo `audit_logs`) |
+| Notifiche email (scadenze, digest settimanale) | Corpo email inviata via SMTP | Nome e cognome del responsabile destinatario, nomi di contratti/controparti — uso previsto e proporzionato alla finalità (notificare la persona giusta), non richiede azione |
 
 Non vengono trattate categorie particolari di dati (art. 9 GDPR — salute,
 origine etnica, orientamento, ecc.) come parte del modello dati previsto;
@@ -60,6 +64,13 @@ nessuna AI di terze parti) — è stata una decisione esplicita del progetto
 - **Documenti**: nessuna scadenza automatica; cancellati esplicitamente
   tramite `DELETE /contracts/{id}/documents/{docId}` (cascata su riga DB +
   file fisico via `LocalStorageService`).
+- **File di pagamento SEPA** (`SepaPaymentService`, contengono IBAN/BIC in
+  chiaro del titolare e del fornitore): **nessuna scadenza automatica e
+  nessuna cancellazione esplicita dedicata** — restano sul filesystem a
+  tempo indeterminato una volta generati, a differenza degli `audit_logs`
+  che hanno un purge programmato. È il gap di conservazione più concreto
+  individuato finora su un dato finanziario identificativo; da chiudere con
+  una policy di retention dedicata (vedi gap in fondo alla sezione 9).
 - **Utenti/responsabili**: cancellabili tramite `DELETE /users/{id}` e
   `DELETE /managers/{id}`. Lo storico contratti (`contract_history`) resta
   per obblighi fiscali/contrattuali: dalla V34, cancellare l'utente
@@ -117,3 +128,17 @@ costruzione).
   - Nessun Data Processing Agreement (DPA) template pronto da far firmare
       alle organizzazioni clienti quando BCM opera come responsabile del
       trattamento per loro conto.
+  - **Nessun mascheramento dell'IBAN** in nessun punto del sistema (API,
+      frontend, export SEPA) — sempre restituito e visualizzato per intero,
+      sia per l'IBAN dell'organizzazione titolare sia per quello del
+      fornitore in fattura. Zero occorrenze di logica di masking/redazione
+      in tutto il codebase (verificato 2026-09-30).
+  - **Nessuna retention per i file di pagamento SEPA** generati — restano
+      sul filesystem indefinitamente con IBAN/BIC in chiaro (vedi sezione
+      5). Da affrontare insieme al punto sopra nel prossimo threat model
+      del flusso fattura → IBAN → SEPA.
+  - **Nessun controllo su cambio IBAN di un fornitore** rispetto a un IBAN
+      già noto/verificato in precedenza — proposta discussa (settimane fa)
+      ma non ancora progettata né implementata; `AuditAspect` oggi non
+      cattura valori vecchio/nuovo su nessuna entità, quindi un cambio IBAN
+      non lascerebbe nemmeno traccia nell'audit log così com'è oggi.
