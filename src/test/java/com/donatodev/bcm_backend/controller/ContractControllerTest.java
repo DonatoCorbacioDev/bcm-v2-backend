@@ -603,7 +603,7 @@ class ContractControllerTest {
         @DisplayName("MANAGER should be forbidden from creating contracts")
         @WithMockUser(roles = "MANAGER")
         void shouldForbidCreateForManager() throws Exception {
-            ContractDTO dto = new ContractDTO(null, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Test", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "TEST", "WBS", "Test",
+            ContractDTO dto = new ContractDTO(null, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Test", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "TEST", "WBS", "Test",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
 
             mockMvc.perform(post("/contracts")

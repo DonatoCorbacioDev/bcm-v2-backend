@@ -31,6 +31,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.w3c.dom.Document;
@@ -39,13 +40,17 @@ import org.w3c.dom.Element;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.SepaPaymentBatchDTO;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.SepaPaymentBatch;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
+import com.donatodev.bcm_backend.exception.IbanMismatchException;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.SepaPaymentBatchRepository;
+import com.donatodev.bcm_backend.util.IbanValidator;
 
 @Service
 public class SepaPaymentService {
@@ -60,17 +65,23 @@ public class SepaPaymentService {
     private final OrganizationRepository organizationRepository;
     private final SepaPaymentBatchRepository batchRepository;
     private final LocalStorageService localStorageService;
+    private final CounterpartiesRepository counterpartiesRepository;
+    private final AuditLogService auditLogService;
 
     public SepaPaymentService(ContractAccessGuard contractAccessGuard,
                                ElectronicInvoiceRepository invoiceRepository,
                                OrganizationRepository organizationRepository,
                                SepaPaymentBatchRepository batchRepository,
-                               LocalStorageService localStorageService) {
+                               LocalStorageService localStorageService,
+                               CounterpartiesRepository counterpartiesRepository,
+                               AuditLogService auditLogService) {
         this.contractAccessGuard = contractAccessGuard;
         this.invoiceRepository = invoiceRepository;
         this.organizationRepository = organizationRepository;
         this.batchRepository = batchRepository;
         this.localStorageService = localStorageService;
+        this.counterpartiesRepository = counterpartiesRepository;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional
@@ -97,6 +108,8 @@ public class SepaPaymentService {
                 throw new IllegalArgumentException("La fattura " + invoice.getId() + " non ha un IBAN fornitore");
             }
         }
+
+        checkVerifiedIban(contract, invoices);
 
         LocalDate executionDate = requestedExecutionDate != null
                 ? requestedExecutionDate
@@ -169,6 +182,56 @@ public class SepaPaymentService {
                 batch.getNumberOfTransactions(),
                 batch.getFileName(),
                 batch.getCreatedAt());
+    }
+
+    /**
+     * Guards against invoice-IBAN-swap fraud: the first SEPA payment for a
+     * counterparty learns and trusts its supplier IBAN; every later payment
+     * must match it exactly, or generation is blocked with
+     * {@link IbanMismatchException} instead of silently paying whatever the
+     * latest invoice XML says. A legitimate IBAN change must go through
+     * {@code CounterpartyService#confirmVerifiedIban} first. No-op when the
+     * contract has no counterparty (defensive only -- the column is NOT NULL
+     * in production).
+     */
+    private void checkVerifiedIban(Contracts contract, List<ElectronicInvoice> invoices) {
+        Counterparty counterparty = contract.getCounterparty();
+        if (counterparty == null) {
+            return;
+        }
+        for (ElectronicInvoice invoice : invoices) {
+            String invoiceIban = invoice.getSupplierIban().replace(" ", "").toUpperCase(Locale.ROOT);
+            String verifiedIban = counterparty.getVerifiedIban();
+            if (verifiedIban == null) {
+                counterparty.setVerifiedIban(invoiceIban);
+                counterparty.setVerifiedBic(invoice.getSupplierBic());
+                counterparty = counterpartiesRepository.save(counterparty);
+                logVerifiedIbanLearned(counterparty, invoiceIban);
+            } else if (!verifiedIban.equalsIgnoreCase(invoiceIban)) {
+                logIbanMismatchBlocked(counterparty, invoice, verifiedIban, invoiceIban);
+                throw new IbanMismatchException("L'IBAN del fornitore nella fattura " + invoice.getId()
+                        + " non corrisponde all'IBAN verificato per \"" + counterparty.getName()
+                        + "\" — se il fornitore ha davvero cambiato IBAN, confermalo prima dalla scheda controparte");
+            }
+        }
+    }
+
+    private void logVerifiedIbanLearned(Counterparty counterparty, String iban) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String details = "Verified IBAN for counterparty " + counterparty.getId()
+                + " auto-learned from first SEPA payment (" + IbanValidator.mask(iban) + ")";
+        auditLogService.save("VERIFIED_IBAN_LEARNED", "Counterparty", counterparty.getId(), username,
+                TenantContext.get(), details);
+    }
+
+    private void logIbanMismatchBlocked(Counterparty counterparty, ElectronicInvoice invoice,
+                                         String verifiedIban, String invoiceIban) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String details = "SEPA payment blocked: invoice " + invoice.getId() + " supplier IBAN ("
+                + IbanValidator.mask(invoiceIban) + ") does not match verified IBAN ("
+                + IbanValidator.mask(verifiedIban) + ") for counterparty " + counterparty.getId();
+        auditLogService.save("SEPA_IBAN_MISMATCH_BLOCKED", "Counterparty", counterparty.getId(), username,
+                TenantContext.get(), details);
     }
 
     private Organization resolveOrganization(Contracts contract) {

@@ -3,10 +3,11 @@
 Questo documento formalizza il ragionamento GDPR applicato a BCM finora sparso
 tra varie sessioni di sviluppo. Riflette lo stato del codice come verificato il
 2026-07-16, con un controllo di dettaglio aggiuntivo su log, email ed export
-il 2026-09-30 (sezioni 2 e 5, gap in fondo alla sezione 9) — non è una
-dichiarazione aspirazionale, va aggiornato ogni volta che cambia un controllo.
-Non sostituisce una consulenza legale: è la base tecnica su cui un legale può
-lavorare, non il documento finale.
+il 2026-09-30 (sezioni 2 e 5, gap in fondo alla sezione 9), e con due di quei
+gap chiusi il 2026-10-01 (controllo IBAN verificato + retention file SEPA,
+sezioni 5 e 9) — non è una dichiarazione aspirazionale, va aggiornato ogni
+volta che cambia un controllo. Non sostituisce una consulenza legale: è la
+base tecnica su cui un legale può lavorare, non il documento finale.
 
 ## 1. Titolare e finalità del trattamento
 
@@ -65,12 +66,12 @@ nessuna AI di terze parti) — è stata una decisione esplicita del progetto
   tramite `DELETE /contracts/{id}/documents/{docId}` (cascata su riga DB +
   file fisico via `LocalStorageService`).
 - **File di pagamento SEPA** (`SepaPaymentService`, contengono IBAN/BIC in
-  chiaro del titolare e del fornitore): **nessuna scadenza automatica e
-  nessuna cancellazione esplicita dedicata** — restano sul filesystem a
-  tempo indeterminato una volta generati, a differenza degli `audit_logs`
-  che hanno un purge programmato. È il gap di conservazione più concreto
-  individuato finora su un dato finanziario identificativo; da chiudere con
-  una policy di retention dedicata (vedi gap in fondo alla sezione 9).
+  chiaro del titolare e del fornitore): purge automatico giornaliero (job
+  schedulato alle 3:30, `SepaPaymentRetentionService`, dal 2026-10-01) delle
+  righe/file più vecchi di `SEPA_PAYMENT_RETENTION_DAYS` (default 730 giorni
+  / 2 anni, in linea con la conservazione fiscale italiana dei documenti di
+  pagamento — più lungo dei 180 giorni degli audit log perché è un dato di
+  natura diversa). Prima di questa data non c'era alcuna scadenza.
 - **Utenti/responsabili**: cancellabili tramite `DELETE /users/{id}` e
   `DELETE /managers/{id}`. Lo storico contratti (`contract_history`) resta
   per obblighi fiscali/contrattuali: dalla V34, cancellare l'utente
@@ -112,7 +113,17 @@ duplica, lo referenzia. In sintesi rilevante ai fini GDPR (art. 32):
 tenant scoping testato (`CrossTenantAccessTest`), password in bcrypt, secret
 TOTP cifrati AES-GCM, refresh token rotanti con rilevamento riuso, upload
 limitati e validati (10MB, magic-byte PDF check, path traversal escluso per
-costruzione).
+costruzione). Dal 2026-10-01: controllo di integrità sull'IBAN del
+fornitore prima di generare un pagamento SEPA (`Counterparty.verifiedIban`,
+`SepaPaymentService`) — se l'IBAN in fattura differisce da quello già
+verificato per quella controparte, la generazione è **bloccata**
+(`IbanMismatchException`, HTTP 409) invece di procedere silenziosamente;
+un cambio IBAN legittimo richiede un'azione esplicita separata
+(`PATCH /counterparties/{id}/verified-iban`, solo ADMIN), loggata con
+IBAN vecchio/nuovo mascherati (`CounterpartyService#confirmVerifiedIban`).
+Mitiga le frodi per sostituzione IBAN (fatture compromesse o fornitori
+impersonati), non sostituisce il mascheramento dell'IBAN (gap ancora
+aperto, vedi sezione 9).
 
 ## 9. Gap noti (da chiudere prima di un trattamento su dati reali)
 
@@ -132,13 +143,13 @@ costruzione).
       frontend, export SEPA) — sempre restituito e visualizzato per intero,
       sia per l'IBAN dell'organizzazione titolare sia per quello del
       fornitore in fattura. Zero occorrenze di logica di masking/redazione
-      in tutto il codebase (verificato 2026-09-30).
-  - **Nessuna retention per i file di pagamento SEPA** generati — restano
-      sul filesystem indefinitamente con IBAN/BIC in chiaro (vedi sezione
-      5). Da affrontare insieme al punto sopra nel prossimo threat model
-      del flusso fattura → IBAN → SEPA.
-  - **Nessun controllo su cambio IBAN di un fornitore** rispetto a un IBAN
-      già noto/verificato in precedenza — proposta discussa (settimane fa)
-      ma non ancora progettata né implementata; `AuditAspect` oggi non
-      cattura valori vecchio/nuovo su nessuna entità, quindi un cambio IBAN
-      non lascerebbe nemmeno traccia nell'audit log così com'è oggi.
+      in tutto il codebase (verificato 2026-09-30) — **ancora aperto**,
+      distinto dal controllo di integrità sotto (uno impedisce di pagare un
+      IBAN sbagliato, l'altro limiterebbe chi può *vedere* l'IBAN giusto).
+  - ~~Nessuna retention per i file di pagamento SEPA~~ — **chiuso
+      2026-10-01**: `SepaPaymentRetentionService`, purge dopo
+      `SEPA_PAYMENT_RETENTION_DAYS` (default 730 giorni). Vedi sezione 5.
+  - ~~Nessun controllo su cambio IBAN di un fornitore~~ — **chiuso
+      2026-10-01**: `Counterparty.verifiedIban` + blocco su mismatch in
+      `SepaPaymentService` + audit dedicato su ogni conferma/cambio. Vedi
+      sezione 8.

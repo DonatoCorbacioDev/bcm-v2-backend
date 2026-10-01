@@ -101,7 +101,9 @@ public class ContractMapper {
                         counterparty.getContactName(),
                         counterparty.getContactEmail(),
                         counterparty.getContactPhone(),
-                        counterparty.getNotes()
+                        counterparty.getNotes(),
+                        counterparty.getVerifiedIban(),
+                        counterparty.getVerifiedBic()
                 )
                 : null;
 

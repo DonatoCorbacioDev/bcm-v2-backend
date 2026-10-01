@@ -9,13 +9,17 @@ import java.time.LocalDate;
 import java.time.Year;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.CounterpartyDTO;
 import com.donatodev.bcm_backend.dto.CounterpartyInvoicingSummaryDTO;
+import com.donatodev.bcm_backend.dto.VerifyCounterpartyIbanRequest;
 import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Organization;
@@ -24,6 +28,7 @@ import com.donatodev.bcm_backend.mapper.CounterpartyMapper;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
+import com.donatodev.bcm_backend.util.IbanValidator;
 
 /**
  * Service class responsible for business logic related to counterparties.
@@ -41,13 +46,16 @@ public class CounterpartyService {
     private final CounterpartyMapper counterpartyMapper;
     private final ContractsRepository contractsRepository;
     private final ElectronicInvoiceRepository invoiceRepository;
+    private final AuditLogService auditLogService;
 
     public CounterpartyService(CounterpartiesRepository counterpartiesRepository, CounterpartyMapper counterpartyMapper,
-                                ContractsRepository contractsRepository, ElectronicInvoiceRepository invoiceRepository) {
+                                ContractsRepository contractsRepository, ElectronicInvoiceRepository invoiceRepository,
+                                AuditLogService auditLogService) {
         this.counterpartiesRepository = counterpartiesRepository;
         this.counterpartyMapper = counterpartyMapper;
         this.contractsRepository = contractsRepository;
         this.invoiceRepository = invoiceRepository;
+        this.auditLogService = auditLogService;
     }
 
     public List<CounterpartyDTO> getAllCounterparties() {
@@ -123,6 +131,42 @@ public class CounterpartyService {
         counterparty.setNotes(dto.notes());
 
         counterparty = counterpartiesRepository.save(counterparty);
+        return counterpartyMapper.toDTO(counterparty);
+    }
+
+    /**
+     * Explicitly sets/replaces the IBAN this counterparty is trusted to be
+     * paid at for SEPA payments -- a deliberate, separate action from the
+     * general update endpoint, used after confirming a supplier's IBAN
+     * change out of band. From then on, {@code SepaPaymentService} rejects
+     * any invoice whose supplier IBAN doesn't match this one. Logs the old
+     * and new IBAN (masked) so a change here is forensically traceable,
+     * unlike the generic audit aspect which only records the method name.
+     */
+    @Transactional
+    public CounterpartyDTO confirmVerifiedIban(Long id, VerifyCounterpartyIbanRequest request) {
+        Counterparty counterparty = findCounterpartyInScope(id)
+                .orElseThrow(() -> new CounterpartyNotFoundException(COUNTERPARTY_ID_PREFIX + id + NOT_FOUND_SUFFIX));
+
+        String normalizedIban = request.iban().replace(" ", "").toUpperCase(Locale.ROOT);
+        if (!IbanValidator.isValid(normalizedIban)) {
+            throw new IllegalArgumentException("IBAN non valido");
+        }
+        String normalizedBic = request.bic() != null
+                ? request.bic().replace(" ", "").toUpperCase(Locale.ROOT)
+                : null;
+
+        String previousIban = counterparty.getVerifiedIban();
+        counterparty.setVerifiedIban(normalizedIban);
+        counterparty.setVerifiedBic(normalizedBic == null || normalizedBic.isBlank() ? null : normalizedBic);
+        counterparty = counterpartiesRepository.save(counterparty);
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String action = previousIban == null ? "set" : "changed";
+        String details = "Verified IBAN for counterparty " + id + " " + action
+                + " (" + IbanValidator.mask(previousIban) + " -> " + IbanValidator.mask(normalizedIban) + ")";
+        auditLogService.save("VERIFIED_IBAN_CONFIRMED", "Counterparty", id, username, TenantContext.get(), details);
+
         return counterpartyMapper.toDTO(counterparty);
     }
 

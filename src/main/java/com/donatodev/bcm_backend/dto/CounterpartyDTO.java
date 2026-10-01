@@ -26,6 +26,11 @@ import jakarta.validation.constraints.NotNull;
  * @param contactEmail email of the primary contact person, optional
  * @param contactPhone phone of the primary contact person, optional
  * @param notes        free-text notes, optional
+ * @param verifiedIban IBAN this counterparty is trusted to be paid at for SEPA
+ *                     payments, read-only here -- only
+ *                     {@code PATCH /counterparties/{id}/verified-iban} can set
+ *                     it, never the general create/update endpoints
+ * @param verifiedBic  BIC paired with {@code verifiedIban}, same read-only rule
  */
 public record CounterpartyDTO(
         Long id,
@@ -37,5 +42,7 @@ public record CounterpartyDTO(
         String contactName,
         @Email(message = "Email non valida") String contactEmail,
         String contactPhone,
-        String notes
+        String notes,
+        String verifiedIban,
+        String verifiedBic
 ) {}

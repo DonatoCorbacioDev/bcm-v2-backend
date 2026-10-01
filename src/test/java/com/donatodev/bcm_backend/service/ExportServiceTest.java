@@ -68,7 +68,7 @@ class ExportServiceTest {
         contracts.add(new ContractDTO(
                 1L, // id
                 1L, // counterpartyId
-                new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "ACME Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), // counterparty
+                new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "ACME Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), // counterparty
                 "CNT-2025-001", // contractNumber
                 "WBS-001", // wbsCode
                 "Project Alpha", // projectName
@@ -83,7 +83,7 @@ class ExportServiceTest {
                 null // daysUntilExpiry
         ));
 
-        contracts.add(new ContractDTO(2L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "TechStart Inc", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null),
+        contracts.add(new ContractDTO(2L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "TechStart Inc", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
                 "CNT-2025-002",
                 "WBS-002",
                 "Project Beta",
@@ -105,7 +105,7 @@ class ExportServiceTest {
      * Creates a contract with null manager and area for edge case testing.
      */
     private ContractDTO createContractWithNulls() {
-        return new ContractDTO(3L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Beta Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null),
+        return new ContractDTO(3L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Beta Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
                 "CNT-2025-003",
                 "WBS-003",
                 "Project Gamma",
@@ -127,7 +127,7 @@ class ExportServiceTest {
      * not-null, so no equivalent helper is needed there).
      */
     private ContractDTO createContractWithNullEndDate() {
-        return new ContractDTO(4L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Gamma Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null),
+        return new ContractDTO(4L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Gamma Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
                 "CNT-2025-004",
                 "WBS-004",
                 "Project Delta",
@@ -274,7 +274,7 @@ class ExportServiceTest {
                 largeList.add(new ContractDTO(
                         (long) i,
                         (long) i,
-                        new com.donatodev.bcm_backend.dto.CounterpartyDTO((long) i, "Customer" + i, com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null),
+                        new com.donatodev.bcm_backend.dto.CounterpartyDTO((long) i, "Customer" + i, com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
                         "CNT-2025-" + String.format("%03d", i),
                         "WBS-" + i,
                         "Project" + i,
@@ -433,7 +433,7 @@ class ExportServiceTest {
                 largeList.add(new ContractDTO(
                         (long) i,
                         (long) i,
-                        new com.donatodev.bcm_backend.dto.CounterpartyDTO((long) i, "Customer" + i, com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null),
+                        new com.donatodev.bcm_backend.dto.CounterpartyDTO((long) i, "Customer" + i, com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
                         "CNT-2025-" + String.format("%03d", i),
                         "WBS-" + i,
                         "Project" + i,

@@ -28,10 +28,15 @@ public class CounterpartyMapper {
                 counterparty.getContactName(),
                 counterparty.getContactEmail(),
                 counterparty.getContactPhone(),
-                counterparty.getNotes()
+                counterparty.getNotes(),
+                counterparty.getVerifiedIban(),
+                counterparty.getVerifiedBic()
         );
     }
 
+    // Deliberately ignores dto.verifiedIban()/verifiedBic(): those fields are
+    // read-only through the general create/update flow. They can only be set
+    // via CounterpartyService#confirmVerifiedIban, a separate, explicit action.
     public Counterparty toEntity(CounterpartyDTO dto) {
         return Counterparty.builder()
                 .id(dto.id())

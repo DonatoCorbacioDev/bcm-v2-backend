@@ -17,6 +17,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -24,6 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.donatodev.bcm_backend.dto.CounterpartyDTO;
+import com.donatodev.bcm_backend.dto.VerifyCounterpartyIbanRequest;
 import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
@@ -75,7 +77,7 @@ class CounterpartyControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldCreateCounterparty() throws Exception {
             CounterpartyDTO dto = new CounterpartyDTO(null, "Logistics Srl", CounterpartyType.SUPPLIER,
-                    "IT00000000001", null, "Via Milano 1", "Anna Bianchi", "anna@logistics.it", "+39000000", null);
+                    "IT00000000001", null, "Via Milano 1", "Anna Bianchi", "anna@logistics.it", "+39000000", null, null, null);
 
             mockMvc.perform(post("/counterparties")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -90,7 +92,7 @@ class CounterpartyControllerTest {
         @DisplayName("Creating a counterparty without a name is rejected")
         @WithMockUser(roles = "ADMIN")
         void shouldRejectCounterpartyWithoutName() throws Exception {
-            CounterpartyDTO dto = new CounterpartyDTO(null, "", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null);
+            CounterpartyDTO dto = new CounterpartyDTO(null, "", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
 
             mockMvc.perform(post("/counterparties")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -139,7 +141,7 @@ class CounterpartyControllerTest {
                     .name("OldName").type(CounterpartyType.CUSTOMER).build());
 
             CounterpartyDTO updatedDTO = new CounterpartyDTO(original.getId(), "NewName", CounterpartyType.SUPPLIER,
-                    null, null, null, null, null, null, "Updated notes");
+                    null, null, null, null, null, null, "Updated notes", null, null);
 
             mockMvc.perform(put("/counterparties/{id}", original.getId())
                     .contentType(MediaType.APPLICATION_JSON)
@@ -185,7 +187,7 @@ class CounterpartyControllerTest {
         @DisplayName("MANAGER cannot create counterparties (POST forbidden)")
         @WithMockUser(roles = "MANAGER")
         void shouldReturnForbiddenForManagerOnPost() throws Exception {
-            CounterpartyDTO dto = new CounterpartyDTO(null, "NewCounterparty", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null);
+            CounterpartyDTO dto = new CounterpartyDTO(null, "NewCounterparty", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
             mockMvc.perform(post("/counterparties")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(dto)))
@@ -229,6 +231,55 @@ class CounterpartyControllerTest {
 
             mockMvc.perform(get("/counterparties/{id}/invoicing-summary", saved.getId()))
                     .andExpect(status().isOk());
+        }
+
+        @Test
+        @Order(13)
+        @DisplayName("ADMIN can confirm a counterparty's verified IBAN")
+        @WithMockUser(roles = "ADMIN")
+        void shouldConfirmVerifiedIban() throws Exception {
+            Counterparty saved = repository.save(Counterparty.builder()
+                    .name("Zeta Srl").type(CounterpartyType.SUPPLIER).build());
+            VerifyCounterpartyIbanRequest request =
+                    new VerifyCounterpartyIbanRequest("IT60X0542811101000000123456", "COBADEFFXXX");
+
+            mockMvc.perform(patch("/counterparties/{id}/verified-iban", saved.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.verifiedIban").value("IT60X0542811101000000123456"))
+                    .andExpect(jsonPath("$.verifiedBic").value("COBADEFFXXX"));
+        }
+
+        @Test
+        @Order(14)
+        @DisplayName("Confirming an invalid IBAN is rejected")
+        @WithMockUser(roles = "ADMIN")
+        void shouldRejectInvalidVerifiedIban() throws Exception {
+            Counterparty saved = repository.save(Counterparty.builder()
+                    .name("Eta Srl").type(CounterpartyType.SUPPLIER).build());
+            VerifyCounterpartyIbanRequest request = new VerifyCounterpartyIbanRequest("NOTANIBAN", null);
+
+            mockMvc.perform(patch("/counterparties/{id}/verified-iban", saved.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @Order(15)
+        @DisplayName("MANAGER cannot confirm a verified IBAN (PATCH forbidden)")
+        @WithMockUser(roles = "MANAGER")
+        void shouldReturnForbiddenForManagerOnVerifiedIban() throws Exception {
+            Counterparty saved = repository.save(Counterparty.builder()
+                    .name("Theta Srl").type(CounterpartyType.SUPPLIER).build());
+            VerifyCounterpartyIbanRequest request =
+                    new VerifyCounterpartyIbanRequest("IT60X0542811101000000123456", null);
+
+            mockMvc.perform(patch("/counterparties/{id}/verified-iban", saved.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isForbidden());
         }
     }
 }

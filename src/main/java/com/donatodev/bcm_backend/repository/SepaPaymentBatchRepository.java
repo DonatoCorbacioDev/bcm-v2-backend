@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,4 +20,11 @@ public interface SepaPaymentBatchRepository extends JpaRepository<SepaPaymentBat
     List<SepaPaymentBatch> findByContractIdOrderByCreatedAtDesc(Long contractId);
 
     Optional<SepaPaymentBatch> findByIdAndContractId(Long id, Long contractId);
+
+    /**
+     * Batches older than the retention cutoff, backing
+     * {@code SepaPaymentRetentionService}. Returned as entities (not a bulk
+     * delete) because each one's file on disk must be removed too.
+     */
+    List<SepaPaymentBatch> findByCreatedAtBefore(Instant cutoff);
 }

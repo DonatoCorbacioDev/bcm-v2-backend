@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.donatodev.bcm_backend.dto.CounterpartyDTO;
 import com.donatodev.bcm_backend.dto.CounterpartyInvoicingSummaryDTO;
+import com.donatodev.bcm_backend.dto.VerifyCounterpartyIbanRequest;
 import com.donatodev.bcm_backend.service.CounterpartyService;
 
 import jakarta.validation.Valid;
@@ -63,6 +64,20 @@ public class CounterpartyController {
     @PutMapping("/{id}")
     public ResponseEntity<CounterpartyDTO> updateCounterparty(@PathVariable Long id, @Valid @RequestBody CounterpartyDTO dto) {
         return ResponseEntity.ok(counterpartyService.updateCounterparty(id, dto));
+    }
+
+    /**
+     * Explicitly confirms/replaces the IBAN this counterparty is trusted to
+     * be paid at. ADMIN-only and separate from the general update endpoint
+     * on purpose: it's the action that re-opens SEPA payments for this
+     * counterparty after a legitimate IBAN change, so it should never happen
+     * as a side effect of an unrelated edit.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/{id}/verified-iban")
+    public ResponseEntity<CounterpartyDTO> confirmVerifiedIban(@PathVariable Long id,
+                                                                @Valid @RequestBody VerifyCounterpartyIbanRequest request) {
+        return ResponseEntity.ok(counterpartyService.confirmVerifiedIban(id, request));
     }
 
     @PreAuthorize("hasRole('ADMIN')")

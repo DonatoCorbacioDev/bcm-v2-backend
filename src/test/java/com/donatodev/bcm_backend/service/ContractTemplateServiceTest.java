@@ -235,7 +235,7 @@ class ContractTemplateServiceTest {
                     LocalDate.of(2026, Month.JANUARY, 1), null,
                     null, null, null);
 
-            ContractDTO created = new ContractDTO(42L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CTR-001", null, null,
+            ContractDTO created = new ContractDTO(42L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "CTR-001", null, null,
                     ContractStatus.DRAFT, LocalDate.of(2026, Month.JANUARY, 1), LocalDate.of(2027, Month.JANUARY, 1),
                     3L, null, null, null, null, null);
 
@@ -268,7 +268,7 @@ class ContractTemplateServiceTest {
             when(contractService.createContract(any(ContractDTO.class))).thenAnswer(inv -> {
                 ContractDTO arg = inv.getArgument(0);
                 assertEquals(LocalDate.of(2027, Month.JANUARY, 1), arg.endDate());
-                return new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CTR-002", null, null,
+                return new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "CTR-002", null, null,
                         ContractStatus.DRAFT, arg.startDate(), arg.endDate(),
                         3L, null, null, null, null, null);
             });
@@ -296,7 +296,7 @@ class ContractTemplateServiceTest {
             when(contractService.createContract(any(ContractDTO.class))).thenAnswer(inv -> {
                 ContractDTO arg = inv.getArgument(0);
                 assertEquals(explicitEnd, arg.endDate());
-                return new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CTR-003", null, null,
+                return new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "CTR-003", null, null,
                         ContractStatus.DRAFT, arg.startDate(), arg.endDate(),
                         3L, null, null, null, null, null);
             });
@@ -340,7 +340,7 @@ class ContractTemplateServiceTest {
             when(contractService.createContract(any(ContractDTO.class))).thenAnswer(inv -> {
                 ContractDTO arg = inv.getArgument(0);
                 assertEquals(7L, arg.areaId());
-                return new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CTR-005", null, null,
+                return new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "CTR-005", null, null,
                         ContractStatus.DRAFT, arg.startDate(), null, 7L, null, null, null, null, null);
             });
 
@@ -393,7 +393,7 @@ class ContractTemplateServiceTest {
             when(contractService.createContract(any(ContractDTO.class))).thenAnswer(inv -> {
                 ContractDTO arg = inv.getArgument(0);
                 assertEquals(ContractStatus.ACTIVE, arg.status());
-                return new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null), "CTR-006", null, null,
+                return new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Acme", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "CTR-006", null, null,
                         ContractStatus.ACTIVE, arg.startDate(), null, 3L, null, null, null, null, null);
             });
 

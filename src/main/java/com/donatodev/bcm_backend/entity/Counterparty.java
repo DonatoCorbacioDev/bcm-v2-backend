@@ -70,4 +70,15 @@ public class Counterparty {
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "organization_id")
     private Organization organization;
+
+    // The IBAN/BIC this counterparty is known/trusted to be paid at, distinct
+    // from whatever IBAN shows up on the latest electronic invoice. Null until
+    // the first SEPA batch is generated for this counterparty (auto-learned)
+    // or an admin confirms a legitimate change via a dedicated endpoint -- see
+    // SepaPaymentService and CounterpartyService#confirmVerifiedIban.
+    @Column(name = "verified_iban", length = 34)
+    private String verifiedIban;
+
+    @Column(name = "verified_bic", length = 11)
+    private String verifiedBic;
 }

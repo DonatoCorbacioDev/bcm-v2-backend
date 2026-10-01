@@ -164,6 +164,15 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    /**
+     * Handles cases where an invoice's supplier IBAN doesn't match the one
+     * already verified for that counterparty.
+     */
+    @ExceptionHandler(IbanMismatchException.class)
+    public ResponseEntity<ApiErrorResponse> handleIbanMismatch(IbanMismatchException ex) {
+        return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
         return buildErrorResponse(HttpStatus.CONFLICT, "Conflitto: esiste già un record con lo stesso valore univoco");

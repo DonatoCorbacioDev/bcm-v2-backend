@@ -43,4 +43,20 @@ public final class IbanValidator {
 
         return new BigInteger(numeric.toString()).mod(NINETY_SEVEN).intValue() == 1;
     }
+
+    /**
+     * Partially masks an IBAN for audit-log/log messages: country code plus
+     * the last 4 characters, e.g. {@code "IT...3456"}. Never logs a full IBAN
+     * in plaintext while still letting someone recognize which account changed.
+     */
+    public static String mask(String iban) {
+        if (iban == null || iban.isBlank()) {
+            return "none";
+        }
+        String normalized = iban.replace(" ", "");
+        if (normalized.length() <= 6) {
+            return "***";
+        }
+        return normalized.substring(0, 2) + "..." + normalized.substring(normalized.length() - 4);
+    }
 }

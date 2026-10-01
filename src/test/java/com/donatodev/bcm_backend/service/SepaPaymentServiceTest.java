@@ -3,6 +3,7 @@ package com.donatodev.bcm_backend.service;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -37,6 +38,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -44,10 +48,14 @@ import org.w3c.dom.NodeList;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.SepaPaymentBatchDTO;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.SepaPaymentBatch;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
+import com.donatodev.bcm_backend.exception.IbanMismatchException;
+import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.SepaPaymentBatchRepository;
@@ -63,6 +71,8 @@ class SepaPaymentServiceTest {
     @Mock private OrganizationRepository organizationRepository;
     @Mock private SepaPaymentBatchRepository batchRepository;
     @Mock private LocalStorageService localStorageService;
+    @Mock private CounterpartiesRepository counterpartiesRepository;
+    @Mock private AuditLogService auditLogService;
 
     @InjectMocks
     private SepaPaymentService sepaPaymentService;
@@ -70,11 +80,15 @@ class SepaPaymentServiceTest {
     @BeforeEach
     void setup() {
         TenantContext.set(ORG_ID);
+        SecurityContext ctx = SecurityContextHolder.createEmptyContext();
+        ctx.setAuthentication(new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList()));
+        SecurityContextHolder.setContext(ctx);
     }
 
     @AfterEach
     void tearDown() {
         TenantContext.clear();
+        SecurityContextHolder.clearContext();
     }
 
     private Contracts fakeContract() {
@@ -576,6 +590,81 @@ class SepaPaymentServiceTest {
                 assertThrows(java.io.UncheckedIOException.class,
                         () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("createSepaPayment: verified IBAN guard")
+    class VerifiedIbanGuard {
+
+        private Contracts fakeContractWithCounterparty(Counterparty counterparty) {
+            Contracts c = fakeContract();
+            c.setCounterparty(counterparty);
+            return c;
+        }
+
+        @Test
+        @DisplayName("learns the IBAN on the first payment for a counterparty and logs it")
+        void shouldLearnIbanOnFirstPayment() {
+            Counterparty counterparty = Counterparty.builder().id(7L).name("Fornitore Srl").type(CounterpartyType.SUPPLIER).build();
+            Contracts contract = fakeContractWithCounterparty(counterparty);
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L))).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(counterpartiesRepository.save(any(Counterparty.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(10L), null);
+
+            assertEquals("IT60X0542811101000000123456", counterparty.getVerifiedIban());
+            verify(counterpartiesRepository).save(counterparty);
+            verify(auditLogService).save(eq("VERIFIED_IBAN_LEARNED"), eq("Counterparty"), eq(7L), eq("admin"), any(), any());
+        }
+
+        @Test
+        @DisplayName("allows the payment when the invoice IBAN matches the verified one")
+        void shouldAllowPaymentWhenIbanMatches() {
+            Counterparty counterparty = Counterparty.builder().id(7L).name("Fornitore Srl").type(CounterpartyType.SUPPLIER)
+                    .verifiedIban("IT60X0542811101000000123456").build();
+            Contracts contract = fakeContractWithCounterparty(counterparty);
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L))).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(10L), null);
+
+            verify(counterpartiesRepository, never()).save(any());
+            verify(auditLogService, never()).save(any(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("blocks the payment and logs it when the invoice IBAN differs from the verified one")
+        void shouldBlockPaymentOnIbanMismatch() {
+            Counterparty counterparty = Counterparty.builder().id(7L).name("Fornitore Srl").type(CounterpartyType.SUPPLIER)
+                    .verifiedIban("DE89370400440532013000").build();
+            Contracts contract = fakeContractWithCounterparty(counterparty);
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L))).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+
+            assertThrows(IbanMismatchException.class,
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(10L), null));
+
+            verify(batchRepository, never()).save(any());
+            verify(counterpartiesRepository, never()).save(any());
+            verify(auditLogService).save(eq("SEPA_IBAN_MISMATCH_BLOCKED"), eq("Counterparty"), eq(7L), eq("admin"), any(), any());
         }
     }
 
