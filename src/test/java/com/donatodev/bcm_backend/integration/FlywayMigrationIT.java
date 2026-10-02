@@ -20,7 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import com.donatodev.bcm_backend.support.AbstractMySQLIntegrationTest;
 
 /**
- * Proves the full migration history (V1-V42) applies cleanly to real MySQL
+ * Proves the full migration history (V1-V44) applies cleanly to real MySQL
  * 8.0 and that every JPA entity mapping validates against the resulting
  * schema ({@code ddl-auto=validate} in the base class) — something the H2
  * "MySQL mode" used by the fast unit suite cannot guarantee, since H2 is not
@@ -50,21 +50,21 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
     }
 
     @Test
-    @DisplayName("flyway_schema_history: all 42 migrations recorded as successful, none pending")
+    @DisplayName("flyway_schema_history: all 44 migrations recorded as successful, none pending")
     void allMigrationsAppliedSuccessfully() {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
 
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 42,
-                "Expected at least 42 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 44,
+                "Expected at least 44 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(42, maxVersion, "Highest applied migration version should be V42");
+        assertEquals(44, maxVersion, "Highest applied migration version should be V44");
     }
 
     @Test
