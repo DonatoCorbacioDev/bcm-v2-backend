@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -90,7 +89,6 @@ class OcrServiceTest {
 
     @Test
     @DisplayName("extractText: returns empty string when Tesseract exceeds the configured timeout")
-    @DisabledOnOs(OS.WINDOWS) // needs a real slow-running executable; POSIX-only shell script below
     void shouldReturnEmptyWhenTimeoutExceeded() throws IOException {
         ReflectionTestUtils.setField(ocrService, "tesseractCommand", slowShellScript(3).toString());
         ReflectionTestUtils.setField(ocrService, "timeoutSeconds", 1L);
@@ -102,18 +100,21 @@ class OcrServiceTest {
 
     @Test
     @DisplayName("extractText: returns empty string when interrupted while waiting for Tesseract")
-    @DisabledOnOs(OS.WINDOWS) // needs a real slow-running executable; POSIX-only shell script below
     void shouldReturnEmptyWhenInterruptedWhileWaiting() throws Exception {
-        ReflectionTestUtils.setField(ocrService, "tesseractCommand", slowShellScript(5).toString());
+        Path startedMarker = Files.createTempFile("slow-ocr-marker-", ".flag");
+        Files.delete(startedMarker); // script re-creates it; absence means "not started yet"
+        ReflectionTestUtils.setField(ocrService, "tesseractCommand", slowShellScript(5, startedMarker).toString());
         ReflectionTestUtils.setField(ocrService, "timeoutSeconds", 30L);
 
         AtomicReference<String> result = new AtomicReference<>();
         Thread worker = new Thread(() -> result.set(ocrService.extractText(textImage("irrelevant"))));
         worker.start();
-        // Wait until the worker is actually blocked in Process.waitFor before
-        // interrupting it, instead of a fixed sleep guessing how long that takes.
-        await().atMost(Duration.ofSeconds(5))
-                .until(() -> worker.getState() == Thread.State.TIMED_WAITING);
+        // Wait until the slow script itself signals it has started, instead of
+        // guessing with a fixed sleep or inspecting Thread.getState() -- the
+        // Java thread state exposed while blocked in Process.waitFor(timeout)
+        // isn't portable (it reports TIMED_WAITING on Linux but not on
+        // Windows, where the native wait doesn't go through Object.wait()).
+        await().atMost(Duration.ofSeconds(5)).until(() -> Files.exists(startedMarker));
         worker.interrupt();
         worker.join(5000);
 
@@ -166,8 +167,31 @@ class OcrServiceTest {
     }
 
     private static Path slowShellScript(int sleepSeconds) throws IOException {
+        return slowShellScript(sleepSeconds, null);
+    }
+
+    // Stands in for the real Tesseract binary in the timeout/interrupt tests:
+    // a script that just sleeps long enough for the test to observe
+    // Process.waitFor() still blocked. Windows has no `sleep`, and `timeout`
+    // refuses to run with redirected (non-console) stdin -- `ping` against
+    // loopback is the standard portable substitute (~1s per reply, never
+    // touches the network). When startedMarker is given, the script creates
+    // that file as its very first action, so a test can detect "the process
+    // is definitely running now" without relying on JVM thread-state
+    // introspection (see shouldReturnEmptyWhenInterruptedWhileWaiting).
+    private static Path slowShellScript(int sleepSeconds, Path startedMarker) throws IOException {
+        if (OS.WINDOWS.isCurrentOs()) {
+            String markerLine = startedMarker == null ? "" : "echo started>\"" + startedMarker + "\"\r\n";
+            Path script = Files.createTempFile("slow-ocr-", ".bat");
+            Files.writeString(script,
+                    "@echo off\r\n" + markerLine + "ping -n " + (sleepSeconds + 1) + " 127.0.0.1 >NUL\r\n",
+                    StandardCharsets.UTF_8);
+            script.toFile().deleteOnExit();
+            return script;
+        }
+        String markerLine = startedMarker == null ? "" : "touch '" + startedMarker + "'\n";
         Path script = Files.createTempFile("slow-ocr-", ".sh");
-        Files.writeString(script, "#!/bin/sh\nsleep " + sleepSeconds + "\n", StandardCharsets.UTF_8);
+        Files.writeString(script, "#!/bin/sh\n" + markerLine + "sleep " + sleepSeconds + "\n", StandardCharsets.UTF_8);
         script.toFile().setExecutable(true);
         script.toFile().deleteOnExit();
         return script;
