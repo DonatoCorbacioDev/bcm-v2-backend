@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.util;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -48,5 +49,35 @@ class IbanValidatorTest {
     @DisplayName("isValid: rejects null")
     void shouldRejectNull(String iban) {
         assertFalse(IbanValidator.isValid(iban));
+    }
+
+    @Test
+    @DisplayName("mask: returns 'none' for null")
+    void shouldMaskNullAsNone() {
+        assertEquals("none", IbanValidator.mask(null));
+    }
+
+    @Test
+    @DisplayName("mask: returns 'none' for a blank string")
+    void shouldMaskBlankAsNone() {
+        assertEquals("none", IbanValidator.mask("   "));
+    }
+
+    @Test
+    @DisplayName("mask: returns '***' for a string too short to partially reveal")
+    void shouldMaskShortStringAsAsterisks() {
+        assertEquals("***", IbanValidator.mask("IT60"));
+    }
+
+    @Test
+    @DisplayName("mask: reveals only the country code and last 4 characters of a real IBAN")
+    void shouldMaskRealIban() {
+        assertEquals("IT...3456", IbanValidator.mask("IT60X0542811101000000123456"));
+    }
+
+    @Test
+    @DisplayName("mask: strips spaces before masking")
+    void shouldStripSpacesBeforeMasking() {
+        assertEquals("IT...3456", IbanValidator.mask("IT60 X054 2811 1010 0000 0123 456"));
     }
 }

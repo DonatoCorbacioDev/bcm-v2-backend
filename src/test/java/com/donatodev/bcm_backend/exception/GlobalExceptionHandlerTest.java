@@ -9,6 +9,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -16,6 +18,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.donatodev.bcm_backend.security.SecurityConfig;
 
@@ -151,6 +154,38 @@ class GlobalExceptionHandlerTest {
         void shouldReturn403WhenInsufficientRole() throws Exception {
             mockMvc.perform(delete("/users/1"))
                     .andExpect(status().isForbidden());
+        }
+    }
+
+    // Exercised by calling the @ControllerAdvice methods directly rather than
+    // through a full HTTP flow: GlobalExceptionHandler is stateless, and
+    // reaching these two specific exceptions via real endpoints would mean
+    // standing up a full duplicate-invoice-upload or SEPA-IBAN-mismatch
+    // scenario just to cover a one-line mapping to 409.
+    @Nested
+    @DisplayName("409 Conflict handlers")
+    class ConflictHandlers {
+
+        private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+
+        @Test
+        @DisplayName("Should return 409 for a duplicate invoice")
+        void shouldReturn409ForDuplicateInvoice() {
+            ResponseEntity<ApiErrorResponse> response =
+                    handler.handleDuplicateInvoice(new DuplicateInvoiceException("already uploaded"));
+
+            assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+            assertEquals("already uploaded", response.getBody().message());
+        }
+
+        @Test
+        @DisplayName("Should return 409 for an IBAN mismatch")
+        void shouldReturn409ForIbanMismatch() {
+            ResponseEntity<ApiErrorResponse> response =
+                    handler.handleIbanMismatch(new IbanMismatchException("IBAN non verificato"));
+
+            assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+            assertEquals("IBAN non verificato", response.getBody().message());
         }
     }
 }

@@ -478,6 +478,21 @@ class CounterpartyServiceTest {
 
         @Test
         @Order(3)
+        @DisplayName("A blank (non-null) BIC is stored as null, same as no BIC at all")
+        void shouldStoreBlankBicAsNull() {
+            Counterparty counterparty = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
+            when(repository.findById(1L)).thenReturn(Optional.of(counterparty));
+            when(repository.save(any(Counterparty.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(mapper.toDTO(any(Counterparty.class))).thenReturn(
+                    new CounterpartyDTO(1L, "Alfa Srl", CounterpartyType.SUPPLIER, null, null, null, null, null, null, null, VALID_IBAN, null));
+
+            service.confirmVerifiedIban(1L, new VerifyCounterpartyIbanRequest(VALID_IBAN, "   "));
+
+            assertNull(counterparty.getVerifiedBic());
+        }
+
+        @Test
+        @Order(4)
         @DisplayName("Normalizes a lowercase IBAN with spaces before validating and saving")
         void shouldNormalizeIbanBeforeSaving() {
             Counterparty counterparty = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
@@ -492,27 +507,29 @@ class CounterpartyServiceTest {
         }
 
         @Test
-        @Order(4)
+        @Order(5)
         @DisplayName("Rejects a structurally invalid IBAN and doesn't save or log anything")
         void shouldRejectInvalidIban() {
             Counterparty counterparty = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
             when(repository.findById(1L)).thenReturn(Optional.of(counterparty));
+            VerifyCounterpartyIbanRequest request = new VerifyCounterpartyIbanRequest("NOTANIBAN", null);
 
             assertThrows(IllegalArgumentException.class,
-                    () -> service.confirmVerifiedIban(1L, new VerifyCounterpartyIbanRequest("NOTANIBAN", null)));
+                    () -> service.confirmVerifiedIban(1L, request));
 
             verify(repository, never()).save(any());
             verify(auditLogService, never()).save(any(), any(), any(), any(), any(), any());
         }
 
         @Test
-        @Order(5)
+        @Order(6)
         @DisplayName("Throws when the counterparty doesn't exist")
         void shouldThrowWhenCounterpartyNotFound() {
             when(repository.findById(999L)).thenReturn(Optional.empty());
+            VerifyCounterpartyIbanRequest request = new VerifyCounterpartyIbanRequest(VALID_IBAN, null);
 
             assertThrows(CounterpartyNotFoundException.class,
-                    () -> service.confirmVerifiedIban(999L, new VerifyCounterpartyIbanRequest(VALID_IBAN, null)));
+                    () -> service.confirmVerifiedIban(999L, request));
             verify(auditLogService, never()).save(any(), any(), any(), any(), any(), any());
         }
     }

@@ -601,6 +601,29 @@ class ElectronicInvoiceServiceTest {
             verify(invoiceRepository, times(1)).save(any(ElectronicInvoice.class));
         }
 
+        @Test
+        @Order(27)
+        @DisplayName("uploadInvoice: a match-suggestion failure with a null message is also swallowed")
+        void shouldDegradeGracefullyWhenMatchSuggestionFailsWithNullMessage() throws IOException {
+            Contracts contract = fakeContract();
+            ElectronicInvoice saved = fakeInvoice(contract, sampleLineItems());
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(fatturaPaXmlParserService.parse(any())).thenReturn(sampleParsedData());
+            when(localStorageService.storeInvoice(any(), eq(CONTRACT_ID), any()))
+                    .thenReturn("invoices/0/1/uuid-invoice.xml");
+            when(invoiceRepository.save(any(ElectronicInvoice.class))).thenReturn(saved);
+            doThrow(new RuntimeException()).when(invoiceMatchingService).computeSuggestion(any());
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file", "invoice.xml", "application/xml", VALID_XML);
+
+            ElectronicInvoiceDTO result = electronicInvoiceService.uploadInvoice(CONTRACT_ID, file);
+
+            assertNotNull(result);
+            assertEquals(INVOICE_ID, result.id());
+        }
+
         // ---- confirmMatch ----
 
         @Test

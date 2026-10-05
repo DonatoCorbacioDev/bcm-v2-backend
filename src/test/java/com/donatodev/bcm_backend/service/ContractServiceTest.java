@@ -599,6 +599,33 @@ class ContractServiceTest {
             assertEquals("CNTR-FAIL", result.contractNumber());
         }
 
+        @Test
+        @Order(207)
+        @DisplayName("Update contract swallows a generation failure with a null exception message")
+        void shouldSwallowGenerationFailureWithNullMessageOnUpdate() {
+            Contracts existing = Contracts.builder()
+                    .id(1L)
+                    .counterparty(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build())
+                    .contractNumber("CNTR-FAIL-NULL")
+                    .status(ContractStatus.ACTIVE)
+                    .startDate(LocalDate.of(2027, Month.JUNE, 15))
+                    .endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
+                    .build();
+            ContractDTO updateDTO = new ContractDTO(1L, 1L, null, "CNTR-FAIL-NULL", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
+                    LocalDate.of(2027, Month.JUNE, 15).plusDays(20), null, null, null, null, null, null);
+
+            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.save(existing)).thenReturn(existing);
+            when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
+            when(contractFinancialGenerationService.hasFinancialTerms(existing)).thenReturn(true);
+            when(contractFinancialGenerationService.generate(existing)).thenThrow(new RuntimeException());
+
+            ContractDTO result = assertDoesNotThrow(() -> contractService.updateContract(1L, updateDTO));
+
+            assertEquals("CNTR-FAIL-NULL", result.contractNumber());
+        }
+
         /**
          * Tests that a direct status change is rejected while the contract is
          * under approval-workflow review Ã¢â‚¬â€ it must go through approve/reject
