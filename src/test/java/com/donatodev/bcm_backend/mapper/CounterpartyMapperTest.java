@@ -52,8 +52,26 @@ class CounterpartyMapperTest {
             assertEquals("mario@alfa.it", dto.contactEmail());
             assertEquals("+39123456", dto.contactPhone());
             assertEquals("VIP client", dto.notes());
-            assertEquals("IT60X0542811101000000123456", dto.verifiedIban());
-            assertEquals("COBADEFFXXX", dto.verifiedBic());
+            assertEquals("IT...3456", dto.verifiedIban());
+            assertEquals("CO...FXXX", dto.verifiedBic());
+        }
+
+        @Test
+        @DisplayName("maps a null verifiedIban/verifiedBic as null, not a masked placeholder")
+        void shouldMapNullVerifiedIbanAsNull() {
+            Counterparty counterparty = Counterparty.builder()
+                    .id(3L).name("Gamma Srl").type(CounterpartyType.SUPPLIER).build();
+
+            CounterpartyDTO dto = counterpartyMapper.toDTO(counterparty);
+
+            assertNull(dto.verifiedIban());
+            assertNull(dto.verifiedBic());
+        }
+
+        @Test
+        @DisplayName("returns null for a null counterparty (contract with no counterparty attached)")
+        void shouldReturnNullForNullCounterparty() {
+            assertNull(counterpartyMapper.toDTO(null));
         }
 
         @Test

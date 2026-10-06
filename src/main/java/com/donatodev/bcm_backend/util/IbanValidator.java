@@ -59,4 +59,15 @@ public final class IbanValidator {
         }
         return normalized.substring(0, 2) + "..." + normalized.substring(normalized.length() - 4);
     }
+
+    /**
+     * Same masking as {@link #mask(String)}, but preserves {@code null}
+     * instead of turning it into the string {@code "none"}. Audit-log prose
+     * reads better with "none"; an API response field must not -- UI code
+     * (e.g. "IBAN mancante" badges) checks this field's presence, and a
+     * non-null placeholder string would read as "present" when it isn't.
+     */
+    public static String maskNullable(String iban) {
+        return iban == null ? null : mask(iban);
+    }
 }

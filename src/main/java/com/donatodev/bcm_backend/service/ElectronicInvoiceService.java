@@ -171,14 +171,17 @@ public class ElectronicInvoiceService {
             throw new IllegalArgumentException("La fattura è già inclusa in un pagamento SEPA e non può più essere modificata");
         }
 
-        String normalizedIban = request.supplierIban().replace(" ", "").toUpperCase(Locale.ROOT);
-        if (!IbanValidator.isValid(normalizedIban)) {
-            throw new IllegalArgumentException("IBAN non valido");
+        if (request.supplierIban() != null) {
+            String normalizedIban = request.supplierIban().replace(" ", "").toUpperCase(Locale.ROOT);
+            if (!normalizedIban.isEmpty() && !IbanValidator.isValid(normalizedIban)) {
+                throw new IllegalArgumentException("IBAN non valido");
+            }
+            invoice.setSupplierIban(normalizedIban.isEmpty() ? null : normalizedIban);
         }
-        invoice.setSupplierIban(normalizedIban);
-        invoice.setSupplierBic(request.supplierBic() != null
-                ? request.supplierBic().replace(" ", "").toUpperCase(Locale.ROOT)
-                : null);
+        if (request.supplierBic() != null) {
+            String normalizedBic = request.supplierBic().replace(" ", "").toUpperCase(Locale.ROOT);
+            invoice.setSupplierBic(normalizedBic.isEmpty() ? null : normalizedBic);
+        }
         invoice.setPaymentDueDate(request.paymentDueDate());
 
         return toDTO(invoiceRepository.save(invoice));
@@ -245,8 +248,8 @@ public class ElectronicInvoiceService {
                 invoice.getTotalAmount(),
                 invoice.getCurrency(),
                 toLineItemDTOs(invoice.getLineItems()),
-                invoice.getSupplierIban(),
-                invoice.getSupplierBic(),
+                IbanValidator.maskNullable(invoice.getSupplierIban()),
+                IbanValidator.maskNullable(invoice.getSupplierBic()),
                 invoice.getPaymentDueDate(),
                 invoice.getSepaBatch() != null ? invoice.getSepaBatch().getId() : null,
                 invoice.getMatchStatus(),

@@ -172,8 +172,8 @@ public class OrganizationService {
                 org.getName(),
                 org.getSlug(),
                 org.getSubscriptionTier(),
-                org.getIban(),
-                org.getBic(),
+                IbanValidator.maskNullable(org.getIban()),
+                IbanValidator.maskNullable(org.getBic()),
                 org.getCreatedAt());
     }
 }

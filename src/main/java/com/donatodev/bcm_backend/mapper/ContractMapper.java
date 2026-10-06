@@ -46,15 +46,18 @@ public class ContractMapper {
     private final ManagersRepository managersRepository;
     private final CounterpartiesRepository counterpartiesRepository;
     private final FinancialTypesRepository financialTypesRepository;
+    private final CounterpartyMapper counterpartyMapper;
 
     public ContractMapper(BusinessAreasRepository businessAreasRepository,
             ManagersRepository managersRepository,
             CounterpartiesRepository counterpartiesRepository,
-            FinancialTypesRepository financialTypesRepository) {
+            FinancialTypesRepository financialTypesRepository,
+            CounterpartyMapper counterpartyMapper) {
         this.businessAreasRepository = businessAreasRepository;
         this.managersRepository = managersRepository;
         this.counterpartiesRepository = counterpartiesRepository;
         this.financialTypesRepository = financialTypesRepository;
+        this.counterpartyMapper = counterpartyMapper;
     }
 
     /**
@@ -89,23 +92,9 @@ public class ContractMapper {
                 )
                 : null;
 
-        Counterparty counterparty = contract.getCounterparty();
-        CounterpartyDTO counterpartyDTO = counterparty != null
-                ? new CounterpartyDTO(
-                        counterparty.getId(),
-                        counterparty.getName(),
-                        counterparty.getType(),
-                        counterparty.getVatNumber(),
-                        counterparty.getTaxCode(),
-                        counterparty.getAddress(),
-                        counterparty.getContactName(),
-                        counterparty.getContactEmail(),
-                        counterparty.getContactPhone(),
-                        counterparty.getNotes(),
-                        counterparty.getVerifiedIban(),
-                        counterparty.getVerifiedBic()
-                )
-                : null;
+        // Delegates to CounterpartyMapper rather than duplicating the field
+        // list here, so verifiedIban/verifiedBic masking lives in one place.
+        CounterpartyDTO counterpartyDTO = counterpartyMapper.toDTO(contract.getCounterparty());
 
         // Calculate days until expiry (only for ACTIVE contracts)
         Integer daysUntilExpiry = null;
@@ -116,7 +105,7 @@ public class ContractMapper {
 
         return new ContractDTO(
                 contract.getId(),
-                counterparty != null ? counterparty.getId() : null,
+                counterpartyDTO != null ? counterpartyDTO.id() : null,
                 counterpartyDTO,
                 contract.getContractNumber(),
                 contract.getWbsCode(),

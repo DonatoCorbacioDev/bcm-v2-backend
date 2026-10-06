@@ -29,8 +29,10 @@ import jakarta.validation.constraints.NotNull;
  * @param verifiedIban IBAN this counterparty is trusted to be paid at for SEPA
  *                     payments, read-only here -- only
  *                     {@code PATCH /counterparties/{id}/verified-iban} can set
- *                     it, never the general create/update endpoints
- * @param verifiedBic  BIC paired with {@code verifiedIban}, same read-only rule
+ *                     it, never the general create/update endpoints. Masked
+ *                     ({@code "IT...3456"}) on read, never the full value.
+ * @param verifiedBic  BIC paired with {@code verifiedIban}, same read-only
+ *                     rule and masking
  */
 public record CounterpartyDTO(
         Long id,

@@ -9,6 +9,14 @@ import java.time.LocalDateTime;
 
 import com.donatodev.bcm_backend.entity.SubscriptionTier;
 
+/**
+ * @param iban masked ({@code "IT...3456"}) via {@code OrganizationService#toDTO}
+ *             -- never the full value. {@code UpdateOrganizationRequest.iban}
+ *             carries the real value on write; {@code null} there means
+ *             "leave unchanged", so this masked read-side value is never
+ *             round-tripped back as an edit.
+ * @param bic  same masking as {@code iban}
+ */
 public record OrganizationDTO(
         Long id,
         String name,

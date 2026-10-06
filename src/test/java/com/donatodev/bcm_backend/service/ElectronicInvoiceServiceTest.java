@@ -497,17 +497,21 @@ class ElectronicInvoiceServiceTest {
 
             ElectronicInvoiceDTO result = electronicInvoiceService.updatePaymentDetails(CONTRACT_ID, INVOICE_ID, request);
 
-            assertEquals("DE89370400440532013000", result.supplierIban());
-            assertEquals("COBADEFFXXX", result.supplierBic());
+            // The response is masked, but the stored entity keeps the real value.
+            assertEquals("DE...3000", result.supplierIban());
+            assertEquals("CO...FXXX", result.supplierBic());
             assertEquals(LocalDate.of(2024, Month.JUNE, 30), result.paymentDueDate());
+            assertEquals("DE89370400440532013000", invoice.getSupplierIban());
+            assertEquals("COBADEFFXXX", invoice.getSupplierBic());
         }
 
         @Test
         @Order(22)
-        @DisplayName("updatePaymentDetails: clears the BIC when the request omits it")
-        void shouldClearBicWhenOmitted() {
+        @DisplayName("updatePaymentDetails: omitting the BIC leaves the existing value unchanged")
+        void shouldLeaveBicUnchangedWhenOmitted() {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
+            invoice.setSupplierBic("COBADEFFXXX");
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
@@ -519,7 +523,52 @@ class ElectronicInvoiceServiceTest {
 
             ElectronicInvoiceDTO result = electronicInvoiceService.updatePaymentDetails(CONTRACT_ID, INVOICE_ID, request);
 
+            assertEquals("CO...FXXX", result.supplierBic());
+            assertEquals("COBADEFFXXX", invoice.getSupplierBic());
+        }
+
+        @Test
+        @Order(25)
+        @DisplayName("updatePaymentDetails: an empty-string BIC clears the stored value")
+        void shouldClearBicWithEmptyString() {
+            Contracts contract = fakeContract();
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
+            invoice.setSupplierBic("COBADEFFXXX");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(invoice));
+            when(invoiceRepository.save(any(ElectronicInvoice.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            var request = new com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest(
+                    "DE89370400440532013000", "", null);
+
+            ElectronicInvoiceDTO result = electronicInvoiceService.updatePaymentDetails(CONTRACT_ID, INVOICE_ID, request);
+
             assertEquals(null, result.supplierBic());
+            assertEquals(null, invoice.getSupplierBic());
+        }
+
+        @Test
+        @Order(26)
+        @DisplayName("updatePaymentDetails: a null IBAN leaves the existing value unchanged")
+        void shouldLeaveIbanUnchangedWhenNull() {
+            Contracts contract = fakeContract();
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
+            invoice.setSupplierIban("DE89370400440532013000");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(invoice));
+            when(invoiceRepository.save(any(ElectronicInvoice.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            var request = new com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest(
+                    null, null, LocalDate.of(2024, Month.JULY, 1));
+
+            ElectronicInvoiceDTO result = electronicInvoiceService.updatePaymentDetails(CONTRACT_ID, INVOICE_ID, request);
+
+            assertEquals("DE...3000", result.supplierIban());
+            assertEquals("DE89370400440532013000", invoice.getSupplierIban());
         }
 
         @Test

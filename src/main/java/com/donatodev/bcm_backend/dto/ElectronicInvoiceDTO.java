@@ -12,6 +12,16 @@ import java.util.List;
 
 import com.donatodev.bcm_backend.entity.InvoiceMatchStatus;
 
+/**
+ * @param supplierIban masked ({@code "IT...3456"}) via
+ *                      {@code ElectronicInvoiceService#toDTO} -- never the
+ *                      full value; stays {@code null} when absent (presence
+ *                      alone drives UI badges, so it isn't replaced with a
+ *                      placeholder). {@code UpdateInvoicePaymentDetailsRequest
+ *                      .supplierIban} carries the real value on write;
+ *                      {@code null} there means "leave unchanged".
+ * @param supplierBic   same masking as {@code supplierIban}
+ */
 public record ElectronicInvoiceDTO(
         Long id,
         Long contractId,

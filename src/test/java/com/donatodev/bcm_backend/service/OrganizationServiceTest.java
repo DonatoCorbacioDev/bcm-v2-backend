@@ -328,8 +328,11 @@ class OrganizationServiceTest {
                         null, "de89 3704 0044 0532 0130 00", "cobadeffxxx");
                 OrganizationDTO result = organizationService.updateMyOrganization(req);
 
-                assertEquals("DE89370400440532013000", result.iban());
-                assertEquals("COBADEFFXXX", result.bic());
+                // The response is masked, but the stored entity keeps the real value.
+                assertEquals("DE...3000", result.iban());
+                assertEquals("CO...FXXX", result.bic());
+                assertEquals("DE89370400440532013000", org.getIban());
+                assertEquals("COBADEFFXXX", org.getBic());
             } finally {
                 com.donatodev.bcm_backend.config.TenantContext.clear();
             }
@@ -373,6 +376,27 @@ class OrganizationServiceTest {
 
                 assertNull(result.iban());
                 assertNull(result.bic());
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(17)
+        @DisplayName("getMyOrganization returns the IBAN/BIC masked, not the full value")
+        void shouldReturnMaskedIbanOnGet() {
+            Organization org = Organization.builder().id(1L).name("Acme").slug("acme")
+                    .subscriptionTier(SubscriptionTier.FREE)
+                    .iban("DE89370400440532013000").bic("COBADEFFXXX").build();
+
+            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            try {
+                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+
+                OrganizationDTO result = organizationService.getMyOrganization();
+
+                assertEquals("DE...3000", result.iban());
+                assertEquals("CO...FXXX", result.bic());
             } finally {
                 com.donatodev.bcm_backend.config.TenantContext.clear();
             }

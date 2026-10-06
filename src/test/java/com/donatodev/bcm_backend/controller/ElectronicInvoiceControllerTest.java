@@ -373,10 +373,25 @@ class ElectronicInvoiceControllerTest {
 
         @Test
         @Order(3)
-        @DisplayName("Blank IBAN fails validation — returns 400")
+        @DisplayName("Blank IBAN is accepted — null/blank now means \"leave unchanged\" or \"clear\", not an error")
         @WithMockUser(roles = "ADMIN")
-        void shouldReturn400ForBlankIban() throws Exception {
+        void shouldAcceptBlankIban() throws Exception {
             var request = new UpdateInvoicePaymentDetailsRequest("", null, null);
+            when(electronicInvoiceService.updatePaymentDetails(anyLong(), anyLong(), any()))
+                    .thenReturn(sampleInvoiceDTO(contractId));
+
+            mockMvc.perform(patch("/contracts/" + contractId + "/invoices/1/payment-details")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @Order(4)
+        @DisplayName("Supplier IBAN longer than 34 characters fails validation — returns 400")
+        @WithMockUser(roles = "ADMIN")
+        void shouldReturn400ForOversizedIban() throws Exception {
+            var request = new UpdateInvoicePaymentDetailsRequest("A".repeat(35), null, null);
 
             mockMvc.perform(patch("/contracts/" + contractId + "/invoices/1/payment-details")
                             .contentType(MediaType.APPLICATION_JSON)

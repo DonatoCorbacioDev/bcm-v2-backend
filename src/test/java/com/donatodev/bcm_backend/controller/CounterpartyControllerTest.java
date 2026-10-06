@@ -247,8 +247,8 @@ class CounterpartyControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.verifiedIban").value("IT60X0542811101000000123456"))
-                    .andExpect(jsonPath("$.verifiedBic").value("COBADEFFXXX"));
+                    .andExpect(jsonPath("$.verifiedIban").value("IT...3456"))
+                    .andExpect(jsonPath("$.verifiedBic").value("CO...FXXX"));
         }
 
         @Test

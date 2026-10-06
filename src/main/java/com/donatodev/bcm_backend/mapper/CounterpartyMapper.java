@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import com.donatodev.bcm_backend.dto.CounterpartyDTO;
 import com.donatodev.bcm_backend.entity.Counterparty;
+import com.donatodev.bcm_backend.util.IbanValidator;
 
 /**
  * Mapper class responsible for converting between {@link Counterparty} entities
@@ -18,6 +19,9 @@ import com.donatodev.bcm_backend.entity.Counterparty;
 public class CounterpartyMapper {
 
     public CounterpartyDTO toDTO(Counterparty counterparty) {
+        if (counterparty == null) {
+            return null;
+        }
         return new CounterpartyDTO(
                 counterparty.getId(),
                 counterparty.getName(),
@@ -29,8 +33,8 @@ public class CounterpartyMapper {
                 counterparty.getContactEmail(),
                 counterparty.getContactPhone(),
                 counterparty.getNotes(),
-                counterparty.getVerifiedIban(),
-                counterparty.getVerifiedBic()
+                IbanValidator.maskNullable(counterparty.getVerifiedIban()),
+                IbanValidator.maskNullable(counterparty.getVerifiedBic())
         );
     }
 
