@@ -73,6 +73,9 @@ public class WeeklyDigestService {
 
         List<Contracts> expiring = contractsRepository
                 .findExpiringContractsByOrg(today, window, org.getId());
+        if (expiring.isEmpty()) {
+            return 0;
+        }
 
         List<Users> admins = usersRepository.findByOrganizationIdAndRoleRole(org.getId(), "ADMIN");
         if (admins.isEmpty()) {
@@ -94,9 +97,6 @@ public class WeeklyDigestService {
     }
 
     private String buildSubject(int expiringCount) {
-        if (expiringCount == 0) {
-            return "BCM Weekly Digest — No expiring contracts this week";
-        }
         return String.format("BCM Weekly Digest — %d contract%s expiring soon",
                 expiringCount, expiringCount == 1 ? "" : "s");
     }

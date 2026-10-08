@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -101,7 +102,7 @@ class WeeklyDigestServiceTest {
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
                     today, today.plusDays(30), 2L))
-                    .thenReturn(List.of());
+                    .thenReturn(List.of(contract("C-002", "Rossi S.r.l.", today.plusDays(5))));
             when(usersRepository.findByOrganizationIdAndRoleRole(2L, "ADMIN"))
                     .thenReturn(List.of());
 
@@ -118,7 +119,7 @@ class WeeklyDigestServiceTest {
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
                     today, today.plusDays(30), 3L))
-                    .thenReturn(List.of());
+                    .thenReturn(List.of(contract("C-003", "Rossi S.r.l.", today.plusDays(5))));
             when(usersRepository.findByOrganizationIdAndRoleRole(3L, "ADMIN"))
                     .thenReturn(List.of(adminNoManager()));
 
@@ -134,7 +135,7 @@ class WeeklyDigestServiceTest {
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
                     today, today.plusDays(30), 6L))
-                    .thenReturn(List.of());
+                    .thenReturn(List.of(contract("C-006", "Rossi S.r.l.", today.plusDays(5))));
             when(usersRepository.findByOrganizationIdAndRoleRole(6L, "ADMIN"))
                     .thenReturn(List.of(admin(null)));
 
@@ -151,7 +152,7 @@ class WeeklyDigestServiceTest {
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
                     today, today.plusDays(30), 7L))
-                    .thenReturn(List.of());
+                    .thenReturn(List.of(contract("C-007", "Rossi S.r.l.", today.plusDays(5))));
             when(usersRepository.findByOrganizationIdAndRoleRole(7L, "ADMIN"))
                     .thenReturn(List.of(admin("   ")));
 
@@ -183,22 +184,19 @@ class WeeklyDigestServiceTest {
         }
 
         @Test
-        @DisplayName("Subject says no expiring when list is empty")
-        void subjectNoExpiring() {
+        @DisplayName("Sends nothing when there are no expiring contracts, even with admins present")
+        void sendsNothingWhenNoExpiring() {
             Organization o = org(5L);
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
                     today, today.plusDays(30), 5L))
                     .thenReturn(List.of());
-            when(usersRepository.findByOrganizationIdAndRoleRole(5L, "ADMIN"))
-                    .thenReturn(List.of(admin("admin@test.com")));
 
-            weeklyDigestService.sendDigestForOrg(o);
+            int sent = weeklyDigestService.sendDigestForOrg(o);
 
-            verify(emailService).sendEmail(
-                    anyString(),
-                    contains("No expiring contracts"),
-                    anyString());
+            assertThat(sent).isZero();
+            verify(usersRepository, never()).findByOrganizationIdAndRoleRole(anyLong(), anyString());
+            verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
         }
     }
 
@@ -333,7 +331,7 @@ class WeeklyDigestServiceTest {
             // org 2: succeeds
             when(contractsRepository.findExpiringContractsByOrg(
                     today, today.plusDays(30), 2L))
-                    .thenReturn(List.of());
+                    .thenReturn(List.of(contract("C-002", "Rossi S.r.l.", today.plusDays(5))));
             when(usersRepository.findByOrganizationIdAndRoleRole(2L, "ADMIN"))
                     .thenReturn(List.of(admin("admin2@test.com")));
 
