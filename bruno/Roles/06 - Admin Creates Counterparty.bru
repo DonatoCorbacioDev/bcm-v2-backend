@@ -1,0 +1,34 @@
+meta {
+  name: Admin Creates Counterparty
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/counterparties
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenAdminA}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Fornitore Test",
+    "type": "SUPPLIER"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("counterpartyIdA", res.body.id);
+}

@@ -1,0 +1,19 @@
+meta {
+  name: Org B Cannot Read Org A Counterparty
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/counterparties/{{counterpartyIdA}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenAdminB}}
+}
+
+assert {
+  res.status: eq 404
+}

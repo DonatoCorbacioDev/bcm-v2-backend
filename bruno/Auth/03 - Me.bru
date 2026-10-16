@@ -1,0 +1,19 @@
+meta {
+  name: Me
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/auth/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenAdminA}}
+}
+
+assert {
+  res.status: eq 200
+}

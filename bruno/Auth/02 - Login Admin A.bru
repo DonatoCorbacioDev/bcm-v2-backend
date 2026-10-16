@@ -1,0 +1,30 @@
+meta {
+  name: Login Admin A
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "admin.a@bruno-test.local",
+    "password": "BrunoTest#123"
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+script:post-response {
+  bru.setVar("tokenAdminA", res.body.token);
+}

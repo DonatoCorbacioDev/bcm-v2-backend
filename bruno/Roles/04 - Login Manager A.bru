@@ -1,0 +1,30 @@
+meta {
+  name: Login Manager A
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "manager.a@bruno-test.local",
+    "password": "BrunoTest#123"
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+script:post-response {
+  bru.setVar("tokenManagerA", res.body.token);
+}

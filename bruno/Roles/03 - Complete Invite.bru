@@ -1,0 +1,26 @@
+meta {
+  name: Complete Invite
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/auth/complete-invite
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "token": "{{inviteToken}}",
+    "password": "BrunoTest#123"
+  }
+}
+
+assert {
+  res.status: eq 204
+}

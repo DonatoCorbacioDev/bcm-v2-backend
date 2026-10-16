@@ -1,0 +1,37 @@
+meta {
+  name: Invite Manager
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/users/invite
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenAdminA}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "manager.a@bruno-test.local",
+    "role": "MANAGER",
+    "managerId": {{managerIdA}}
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+script:post-response {
+  const link = res.body.inviteLink;
+  const token = link.split("token=")[1];
+  bru.setVar("inviteToken", token);
+}

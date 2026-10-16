@@ -1,0 +1,30 @@
+meta {
+  name: Manager Forbidden Create Counterparty
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/counterparties
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenManagerA}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Fornitore Test",
+    "type": "SUPPLIER"
+  }
+}
+
+assert {
+  res.status: eq 403
+}
