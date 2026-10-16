@@ -123,6 +123,9 @@ class ContractServiceTest {
     @Mock
     private com.donatodev.bcm_backend.repository.FinancialValuesRepository financialValuesRepository;
 
+    @Mock
+    private TierLimitService tierLimitService;
+
     @InjectMocks
     private ContractService contractService;
 
@@ -2183,6 +2186,28 @@ class ContractServiceTest {
 
             assertThrows(IllegalArgumentException.class, () -> contractService.createContract(null));
             verify(contractsRepository, never()).save(any());
+        }
+
+        @Test
+        @Order(59)
+        @DisplayName("createContract propagates TierLimitExceededException and never saves")
+        void shouldNotSaveWhenTierLimitExceeded() {
+            Contracts entity = Contracts.builder().counterparty(Counterparty.builder().name("OverLimitClient").type(CounterpartyType.CUSTOMER).build()).build();
+            ContractDTO dto = new ContractDTO(null, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "OverLimitClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "CTR-OVER", null, null,
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), null, 1L, null, null, null, null, 0);
+
+            TenantContext.set(30L);
+            try {
+                when(contractMapper.toEntity(dto)).thenReturn(entity);
+                org.mockito.Mockito.doThrow(new com.donatodev.bcm_backend.exception.TierLimitExceededException("Limite del piano FREE raggiunto"))
+                        .when(tierLimitService).enforceContractCreationLimit(30L);
+
+                assertThrows(com.donatodev.bcm_backend.exception.TierLimitExceededException.class,
+                        () -> contractService.createContract(dto));
+                verify(contractsRepository, never()).save(any());
+            } finally {
+                TenantContext.clear();
+            }
         }
 
         @Test

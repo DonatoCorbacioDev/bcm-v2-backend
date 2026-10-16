@@ -94,6 +94,7 @@ public class ContractService {
     private final ContractFinancialGenerationService contractFinancialGenerationService;
     private final ElectronicInvoiceRepository invoiceRepository;
     private final FinancialValuesRepository financialValuesRepository;
+    private final TierLimitService tierLimitService;
 
     public ContractService(
             ContractsRepository contractsRepository,
@@ -107,7 +108,8 @@ public class ContractService {
             FinancialTypesRepository financialTypesRepository,
             ContractFinancialGenerationService contractFinancialGenerationService,
             ElectronicInvoiceRepository invoiceRepository,
-            FinancialValuesRepository financialValuesRepository
+            FinancialValuesRepository financialValuesRepository,
+            TierLimitService tierLimitService
     ) {
         this.contractsRepository = contractsRepository;
         this.contractMapper = contractMapper;
@@ -121,6 +123,7 @@ public class ContractService {
         this.contractFinancialGenerationService = contractFinancialGenerationService;
         this.invoiceRepository = invoiceRepository;
         this.financialValuesRepository = financialValuesRepository;
+        this.tierLimitService = tierLimitService;
     }
 
     private Counterparty resolveCounterpartyForUpdate(Long counterpartyId) {
@@ -236,6 +239,7 @@ public class ContractService {
             throw new IllegalArgumentException("Dati contratto obbligatori");
         }
         Long orgId = TenantContext.get();
+        tierLimitService.enforceContractCreationLimit(orgId);
         if (orgId != null) {
             Organization org = new Organization();
             org.setId(orgId);

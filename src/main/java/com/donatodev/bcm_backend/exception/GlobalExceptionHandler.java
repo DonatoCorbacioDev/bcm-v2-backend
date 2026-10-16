@@ -173,6 +173,15 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    /**
+     * Handles cases where an organization has reached the resource limit of
+     * its current subscription tier.
+     */
+    @ExceptionHandler(TierLimitExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleTierLimitExceeded(TierLimitExceededException ex) {
+        return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
         return buildErrorResponse(HttpStatus.CONFLICT, "Conflitto: esiste già un record con lo stesso valore univoco");
