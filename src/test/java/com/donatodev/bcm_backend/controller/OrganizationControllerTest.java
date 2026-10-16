@@ -250,6 +250,59 @@ class OrganizationControllerTest {
 
     @Nested
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @DisplayName("GET /organizations/me/usage")
+    @SuppressWarnings("unused")
+    class GetMyOrganizationUsage {
+
+        private void seedAdminUser(SubscriptionTier tier) {
+            Organization org = organizationRepository.save(
+                    Organization.builder().name("Usage Corp").slug("usage-corp")
+                            .subscriptionTier(tier).build());
+            Managers manager = managersRepository.save(
+                    Managers.builder().firstName("Admin").lastName("User")
+                            .email("admin@usagecorp.com").organization(org).build());
+            Roles role = rolesRepository.findByRole("ADMIN").orElseThrow();
+            usersRepository.save(Users.builder()
+                    .username("usage-admin").passwordHash("pwd").verified(true)
+                    .role(role).manager(manager).organization(org).build());
+        }
+
+        @Test
+        @Order(1)
+        @WithMockUser(username = "usage-admin", roles = "ADMIN")
+        @DisplayName("FREE tier: returns 0 contracts used against a limit of 15")
+        void shouldReturnUsageForFreeTier() throws Exception {
+            seedAdminUser(SubscriptionTier.FREE);
+            mockMvc.perform(get(ME_URL + "/usage"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.contractsUsed").value(0))
+                    .andExpect(jsonPath("$.contractsLimit").value(15));
+        }
+
+        @Test
+        @Order(2)
+        @WithMockUser(username = "usage-admin", roles = "ADMIN")
+        @DisplayName("ENTERPRISE tier: contractsLimit is null (unlimited)")
+        void shouldReturnNullLimitForEnterpriseTier() throws Exception {
+            seedAdminUser(SubscriptionTier.ENTERPRISE);
+            mockMvc.perform(get(ME_URL + "/usage"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.contractsUsed").value(0))
+                    .andExpect(jsonPath("$.contractsLimit").doesNotExist());
+        }
+
+        @Test
+        @Order(3)
+        @WithMockUser(roles = "MANAGER")
+        @DisplayName("Manager is denied access")
+        void shouldReturn403ForManager() throws Exception {
+            mockMvc.perform(get(ME_URL + "/usage"))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
     @DisplayName("PUT /organizations/me")
     @SuppressWarnings("unused")
     class UpdateMe {

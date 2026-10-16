@@ -1,6 +1,8 @@
 package com.donatodev.bcm_backend.service;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -149,5 +151,23 @@ class TierLimitServiceTest {
         when(organizationRepository.findById(3L)).thenReturn(Optional.of(org));
 
         assertDoesNotThrow(() -> tierLimitService.requireMlAccess(3L));
+    }
+
+    @Test
+    @DisplayName("getContractLimit: FREE is 15")
+    void getContractLimitFree() {
+        assertEquals(15, tierLimitService.getContractLimit(SubscriptionTier.FREE));
+    }
+
+    @Test
+    @DisplayName("getContractLimit: PRO is 200")
+    void getContractLimitPro() {
+        assertEquals(200, tierLimitService.getContractLimit(SubscriptionTier.PRO));
+    }
+
+    @Test
+    @DisplayName("getContractLimit: ENTERPRISE is null (unlimited)")
+    void getContractLimitEnterpriseIsNull() {
+        assertNull(tierLimitService.getContractLimit(SubscriptionTier.ENTERPRISE));
     }
 }

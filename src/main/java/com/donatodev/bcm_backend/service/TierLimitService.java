@@ -56,7 +56,7 @@ public class TierLimitService {
             return;
         }
 
-        Integer limit = MAX_ACTIVE_CONTRACTS.get(organization.getSubscriptionTier());
+        Integer limit = getContractLimit(organization.getSubscriptionTier());
         if (limit == null) {
             return;
         }
@@ -67,6 +67,17 @@ public class TierLimitService {
                     "Limite del piano " + organization.getSubscriptionTier()
                             + " raggiunto: massimo " + limit + " contratti. Passa a un piano superiore per continuare.");
         }
+    }
+
+    /**
+     * The maximum number of active contracts {@code tier} allows, or
+     * {@code null} if unlimited (currently {@code ENTERPRISE}, or any tier
+     * with no entry in {@link #MAX_ACTIVE_CONTRACTS}). Exposed so callers
+     * like {@code OrganizationService#getUsage} can display the limit
+     * alongside the current count, without duplicating these numbers.
+     */
+    public Integer getContractLimit(SubscriptionTier tier) {
+        return MAX_ACTIVE_CONTRACTS.get(tier);
     }
 
     /**

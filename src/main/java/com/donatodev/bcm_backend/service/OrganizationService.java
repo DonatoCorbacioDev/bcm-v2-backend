@@ -18,6 +18,7 @@ import com.donatodev.bcm_backend.auth.AuthResponseDTO;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.OrganizationDTO;
 import com.donatodev.bcm_backend.dto.OrganizationRegistrationRequest;
+import com.donatodev.bcm_backend.dto.OrganizationUsageDTO;
 import com.donatodev.bcm_backend.dto.UpdateOrganizationRequest;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
@@ -26,6 +27,7 @@ import com.donatodev.bcm_backend.entity.SubscriptionTier;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.OrganizationNotFoundException;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
+import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
@@ -42,6 +44,8 @@ public class OrganizationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final RefreshTokenService refreshTokenService;
+    private final ContractsRepository contractsRepository;
+    private final TierLimitService tierLimitService;
 
     public OrganizationService(
             OrganizationRepository organizationRepository,
@@ -50,7 +54,9 @@ public class OrganizationService {
             RolesRepository rolesRepository,
             PasswordEncoder passwordEncoder,
             JwtUtils jwtUtils,
-            RefreshTokenService refreshTokenService) {
+            RefreshTokenService refreshTokenService,
+            ContractsRepository contractsRepository,
+            TierLimitService tierLimitService) {
         this.organizationRepository = organizationRepository;
         this.usersRepository = usersRepository;
         this.managersRepository = managersRepository;
@@ -58,6 +64,8 @@ public class OrganizationService {
         this.passwordEncoder = passwordEncoder;
         this.jwtUtils = jwtUtils;
         this.refreshTokenService = refreshTokenService;
+        this.contractsRepository = contractsRepository;
+        this.tierLimitService = tierLimitService;
     }
 
     @Transactional
@@ -105,6 +113,20 @@ public class OrganizationService {
     public OrganizationDTO getMyOrganization() {
         Organization org = resolveCurrentOrganization();
         return toDTO(org);
+    }
+
+    /**
+     * Current contract count against the organization's tier limit, for
+     * display (e.g. "8 / 15 contracts") — same numbers
+     * {@code TierLimitService#enforceContractCreationLimit} enforces, read
+     * here rather than duplicated.
+     */
+    @Transactional(readOnly = true)
+    public OrganizationUsageDTO getUsage() {
+        Organization org = resolveCurrentOrganization();
+        int used = contractsRepository.countAllContractsByOrg(org.getId());
+        Integer limit = tierLimitService.getContractLimit(org.getSubscriptionTier());
+        return new OrganizationUsageDTO(used, limit);
     }
 
     @Transactional

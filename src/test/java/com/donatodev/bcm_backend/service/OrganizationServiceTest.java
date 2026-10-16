@@ -50,6 +50,8 @@ class OrganizationServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtUtils jwtUtils;
     @Mock private RefreshTokenService refreshTokenService;
+    @Mock private com.donatodev.bcm_backend.repository.ContractsRepository contractsRepository;
+    @Mock private TierLimitService tierLimitService;
 
     @InjectMocks
     private OrganizationService organizationService;
@@ -397,6 +399,50 @@ class OrganizationServiceTest {
 
                 assertEquals("DE...3000", result.iban());
                 assertEquals("CO...FXXX", result.bic());
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(18)
+        @DisplayName("getUsage returns contract count and the tier's limit")
+        void shouldReturnUsageForLimitedTier() {
+            Organization org = Organization.builder().id(1L).name("Acme").slug("acme")
+                    .subscriptionTier(SubscriptionTier.FREE).build();
+
+            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            try {
+                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+                when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(8);
+                when(tierLimitService.getContractLimit(SubscriptionTier.FREE)).thenReturn(15);
+
+                var result = organizationService.getUsage();
+
+                assertEquals(8, result.contractsUsed());
+                assertEquals(15, result.contractsLimit());
+            } finally {
+                com.donatodev.bcm_backend.config.TenantContext.clear();
+            }
+        }
+
+        @Test
+        @Order(19)
+        @DisplayName("getUsage returns a null limit for an unlimited tier")
+        void shouldReturnNullLimitForUnlimitedTier() {
+            Organization org = Organization.builder().id(1L).name("Acme").slug("acme")
+                    .subscriptionTier(SubscriptionTier.ENTERPRISE).build();
+
+            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            try {
+                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+                when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(300);
+                when(tierLimitService.getContractLimit(SubscriptionTier.ENTERPRISE)).thenReturn(null);
+
+                var result = organizationService.getUsage();
+
+                assertEquals(300, result.contractsUsed());
+                assertNull(result.contractsLimit());
             } finally {
                 com.donatodev.bcm_backend.config.TenantContext.clear();
             }

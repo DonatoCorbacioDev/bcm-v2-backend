@@ -21,6 +21,7 @@ import com.donatodev.bcm_backend.auth.AuthResponseDTO;
 import com.donatodev.bcm_backend.auth.RefreshCookieFactory;
 import com.donatodev.bcm_backend.dto.OrganizationDTO;
 import com.donatodev.bcm_backend.dto.OrganizationRegistrationRequest;
+import com.donatodev.bcm_backend.dto.OrganizationUsageDTO;
 import com.donatodev.bcm_backend.dto.UpdateOrganizationRequest;
 import com.donatodev.bcm_backend.service.OrganizationService;
 
@@ -51,6 +52,12 @@ public class OrganizationController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<OrganizationDTO> getMyOrganization() {
         return ResponseEntity.ok(organizationService.getMyOrganization());
+    }
+
+    @GetMapping("/me/usage")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<OrganizationUsageDTO> getMyOrganizationUsage() {
+        return ResponseEntity.ok(organizationService.getUsage());
     }
 
     @PutMapping("/me")
