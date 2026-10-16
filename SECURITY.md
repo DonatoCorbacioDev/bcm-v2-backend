@@ -82,54 +82,54 @@ Use parameterized queries or Spring Data JPA specifications
 
 ## 🛡️ Security Measures
 
-### Current Implementation
+### Current Implementation — verified against the actual code, not a point-in-time snapshot
 
 #### Authentication & Authorization
-- ✅ **JWT-based authentication** - Stateless token-based security
-- ✅ **BCrypt password hashing** - Strength: 12 rounds (industry standard)
-- ✅ **Role-Based Access Control (RBAC)** - ADMIN and MANAGER roles
-- ✅ **Method-level security** - `@PreAuthorize` annotations
+- ✅ **JWT-based authentication** - Stateless, short-lived access token
+- ✅ **Refresh token rotation with reuse detection** - hashed, single-use, rotated on every refresh (`RefreshTokenService`, see `docs/adr/0003-jwt-refresh-token-rotation.md`)
+- ✅ **BCrypt password hashing**
+- ✅ **Role-Based Access Control (RBAC)** - ADMIN and MANAGER roles, enforced via `@PreAuthorize` at the method level
+- ✅ **Multi-Factor Authentication (TOTP)** - `TwoFactorAuthService`, opt-in from the profile page, recovery codes supported
+- ✅ **Distributed login rate limiting** - `RateLimitingFilter`, Redis-backed (shared across instances), throttles `/auth/login` by client IP
+- ✅ **Per-account lockout** - a second, independent control from the IP-based limiter above: `AuthService` locks an account after repeated failed attempts regardless of which IP they come from (`failed_login_attempts`/`locked_until` on `Users`, migration `V32`)
 - ✅ **Email verification** - Required before account activation
 - ✅ **Password reset tokens** - Time-limited, single-use tokens
 
 #### Data Protection
 - ✅ **SQL Injection Prevention** - JPA parameterized queries
-- ✅ **XSS Protection** - Content Security Policy headers
+- ✅ **XSS Protection** - Content Security Policy headers (frontend)
 - ✅ **CSRF Protection** - Disabled at the framework level, but not exploitable: every authenticated request relies on the `Authorization` header (never auto-sent by browsers); the only cookie, the HttpOnly `refresh_token`, is scoped to `/auth` with `SameSite=Lax` (see `SecurityConfig`/`RefreshCookieFactory`)
 - ✅ **Input Validation** - Hibernate Validator on all DTOs
-- ✅ **Output Sanitization** - No sensitive data in responses
+- ✅ **IBAN/BIC masking** - masked in every API response (`IbanValidator`), full value never returned after creation
+- ✅ **Audit logging with retention** - `AuditLogService`/`AuditAspect` on every create/update/delete, `AuditLogRetentionService` purges after a configurable window (180 days default)
 - ✅ **Secure password storage** - Never logged or returned in API
 
 #### Infrastructure
 - ✅ **Environment variables** - Secrets in `.env` (git-ignored)
-- ✅ **CORS configuration** - Restricted origins (configurable)
-- ✅ **Health checks** - Spring Actuator endpoints
-- ✅ **Database migrations** - Flyway version control
+- ✅ **CORS configuration** - Restricted origins under the `prod` profile
+- ✅ **`/actuator/prometheus` restricted** - to loopback/private IPs at the reverse-proxy layer (no scraper exposed publicly)
+- ✅ **Database migrations** - Flyway, forward-only, version-controlled
 - ✅ **Connection pooling** - HikariCP with limits
 
 #### Code Quality
-- ✅ **100% test coverage** - Comprehensive unit and integration tests
-- ✅ **Static analysis** - SpotBugs with FindSecBugs security rules
-- ✅ **Dependency scanning** - Maven dependency check
+- ✅ **99% instruction / 96% branch / 99% line coverage** - see the badges at the top of `README.md`, backed by a two-tier test strategy (`docs/adr/0007-two-tier-test-strategy.md`): fast H2 unit suite + real-MySQL/Redis Testcontainers integration lane
+- ✅ **Static analysis** - SpotBugs with FindSecBugs security rules, zero findings
+- ✅ **Automated dependency scanning** - Dependabot (weekly + immediate security PRs), CycloneDX SBOM generated on every build, Gitleaks secret scanning in CI
 - ✅ **No hardcoded secrets** - All configs externalized
 
 ---
 
 ## ⚠️ Known Limitations
 
-This is a **portfolio/demonstration project**. The following security considerations should be addressed before production use:
+This is a **portfolio/demonstration project moving toward production readiness** — see `docs/SECURITY.md` for the full threat model and production checklist. Real, current gaps:
 
 ### Not Yet Implemented
 
-- ❌ **Rate Limiting** - No request throttling (use API Gateway in prod)
-- ❌ **Account Lockout** - No failed login attempt limits
-- ❌ **Multi-Factor Authentication (MFA)** - Not implemented
-- ❌ **Refresh Token Rotation** - JWT expires, no refresh mechanism
-- ❌ **IP Whitelisting** - No network-level restrictions
-- ❌ **Audit Logging** - Limited security event logging
-- ❌ **Secrets Management** - Uses `.env` (use Vault/AWS Secrets in prod)
-- ❌ **DDoS Protection** - No built-in protection (use Cloudflare/AWS Shield)
-- ❌ **Web Application Firewall (WAF)** - Not configured
+- ❌ **IP Whitelisting** - No network-level restrictions beyond the Prometheus endpoint above
+- ❌ **Secrets Management** - Uses `.env` (would move to Vault/AWS Secrets Manager for a multi-environment/team setup)
+- ❌ **DDoS Protection** - No WAF/CDN in front of the single VM (acceptable at current traffic, revisit if that changes)
+- ❌ **Centralized metrics dashboard** - Prometheus metrics exist and are now access-restricted, but nothing scrapes/visualizes them yet
+- ❌ **External penetration test** - Never done; self-assessed only
 
 ### Environment-Specific
 
@@ -193,44 +193,40 @@ Before deploying to production:
 
 ### Infrastructure
 
-- [ ] **HTTPS Only** - Enforce TLS 1.2+ with valid certificates
-- [ ] **Firewall Rules** - Restrict database access to backend only
-- [ ] **Private Network** - Backend and DB on internal network
-- [ ] **Load Balancer** - With SSL termination and health checks
-- [ ] **CDN/WAF** - Cloudflare, AWS WAF, or similar
-- [ ] **DDoS Protection** - Rate limiting at infrastructure level
-- [ ] **Database Backups** - Automated, encrypted, tested restores
-- [ ] **Monitoring/Alerting** - Security event monitoring (Datadog, New Relic)
+- [x] **HTTPS Only** - Caddy + Let's Encrypt, HSTS (`max-age=63072000; includeSubDomains; preload`)
+- [x] **Firewall Rules / Private Network** - MySQL bound to `127.0.0.1` only; from the internet only 22 and 443 are open
+- [ ] **Load Balancer** - Single VM, no redundancy (accepted/documented risk at current scale)
+- [ ] **CDN/WAF** - Not in front of the VM today
+- [ ] **DDoS Protection** - No infrastructure-level rate limiting beyond the app-level limiter
+- [x] **Database Backups** - Nightly `mysqldump`+uploads, age-encrypted, offsite copy (OCI Object Storage), restore verified with real production data, failure alerting via healthchecks.io
+- [x] **Uptime Monitoring** - UptimeRobot on backend health + frontend, verified live with a real tested incident
 
 ### Application
 
-- [ ] **Environment Variables** - Use secrets manager (AWS Secrets, HashiCorp Vault)
-- [ ] **JWT Secret** - Rotate regularly, minimum 256 bits
-- [ ] **Database Credentials** - Strong passwords (20+ chars), rotate quarterly
-- [ ] **CORS Origins** - Whitelist specific domains only
-- [ ] **Actuator Endpoints** - Secure or disable in production
-- [ ] **Logging** - Enable audit logs, ship to SIEM
-- [ ] **Error Messages** - Generic messages, detailed logs server-side
-- [ ] **Session Timeout** - Configure appropriate JWT expiration
-- [ ] **Input Limits** - Max request size, file upload limits
+- [ ] **Secrets Manager** - Still `.env`-based (Vault/AWS Secrets would matter once there's a team/multiple environments)
+- [ ] **Database Credentials** - Rotation not on a schedule
+- [x] **CORS Origins** - Restricted to `FRONTEND_BASE_URL` under the `prod` profile
+- [x] **Actuator Endpoints** - `/actuator/prometheus` restricted to private IPs at the Caddy layer; `/health` stays public by design (polled by UptimeRobot)
+- [x] **Error Messages** - Generic client-facing messages via `GlobalExceptionHandler`, details only in server-side logs
+- [x] **Session Timeout** - `JWT_EXPIRATION_MS` configured, refresh token rotation on top
+- [x] **Input Limits** - 10MB max upload, magic-byte validation on uploaded files
 
 ### Testing & Compliance
 
-- [ ] **Penetration Testing** - Third-party security audit
-- [ ] **OWASP Top 10** - Review and mitigate all risks
-- [ ] **Dependency Scan** - No critical/high vulnerabilities
-- [ ] **GDPR Compliance** - If handling EU user data
-- [ ] **Data Encryption** - At rest and in transit
-- [ ] **Incident Response Plan** - Documented procedures
-- [ ] **Security Training** - Team aware of secure coding practices
+- [ ] **Penetration Testing** - Never done, self-assessed only
+- [ ] **Formal OWASP Top 10 review** - Not documented as a standalone review (mitigations exist piecemeal, not checked off against the list)
+- [x] **Dependency Scan** - Dependabot (weekly + security PRs) across all 4 repos, CycloneDX SBOM per build
+- [ ] **GDPR Compliance** - Technical controls documented in `docs/GDPR.md`, explicitly **not** a substitute for legal review
+- [ ] **Data Encryption at rest** - TLS in transit; no database-level encryption at rest
+- [ ] **Incident Response Plan** - Backup/restore runbook exists; no broader written IR plan
+- [ ] **Security Training** - N/A, single developer
 
 ### Monitoring
 
-- [ ] **Failed Login Attempts** - Alert on brute force patterns
-- [ ] **Unauthorized Access** - Alert on 401/403 spikes
-- [ ] **Unusual Activity** - Detect anomalies (time, location, volume)
-- [ ] **Dependency Alerts** - GitHub Dependabot or Snyk
-- [ ] **Uptime Monitoring** - Health check endpoints
+- [ ] **Failed Login Attempts** - Lockout happens (`AuthService`); no alert fires when it does
+- [ ] **Unauthorized Access** - No alerting on 401/403 spikes
+- [ ] **Unusual Activity** - ML anomaly detection exists for financial values, not security events
+- [x] **Dependency Alerts** - GitHub Dependabot, all 4 repos
 
 ---
 
@@ -285,19 +281,18 @@ We follow **coordinated disclosure**:
 
 ### Version 2.0.x (Current)
 
+- **2026-10-16:** Full audit against the actual codebase — this document had drifted since its first draft and was still listing rate limiting, account lockout, MFA, refresh token rotation, and audit logging as "not yet implemented" long after all five shipped. Rewritten to match reality instead of a stale snapshot (same treatment `bcm-v2-frontend/SECURITY.md` got on 2026-09-06).
 - **2025-02-05:** Initial security policy published
-- **2025-02-05:** 100% test coverage achieved (all security boundaries tested)
 - **2025-01-15:** FindSecBugs integration added
 - **2025-01-10:** JWT authentication implemented with BCrypt
 
 ### Planned Enhancements
 
-- [ ] Rate limiting implementation (Q2 2025)
-- [ ] Refresh token rotation (Q2 2025)
-- [ ] MFA support (Q3 2025)
-- [ ] Enhanced audit logging (Q2 2025)
+- [ ] Centralized metrics dashboard (Grafana or similar) for the now-restricted Prometheus endpoint
+- [ ] Documented secret-rotation runbook
+- [ ] External penetration test / third-party security review
 
 ---
 
-**Last Updated:** February 5, 2026  
-**Policy Version:** 1.0
+**Last Updated:** October 16, 2026
+**Policy Version:** 2.0
