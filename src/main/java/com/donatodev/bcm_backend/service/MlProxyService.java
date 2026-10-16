@@ -68,24 +68,28 @@ public class MlProxyService {
     private final MeterRegistry meterRegistry;
     private final UsersRepository usersRepository;
     private final MlClaimsSigner mlClaimsSigner;
+    private final TierLimitService tierLimitService;
 
     public MlProxyService(
             RestTemplate restTemplate,
             MlCacheService mlCacheService,
             MeterRegistry meterRegistry,
             UsersRepository usersRepository,
-            MlClaimsSigner mlClaimsSigner) {
+            MlClaimsSigner mlClaimsSigner,
+            TierLimitService tierLimitService) {
         this.restTemplate = restTemplate;
         this.mlCacheService = mlCacheService;
         this.meterRegistry = meterRegistry;
         this.usersRepository = usersRepository;
         this.mlClaimsSigner = mlClaimsSigner;
+        this.tierLimitService = tierLimitService;
     }
 
     // ── Cache-aware public methods (called from HTTP requests) ──────────────
 
     public ResponseEntity<String> getForecast(int months) {
         Long orgId = TenantContext.get();
+        tierLimitService.requireMlAccess(orgId);
         Long managerId = resolveManagerId();
         String key = "FORECAST_" + months + cacheKeySuffix(managerId);
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/forecast").queryParam(QUERY_PARAM_MONTHS, months);
@@ -94,6 +98,7 @@ public class MlProxyService {
 
     public ResponseEntity<String> getAgentInsights(int months) {
         Long orgId = TenantContext.get();
+        tierLimitService.requireMlAccess(orgId);
         Long managerId = resolveManagerId();
         String key = "AGENT_INSIGHTS_" + months + cacheKeySuffix(managerId);
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/agent/insights").queryParam(QUERY_PARAM_MONTHS, months);
@@ -102,6 +107,7 @@ public class MlProxyService {
 
     public ResponseEntity<String> getAnomalies() {
         Long orgId = TenantContext.get();
+        tierLimitService.requireMlAccess(orgId);
         Long managerId = resolveManagerId();
         String key = "ANOMALIES" + cacheKeySuffix(managerId);
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/anomalies");
@@ -110,6 +116,7 @@ public class MlProxyService {
 
     public ResponseEntity<String> getRiskScores() {
         Long orgId = TenantContext.get();
+        tierLimitService.requireMlAccess(orgId);
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/risk-scores");
         return callMl(uriBuilder, orgId, resolveManagerId(), "risk-scores");
     }
@@ -127,6 +134,7 @@ public class MlProxyService {
 
     public ResponseEntity<String> askAgent(String question) {
         Long orgId = TenantContext.get();
+        tierLimitService.requireMlAccess(orgId);
         Long managerId = resolveManagerId();
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/agent/ask");
         if (orgId != null) {

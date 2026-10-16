@@ -1,10 +1,12 @@
 package com.donatodev.bcm_backend.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,6 +28,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -55,6 +58,9 @@ class MlProxyServiceTest {
     @Mock
     private MlClaimsSigner mlClaimsSigner;
 
+    @Mock
+    private TierLimitService tierLimitService;
+
     private SimpleMeterRegistry meterRegistry;
     private MlProxyService mlProxyService;
 
@@ -64,7 +70,7 @@ class MlProxyServiceTest {
     @SuppressWarnings("unused")
     void setup() {
         meterRegistry = new SimpleMeterRegistry();
-        mlProxyService = new MlProxyService(restTemplate, mlCacheService, meterRegistry, usersRepository, mlClaimsSigner);
+        mlProxyService = new MlProxyService(restTemplate, mlCacheService, meterRegistry, usersRepository, mlClaimsSigner, tierLimitService);
     }
 
     @AfterEach
@@ -803,6 +809,94 @@ class MlProxyServiceTest {
             mlProxyService.getForecast(6);
 
             verify(restTemplate, never()).exchange(contains("manager_id="), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+        }
+    }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @DisplayName("Tier gating (FREE plan has no ML access)")
+    @SuppressWarnings("unused")
+    class TierGating {
+
+        @Test
+        @Order(1)
+        @DisplayName("getForecast propagates AccessDeniedException and never calls FastAPI")
+        void getForecastBlockedWhenTierDenies() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            doThrow(new AccessDeniedException("Funzionalità ML non disponibile nel piano FREE"))
+                    .when(tierLimitService).requireMlAccess(5L);
+
+            assertThrows(AccessDeniedException.class, () -> mlProxyService.getForecast(6));
+            verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("getAgentInsights propagates AccessDeniedException and never calls FastAPI")
+        void getAgentInsightsBlockedWhenTierDenies() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            doThrow(new AccessDeniedException("Funzionalità ML non disponibile nel piano FREE"))
+                    .when(tierLimitService).requireMlAccess(5L);
+
+            assertThrows(AccessDeniedException.class, () -> mlProxyService.getAgentInsights(3));
+            verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("getAnomalies propagates AccessDeniedException and never calls FastAPI")
+        void getAnomaliesBlockedWhenTierDenies() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            doThrow(new AccessDeniedException("Funzionalità ML non disponibile nel piano FREE"))
+                    .when(tierLimitService).requireMlAccess(5L);
+
+            assertThrows(AccessDeniedException.class, () -> mlProxyService.getAnomalies());
+            verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
+        }
+
+        @Test
+        @Order(4)
+        @DisplayName("getRiskScores propagates AccessDeniedException and never calls FastAPI")
+        void getRiskScoresBlockedWhenTierDenies() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            doThrow(new AccessDeniedException("Funzionalità ML non disponibile nel piano FREE"))
+                    .when(tierLimitService).requireMlAccess(5L);
+
+            assertThrows(AccessDeniedException.class, () -> mlProxyService.getRiskScores());
+            verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
+        }
+
+        @Test
+        @Order(5)
+        @DisplayName("askAgent propagates AccessDeniedException and never calls FastAPI")
+        void askAgentBlockedWhenTierDenies() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            doThrow(new AccessDeniedException("Funzionalità ML non disponibile nel piano FREE"))
+                    .when(tierLimitService).requireMlAccess(5L);
+
+            assertThrows(AccessDeniedException.class, () -> mlProxyService.askAgent("Any question"));
+            verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
+        }
+
+        @Test
+        @Order(6)
+        @DisplayName("getForecast calls FastAPI normally when the tier check passes")
+        void getForecastAllowedWhenTierPasses() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(5L);
+            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                    .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
+
+            ResponseEntity<String> result = mlProxyService.getForecast(6);
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+            verify(tierLimitService).requireMlAccess(5L);
         }
     }
 }

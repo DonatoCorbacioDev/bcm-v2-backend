@@ -17,6 +17,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.security.access.AccessDeniedException;
+
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.SubscriptionTier;
 import com.donatodev.bcm_backend.exception.TierLimitExceededException;
@@ -105,5 +107,47 @@ class TierLimitServiceTest {
 
         assertDoesNotThrow(() -> tierLimitService.enforceContractCreationLimit(3L));
         verify(contractsRepository, never()).countAllContractsByOrg(anyLong());
+    }
+
+    @Test
+    @DisplayName("requireMlAccess: no-op when orgId is null")
+    void requireMlAccessNoOpWhenOrgIdNull() {
+        assertDoesNotThrow(() -> tierLimitService.requireMlAccess(null));
+        verify(organizationRepository, never()).findById(anyLong());
+    }
+
+    @Test
+    @DisplayName("requireMlAccess: no-op when the organization can't be resolved")
+    void requireMlAccessNoOpWhenOrganizationNotFound() {
+        when(organizationRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertDoesNotThrow(() -> tierLimitService.requireMlAccess(99L));
+    }
+
+    @Test
+    @DisplayName("requireMlAccess: FREE tier is denied")
+    void requireMlAccessDeniesFreeTier() {
+        Organization org = Organization.builder().id(1L).subscriptionTier(SubscriptionTier.FREE).build();
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+
+        assertThrows(AccessDeniedException.class, () -> tierLimitService.requireMlAccess(1L));
+    }
+
+    @Test
+    @DisplayName("requireMlAccess: PRO tier is allowed")
+    void requireMlAccessAllowsProTier() {
+        Organization org = Organization.builder().id(2L).subscriptionTier(SubscriptionTier.PRO).build();
+        when(organizationRepository.findById(2L)).thenReturn(Optional.of(org));
+
+        assertDoesNotThrow(() -> tierLimitService.requireMlAccess(2L));
+    }
+
+    @Test
+    @DisplayName("requireMlAccess: ENTERPRISE tier is allowed")
+    void requireMlAccessAllowsEnterpriseTier() {
+        Organization org = Organization.builder().id(3L).subscriptionTier(SubscriptionTier.ENTERPRISE).build();
+        when(organizationRepository.findById(3L)).thenReturn(Optional.of(org));
+
+        assertDoesNotThrow(() -> tierLimitService.requireMlAccess(3L));
     }
 }
