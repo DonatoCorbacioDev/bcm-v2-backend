@@ -47,3 +47,12 @@ the query embedding in Java, and sort. No dedicated vector store, no approximate
   a match came from. Chunking (split → embed per section → search → return the matching
   section, not just the whole document) is the natural next step for this feature, independent
   of the storage question above.
+- **Note (2026-10-19):** this ADR covers whether the storage *scales*, not whether the ranking
+  is actually *good* — until now nothing checked that. `SemanticSearchServiceTest` only ever
+  exercises `cosineSimilarity`'s math against hand-picked vectors, never a real `nomic-embed-text`
+  embedding. Added `SemanticSearchEval` (`src/test/java/.../service/SemanticSearchEval.java`,
+  deliberately outside Surefire/Failsafe's naming conventions — a manual tool, not part of
+  `mvn test`) to measure that directly: 4 Italian contract-clause queries against 4 candidate
+  documents, run live against Ollama. Result: 100% top-1 accuracy, MRR 1.000 — the embeddings
+  do rank the right document first on this small sanity check. Not proof at scale or on real
+  (vs. hand-written) contract text, but a real first data point where there was none before.
