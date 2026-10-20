@@ -243,6 +243,13 @@
             <artifactId>spring-ai-starter-model-ollama</artifactId>
         </dependency>
 
+        <!-- Stripe: subscription checkout + webhook signature verification (BillingService) -->
+        <dependency>
+            <groupId>com.stripe</groupId>
+            <artifactId>stripe-java</artifactId>
+            <version>33.4.2</version>
+        </dependency>
+
         <!-- AOP Support -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

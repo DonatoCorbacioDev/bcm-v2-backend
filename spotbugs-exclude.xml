@@ -75,6 +75,16 @@
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
 
+    <!-- CRLF_INJECTION_LOGS in BillingService: the only logged values are a
+         Long org id, a SubscriptionTier enum constant and an exception's
+         Class.getSimpleName() - none of these types can carry CR/LF. Webhook
+         payload strings are deliberately never logged. Re-check this exclusion
+         if a String from the payload is ever added to a log call. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.BillingService"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
     <!-- PATH_TRAVERSAL_IN in LocalStorageService.resolveWithinRoot(): this IS
          the fix, not the vulnerability — it normalizes the resolved path and
          rejects anything that escapes uploadDir (the standard OWASP-recommended

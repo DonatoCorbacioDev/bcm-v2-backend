@@ -79,6 +79,9 @@ public class SecurityConfig {
                 // shared secret in InternalApiKeyGuard instead of a JWT, and refused
                 // outright by the reverse proxy for every external client.
                 .requestMatchers("/internal/**").permitAll()
+                // Called by Stripe, authenticated by its Stripe-Signature HMAC
+                // (BillingService.handleWebhook), not by a JWT.
+                .requestMatchers(HttpMethod.POST, "/billing/webhook").permitAll()
                 .requestMatchers(HttpMethod.POST, "/users/invite").hasRole("ADMIN")
                 .anyRequest().authenticated()
                 )
