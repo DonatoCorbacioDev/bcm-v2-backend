@@ -75,6 +75,10 @@ public class SecurityConfig {
                 // token; it is instead authenticated by the unguessable token in the path.
                 .requestMatchers(HttpMethod.GET, "/calendar/**").permitAll()
                 .requestMatchers(SWAGGER_WHITELIST).permitAll()
+                // Ops endpoints with no tenant user behind them: authenticated by a
+                // shared secret in InternalApiKeyGuard instead of a JWT, and refused
+                // outright by the reverse proxy for every external client.
+                .requestMatchers("/internal/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/users/invite").hasRole("ADMIN")
                 .anyRequest().authenticated()
                 )

@@ -46,6 +46,7 @@ public class OrganizationService {
     private final RefreshTokenService refreshTokenService;
     private final ContractsRepository contractsRepository;
     private final TierLimitService tierLimitService;
+    private final AuditLogService auditLogService;
 
     public OrganizationService(
             OrganizationRepository organizationRepository,
@@ -56,7 +57,8 @@ public class OrganizationService {
             JwtUtils jwtUtils,
             RefreshTokenService refreshTokenService,
             ContractsRepository contractsRepository,
-            TierLimitService tierLimitService) {
+            TierLimitService tierLimitService,
+            AuditLogService auditLogService) {
         this.organizationRepository = organizationRepository;
         this.usersRepository = usersRepository;
         this.managersRepository = managersRepository;
@@ -66,6 +68,7 @@ public class OrganizationService {
         this.refreshTokenService = refreshTokenService;
         this.contractsRepository = contractsRepository;
         this.tierLimitService = tierLimitService;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional
@@ -149,6 +152,32 @@ public class OrganizationService {
         }
 
         return toDTO(organizationRepository.save(org));
+    }
+
+    /**
+     * The single place an organization's subscription tier changes — called by
+     * the internal ops endpoint today, meant for the billing webhook next, so
+     * both paths share the same audit trail. Deliberately takes an explicit
+     * orgId instead of reading {@link TenantContext}: the caller is never a
+     * tenant user (see {@code UpdateOrganizationRequest} for why tier is not
+     * self-service). A downgrade does not touch existing contracts — tier
+     * limits are only enforced on creation ({@code TierLimitService}).
+     *
+     * @param source who triggered the change, recorded in the audit log (e.g. "manual", "stripe")
+     */
+    @Transactional
+    public OrganizationDTO changeTier(Long orgId, SubscriptionTier tier, String source) {
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new OrganizationNotFoundException("Organizzazione non trovata"));
+        SubscriptionTier previous = org.getSubscriptionTier();
+        if (previous == tier) {
+            return toDTO(org);
+        }
+        org.setSubscriptionTier(tier);
+        Organization saved = organizationRepository.save(org);
+        auditLogService.save("TIER_CHANGED", "Organization", orgId, "system:" + source, orgId,
+                previous + " -> " + tier);
+        return toDTO(saved);
     }
 
     private Organization resolveCurrentOrganization() {

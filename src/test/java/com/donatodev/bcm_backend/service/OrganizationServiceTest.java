@@ -17,6 +17,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -52,6 +54,7 @@ class OrganizationServiceTest {
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private com.donatodev.bcm_backend.repository.ContractsRepository contractsRepository;
     @Mock private TierLimitService tierLimitService;
+    @Mock private AuditLogService auditLogService;
 
     @InjectMocks
     private OrganizationService organizationService;
@@ -446,6 +449,46 @@ class OrganizationServiceTest {
             } finally {
                 com.donatodev.bcm_backend.config.TenantContext.clear();
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("changeTier")
+    @SuppressWarnings("unused")
+    class ChangeTier {
+
+        @Test
+        @DisplayName("updates the tier and records who triggered it in the audit log")
+        void shouldChangeTierAndAudit() {
+            Organization org = savedOrg();
+            when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+            when(organizationRepository.save(org)).thenReturn(org);
+
+            OrganizationDTO result = organizationService.changeTier(1L, SubscriptionTier.PRO, "manual");
+
+            assertEquals(SubscriptionTier.PRO, result.subscriptionTier());
+            verify(auditLogService).save("TIER_CHANGED", "Organization", 1L, "system:manual", 1L, "FREE -> PRO");
+        }
+
+        @Test
+        @DisplayName("is a no-op without an audit entry when the tier is unchanged")
+        void shouldNotAuditWhenTierUnchanged() {
+            when(organizationRepository.findById(1L)).thenReturn(Optional.of(savedOrg()));
+
+            OrganizationDTO result = organizationService.changeTier(1L, SubscriptionTier.FREE, "manual");
+
+            assertEquals(SubscriptionTier.FREE, result.subscriptionTier());
+            verify(organizationRepository, never()).save(any());
+            verify(auditLogService, never()).save(any(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("throws when the organization does not exist")
+        void shouldThrowWhenOrganizationMissing() {
+            when(organizationRepository.findById(99L)).thenReturn(Optional.empty());
+
+            assertThrows(OrganizationNotFoundException.class,
+                    () -> organizationService.changeTier(99L, SubscriptionTier.PRO, "manual"));
         }
     }
 }
