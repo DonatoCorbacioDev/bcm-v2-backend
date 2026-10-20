@@ -121,6 +121,18 @@ class EmailServiceTest {
     }
 
     @Test
+    @DisplayName("leaves the sender to the mail server's default when no account is configured")
+    void shouldOmitSenderWhenNotConfigured() throws Exception {
+        EmailService noSender = new EmailService(mailSender, "");
+        when(mailSender.createMimeMessage()).thenReturn(message);
+
+        noSender.sendEmail(RECIPIENT, "Oggetto", "<p>Corpo</p>");
+
+        verify(mailSender).send(message);
+        assertThat(message.getFrom()).isNull();
+    }
+
+    @Test
     @DisplayName("wraps a generic email failure")
     void shouldThrowExceptionWhenSendGenericEmailFails() {
         when(mailSender.createMimeMessage()).thenReturn(message);

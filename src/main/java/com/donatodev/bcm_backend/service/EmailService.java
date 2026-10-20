@@ -44,12 +44,13 @@ public class EmailService implements IEmailService {
     private static final Set<String> RESERVED_DOMAINS = Set.of("example.com", "example.net", "example.org");
     private static final Set<String> RESERVED_TLDS = Set.of("test", "example", "invalid", "localhost");
 
-    private static final Pattern HEAD = Pattern.compile("(?is)<head.*?</head>");
-    private static final Pattern BLOCK_END = Pattern.compile("(?i)</(p|div|h[1-6]|tr|li)>|<br\\s*/?>");
+    // Single-pass patterns only (no nested or lazy quantifiers spanning the
+    // whole input): <head> removal and blank-line collapsing are done with
+    // plain string scanning in toPlainText instead, so the cost stays linear.
+    private static final Pattern BLOCK_END = Pattern.compile("(?i)</(p|div|h[1-6]|tr|li)>|<br\\s?/?>");
     private static final Pattern CELL_END = Pattern.compile("(?i)</t[dh]>");
     private static final Pattern TAG = Pattern.compile("<[^>]+>");
     private static final Pattern SPACES = Pattern.compile("[ \\t\\x0B\\f]+");
-    private static final Pattern BLANK_LINES = Pattern.compile("\\s*\\n\\s*(\\n\\s*)+");
 
     protected final JavaMailSender mailSender;
     private final String fromAddress;
@@ -128,12 +129,43 @@ public class EmailService implements IEmailService {
 
     /** Readable plain-text rendering of our own generated HTML, for the text/plain part. */
     static String toPlainText(String html) {
-        String text = HEAD.matcher(html).replaceAll("");
+        String text = stripHead(html);
         text = BLOCK_END.matcher(text).replaceAll("\n");
         text = CELL_END.matcher(text).replaceAll("  ");
         text = TAG.matcher(text).replaceAll("");
         text = HtmlUtils.htmlUnescape(text);
-        text = SPACES.matcher(text).replaceAll(" ");
-        return BLANK_LINES.matcher(text).replaceAll("\n\n").trim();
+
+        // Trim each line and keep at most one blank line between paragraphs.
+        StringBuilder out = new StringBuilder();
+        boolean previousBlank = true;
+        for (String line : text.split("\n", -1)) {
+            String clean = SPACES.matcher(line).replaceAll(" ").trim();
+            if (clean.isEmpty()) {
+                if (!previousBlank) {
+                    out.append('\n');
+                }
+                previousBlank = true;
+            } else {
+                out.append(clean).append('\n');
+                previousBlank = false;
+            }
+        }
+        return out.toString().trim();
+    }
+
+    private static String stripHead(String html) {
+        int start = indexOfIgnoreCase(html, "<head", 0);
+        int end = start < 0 ? -1 : indexOfIgnoreCase(html, "</head>", start);
+        return end < 0 ? html : html.substring(0, start) + html.substring(end + "</head>".length());
+    }
+
+    /** Case-insensitive indexOf on the original string (lower-casing it first can shift indices). */
+    private static int indexOfIgnoreCase(String text, String needle, int from) {
+        for (int i = from; i <= text.length() - needle.length(); i++) {
+            if (text.regionMatches(true, i, needle, 0, needle.length())) {
+                return i;
+            }
+        }
+        return -1;
     }
 }

@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,6 +23,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -115,8 +116,10 @@ class BillingServiceTest {
         @Test
         @DisplayName("is unavailable (503) when Stripe is not configured")
         void shouldBeUnavailableWithoutKeys() {
+            BillingService unconfigured = service("", "price_x", WEBHOOK_SECRET);
+
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                    () -> service("", "price_x", WEBHOOK_SECRET).createProCheckoutUrl());
+                    unconfigured::createProCheckoutUrl);
             assertEquals(HttpStatus.SERVICE_UNAVAILABLE, ex.getStatusCode());
         }
 
@@ -155,13 +158,21 @@ class BillingServiceTest {
             verify(organizationService).changeTier(1L, SubscriptionTier.PRO, "stripe");
         }
 
-        @Test
-        @DisplayName("does not upgrade when the checkout is not paid yet")
-        void shouldNotUpgradeUnpaidCheckout() throws Exception {
-            String payload = event("checkout.session.completed",
-                    "{\"mode\":\"subscription\",\"payment_status\":\"unpaid\",\"client_reference_id\":\"1\"}");
+        @ParameterizedTest(name = "{0}")
+        @CsvSource(delimiter = '|', value = {
+            "checkout not paid yet | checkout.session.completed | {\"mode\":\"subscription\",\"payment_status\":\"unpaid\",\"client_reference_id\":\"1\"}",
+            "one-off payment, not a subscription | checkout.session.completed | {\"mode\":\"payment\",\"payment_status\":\"paid\",\"client_reference_id\":\"1\"}",
+            "non-numeric org id | checkout.session.completed | {\"mode\":\"subscription\",\"payment_status\":\"paid\",\"client_reference_id\":\"abc\"}",
+            "org id not a string | customer.subscription.deleted | {\"object\":\"subscription\",\"metadata\":{\"orgId\":7}}",
+            "no org id at all | customer.subscription.deleted | {\"object\":\"subscription\",\"metadata\":{}}",
+            "event type not handled | invoice.paid | {\"object\":\"invoice\"}",
+        })
+        @DisplayName("acknowledges without changing any tier")
+        void shouldAcknowledgeWithoutChangingTier(String scenario, String type, String object) throws Exception {
+            String payload = event(type, object);
+            String signature = sign(payload, WEBHOOK_SECRET);
 
-            billingService.handleWebhook(payload, sign(payload, WEBHOOK_SECRET));
+            billingService.handleWebhook(payload, signature);
 
             verify(organizationService, never()).changeTier(any(), any(), any());
         }
@@ -181,9 +192,10 @@ class BillingServiceTest {
         @DisplayName("rejects a payload signed with a different secret (400) and changes nothing")
         void shouldRejectWrongSignature() throws Exception {
             String payload = event("checkout.session.completed", PAID_SESSION);
+            String forged = sign(payload, "whsec_attacker");
 
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                    () -> billingService.handleWebhook(payload, sign(payload, "whsec_attacker")));
+                    () -> billingService.handleWebhook(payload, forged));
             assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
             verify(organizationService, never()).changeTier(any(), any(), any());
         }
@@ -202,16 +214,20 @@ class BillingServiceTest {
         @Test
         @DisplayName("rejects a missing signature header (400)")
         void shouldRejectMissingSignature() {
+            String payload = event("checkout.session.completed", PAID_SESSION);
+
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                    () -> billingService.handleWebhook(event("checkout.session.completed", PAID_SESSION), null));
+                    () -> billingService.handleWebhook(payload, null));
             assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
         }
 
         @Test
         @DisplayName("is disabled (404) when no webhook secret is configured")
         void shouldBeDisabledWithoutSecret() {
+            BillingService noWebhookSecret = service("sk_test_x", "price_x", "");
+
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                    () -> service("sk_test_x", "price_x", "").handleWebhook("{}", "t=1,v1=x"));
+                    () -> noWebhookSecret.handleWebhook("{}", "t=1,v1=x"));
             assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
         }
 
@@ -219,30 +235,11 @@ class BillingServiceTest {
         @DisplayName("acknowledges an event for an unknown organization instead of failing (no endless retries)")
         void shouldAcknowledgeUnknownOrg() throws Exception {
             String payload = event("checkout.session.completed", PAID_SESSION);
-            when(organizationService.changeTier(eq(1L), eq(SubscriptionTier.PRO), eq("stripe")))
+            String signature = sign(payload, WEBHOOK_SECRET);
+            when(organizationService.changeTier(1L, SubscriptionTier.PRO, "stripe"))
                     .thenThrow(new OrganizationNotFoundException("Organizzazione non trovata"));
 
-            assertDoesNotThrow(() -> billingService.handleWebhook(payload, sign(payload, WEBHOOK_SECRET)));
-        }
-
-        @Test
-        @DisplayName("acknowledges an event with no usable org id without changing anything")
-        void shouldIgnoreMissingOrgId() throws Exception {
-            String payload = event("customer.subscription.deleted", "{\"object\":\"subscription\",\"metadata\":{}}");
-
-            billingService.handleWebhook(payload, sign(payload, WEBHOOK_SECRET));
-
-            verify(organizationService, never()).changeTier(any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("ignores event types it does not handle")
-        void shouldIgnoreOtherEvents() throws Exception {
-            String payload = event("invoice.paid", "{\"object\":\"invoice\"}");
-
-            billingService.handleWebhook(payload, sign(payload, WEBHOOK_SECRET));
-
-            verify(organizationService, never()).changeTier(any(), any(), any());
+            assertDoesNotThrow(() -> billingService.handleWebhook(payload, signature));
         }
     }
 }

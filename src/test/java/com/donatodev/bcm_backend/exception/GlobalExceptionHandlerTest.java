@@ -187,5 +187,26 @@ class GlobalExceptionHandlerTest {
             assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
             assertEquals("IBAN non verificato", response.getBody().message());
         }
+
+        @Test
+        @DisplayName("Should keep a ResponseStatusException's own status and reason")
+        void shouldKeepResponseStatusAndReason() {
+            ResponseEntity<ApiErrorResponse> response = handler.handleResponseStatus(
+                    new org.springframework.web.server.ResponseStatusException(
+                            HttpStatus.SERVICE_UNAVAILABLE, "Pagamenti non configurati"));
+
+            assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
+            assertEquals("Pagamenti non configurati", response.getBody().message());
+        }
+
+        @Test
+        @DisplayName("Should fall back to the status reason phrase when a ResponseStatusException has no reason")
+        void shouldFallBackToReasonPhrase() {
+            ResponseEntity<ApiErrorResponse> response = handler.handleResponseStatus(
+                    new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND));
+
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Not Found", response.getBody().message());
+        }
     }
 }

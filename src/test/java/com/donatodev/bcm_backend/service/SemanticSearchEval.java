@@ -36,6 +36,10 @@ import org.springframework.test.context.ActiveProfiles;
  */
 @SpringBootTest
 @ActiveProfiles("test")
+// Deliberately NOT named *Test/*IT: that suffix is what keeps Surefire and
+// Failsafe from running it in CI, where no Ollama is available. Run it by
+// hand with mvn test -Dtest=SemanticSearchEval#run.
+@SuppressWarnings("java:S3577")
 class SemanticSearchEval {
 
     @Autowired

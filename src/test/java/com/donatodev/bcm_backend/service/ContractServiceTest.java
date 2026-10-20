@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -2199,7 +2200,7 @@ class ContractServiceTest {
             TenantContext.set(30L);
             try {
                 when(contractMapper.toEntity(dto)).thenReturn(entity);
-                org.mockito.Mockito.doThrow(new com.donatodev.bcm_backend.exception.TierLimitExceededException("Limite del piano FREE raggiunto"))
+                doThrow(new com.donatodev.bcm_backend.exception.TierLimitExceededException("Limite del piano FREE raggiunto"))
                         .when(tierLimitService).enforceContractCreationLimit(30L);
 
                 assertThrows(com.donatodev.bcm_backend.exception.TierLimitExceededException.class,

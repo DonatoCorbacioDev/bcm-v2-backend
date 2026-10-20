@@ -199,13 +199,6 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Builds a structured {@link ApiErrorResponse} with the given status and message.
-     *
-     * @param status  the HTTP status to return
-     * @param message the message describing the error
-     * @return a {@code ResponseEntity<ApiErrorResponse>} with proper status and body
-     */
-    /**
      * Answers a {@link ResponseStatusException} directly, with its own status.
      * Left unhandled, Spring forwards it to {@code /error}, which the security
      * chain doesn't permit and which carries no JWT on that internal dispatch —
@@ -221,6 +214,13 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(status, message);
     }
 
+    /**
+     * Builds a structured {@link ApiErrorResponse} with the given status and message.
+     *
+     * @param status  the HTTP status to return
+     * @param message the message describing the error
+     * @return a {@code ResponseEntity<ApiErrorResponse>} with proper status and body
+     */
     private ResponseEntity<ApiErrorResponse> buildErrorResponse(HttpStatus status, String message) {
         ApiErrorResponse response = new ApiErrorResponse(
                 status.value(),
