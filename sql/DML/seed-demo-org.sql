@@ -31,7 +31,12 @@
 USE bcm;
 
 -- ── Organization ──────────────────────────────────────────────
-UPDATE organizations SET name = 'Nortiva Solutions S.r.l.', slug = 'nortiva-solutions' WHERE id = 3;
+-- PRO, not FREE: since tier gating (TierLimitService.requireMlAccess) FREE
+-- orgs get 403 on every ML feature, which would hide the forecast/AI
+-- widgets the public demo exists to show. Re-applied every night so a
+-- stray manual change can't leave the demo locked.
+UPDATE organizations SET name = 'Nortiva Solutions S.r.l.', slug = 'nortiva-solutions',
+    subscription_tier = 'PRO' WHERE id = 3;
 
 -- ── Manager display name (cosmetic only — the login itself stays "demo")
 UPDATE managers SET first_name = 'Marco', last_name = 'Bellini', department = 'Direzione'
