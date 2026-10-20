@@ -17,6 +17,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Global exception handler for the entire application.
@@ -204,6 +205,22 @@ public class GlobalExceptionHandler {
      * @param message the message describing the error
      * @return a {@code ResponseEntity<ApiErrorResponse>} with proper status and body
      */
+    /**
+     * Answers a {@link ResponseStatusException} directly, with its own status.
+     * Left unhandled, Spring forwards it to {@code /error}, which the security
+     * chain doesn't permit and which carries no JWT on that internal dispatch —
+     * so every one of them (a 404, a 503, a 400) reached the client as a 401,
+     * and the frontend treats any 401 as an expired session and logs out.
+     * MockMvc never performs that error dispatch, which is why only a request
+     * against the deployed app showed it.
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiErrorResponse> handleResponseStatus(ResponseStatusException ex) {
+        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+        String message = ex.getReason() != null ? ex.getReason() : status.getReasonPhrase();
+        return buildErrorResponse(status, message);
+    }
+
     private ResponseEntity<ApiErrorResponse> buildErrorResponse(HttpStatus status, String message) {
         ApiErrorResponse response = new ApiErrorResponse(
                 status.value(),
