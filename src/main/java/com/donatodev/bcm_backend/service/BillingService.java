@@ -117,6 +117,15 @@ public class BillingService {
         if (signatureHeader == null || signatureHeader.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Firma webhook mancante");
         }
+        // Parsed once, up front: nothing is acted on until the signature
+        // check below passes, so reading untrusted JSON here is harmless,
+        // and a malformed body is rejected the same way as a bad signature.
+        JsonNode object;
+        try {
+            object = OBJECT_MAPPER.readTree(payload).path("data").path("object");
+        } catch (JsonProcessingException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payload webhook non valido");
+        }
         Event event;
         try {
             event = Webhook.constructEvent(payload, signatureHeader, webhookSecret);
@@ -124,13 +133,6 @@ public class BillingService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Firma webhook non valida");
         }
 
-        JsonNode object;
-        try {
-            object = OBJECT_MAPPER.readTree(payload).path("data").path("object");
-        } catch (JsonProcessingException ex) {
-            // Unreachable in practice: constructEvent above already parsed it.
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payload webhook non valido");
-        }
         switch (event.getType()) {
             case "checkout.session.completed" -> onCheckoutCompleted(object);
             case "customer.subscription.deleted" -> applyTier(

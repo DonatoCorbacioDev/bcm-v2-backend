@@ -25,6 +25,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -113,10 +115,11 @@ class BillingServiceTest {
             verify(checkoutGateway, never()).createSubscriptionCheckout(anyLong(), anyString(), anyString(), anyString());
         }
 
-        @Test
-        @DisplayName("is unavailable (503) when Stripe is not configured")
-        void shouldBeUnavailableWithoutKeys() {
-            BillingService unconfigured = service("", "price_x", WEBHOOK_SECRET);
+        @ParameterizedTest(name = "secret key \"{0}\", price \"{1}\"")
+        @CsvSource({"'', price_x", "sk_test_x, ''"})
+        @DisplayName("is unavailable (503) when either the API key or the price is not configured")
+        void shouldBeUnavailableWithoutKeys(String secretKey, String priceId) {
+            BillingService unconfigured = service(secretKey, priceId, WEBHOOK_SECRET);
 
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                     unconfigured::createProCheckoutUrl);
@@ -148,14 +151,26 @@ class BillingServiceTest {
     @SuppressWarnings("unused")
     class WebhookHandling {
 
-        @Test
-        @DisplayName("upgrades to PRO on a paid subscription checkout")
-        void shouldUpgradeOnPaidCheckout() throws Exception {
-            String payload = event("checkout.session.completed", PAID_SESSION);
+        @ParameterizedTest(name = "payment_status={0}")
+        @ValueSource(strings = {"paid", "no_payment_required"})
+        @DisplayName("upgrades to PRO on a completed subscription checkout (paid, or free via e.g. a 100% coupon)")
+        void shouldUpgradeOnCompletedCheckout(String paymentStatus) throws Exception {
+            String payload = event("checkout.session.completed",
+                    "{\"mode\":\"subscription\",\"payment_status\":\"" + paymentStatus + "\",\"client_reference_id\":\"1\"}");
+            String signature = sign(payload, WEBHOOK_SECRET);
 
-            billingService.handleWebhook(payload, sign(payload, WEBHOOK_SECRET));
+            billingService.handleWebhook(payload, signature);
 
             verify(organizationService).changeTier(1L, SubscriptionTier.PRO, "stripe");
+        }
+
+        @Test
+        @DisplayName("rejects a malformed body (400) before any signature work or tier change")
+        void shouldRejectMalformedPayload() {
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                    () -> billingService.handleWebhook("not json {", "t=1,v1=abc"));
+            assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+            verify(organizationService, never()).changeTier(any(), any(), any());
         }
 
         @ParameterizedTest(name = "{0}")
@@ -211,13 +226,15 @@ class BillingServiceTest {
             verify(organizationService, never()).changeTier(any(), any(), any());
         }
 
-        @Test
-        @DisplayName("rejects a missing signature header (400)")
-        void shouldRejectMissingSignature() {
+        @ParameterizedTest(name = "header \"{0}\"")
+        @NullAndEmptySource
+        @ValueSource(strings = {"   "})
+        @DisplayName("rejects a missing or blank signature header (400)")
+        void shouldRejectMissingSignature(String header) {
             String payload = event("checkout.session.completed", PAID_SESSION);
 
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                    () -> billingService.handleWebhook(payload, null));
+                    () -> billingService.handleWebhook(payload, header));
             assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
         }
 

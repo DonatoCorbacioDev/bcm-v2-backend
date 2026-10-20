@@ -550,6 +550,27 @@ class ElectronicInvoiceServiceTest {
         }
 
         @Test
+        @Order(27)
+        @DisplayName("updatePaymentDetails: a blank IBAN clears the stored value")
+        void shouldClearIbanWhenBlank() {
+            Contracts contract = fakeContract();
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
+            invoice.setSupplierIban("DE89370400440532013000");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(invoice));
+            when(invoiceRepository.save(any(ElectronicInvoice.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            var request = new com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest(" ", null, null);
+
+            ElectronicInvoiceDTO result = electronicInvoiceService.updatePaymentDetails(CONTRACT_ID, INVOICE_ID, request);
+
+            assertEquals(null, result.supplierIban());
+            assertEquals(null, invoice.getSupplierIban());
+        }
+
+        @Test
         @Order(26)
         @DisplayName("updatePaymentDetails: a null IBAN leaves the existing value unchanged")
         void shouldLeaveIbanUnchangedWhenNull() {

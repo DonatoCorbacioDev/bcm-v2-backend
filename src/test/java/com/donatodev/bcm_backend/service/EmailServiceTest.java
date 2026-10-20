@@ -177,4 +177,11 @@ class EmailServiceTest {
         assertThat(text).doesNotContain("<").doesNotContain("color:red")
                 .contains("Riepilogo").contains("NRT-1").contains("Rossi & C.").contains("Scade il 31/10");
     }
+
+    @Test
+    @DisplayName("collapses any run of blank lines between paragraphs into exactly one")
+    void shouldCollapseBlankLines() {
+        assertThat(EmailService.toPlainText("<p>Primo</p><p></p><p> </p><br><p>Secondo</p>"))
+                .isEqualTo("Primo\n\nSecondo");
+    }
 }

@@ -189,6 +189,16 @@ class GlobalExceptionHandlerTest {
         }
 
         @Test
+        @DisplayName("Should return 409 when a subscription tier limit is reached")
+        void shouldReturn409ForTierLimit() {
+            ResponseEntity<ApiErrorResponse> response = handler.handleTierLimitExceeded(
+                    new TierLimitExceededException("Limite del piano FREE raggiunto"));
+
+            assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+            assertEquals("Limite del piano FREE raggiunto", response.getBody().message());
+        }
+
+        @Test
         @DisplayName("Should keep a ResponseStatusException's own status and reason")
         void shouldKeepResponseStatusAndReason() {
             ResponseEntity<ApiErrorResponse> response = handler.handleResponseStatus(
