@@ -363,7 +363,7 @@ class ContractSchedulerServiceTest {
 
         @Test
         @Order(17)
-        @DisplayName("Should include 'Final Notice' in subject for 1-day threshold")
+        @DisplayName("Should include 'Ultimo avviso' in subject for 1-day threshold")
         void shouldSendFinalNoticeForContractExpiringTomorrow() {
             Managers manager = buildManager(1L, "Final", "Test", "final@test.com");
             Contracts contract = buildContract(1L, "CNT-FINAL", "Customer", "Project", manager);
@@ -379,13 +379,13 @@ class ContractSchedulerServiceTest {
 
             verify(emailService).sendEmail(
                     eq("final@test.com"),
-                    contains("Final Notice"),
+                    contains("Ultimo avviso"),
                     anyString());
         }
 
         @Test
         @Order(18)
-        @DisplayName("Should include 'Urgent' in subject for 7-day threshold")
+        @DisplayName("Should include 'Urgente' in subject for 7-day threshold")
         void shouldSendUrgentNoticeForContractExpiring7Days() {
             Managers manager = buildManager(1L, "Urgent", "Test", "urgent@test.com");
             Contracts contract = buildContract(1L, "CNT-URGENT", "Customer", "Project", manager);
@@ -401,7 +401,7 @@ class ContractSchedulerServiceTest {
 
             verify(emailService).sendEmail(
                     eq("urgent@test.com"),
-                    contains("Urgent"),
+                    contains("Urgente"),
                     anyString());
         }
 

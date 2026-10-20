@@ -97,8 +97,9 @@ public class WeeklyDigestService {
     }
 
     private String buildSubject(int expiringCount) {
-        return String.format("BCM Weekly Digest — %d contract%s expiring soon",
-                expiringCount, expiringCount == 1 ? "" : "s");
+        return expiringCount == 1
+                ? "[BCM] Riepilogo settimanale — 1 contratto in scadenza"
+                : String.format("[BCM] Riepilogo settimanale — %d contratti in scadenza", expiringCount);
     }
 
     String buildHtmlBody(String orgName, LocalDate today, List<Contracts> expiring) {
@@ -126,7 +127,7 @@ public class WeeklyDigestService {
           .append(".footer{background:#f8fafc;padding:16px 32px;font-size:11px;color:#9ca3af;border-top:1px solid #e8edf3}")
           .append("</style></head><body>")
           .append("<div class='header'>")
-          .append("<h1>BCM Weekly Digest</h1>")
+          .append("<h1>Riepilogo settimanale BCM</h1>")
           .append("<p>").append(escapeHtml(orgName)).append(" &bull; ").append(today.format(DATE_FMT)).append("</p>")
           .append(CLOSE_DIV)
           .append("<div class='content'>");

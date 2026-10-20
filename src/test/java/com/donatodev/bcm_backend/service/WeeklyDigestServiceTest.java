@@ -179,7 +179,7 @@ class WeeklyDigestServiceTest {
 
             verify(emailService).sendEmail(
                     eq("admin@test.com"),
-                    contains("2 contracts expiring soon"),
+                    contains("2 contratti in scadenza"),
                     anyString());
         }
 

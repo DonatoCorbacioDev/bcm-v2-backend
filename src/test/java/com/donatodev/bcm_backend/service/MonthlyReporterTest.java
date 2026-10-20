@@ -80,7 +80,7 @@ class MonthlyReporterTest {
 
             monthlyReporter.sendMonthlyReports();
 
-            verify(emailService).sendEmail(eq("admin@testorg.com"), contains("[BCM] Monthly Report"), anyString());
+            verify(emailService).sendEmail(eq("admin@testorg.com"), contains("[BCM] Report mensile"), anyString());
         }
 
         @Test
@@ -290,7 +290,7 @@ class MonthlyReporterTest {
                 reporterLogger.setLevel(originalLevel);
             }
 
-            verify(emailService).sendEmail(eq("admin@testorg.com"), contains("[BCM] Monthly Report"), anyString());
+            verify(emailService).sendEmail(eq("admin@testorg.com"), contains("[BCM] Report mensile"), anyString());
         }
     }
 }

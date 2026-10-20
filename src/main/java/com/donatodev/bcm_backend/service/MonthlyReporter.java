@@ -89,8 +89,8 @@ public class MonthlyReporter {
             return;
         }
 
-        String monthLabel = LocalDate.of(year, month, 1).getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH);
-        String subject = String.format("[BCM] Monthly Report — %s %d", monthLabel, year);
+        String monthLabel = LocalDate.of(year, month, 1).getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
+        String subject = String.format("[BCM] Report mensile — %s %d", monthLabel, year);
         ReportStats stats = new ReportStats(total, active, expired, newContracts, totalValue);
         String body = buildReportEmail(org.getName(), monthLabel, year, stats);
 
@@ -121,7 +121,7 @@ public class MonthlyReporter {
         String escapedOrg = HtmlUtils.htmlEscape(orgName);
         String escapedPeriod = HtmlUtils.htmlEscape(monthLabel + " " + year);
 
-        return "<!DOCTYPE html><html><head><style>"
+        return "<!DOCTYPE html><html lang=\"it\"><head><style>"
                 + "body{font-family:Arial,sans-serif;color:#333;margin:0;padding:0;}"
                 + ".container{max-width:600px;margin:0 auto;padding:20px;}"
                 + ".header{background-color:#1e40af;color:white;padding:20px;border-radius:5px;}"
@@ -131,17 +131,17 @@ public class MonthlyReporter {
                 + ".footer{margin-top:20px;padding-top:20px;border-top:1px solid #ddd;font-size:12px;color:#666;}"
                 + "</style></head><body>"
                 + "<div class=\"container\">"
-                + "<div class=\"header\"><h2>BCM Monthly Report — " + escapedPeriod + "</h2>"
-                + "<p>Organization: " + escapedOrg + "</p></div>"
+                + "<div class=\"header\"><h2>Report mensile BCM — " + escapedPeriod + "</h2>"
+                + "<p>Organizzazione: " + escapedOrg + "</p></div>"
                 + "<div class=\"stats\">"
-                + "<div class=\"stat\"><div class=\"stat-value\">" + total + "</div><div>Total Contracts</div></div>"
-                + "<div class=\"stat\"><div class=\"stat-value\">" + active + "</div><div>Active</div></div>"
-                + "<div class=\"stat\"><div class=\"stat-value\">" + expired + "</div><div>Expired</div></div>"
-                + "<div class=\"stat\"><div class=\"stat-value\">" + newContracts + "</div><div>New This Month</div></div>"
+                + "<div class=\"stat\"><div class=\"stat-value\">" + total + "</div><div>Contratti totali</div></div>"
+                + "<div class=\"stat\"><div class=\"stat-value\">" + active + "</div><div>Attivi</div></div>"
+                + "<div class=\"stat\"><div class=\"stat-value\">" + expired + "</div><div>Scaduti</div></div>"
+                + "<div class=\"stat\"><div class=\"stat-value\">" + newContracts + "</div><div>Nuovi questo mese</div></div>"
                 + "<div class=\"stat\"><div class=\"stat-value\">&euro;" + String.format("%.0f", totalValue)
-                + "</div><div>Financial Value This Month</div></div>"
+                + "</div><div>Valore finanziario del mese</div></div>"
                 + "</div>"
-                + "<div class=\"footer\"><p>This is an automated monthly report from Business Contracts Manager.</p>"
+                + "<div class=\"footer\"><p>Report mensile generato automaticamente da Business Contracts Manager.</p>"
                 + "<p>&#169; 2025 BCM - Business Contracts Manager</p></div>"
                 + "</div></body></html>";
     }

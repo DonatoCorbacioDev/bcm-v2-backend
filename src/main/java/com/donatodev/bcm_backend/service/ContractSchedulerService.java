@@ -175,23 +175,25 @@ public class ContractSchedulerService {
         String urgencyText;
 
         if (daysLeft <= 1) {
-            subject = String.format("🚨 Final Notice – Contract Expiring Tomorrow: %s", contract.getContractNumber());
+            subject = String.format("[BCM] Ultimo avviso — il contratto %s scade domani", contract.getContractNumber());
             headerColor = "#dc2626";
             bannerBg = "#fee2e2";
             bannerBorder = "#dc2626";
-            urgencyText = "🚨 Final Notice";
+            urgencyText = "Ultimo avviso";
         } else if (daysLeft <= 7) {
-            subject = String.format("🔔 Urgent: Contract Expiring in %d Days: %s", daysLeft, contract.getContractNumber());
+            subject = String.format("[BCM] Urgente — il contratto %s scade tra %d giorni",
+                    contract.getContractNumber(), daysLeft);
             headerColor = "#ea580c";
             bannerBg = "#ffedd5";
             bannerBorder = "#ea580c";
-            urgencyText = "🔔 Urgent";
+            urgencyText = "Urgente";
         } else {
-            subject = String.format("⚠️ Contract Expiring in %d Days: %s", daysLeft, contract.getContractNumber());
+            subject = String.format("[BCM] Promemoria — il contratto %s scade tra %d giorni",
+                    contract.getContractNumber(), daysLeft);
             headerColor = "#f59e0b";
             bannerBg = "#fef3c7";
             bannerBorder = "#f59e0b";
-            urgencyText = "⚠️ Reminder";
+            urgencyText = "Promemoria";
         }
 
         String firstName = HtmlUtils.htmlEscape(manager.getFirstName());
@@ -203,7 +205,7 @@ public class ContractSchedulerService {
                 : "";
         String expirationDate = contract.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
-        String body = "<!DOCTYPE html><html><head><style>"
+        String body = "<!DOCTYPE html><html lang=\"it\"><head><style>"
                 + "body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }"
                 + ".container { max-width: 600px; margin: 0 auto; padding: 20px; }"
                 + ".header { background-color: " + headerColor + "; color: white; padding: 20px; border-radius: 5px; }"
@@ -215,25 +217,25 @@ public class ContractSchedulerService {
                 + ".footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; }"
                 + "</style></head><body>"
                 + "<div class=\"container\">"
-                + "<div class=\"header\"><h2>Contract Expiration Notification</h2></div>"
+                + "<div class=\"header\"><h2>Contratto in scadenza</h2></div>"
                 + "<div class=\"content\">"
-                + "<p>Dear " + firstName + " " + lastName + ",</p>"
-                + "<div class=\"banner\"><strong>" + urgencyText + " – Action Required</strong><br>"
-                + "The following contract will expire in <strong>" + daysLeft + " day" + (daysLeft == 1 ? "" : "s") + "</strong>.</div>"
-                + "<h3>Contract Details:</h3>"
-                + "<div class=\"detail\"><span class=\"label\">Contract Number:</span>"
+                + "<p>Gentile " + firstName + " " + lastName + ",</p>"
+                + "<div class=\"banner\"><strong>" + urgencyText + " – azione richiesta</strong><br>"
+                + "Il contratto seguente scade tra <strong>" + daysLeft + (daysLeft == 1 ? " giorno" : " giorni")
+                + "</strong>.</div>"
+                + "<h3>Dettagli del contratto:</h3>"
+                + "<div class=\"detail\"><span class=\"label\">Numero contratto:</span>"
                 + " <span class=\"value\">" + contractNumber + "</span></div>"
-                + "<div class=\"detail\"><span class=\"label\">Counterparty:</span>"
+                + "<div class=\"detail\"><span class=\"label\">Controparte:</span>"
                 + " <span class=\"value\">" + customerName + "</span></div>"
-                + "<div class=\"detail\"><span class=\"label\">Project:</span>"
+                + "<div class=\"detail\"><span class=\"label\">Progetto:</span>"
                 + " <span class=\"value\">" + projectName + "</span></div>"
-                + "<div class=\"detail\"><span class=\"label\">Expiration Date:</span>"
+                + "<div class=\"detail\"><span class=\"label\">Data di scadenza:</span>"
                 + " <span class=\"value\">" + expirationDate + "</span></div>"
-                + "<p style=\"margin-top: 20px;\">Please review this contract and take necessary actions"
-                + " before the expiration date.</p>"
+                + "<p style=\"margin-top: 20px;\">Verifica il contratto e intervieni prima della data di scadenza.</p>"
                 + "</div>"
                 + "<div class=\"footer\">"
-                + "<p>This is an automated notification from Business Contracts Manager.</p>"
+                + "<p>Notifica automatica di Business Contracts Manager.</p>"
                 + "<p>&#169; 2025 BCM - Business Contracts Manager</p>"
                 + "</div></div></body></html>";
 
