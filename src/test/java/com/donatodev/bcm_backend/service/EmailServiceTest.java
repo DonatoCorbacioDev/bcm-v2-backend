@@ -49,7 +49,7 @@ class EmailServiceTest {
 
     @BeforeEach
     void setup() {
-        emailService = new EmailService(mailSender, "bcm.sender@gmail.com");
+        emailService = new EmailService(mailSender, "", "bcm.sender@gmail.com");
         message = new MimeMessage(Session.getInstance(new Properties()));
     }
 
@@ -121,9 +121,22 @@ class EmailServiceTest {
     }
 
     @Test
+    @DisplayName("uses MAIL_FROM as sender when set, not the SMTP login (Brevo-style login ids)")
+    void shouldPreferConfiguredFromOverSmtpLogin() throws Exception {
+        EmailService brevo = new EmailService(mailSender, " notifiche@donatocorbacio.dev ", "8a1b2c001@smtp-brevo.com");
+        when(mailSender.createMimeMessage()).thenReturn(message);
+
+        brevo.sendEmail(RECIPIENT, "Oggetto", "<p>Corpo</p>");
+
+        InternetAddress from = (InternetAddress) message.getFrom()[0];
+        assertThat(from.getAddress()).isEqualTo("notifiche@donatocorbacio.dev");
+        assertThat(from.getPersonal()).isEqualTo(EmailService.SENDER_NAME);
+    }
+
+    @Test
     @DisplayName("leaves the sender to the mail server's default when no account is configured")
     void shouldOmitSenderWhenNotConfigured() throws Exception {
-        EmailService noSender = new EmailService(mailSender, "");
+        EmailService noSender = new EmailService(mailSender, "", "");
         when(mailSender.createMimeMessage()).thenReturn(message);
 
         noSender.sendEmail(RECIPIENT, "Oggetto", "<p>Corpo</p>");

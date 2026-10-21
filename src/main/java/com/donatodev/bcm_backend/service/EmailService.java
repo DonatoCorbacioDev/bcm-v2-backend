@@ -55,9 +55,15 @@ public class EmailService implements IEmailService {
     protected final JavaMailSender mailSender;
     private final String fromAddress;
 
-    public EmailService(JavaMailSender mailSender, @Value("${spring.mail.username:}") String fromAddress) {
+    /**
+     * @param configuredFrom explicit sender (MAIL_FROM); blank means "not set"
+     * @param smtpUsername   fallback sender — on Gmail the SMTP login is the mailbox itself
+     */
+    public EmailService(JavaMailSender mailSender,
+            @Value("${app.mail.from:}") String configuredFrom,
+            @Value("${spring.mail.username:}") String smtpUsername) {
         this.mailSender = mailSender;
-        this.fromAddress = fromAddress;
+        this.fromAddress = configuredFrom == null || configuredFrom.isBlank() ? smtpUsername : configuredFrom.trim();
     }
 
     @Override
