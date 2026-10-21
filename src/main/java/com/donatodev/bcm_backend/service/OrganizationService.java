@@ -37,6 +37,8 @@ import com.donatodev.bcm_backend.util.IbanValidator;
 @Service
 public class OrganizationService {
 
+    private static final String ORGANIZATION_NOT_FOUND = "Organizzazione non trovata";
+
     private final OrganizationRepository organizationRepository;
     private final UsersRepository usersRepository;
     private final ManagersRepository managersRepository;
@@ -168,7 +170,7 @@ public class OrganizationService {
     @Transactional
     public OrganizationDTO changeTier(Long orgId, SubscriptionTier tier, String source) {
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new OrganizationNotFoundException("Organizzazione non trovata"));
+                .orElseThrow(() -> new OrganizationNotFoundException(ORGANIZATION_NOT_FOUND));
         SubscriptionTier previous = org.getSubscriptionTier();
         if (previous == tier) {
             return toDTO(org);
@@ -188,7 +190,7 @@ public class OrganizationService {
     @Transactional
     public void linkStripeCustomer(Long orgId, String stripeCustomerId) {
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new OrganizationNotFoundException("Organizzazione non trovata"));
+                .orElseThrow(() -> new OrganizationNotFoundException(ORGANIZATION_NOT_FOUND));
         if (stripeCustomerId.equals(org.getStripeCustomerId())) {
             return;
         }
@@ -200,7 +202,7 @@ public class OrganizationService {
         Long orgId = TenantContext.get();
         if (orgId != null) {
             return organizationRepository.findById(orgId)
-                    .orElseThrow(() -> new OrganizationNotFoundException("Organizzazione non trovata"));
+                    .orElseThrow(() -> new OrganizationNotFoundException(ORGANIZATION_NOT_FOUND));
         }
         // Fallback when TenantContext is absent (e.g. test context with @WithMockUser)
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
