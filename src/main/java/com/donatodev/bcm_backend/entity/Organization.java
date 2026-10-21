@@ -57,6 +57,13 @@ public class Organization {
     @Column(name = "stripe_customer_id")
     private String stripeCustomerId;
 
+    /** Terms of Service version accepted at registration; null for orgs that predate the Terms. */
+    @Column(name = "terms_version", length = 20)
+    private String termsVersion;
+
+    @Column(name = "terms_accepted_at")
+    private LocalDateTime termsAcceptedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

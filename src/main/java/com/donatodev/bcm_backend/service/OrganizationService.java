@@ -6,6 +6,8 @@
 package com.donatodev.bcm_backend.service;
 
 import java.text.Normalizer;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.auth.AuthResponseDTO;
+import com.donatodev.bcm_backend.config.LegalTerms;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.OrganizationDTO;
 import com.donatodev.bcm_backend.dto.OrganizationRegistrationRequest;
@@ -82,12 +85,21 @@ public class OrganizationService {
             throw new IllegalArgumentException("Email già in uso.");
         }
 
+        // A stale page (Terms changed since it was loaded) must not create an
+        // acceptance pointing at a text the user never saw.
+        if (!LegalTerms.CURRENT_VERSION.equals(request.termsVersion())) {
+            throw new IllegalArgumentException(
+                    "I Termini di servizio sono stati aggiornati: ricarica la pagina e accettali di nuovo.");
+        }
+
         String slug = generateUniqueSlug(request.organizationName());
 
         Organization org = organizationRepository.save(Organization.builder()
                 .name(request.organizationName())
                 .slug(slug)
                 .subscriptionTier(SubscriptionTier.FREE)
+                .termsVersion(LegalTerms.CURRENT_VERSION)
+                .termsAcceptedAt(LocalDateTime.now(ZoneId.systemDefault()))
                 .build());
 
         Managers manager = managersRepository.save(Managers.builder()
@@ -108,6 +120,9 @@ public class OrganizationService {
                 .organization(org)
                 .verified(true)
                 .build());
+
+        auditLogService.save("TERMS_ACCEPTED", "Organization", org.getId(), admin.getUsername(), org.getId(),
+                "terms " + LegalTerms.CURRENT_VERSION + "; professional use declared; onerous clauses approved (artt. 1341-1342 c.c.)");
 
         String accessToken = jwtUtils.generateToken(admin);
         String refreshToken = refreshTokenService.createRefreshToken(admin);

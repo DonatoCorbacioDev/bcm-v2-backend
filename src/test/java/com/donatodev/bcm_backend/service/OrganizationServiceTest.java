@@ -14,10 +14,13 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,6 +30,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.donatodev.bcm_backend.config.LegalTerms;
 import com.donatodev.bcm_backend.dto.OrganizationDTO;
 import com.donatodev.bcm_backend.dto.OrganizationRegistrationRequest;
 import com.donatodev.bcm_backend.dto.UpdateOrganizationRequest;
@@ -63,7 +67,8 @@ class OrganizationServiceTest {
     private OrganizationRegistrationRequest validRequest() {
         return new OrganizationRegistrationRequest(
                 "Acme Corp", "acme-admin", "secret123",
-                "admin@acme.com", "John", "Doe");
+                "admin@acme.com", "John", "Doe",
+                LegalTerms.CURRENT_VERSION, true, true, true);
     }
 
     private Organization savedOrg() {
@@ -101,6 +106,26 @@ class OrganizationServiceTest {
 
             assertEquals("access-token", response.token());
             assertEquals("refresh-token", response.refreshToken());
+
+            ArgumentCaptor<Organization> created = ArgumentCaptor.forClass(Organization.class);
+            verify(organizationRepository).save(created.capture());
+            assertEquals(LegalTerms.CURRENT_VERSION, created.getValue().getTermsVersion());
+            assertNotNull(created.getValue().getTermsAcceptedAt());
+            verify(auditLogService).save(eq("TERMS_ACCEPTED"), eq("Organization"), eq(1L), eq("acme-admin"),
+                    eq(1L), contains(LegalTerms.CURRENT_VERSION));
+        }
+
+        @Test
+        @DisplayName("registerOrganization refuses a stale Terms version before creating anything")
+        void shouldRefuseStaleTermsVersion() {
+            OrganizationRegistrationRequest stale = new OrganizationRegistrationRequest(
+                    "Acme Corp", "acme-admin", "secret123", "admin@acme.com", "John", "Doe",
+                    "2020-01-01", true, true, true);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> organizationService.registerOrganization(stale));
+            assertTrue(ex.getMessage().contains("Termini di servizio sono stati aggiornati"));
+            verify(organizationRepository, never()).save(any());
         }
 
         @Test
@@ -197,7 +222,8 @@ class OrganizationServiceTest {
             Users admin = Users.builder().id(1L).username("acme-admin").organization(org).build();
 
             OrganizationRegistrationRequest req = new OrganizationRegistrationRequest(
-                    "!!!###", "spec-admin", "secret123", "spec@test.com", "Spec", "Admin");
+                    "!!!###", "spec-admin", "secret123", "spec@test.com", "Spec", "Admin",
+                    LegalTerms.CURRENT_VERSION, true, true, true);
 
             when(usersRepository.existsByUsername("spec-admin")).thenReturn(false);
             when(managersRepository.existsByEmail("spec@test.com")).thenReturn(false);

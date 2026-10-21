@@ -57,14 +57,26 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 45,
-                "Expected at least 45 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 46,
+                "Expected at least 46 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(45, maxVersion, "Highest applied migration version should be V45");
+        assertEquals(46, maxVersion, "Highest applied migration version should be V46");
+    }
+
+    @Test
+    @DisplayName("V46 adds nullable terms acceptance columns, so organizations that predate the Terms stay valid")
+    void v46AddsNullableTermsAcceptanceColumns() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        List<String> nullable = jdbc.queryForList(
+                "SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                        + "AND TABLE_NAME = 'organizations' AND COLUMN_NAME IN ('terms_version', 'terms_accepted_at')",
+                String.class);
+        assertEquals(List.of("YES", "YES"), nullable);
     }
 
     @Test

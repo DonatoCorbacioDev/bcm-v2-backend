@@ -1,6 +1,9 @@
 package com.donatodev.bcm_backend.controller;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -8,6 +11,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,11 +28,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.donatodev.bcm_backend.auth.RefreshCookieFactory;
+import com.donatodev.bcm_backend.config.LegalTerms;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.SubscriptionTier;
 import com.donatodev.bcm_backend.entity.Users;
+import com.donatodev.bcm_backend.repository.AuditLogRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.RefreshTokenRepository;
@@ -46,6 +53,7 @@ class OrganizationControllerTest {
     @Autowired private ManagersRepository managersRepository;
     @Autowired private RolesRepository rolesRepository;
     @Autowired private RefreshTokenRepository refreshTokenRepository;
+    @Autowired private AuditLogRepository auditLogRepository;
 
     private static final String REGISTER_URL = "/organizations/register";
     private static final String ME_URL = "/organizations/me";
@@ -57,9 +65,13 @@ class OrganizationControllerTest {
               "adminPassword":    "password123",
               "adminEmail":       "admin@testcorp.com",
               "adminFirstName":   "Test",
-              "adminLastName":    "Admin"
+              "adminLastName":    "Admin",
+              "termsVersion":     "%s",
+              "termsAccepted":    true,
+              "professionalUse":  true,
+              "onerousClausesApproved": true
             }
-            """;
+            """.formatted(com.donatodev.bcm_backend.config.LegalTerms.CURRENT_VERSION);
 
     @BeforeEach
     void setup() {
@@ -108,9 +120,13 @@ class OrganizationControllerTest {
                       "adminPassword":    "password123",
                       "adminEmail":       "other@corp.com",
                       "adminFirstName":   "Other",
-                      "adminLastName":    "Admin"
+                      "adminLastName":    "Admin",
+                      "termsVersion":     "%s",
+                      "termsAccepted":    true,
+                      "professionalUse":  true,
+                      "onerousClausesApproved": true
                     }
-                    """;
+                    """.formatted(com.donatodev.bcm_backend.config.LegalTerms.CURRENT_VERSION);
             mockMvc.perform(post(REGISTER_URL)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(duplicate))
@@ -134,9 +150,13 @@ class OrganizationControllerTest {
                       "adminPassword":    "password123",
                       "adminEmail":       "admin@testcorp.com",
                       "adminFirstName":   "Other",
-                      "adminLastName":    "Admin"
+                      "adminLastName":    "Admin",
+                      "termsVersion":     "%s",
+                      "termsAccepted":    true,
+                      "professionalUse":  true,
+                      "onerousClausesApproved": true
                     }
-                    """;
+                    """.formatted(com.donatodev.bcm_backend.config.LegalTerms.CURRENT_VERSION);
             mockMvc.perform(post(REGISTER_URL)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(duplicate))
@@ -155,9 +175,13 @@ class OrganizationControllerTest {
                       "adminPassword":    "password123",
                       "adminEmail":       "admin@corp.com",
                       "adminFirstName":   "A",
-                      "adminLastName":    "B"
+                      "adminLastName":    "B",
+                      "termsVersion":     "%s",
+                      "termsAccepted":    true,
+                      "professionalUse":  true,
+                      "onerousClausesApproved": true
                     }
-                    """;
+                    """.formatted(com.donatodev.bcm_backend.config.LegalTerms.CURRENT_VERSION);
             mockMvc.perform(post(REGISTER_URL)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(invalid))
@@ -175,9 +199,13 @@ class OrganizationControllerTest {
                       "adminPassword":    "password123",
                       "adminEmail":       "not-an-email",
                       "adminFirstName":   "A",
-                      "adminLastName":    "B"
+                      "adminLastName":    "B",
+                      "termsVersion":     "%s",
+                      "termsAccepted":    true,
+                      "professionalUse":  true,
+                      "onerousClausesApproved": true
                     }
-                    """;
+                    """.formatted(com.donatodev.bcm_backend.config.LegalTerms.CURRENT_VERSION);
             mockMvc.perform(post(REGISTER_URL)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(invalid))
@@ -357,6 +385,70 @@ class OrganizationControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"name\":\"Hack\"}"))
                     .andExpect(status().isForbidden());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /organizations/register — Terms of Service acceptance")
+    @SuppressWarnings("unused")
+    class TermsAcceptance {
+
+        private static String registration(String termsVersion, boolean terms, boolean professional, boolean clauses) {
+            return """
+                    {
+                      "organizationName": "Terms Corp",
+                      "adminUsername":    "termsadmin",
+                      "adminPassword":    "password123",
+                      "adminEmail":       "admin@termscorp.com",
+                      "adminFirstName":   "Terms",
+                      "adminLastName":    "Admin",
+                      "termsVersion":     "%s",
+                      "termsAccepted":    %s,
+                      "professionalUse":  %s,
+                      "onerousClausesApproved": %s
+                    }
+                    """.formatted(termsVersion, terms, professional, clauses);
+        }
+
+        @Test
+        @DisplayName("stores which Terms version was accepted and when, and audits who accepted")
+        void shouldRecordAcceptance() throws Exception {
+            mockMvc.perform(post(REGISTER_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(registration(LegalTerms.CURRENT_VERSION, true, true, true)))
+                    .andExpect(status().isCreated());
+
+            Organization org = organizationRepository.findAll().stream()
+                    .filter(o -> "Terms Corp".equals(o.getName())).findFirst().orElseThrow();
+            assertEquals(LegalTerms.CURRENT_VERSION, org.getTermsVersion());
+            assertNotNull(org.getTermsAcceptedAt());
+            assertTrue(auditLogRepository.findAll().stream().anyMatch(log ->
+                    "TERMS_ACCEPTED".equals(log.getAction()) && "termsadmin".equals(log.getUsername())
+                            && org.getId().equals(log.getOrgId())));
+        }
+
+        @ParameterizedTest(name = "terms={0}, professional={1}, clauses={2}")
+        @CsvSource({"false, true, true", "true, false, true", "true, true, false"})
+        @DisplayName("refuses a registration missing any of the three declarations (400), creating nothing")
+        void shouldRefuseMissingDeclaration(boolean terms, boolean professional, boolean clauses) throws Exception {
+            mockMvc.perform(post(REGISTER_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(registration(LegalTerms.CURRENT_VERSION, terms, professional, clauses)))
+                    .andExpect(status().isBadRequest());
+
+            assertTrue(usersRepository.findByUsername("termsadmin").isEmpty());
+        }
+
+        @Test
+        @DisplayName("refuses an acceptance of a Terms version other than the published one (400)")
+        void shouldRefuseStaleTermsVersion() throws Exception {
+            mockMvc.perform(post(REGISTER_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(registration("2020-01-01", true, true, true)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value(containsString("Termini di servizio sono stati aggiornati")));
+
+            assertTrue(usersRepository.findByUsername("termsadmin").isEmpty());
         }
     }
 }

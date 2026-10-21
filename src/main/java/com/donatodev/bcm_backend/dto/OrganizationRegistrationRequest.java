@@ -5,10 +5,24 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/**
+ * Self-service registration. The three declarations are primitive booleans on
+ * purpose: a missing field deserializes to {@code false} and fails
+ * {@link AssertTrue}, whereas a {@code Boolean} null would pass it.
+ *
+ * @param termsVersion            the /termini version the user saw; must equal
+ *                                {@code LegalTerms.CURRENT_VERSION}
+ * @param termsAccepted           Terms of Service accepted, Privacy notice read
+ * @param professionalUse         acting as a business/professional, not a consumer
+ *                                (the service is B2B-only)
+ * @param onerousClausesApproved  separate specific approval of the onerous
+ *                                clauses, required by arts. 1341-1342 c.c.
+ */
 public record OrganizationRegistrationRequest(
 
         @NotBlank(message = "Nome organizzazione obbligatorio")
@@ -31,5 +45,17 @@ public record OrganizationRegistrationRequest(
         String adminFirstName,
 
         @NotBlank(message = "Cognome amministratore obbligatorio")
-        String adminLastName
+        String adminLastName,
+
+        @NotBlank(message = "Versione dei Termini di servizio mancante")
+        String termsVersion,
+
+        @AssertTrue(message = "È necessario accettare i Termini di servizio")
+        boolean termsAccepted,
+
+        @AssertTrue(message = "Il servizio è riservato a imprese e professionisti")
+        boolean professionalUse,
+
+        @AssertTrue(message = "È necessario approvare specificamente le clausole indicate (artt. 1341-1342 c.c.)")
+        boolean onerousClausesApproved
 ) {}

@@ -56,6 +56,16 @@ stesso.
 | Tesseract OCR | Self-hosted, stesso container backend | Immagine della pagina scansionata | **No** — locale, nessuna chiamata esterna |
 | SMTP (invio email: inviti, notifiche, digest settimanale) | Provider configurato da `MAIL_HOST`/`MAIL_PORT` (Gmail SMTP di default in `.env.example`, sostituibile) | Indirizzo email destinatario, contenuto della notifica | Dipende dal provider scelto in produzione — **da specificare per ogni deployment**, non è un valore fisso di BCM |
 
+**Deployment di produzione (bcm.donatocorbacio.dev), dal 2026-10-21** — gli
+stessi sotto-responsabili elencati nell'Informativa pubblica (`/privacy`) e
+autorizzati dai Termini di servizio (`/termini`, sez. 7):
+
+| Servizio | Ruolo | Dati che riceve | Extra-UE? |
+|---|---|---|---|
+| Oracle Cloud Infrastructure, regione `eu-milan-1` | Hosting VM, database, upload, backup off-site (bucket `bcm-backups`, cancellazione automatica entro 10/35 giorni) | Tutti | **No** — Italia |
+| Brevo (Sendinblue SAS, Francia) | SMTP transazionale (`smtp-relay.brevo.com`), dominio `donatocorbacio.dev` autenticato DKIM/DMARC | Indirizzo destinatario, contenuto della notifica | **No** — UE |
+| Stripe (Stripe Payments Europe Ltd, Irlanda) | Abbonamenti e pagamenti, solo piani a pagamento (oggi solo sandbox) | Dati di fatturazione dell'organizzazione; carta gestita solo da Stripe | Possibile verso USA, con DPF/SCC di Stripe |
+
 Non ci sono chiamate a servizi SaaS terzi (nessun Textract, nessun Bedrock,
 nessuna AI di terze parti) — è stata una decisione esplicita del progetto
 (vedi cronologia commit "AWS removed, PDFBox + Ollama integrated").
