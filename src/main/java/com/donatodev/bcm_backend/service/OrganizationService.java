@@ -180,6 +180,22 @@ public class OrganizationService {
         return toDTO(saved);
     }
 
+    /**
+     * Records the Stripe customer behind an org's subscription (from a
+     * completed checkout). A no-op when it's already the stored one, so a
+     * redelivered webhook writes nothing.
+     */
+    @Transactional
+    public void linkStripeCustomer(Long orgId, String stripeCustomerId) {
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new OrganizationNotFoundException("Organizzazione non trovata"));
+        if (stripeCustomerId.equals(org.getStripeCustomerId())) {
+            return;
+        }
+        org.setStripeCustomerId(stripeCustomerId);
+        organizationRepository.save(org);
+    }
+
     private Organization resolveCurrentOrganization() {
         Long orgId = TenantContext.get();
         if (orgId != null) {
@@ -225,6 +241,7 @@ public class OrganizationService {
                 org.getSubscriptionTier(),
                 IbanValidator.maskNullable(org.getIban()),
                 IbanValidator.maskNullable(org.getBic()),
-                org.getCreatedAt());
+                org.getCreatedAt(),
+                org.getStripeCustomerId() != null);
     }
 }

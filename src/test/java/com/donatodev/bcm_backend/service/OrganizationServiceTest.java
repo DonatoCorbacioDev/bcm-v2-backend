@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
@@ -449,6 +450,47 @@ class OrganizationServiceTest {
             } finally {
                 com.donatodev.bcm_backend.config.TenantContext.clear();
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("linkStripeCustomer")
+    @SuppressWarnings("unused")
+    class LinkStripeCustomer {
+
+        @Test
+        @DisplayName("stores the Stripe customer, and the DTO then reports the portal as available")
+        void shouldStoreCustomer() {
+            Organization org = savedOrg();
+            when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+
+            organizationService.linkStripeCustomer(1L, "cus_1");
+
+            assertEquals("cus_1", org.getStripeCustomerId());
+            verify(organizationRepository).save(org);
+            when(organizationRepository.save(org)).thenReturn(org);
+            assertTrue(organizationService.changeTier(1L, SubscriptionTier.PRO, "stripe").billingPortalAvailable());
+        }
+
+        @Test
+        @DisplayName("writes nothing when the same customer is already stored (webhook redelivery)")
+        void shouldSkipWhenUnchanged() {
+            Organization org = savedOrg();
+            org.setStripeCustomerId("cus_1");
+            when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+
+            organizationService.linkStripeCustomer(1L, "cus_1");
+
+            verify(organizationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("throws when the organization does not exist")
+        void shouldThrowWhenOrganizationMissing() {
+            when(organizationRepository.findById(99L)).thenReturn(Optional.empty());
+
+            assertThrows(OrganizationNotFoundException.class,
+                    () -> organizationService.linkStripeCustomer(99L, "cus_1"));
         }
     }
 

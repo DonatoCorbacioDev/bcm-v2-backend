@@ -53,6 +53,10 @@ public class Organization {
     @Column(name = "bic", length = 11)
     private String bic;
 
+    /** Stripe customer (cus_...) behind this org's subscription; null if it never paid through Stripe. */
+    @Column(name = "stripe_customer_id")
+    private String stripeCustomerId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

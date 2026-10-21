@@ -78,25 +78,59 @@ public class BillingService {
      * @return the Stripe-hosted checkout URL the frontend redirects to
      */
     public String createProCheckoutUrl() {
-        if (secretKey.isBlank() || proPriceId.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Pagamenti non configurati");
+        if (proPriceId.isBlank()) {
+            throw notConfigured();
+        }
+        Organization org = currentOrganization();
+        if (org.getSubscriptionTier() != SubscriptionTier.FREE) {
+            throw new IllegalArgumentException("L'organizzazione ha già un piano a pagamento");
+        }
+        try {
+            return checkoutGateway.createSubscriptionCheckout(org.getId(), proPriceId, org.getStripeCustomerId(),
+                    frontendBaseUrl + "/organization?checkout=success",
+                    frontendBaseUrl + "/organization?checkout=cancel");
+        } catch (StripeException ex) {
+            throw stripeUnavailable("checkout", org.getId(), ex);
+        }
+    }
+
+    /**
+     * Opens the Stripe Customer Portal for the caller's organization, where
+     * its admin cancels the subscription, changes card or downloads invoices.
+     *
+     * @return the Stripe-hosted portal URL the frontend redirects to
+     */
+    public String createPortalUrl() {
+        Organization org = currentOrganization();
+        if (org.getStripeCustomerId() == null) {
+            throw new IllegalArgumentException("Nessun abbonamento Stripe da gestire per questa organizzazione");
+        }
+        try {
+            return checkoutGateway.createPortalSession(org.getStripeCustomerId(), frontendBaseUrl + "/organization");
+        } catch (StripeException ex) {
+            throw stripeUnavailable("portal", org.getId(), ex);
+        }
+    }
+
+    private Organization currentOrganization() {
+        if (secretKey.isBlank()) {
+            throw notConfigured();
         }
         Long orgId = TenantContext.get();
         Organization org = orgId == null ? null : organizationRepository.findById(orgId).orElse(null);
         if (org == null) {
             throw new OrganizationNotFoundException("Organizzazione non trovata");
         }
-        if (org.getSubscriptionTier() != SubscriptionTier.FREE) {
-            throw new IllegalArgumentException("L'organizzazione ha già un piano a pagamento");
-        }
-        try {
-            return checkoutGateway.createSubscriptionCheckout(orgId, proPriceId,
-                    frontendBaseUrl + "/organization?checkout=success",
-                    frontendBaseUrl + "/organization?checkout=cancel");
-        } catch (StripeException ex) {
-            log.warn("Stripe checkout session creation failed for org {}: {}", orgId, ex.getClass().getSimpleName());
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Servizio di pagamento non disponibile");
-        }
+        return org;
+    }
+
+    private static ResponseStatusException notConfigured() {
+        return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Pagamenti non configurati");
+    }
+
+    private static ResponseStatusException stripeUnavailable(String operation, Long orgId, StripeException ex) {
+        log.warn("Stripe {} session creation failed for org {}: {}", operation, orgId, ex.getClass().getSimpleName());
+        return new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Servizio di pagamento non disponibile");
     }
 
     /**
@@ -135,8 +169,10 @@ public class BillingService {
 
         switch (event.getType()) {
             case "checkout.session.completed" -> onCheckoutCompleted(object);
+            // The stored customer id is kept on purpose: the portal still
+            // shows past invoices, and a later checkout reuses the customer.
             case "customer.subscription.deleted" -> applyTier(
-                    readOrgId(object.path("metadata"), ORG_ID_METADATA_KEY), SubscriptionTier.FREE);
+                    readOrgId(object.path("metadata"), ORG_ID_METADATA_KEY), SubscriptionTier.FREE, null);
             default -> {
                 // Not subscribed to anything else; acknowledged and ignored.
             }
@@ -150,15 +186,19 @@ public class BillingService {
         if (!"subscription".equals(mode) || !paid) {
             return;
         }
-        applyTier(readOrgId(session, "client_reference_id"), SubscriptionTier.PRO);
+        applyTier(readOrgId(session, "client_reference_id"), SubscriptionTier.PRO, stringOrNull(session, "customer"));
     }
 
-    private void applyTier(Long orgId, SubscriptionTier tier) {
+    /** @param stripeCustomerId linked to the org first when present (completed checkouts only) */
+    private void applyTier(Long orgId, SubscriptionTier tier, String stripeCustomerId) {
         if (orgId == null) {
             log.warn("Stripe webhook without a usable org id, ignored (target tier {})", tier);
             return;
         }
         try {
+            if (stripeCustomerId != null) {
+                organizationService.linkStripeCustomer(orgId, stripeCustomerId);
+            }
             organizationService.changeTier(orgId, tier, "stripe");
         } catch (OrganizationNotFoundException ex) {
             log.warn("Stripe webhook for unknown org {}, ignored (target tier {})", orgId, tier);

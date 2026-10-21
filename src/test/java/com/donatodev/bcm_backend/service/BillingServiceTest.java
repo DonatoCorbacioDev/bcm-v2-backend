@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,6 +28,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -98,11 +100,25 @@ class BillingServiceTest {
         void shouldCreateCheckoutForFreeOrg() throws Exception {
             TenantContext.set(1L);
             when(organizationRepository.findById(1L)).thenReturn(Optional.of(org(SubscriptionTier.FREE)));
-            when(checkoutGateway.createSubscriptionCheckout(1L, "price_x",
+            when(checkoutGateway.createSubscriptionCheckout(1L, "price_x", null,
                     FRONTEND + "/organization?checkout=success", FRONTEND + "/organization?checkout=cancel"))
                     .thenReturn("https://checkout.stripe.com/c/pay/cs_test_1");
 
             assertEquals("https://checkout.stripe.com/c/pay/cs_test_1", billingService.createProCheckoutUrl());
+        }
+
+        @Test
+        @DisplayName("reuses the org's existing Stripe customer when it resubscribes")
+        void shouldReuseExistingCustomer() throws Exception {
+            TenantContext.set(1L);
+            Organization returning = org(SubscriptionTier.FREE);
+            returning.setStripeCustomerId("cus_returning");
+            when(organizationRepository.findById(1L)).thenReturn(Optional.of(returning));
+            when(checkoutGateway.createSubscriptionCheckout(1L, "price_x", "cus_returning",
+                    FRONTEND + "/organization?checkout=success", FRONTEND + "/organization?checkout=cancel"))
+                    .thenReturn("https://checkout.stripe.com/c/pay/cs_test_2");
+
+            assertEquals("https://checkout.stripe.com/c/pay/cs_test_2", billingService.createProCheckoutUrl());
         }
 
         @Test
@@ -112,7 +128,7 @@ class BillingServiceTest {
             when(organizationRepository.findById(1L)).thenReturn(Optional.of(org(SubscriptionTier.PRO)));
 
             assertThrows(IllegalArgumentException.class, () -> billingService.createProCheckoutUrl());
-            verify(checkoutGateway, never()).createSubscriptionCheckout(anyLong(), anyString(), anyString(), anyString());
+            verify(checkoutGateway, never()).createSubscriptionCheckout(any(), any(), any(), any(), any());
         }
 
         @ParameterizedTest(name = "secret key \"{0}\", price \"{1}\"")
@@ -131,7 +147,7 @@ class BillingServiceTest {
         void shouldMapStripeFailureToBadGateway() throws Exception {
             TenantContext.set(1L);
             when(organizationRepository.findById(1L)).thenReturn(Optional.of(org(SubscriptionTier.FREE)));
-            when(checkoutGateway.createSubscriptionCheckout(anyLong(), anyString(), anyString(), anyString()))
+            when(checkoutGateway.createSubscriptionCheckout(anyLong(), anyString(), any(), anyString(), anyString()))
                     .thenThrow(new ApiConnectionException("network down"));
 
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
@@ -143,6 +159,59 @@ class BillingServiceTest {
         @DisplayName("throws when there is no tenant on the request")
         void shouldThrowWithoutTenant() {
             assertThrows(OrganizationNotFoundException.class, () -> billingService.createProCheckoutUrl());
+        }
+    }
+
+    @Nested
+    @DisplayName("createPortalUrl")
+    @SuppressWarnings("unused")
+    class Portal {
+
+        @Test
+        @DisplayName("opens the Customer Portal for the org's Stripe customer, returning to the organization page")
+        void shouldOpenPortalForStripeCustomer() throws Exception {
+            TenantContext.set(1L);
+            Organization subscribed = org(SubscriptionTier.PRO);
+            subscribed.setStripeCustomerId("cus_1");
+            when(organizationRepository.findById(1L)).thenReturn(Optional.of(subscribed));
+            when(checkoutGateway.createPortalSession("cus_1", FRONTEND + "/organization"))
+                    .thenReturn("https://billing.stripe.com/p/session/test_1");
+
+            assertEquals("https://billing.stripe.com/p/session/test_1", billingService.createPortalUrl());
+        }
+
+        @Test
+        @DisplayName("refuses an org with no Stripe customer, e.g. one moved to PRO by hand (400)")
+        void shouldRefuseOrgWithoutStripeCustomer() throws Exception {
+            TenantContext.set(1L);
+            when(organizationRepository.findById(1L)).thenReturn(Optional.of(org(SubscriptionTier.PRO)));
+
+            assertThrows(IllegalArgumentException.class, () -> billingService.createPortalUrl());
+            verify(checkoutGateway, never()).createPortalSession(any(), any());
+        }
+
+        @Test
+        @DisplayName("is unavailable (503) when Stripe is not configured")
+        void shouldBeUnavailableWithoutKey() {
+            BillingService unconfigured = service("", "price_x", WEBHOOK_SECRET);
+
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class, unconfigured::createPortalUrl);
+            assertEquals(HttpStatus.SERVICE_UNAVAILABLE, ex.getStatusCode());
+        }
+
+        @Test
+        @DisplayName("maps a Stripe API failure to 502")
+        void shouldMapStripeFailureToBadGateway() throws Exception {
+            TenantContext.set(1L);
+            Organization subscribed = org(SubscriptionTier.PRO);
+            subscribed.setStripeCustomerId("cus_1");
+            when(organizationRepository.findById(1L)).thenReturn(Optional.of(subscribed));
+            when(checkoutGateway.createPortalSession(anyString(), anyString()))
+                    .thenThrow(new ApiConnectionException("network down"));
+
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                    () -> billingService.createPortalUrl());
+            assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatusCode());
         }
     }
 
@@ -162,6 +231,34 @@ class BillingServiceTest {
             billingService.handleWebhook(payload, signature);
 
             verify(organizationService).changeTier(1L, SubscriptionTier.PRO, "stripe");
+        }
+
+        @Test
+        @DisplayName("links the checkout's Stripe customer to the org before upgrading it")
+        void shouldLinkCustomerThenUpgrade() throws Exception {
+            String payload = event("checkout.session.completed",
+                    "{\"mode\":\"subscription\",\"payment_status\":\"paid\",\"client_reference_id\":\"1\","
+                    + "\"customer\":\"cus_new\"}");
+            String signature = sign(payload, WEBHOOK_SECRET);
+
+            billingService.handleWebhook(payload, signature);
+
+            InOrder order = inOrder(organizationService);
+            order.verify(organizationService).linkStripeCustomer(1L, "cus_new");
+            order.verify(organizationService).changeTier(1L, SubscriptionTier.PRO, "stripe");
+        }
+
+        @Test
+        @DisplayName("does not touch the stored Stripe customer when the subscription ends")
+        void shouldKeepCustomerOnCancellation() throws Exception {
+            String payload = event("customer.subscription.deleted",
+                    "{\"object\":\"subscription\",\"customer\":\"cus_1\",\"metadata\":{\"orgId\":\"1\"}}");
+            String signature = sign(payload, WEBHOOK_SECRET);
+
+            billingService.handleWebhook(payload, signature);
+
+            verify(organizationService).changeTier(1L, SubscriptionTier.FREE, "stripe");
+            verify(organizationService, never()).linkStripeCustomer(any(), any());
         }
 
         @Test

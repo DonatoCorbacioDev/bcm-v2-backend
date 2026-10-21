@@ -34,11 +34,15 @@ public class StripeCheckoutGateway {
      * {@code client_reference_id} reaches {@code checkout.session.completed},
      * the subscription metadata reaches {@code customer.subscription.deleted}
      * later — a different event that never carries the session.
+     *
+     * @param existingCustomerId the org's Stripe customer from an earlier
+     *        subscription, reused so a resubscribing org keeps one customer
+     *        (and its invoice history); null to let Checkout create one
      */
-    public String createSubscriptionCheckout(Long orgId, String priceId, String successUrl, String cancelUrl)
-            throws StripeException {
+    public String createSubscriptionCheckout(Long orgId, String priceId, String existingCustomerId,
+            String successUrl, String cancelUrl) throws StripeException {
         String orgIdValue = String.valueOf(orgId);
-        SessionCreateParams params = SessionCreateParams.builder()
+        SessionCreateParams.Builder params = SessionCreateParams.builder()
                 .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
                 .addLineItem(SessionCreateParams.LineItem.builder().setPrice(priceId).setQuantity(1L).build())
                 .setClientReferenceId(orgIdValue)
@@ -46,8 +50,28 @@ public class StripeCheckoutGateway {
                         .putMetadata(BillingService.ORG_ID_METADATA_KEY, orgIdValue)
                         .build())
                 .setSuccessUrl(successUrl)
-                .setCancelUrl(cancelUrl)
-                .build();
-        return Session.create(params, RequestOptions.builder().setApiKey(secretKey).build()).getUrl();
+                .setCancelUrl(cancelUrl);
+        if (existingCustomerId != null) {
+            params.setCustomer(existingCustomerId);
+        }
+        return Session.create(params.build(), requestOptions()).getUrl();
+    }
+
+    /**
+     * Opens a Stripe Customer Portal session (cancel, change card, invoices)
+     * for an existing customer and returns its URL. Cancelling there fires
+     * customer.subscription.deleted, which BillingService already handles.
+     */
+    public String createPortalSession(String customerId, String returnUrl) throws StripeException {
+        com.stripe.param.billingportal.SessionCreateParams params =
+                com.stripe.param.billingportal.SessionCreateParams.builder()
+                        .setCustomer(customerId)
+                        .setReturnUrl(returnUrl)
+                        .build();
+        return com.stripe.model.billingportal.Session.create(params, requestOptions()).getUrl();
+    }
+
+    private RequestOptions requestOptions() {
+        return RequestOptions.builder().setApiKey(secretKey).build();
     }
 }

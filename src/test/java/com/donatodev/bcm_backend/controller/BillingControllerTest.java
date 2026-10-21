@@ -64,6 +64,27 @@ class BillingControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("portal returns the Stripe Customer Portal URL to an ADMIN")
+    void portalForAdmin() throws Exception {
+        when(billingService.createPortalUrl()).thenReturn("https://billing.stripe.com/p/session/test_1");
+
+        mockMvc.perform(post("/billing/portal-session"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value("https://billing.stripe.com/p/session/test_1"));
+    }
+
+    @Test
+    @WithMockUser(roles = "MANAGER")
+    @DisplayName("portal is forbidden to a MANAGER — cancelling the org's plan is an admin decision")
+    void portalForbiddenForManager() throws Exception {
+        mockMvc.perform(post("/billing/portal-session"))
+                .andExpect(status().isForbidden());
+
+        verify(billingService, never()).createPortalUrl();
+    }
+
+    @Test
     @DisplayName("checkout requires authentication")
     void checkoutRequiresAuth() throws Exception {
         mockMvc.perform(post("/billing/checkout-session"))

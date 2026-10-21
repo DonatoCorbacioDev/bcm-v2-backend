@@ -16,6 +16,10 @@ import com.donatodev.bcm_backend.entity.SubscriptionTier;
  *             "leave unchanged", so this masked read-side value is never
  *             round-tripped back as an edit.
  * @param bic  same masking as {@code iban}
+ * @param billingPortalAvailable whether the org has a Stripe customer, i.e. a
+ *             subscription the admin can manage in the Stripe Customer Portal.
+ *             A boolean on purpose: the {@code cus_...} id itself never
+ *             leaves the backend.
  */
 public record OrganizationDTO(
         Long id,
@@ -24,5 +28,6 @@ public record OrganizationDTO(
         SubscriptionTier subscriptionTier,
         String iban,
         String bic,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        boolean billingPortalAvailable
 ) {}

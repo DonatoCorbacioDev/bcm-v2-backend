@@ -35,7 +35,7 @@ class StripeCheckoutGatewayTest {
                     .thenReturn(session);
 
             String url = new StripeCheckoutGateway("sk_test_abc")
-                    .createSubscriptionCheckout(42L, "price_pro", "http://app/ok", "http://app/ko");
+                    .createSubscriptionCheckout(42L, "price_pro", null, "http://app/ok", "http://app/ko");
 
             assertThat(url).isEqualTo("https://checkout.stripe.com/c/pay/cs_test_1");
             stripe.verify(() -> Session.create(params.capture(), options.capture()));
@@ -54,5 +54,50 @@ class StripeCheckoutGatewayTest {
         assertThat(options.getValue().getAuthenticator())
                 .isInstanceOfSatisfying(BearerTokenAuthenticator.class,
                         auth -> assertThat(auth.getApiKey()).isEqualTo("sk_test_abc"));
+        assertThat(sent.getCustomer()).isNull();
+    }
+
+    @Test
+    @DisplayName("reuses an existing Stripe customer instead of letting Checkout create a duplicate")
+    void shouldReuseExistingCustomer() throws Exception {
+        Session session = mock(Session.class);
+        ArgumentCaptor<SessionCreateParams> params = ArgumentCaptor.forClass(SessionCreateParams.class);
+
+        try (MockedStatic<Session> stripe = mockStatic(Session.class)) {
+            stripe.when(() -> Session.create(any(SessionCreateParams.class), any(RequestOptions.class)))
+                    .thenReturn(session);
+
+            new StripeCheckoutGateway("sk_test_abc")
+                    .createSubscriptionCheckout(42L, "price_pro", "cus_existing", "http://app/ok", "http://app/ko");
+
+            stripe.verify(() -> Session.create(params.capture(), any(RequestOptions.class)));
+        }
+
+        assertThat(params.getValue().getCustomer()).isEqualTo("cus_existing");
+    }
+
+    @Test
+    @DisplayName("opens a Customer Portal session for the customer, returning to the given URL")
+    void shouldCreatePortalSession() throws Exception {
+        com.stripe.model.billingportal.Session portal = mock(com.stripe.model.billingportal.Session.class);
+        when(portal.getUrl()).thenReturn("https://billing.stripe.com/p/session/test_1");
+        ArgumentCaptor<com.stripe.param.billingportal.SessionCreateParams> params =
+                ArgumentCaptor.forClass(com.stripe.param.billingportal.SessionCreateParams.class);
+
+        try (MockedStatic<com.stripe.model.billingportal.Session> stripe =
+                mockStatic(com.stripe.model.billingportal.Session.class)) {
+            stripe.when(() -> com.stripe.model.billingportal.Session.create(
+                    any(com.stripe.param.billingportal.SessionCreateParams.class), any(RequestOptions.class)))
+                    .thenReturn(portal);
+
+            String url = new StripeCheckoutGateway("sk_test_abc").createPortalSession("cus_1", "http://app/org");
+
+            assertThat(url).isEqualTo("https://billing.stripe.com/p/session/test_1");
+            stripe.verify(() -> com.stripe.model.billingportal.Session.create(
+                    params.capture(), any(RequestOptions.class)));
+        }
+
+        assertThat(params.getValue().getCustomer()).isEqualTo("cus_1");
+        assertThat(params.getValue().getReturnUrl()).isEqualTo("http://app/org");
     }
 }

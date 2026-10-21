@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.donatodev.bcm_backend.dto.CheckoutSessionDTO;
+import com.donatodev.bcm_backend.dto.BillingRedirectDTO;
 import com.donatodev.bcm_backend.service.BillingService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,8 +33,15 @@ public class BillingController {
     @PostMapping("/checkout-session")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Start a PRO subscription checkout for the caller's organization")
-    public ResponseEntity<CheckoutSessionDTO> createCheckoutSession() {
-        return ResponseEntity.ok(new CheckoutSessionDTO(billingService.createProCheckoutUrl()));
+    public ResponseEntity<BillingRedirectDTO> createCheckoutSession() {
+        return ResponseEntity.ok(new BillingRedirectDTO(billingService.createProCheckoutUrl()));
+    }
+
+    @PostMapping("/portal-session")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Open the Stripe Customer Portal (cancel, change card, invoices) for the caller's organization")
+    public ResponseEntity<BillingRedirectDTO> createPortalSession() {
+        return ResponseEntity.ok(new BillingRedirectDTO(billingService.createPortalUrl()));
     }
 
     /**
