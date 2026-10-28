@@ -38,7 +38,7 @@ public class ContractDocumentService {
     private static final Logger logger = LoggerFactory.getLogger(ContractDocumentService.class);
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024L;
-    private static final byte[] PDF_MAGIC = new byte[]{'%', 'P', 'D', 'F'};
+    private static final byte[] PDF_MAGIC = {'%', 'P', 'D', 'F'};
     private static final String DOC_NOT_FOUND = "Documento ID %d non trovato per il contratto %d";
     private static final String LINE_SPLIT_REGEX = "\\r\\n|\\r|\\n";
     private static final String CRLF_REGEX = "[\r\n]";

@@ -85,18 +85,7 @@ public class OrganizationService {
      */
     @Transactional(readOnly = true)
     public void validateNewRegistration(String username, String email, String termsVersion) {
-        if (usersRepository.existsByUsername(username)) {
-            throw new IllegalArgumentException("Username già esistente.");
-        }
-        if (managersRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("Email già in uso.");
-        }
-        // A stale page (Terms changed since it was loaded) must not create an
-        // acceptance pointing at a text the user never saw.
-        if (!LegalTerms.CURRENT_VERSION.equals(termsVersion)) {
-            throw new IllegalArgumentException(
-                    "I Termini di servizio sono stati aggiornati: ricarica la pagina e accettali di nuovo.");
-        }
+        ensureRegistrable(username, email, termsVersion);
     }
 
     /**
@@ -108,7 +97,7 @@ public class OrganizationService {
      */
     @Transactional
     public AuthResponseDTO createConfirmedOrganization(PendingRegistration pending, RequestOrigin confirmOrigin) {
-        validateNewRegistration(pending.getAdminUsername(), pending.getAdminEmail(), pending.getTermsVersion());
+        ensureRegistrable(pending.getAdminUsername(), pending.getAdminEmail(), pending.getTermsVersion());
 
         LocalDateTime acceptedAt = LocalDateTime.now(ZoneId.systemDefault());
         Organization org = organizationRepository.save(Organization.builder()
@@ -163,6 +152,24 @@ public class OrganizationService {
         String accessToken = jwtUtils.generateToken(admin);
         String refreshToken = refreshTokenService.createRefreshToken(admin);
         return new AuthResponseDTO(accessToken, refreshToken);
+    }
+
+    // Shared by validateNewRegistration and createConfirmedOrganization as a
+    // plain method: calling the @Transactional one through "this" would bypass
+    // the Spring proxy.
+    private void ensureRegistrable(String username, String email, String termsVersion) {
+        if (usersRepository.existsByUsername(username)) {
+            throw new IllegalArgumentException("Username già esistente.");
+        }
+        if (managersRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email già in uso.");
+        }
+        // A stale page (Terms changed since it was loaded) must not create an
+        // acceptance pointing at a text the user never saw.
+        if (!LegalTerms.CURRENT_VERSION.equals(termsVersion)) {
+            throw new IllegalArgumentException(
+                    "I Termini di servizio sono stati aggiornati: ricarica la pagina e accettali di nuovo.");
+        }
     }
 
     @Transactional(readOnly = true)

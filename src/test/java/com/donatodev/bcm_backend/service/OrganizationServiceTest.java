@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -68,7 +69,7 @@ class OrganizationServiceTest {
     private OrganizationService organizationService;
 
     private static final RequestOrigin CONFIRM_ORIGIN = new RequestOrigin("203.0.113.9", "Firefox");
-    private static final LocalDateTime CODE_SENT_AT = LocalDateTime.of(2026, 10, 28, 10, 0);
+    private static final LocalDateTime CODE_SENT_AT = LocalDateTime.of(2026, Month.OCTOBER, 28, 10, 0);
 
     private PendingRegistration pending(String orgName, String username, String email, String termsVersion) {
         return PendingRegistration.builder()
