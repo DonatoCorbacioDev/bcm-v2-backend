@@ -13,14 +13,14 @@ package com.donatodev.bcm_backend.config;
  */
 public final class LegalTerms {
 
-    public static final String CURRENT_VERSION = "2026-10-21";
+    public static final String CURRENT_VERSION = "2026-10-28";
 
     /**
      * Sections of /termini approved specifically under arts. 1341-1342 c.c.,
      * stored with every acceptance. Must match {@code ONEROUS_CLAUSES} in
      * {@code lib/legal.ts}.
      */
-    public static final String ONEROUS_CLAUSES = "5, 9, 11, 12, 13, 15";
+    public static final String ONEROUS_CLAUSES = "5, 9, 11, 12, 14, 16";
 
     private LegalTerms() {
     }
