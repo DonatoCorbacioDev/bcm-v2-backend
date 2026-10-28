@@ -70,7 +70,8 @@ public class SecurityConfig {
                 // separate management port) is the real access control before public
                 // exposure — tracked in docs/SECURITY.md, not solved by JWT auth here.
                 .requestMatchers(AUTH_WHITELIST, "/actuator/health", "/actuator/prometheus").permitAll()
-                .requestMatchers(HttpMethod.POST, "/organizations/register").permitAll()
+                .requestMatchers(HttpMethod.POST, "/organizations/register", "/organizations/register/resend",
+                        "/organizations/register/confirm").permitAll()
                 // Calendar apps subscribe to this URL directly and cannot send a bearer
                 // token; it is instead authenticated by the unguessable token in the path.
                 .requestMatchers(HttpMethod.GET, "/calendar/**").permitAll()

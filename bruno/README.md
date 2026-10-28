@@ -21,15 +21,24 @@ Open this folder (`bruno/`) as a collection in the Bruno app, select the
 **local** environment (top-right dropdown), then run requests **in this
 exact order**:
 
-1. **Auth** — `Register Org A` → `Me` → `Refresh` → `Logout`
+1. **Auth** — `Register Org A` → `Confirm Org A` → `Me` → `Refresh` → `Logout`
 2. **Roles** — `Create Manager Profile` → `Invite Manager` →
    `Complete Invite` → `Login Manager A` →
    `Manager Forbidden Create Counterparty` (expect **403** —
    `@PreAuthorize("hasRole('ADMIN')")` blocking a MANAGER) →
    `Admin Creates Counterparty` (expect **201**)
-3. **Tenant Isolation** — `Register Org B` →
+3. **Tenant Isolation** — `Register Org B` → `Confirm Org B` →
    `Org B Cannot Read Org A Counterparty` (expect **404** — proves
    `TenantContext` scoping holds, not just a leaked 403)
+
+## Registration needs the emailed code
+
+Registration is two-step: `Register Org A`/`B` only sends a 6-digit code,
+and `Confirm Org A`/`B` creates the organization with it. With the `dev`
+profile no email leaves the machine — the backend log prints the code
+(`Fake registration code email sent to: ... with code: NNNNNN`). Copy it into
+the `registrationCodeOrgA` / `registrationCodeOrgB` variable before sending
+the confirm request; the code is valid for 15 minutes.
 
 ## Known limitation: registration is one-time
 

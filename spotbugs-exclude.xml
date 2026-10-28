@@ -85,6 +85,15 @@
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
 
+    <!-- SERVLET_HEADER_USER_AGENT in RequestOrigin: the User-Agent is only
+         recorded, next to the IP, as supporting evidence of a Terms acceptance;
+         no decision is ever based on it, so a spoofed value can't grant or deny
+         anything. It is truncated to its column length and stored via JPA. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.dto.RequestOrigin"/>
+        <Bug pattern="SERVLET_HEADER_USER_AGENT"/>
+    </Match>
+
     <!-- PATH_TRAVERSAL_IN in LocalStorageService.resolveWithinRoot(): this IS
          the fix, not the vulnerability — it normalizes the resolved path and
          rejects anything that escapes uploadDir (the standard OWASP-recommended

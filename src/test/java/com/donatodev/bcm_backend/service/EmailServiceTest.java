@@ -74,6 +74,36 @@ class EmailServiceTest {
     }
 
     @Test
+    @DisplayName("sends the registration code, saying what typing it signs")
+    void shouldSendRegistrationCode() throws Exception {
+        when(mailSender.createMimeMessage()).thenReturn(message);
+
+        emailService.sendRegistrationCode(RECIPIENT, "042917", 15);
+
+        verify(mailSender).send(message);
+        assertThat(message.getSubject()).contains("042917");
+        message.saveChanges();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        message.writeTo(out);
+        String raw = out.toString(StandardCharsets.UTF_8);
+        assertThat(raw).contains("042917").contains("15 minuti").contains("1341");
+    }
+
+    @Test
+    @DisplayName("wraps a registration code email failure")
+    void shouldThrowExceptionOnRegistrationCodeEmailFailure() {
+        when(mailSender.createMimeMessage()).thenReturn(message);
+        doAnswer(invocation -> {
+            throw new MessagingException("boom");
+        }).when(mailSender).send(message);
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> emailService.sendRegistrationCode(RECIPIENT, "000000", 15));
+
+        assertTrue(ex.getMessage().contains("Error sending registration code email"));
+    }
+
+    @Test
     @DisplayName("wraps a verification email failure")
     void shouldThrowExceptionOnVerificationEmailFailure() {
         when(mailSender.createMimeMessage()).thenReturn(message);

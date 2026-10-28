@@ -1,0 +1,17 @@
+/*
+ * Copyright (c) 2025 Donato Corbacio. All rights reserved.
+ * Licensed under the terms of the LICENSE file at the repository root.
+ */
+
+package com.donatodev.bcm_backend.dto;
+
+import jakarta.validation.constraints.NotBlank;
+
+/**
+ * @param registrationId id returned when the registration was requested
+ */
+public record ResendRegistrationCodeRequest(
+
+        @NotBlank(message = "Registrazione non indicata")
+        String registrationId
+) {}

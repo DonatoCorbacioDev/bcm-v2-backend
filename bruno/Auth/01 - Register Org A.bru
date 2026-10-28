@@ -30,9 +30,9 @@ body:json {
 }
 
 assert {
-  res.status: eq 201
+  res.status: eq 202
 }
 
 script:post-response {
-  bru.setVar("tokenAdminA", res.body.token);
+  bru.setVar("registrationIdOrgA", res.body.registrationId);
 }

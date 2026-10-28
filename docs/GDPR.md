@@ -31,6 +31,8 @@ organizzazioni clienti.
 | Contenuto documenti contrattuali | Filesystem (`uploads/`), mai nel DB | testo libero nei PDF caricati dall'utente — può contenere qualunque dato personale il contratto stesso contenga |
 | File di pagamento SEPA generati | Filesystem, via `LocalStorageService.storeSepaPayment` (`SepaPaymentService`) | XML `pain.001.001.03` con IBAN/BIC del titolare e del fornitore incorporati in chiaro — vedi retention in sezione 5 |
 | Log applicativi | Tabella `audit_logs` (pulita) + log applicativo testuale (non filtrato) | `audit_logs`: azione, tipo entità, id entità, username, org id — **mai il corpo del documento o i valori modificati**. Il log applicativo testuale invece riporta in chiaro email/nome del responsabile in alcuni punti (`ContractSchedulerService`, `DummyEmailService`, `MonthlyReporter`) — non è un dato strutturato consultabile dall'interessato, ma resta un'esposizione da considerare per la retention dei log di sistema (oggi non coperta da `AuditLogRetentionService`, che riguarda solo `audit_logs`) |
+| Registrazioni in attesa di conferma | Tabella `pending_registrations` (`OrganizationRegistrationService`, dal 2026-10-28) | Nome organizzazione, nome/cognome/email/username dell'amministratore, password **già hashata**, hash SHA-256 del codice inviato via email (mai il codice in chiaro), IP e User-Agent della richiesta. Vive al massimo 15 minuti per codice (fino a 5 codici) e viene cancellata alla conferma o dal purge orario |
+| Prova di accettazione dei Termini | Tabella `terms_acceptances` (dal 2026-10-28) | Versione dei Termini, clausole approvate ex artt. 1341-1342 c.c., email del firmatario, username, metodo di firma (`EMAIL_OTP`), orari di invio codice e di conferma, IP e User-Agent sia della richiesta sia della conferma. Nessuna FK: deve sopravvivere alla cancellazione di organizzazione e utente |
 | Notifiche email (scadenze, digest settimanale) | Corpo email inviata via SMTP | Nome e cognome del responsabile destinatario, nomi di contratti/controparti — uso previsto e proporzionato alla finalità (notificare la persona giusta), non richiede azione |
 
 Non vengono trattate categorie particolari di dati (art. 9 GDPR — salute,
@@ -47,6 +49,11 @@ stesso.
   l'organizzazione cliente e la propria controparte (art. 6.1.b), BCM è mero
   strumento di gestione.
 - Log di audit: legittimo interesse alla sicurezza e tracciabilità (art. 6.1.f).
+- Prova di accettazione dei Termini (`terms_acceptances`): legittimo interesse
+  a dimostrare il contratto concluso e a difendersi in giudizio (art. 6.1.f).
+  Dopo Cass. ord. 20945/2026 la sola spunta non vale come approvazione
+  specifica delle clausole vessatorie: il codice via email fa da firma
+  elettronica semplice, e IP/User-Agent/orari ne sono il riscontro.
 
 ## 4. Sotto-responsabili (sub-processor) e trasferimenti extra-UE
 
@@ -93,6 +100,15 @@ nessuna AI di terze parti) — è stata una decisione esplicita del progetto
 - **Log di audit**: purge automatico giornaliero (job schedulato alle 3:00,
   `AuditLogRetentionService`) delle righe più vecchie di
   `AUDIT_LOG_RETENTION_DAYS` (default 180 giorni / 6 mesi, configurabile).
+- **Registrazioni non confermate** (`pending_registrations`): purge orario
+  (`OrganizationRegistrationService.purgeExpired`, minuto 15 di ogni ora)
+  delle righe con codice scaduto; cancellate subito alla conferma.
+- **Prova di accettazione dei Termini** (`terms_acceptances`): 10 anni dalla
+  fine del rapporto (prescrizione ordinaria, art. 2946 c.c.), anche dopo la
+  cancellazione dell'account — è il motivo per cui non sta in `audit_logs`
+  (purgata a 180 giorni). Il purge a 10 anni non è ancora implementato:
+  nessuna riga lo raggiungerà prima del 2036, ma va aggiunto insieme alla
+  cancellazione self-service dell'organizzazione.
 - **Refresh token**: rotazione con rilevamento riuso, TTL configurato via
   JWT — vedi `docs/SECURITY.md`.
 

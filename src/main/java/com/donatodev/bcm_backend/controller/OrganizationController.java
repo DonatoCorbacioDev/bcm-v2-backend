@@ -19,12 +19,18 @@ import org.springframework.web.bind.annotation.RestController;
 import com.donatodev.bcm_backend.auth.AccessTokenResponse;
 import com.donatodev.bcm_backend.auth.AuthResponseDTO;
 import com.donatodev.bcm_backend.auth.RefreshCookieFactory;
+import com.donatodev.bcm_backend.dto.ConfirmRegistrationRequest;
 import com.donatodev.bcm_backend.dto.OrganizationDTO;
 import com.donatodev.bcm_backend.dto.OrganizationRegistrationRequest;
 import com.donatodev.bcm_backend.dto.OrganizationUsageDTO;
+import com.donatodev.bcm_backend.dto.RegistrationStartedDTO;
+import com.donatodev.bcm_backend.dto.RequestOrigin;
+import com.donatodev.bcm_backend.dto.ResendRegistrationCodeRequest;
 import com.donatodev.bcm_backend.dto.UpdateOrganizationRequest;
+import com.donatodev.bcm_backend.service.OrganizationRegistrationService;
 import com.donatodev.bcm_backend.service.OrganizationService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @RestController
@@ -32,17 +38,38 @@ import jakarta.validation.Valid;
 public class OrganizationController {
 
     private final OrganizationService organizationService;
+    private final OrganizationRegistrationService registrationService;
     private final RefreshCookieFactory refreshCookieFactory;
 
-    public OrganizationController(OrganizationService organizationService, RefreshCookieFactory refreshCookieFactory) {
+    public OrganizationController(OrganizationService organizationService,
+            OrganizationRegistrationService registrationService,
+            RefreshCookieFactory refreshCookieFactory) {
         this.organizationService = organizationService;
+        this.registrationService = registrationService;
         this.refreshCookieFactory = refreshCookieFactory;
     }
 
+    /** Step 1: validates the data and emails a confirmation code. Nothing is created yet. */
     @PostMapping("/register")
-    public ResponseEntity<AccessTokenResponse> register(
-            @Valid @RequestBody OrganizationRegistrationRequest request) {
-        AuthResponseDTO response = organizationService.registerOrganization(request);
+    public ResponseEntity<RegistrationStartedDTO> register(
+            @Valid @RequestBody OrganizationRegistrationRequest request, HttpServletRequest httpRequest) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(registrationService.start(request, RequestOrigin.from(httpRequest)));
+    }
+
+    @PostMapping("/register/resend")
+    public ResponseEntity<RegistrationStartedDTO> resendRegistrationCode(
+            @Valid @RequestBody ResendRegistrationCodeRequest request) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(registrationService.resend(request.registrationId()));
+    }
+
+    /** Step 2: the emailed code creates the organization and signs the Terms acceptance. */
+    @PostMapping("/register/confirm")
+    public ResponseEntity<AccessTokenResponse> confirmRegistration(
+            @Valid @RequestBody ConfirmRegistrationRequest request, HttpServletRequest httpRequest) {
+        AuthResponseDTO response = registrationService.confirm(
+                request.registrationId(), request.code(), RequestOrigin.from(httpRequest));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.create(response.refreshToken()).toString())
                 .body(new AccessTokenResponse(response.token()));

@@ -1,0 +1,38 @@
+meta {
+  name: Confirm Org A
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/organizations/register/confirm
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "registrationId": "{{registrationIdOrgA}}",
+    "code": "{{registrationCodeOrgA}}"
+  }
+}
+
+docs {
+  Registration is two-step: `Register Org A` only emails a 6-digit code.
+  With the dev profile no email is sent; the backend log prints it instead
+  ("Fake registration code email sent to: ... with code: NNNNNN"). Put that
+  code in the `registrationCodeOrgA` variable (environment or runtime
+  variables), then send this request.
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("tokenAdminA", res.body.token);
+}

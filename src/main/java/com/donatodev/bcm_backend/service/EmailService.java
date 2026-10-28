@@ -82,6 +82,20 @@ public class EmailService implements IEmailService {
                 "Error sending reset password email");
     }
 
+    @Override
+    public void sendRegistrationCode(String to, String code, int validityMinutes) {
+        send(to, "Il tuo codice di conferma BCM: " + code,
+                "<p>Ciao!</p><p>Il tuo codice per completare la registrazione su BCM è:</p>"
+                + "<p style=\"font-size:24px;font-weight:bold;letter-spacing:4px\">" + code + "</p>"
+                + "<p>Il codice è valido per " + validityMinutes + " minuti. Inserendolo confermi il tuo"
+                + " indirizzo email e firmi elettronicamente l'accettazione dei Termini di servizio,"
+                + " inclusa l'approvazione specifica delle clausole indicate ai sensi degli artt. 1341"
+                + " e 1342 c.c.</p>"
+                + "<p>Se non hai richiesto tu la registrazione, ignora questa email: senza il codice"
+                + " non viene creato alcun account.</p>",
+                "Error sending registration code email");
+    }
+
     /**
      * Sends a generic email with custom subject and HTML body.
      *

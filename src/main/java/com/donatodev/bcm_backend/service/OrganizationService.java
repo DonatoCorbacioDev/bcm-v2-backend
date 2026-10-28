@@ -12,7 +12,6 @@ import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,13 +19,15 @@ import com.donatodev.bcm_backend.auth.AuthResponseDTO;
 import com.donatodev.bcm_backend.config.LegalTerms;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.OrganizationDTO;
-import com.donatodev.bcm_backend.dto.OrganizationRegistrationRequest;
 import com.donatodev.bcm_backend.dto.OrganizationUsageDTO;
+import com.donatodev.bcm_backend.dto.RequestOrigin;
 import com.donatodev.bcm_backend.dto.UpdateOrganizationRequest;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
+import com.donatodev.bcm_backend.entity.PendingRegistration;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.SubscriptionTier;
+import com.donatodev.bcm_backend.entity.TermsAcceptance;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.OrganizationNotFoundException;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
@@ -34,6 +35,7 @@ import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
+import com.donatodev.bcm_backend.repository.TermsAcceptanceRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.donatodev.bcm_backend.util.IbanValidator;
 
@@ -46,7 +48,7 @@ public class OrganizationService {
     private final UsersRepository usersRepository;
     private final ManagersRepository managersRepository;
     private final RolesRepository rolesRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final TermsAcceptanceRepository termsAcceptanceRepository;
     private final JwtUtils jwtUtils;
     private final RefreshTokenService refreshTokenService;
     private final ContractsRepository contractsRepository;
@@ -58,7 +60,7 @@ public class OrganizationService {
             UsersRepository usersRepository,
             ManagersRepository managersRepository,
             RolesRepository rolesRepository,
-            PasswordEncoder passwordEncoder,
+            TermsAcceptanceRepository termsAcceptanceRepository,
             JwtUtils jwtUtils,
             RefreshTokenService refreshTokenService,
             ContractsRepository contractsRepository,
@@ -68,7 +70,7 @@ public class OrganizationService {
         this.usersRepository = usersRepository;
         this.managersRepository = managersRepository;
         this.rolesRepository = rolesRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.termsAcceptanceRepository = termsAcceptanceRepository;
         this.jwtUtils = jwtUtils;
         this.refreshTokenService = refreshTokenService;
         this.contractsRepository = contractsRepository;
@@ -76,36 +78,51 @@ public class OrganizationService {
         this.auditLogService = auditLogService;
     }
 
-    @Transactional
-    public AuthResponseDTO registerOrganization(OrganizationRegistrationRequest request) {
-        if (usersRepository.existsByUsername(request.adminUsername())) {
+    /**
+     * Checks a registration can go ahead. Run when it is requested and again
+     * when it is confirmed, since the username or email may have been taken
+     * in between.
+     */
+    @Transactional(readOnly = true)
+    public void validateNewRegistration(String username, String email, String termsVersion) {
+        if (usersRepository.existsByUsername(username)) {
             throw new IllegalArgumentException("Username già esistente.");
         }
-        if (managersRepository.existsByEmail(request.adminEmail())) {
+        if (managersRepository.existsByEmail(email)) {
             throw new IllegalArgumentException("Email già in uso.");
         }
-
         // A stale page (Terms changed since it was loaded) must not create an
         // acceptance pointing at a text the user never saw.
-        if (!LegalTerms.CURRENT_VERSION.equals(request.termsVersion())) {
+        if (!LegalTerms.CURRENT_VERSION.equals(termsVersion)) {
             throw new IllegalArgumentException(
                     "I Termini di servizio sono stati aggiornati: ricarica la pagina e accettali di nuovo.");
         }
+    }
 
-        String slug = generateUniqueSlug(request.organizationName());
+    /**
+     * Creates the organization and its admin once the emailed code has been
+     * typed back, and stores the signed Terms acceptance as evidence. The
+     * email is verified by then, hence {@code verified(true)}.
+     *
+     * @param confirmOrigin where the confirming request came from
+     */
+    @Transactional
+    public AuthResponseDTO createConfirmedOrganization(PendingRegistration pending, RequestOrigin confirmOrigin) {
+        validateNewRegistration(pending.getAdminUsername(), pending.getAdminEmail(), pending.getTermsVersion());
 
+        LocalDateTime acceptedAt = LocalDateTime.now(ZoneId.systemDefault());
         Organization org = organizationRepository.save(Organization.builder()
-                .name(request.organizationName())
-                .slug(slug)
+                .name(pending.getOrganizationName())
+                .slug(generateUniqueSlug(pending.getOrganizationName()))
                 .subscriptionTier(SubscriptionTier.FREE)
-                .termsVersion(LegalTerms.CURRENT_VERSION)
-                .termsAcceptedAt(LocalDateTime.now(ZoneId.systemDefault()))
+                .termsVersion(pending.getTermsVersion())
+                .termsAcceptedAt(acceptedAt)
                 .build());
 
         Managers manager = managersRepository.save(Managers.builder()
-                .firstName(request.adminFirstName())
-                .lastName(request.adminLastName())
-                .email(request.adminEmail())
+                .firstName(pending.getAdminFirstName())
+                .lastName(pending.getAdminLastName())
+                .email(pending.getAdminEmail())
                 .organization(org)
                 .build());
 
@@ -113,16 +130,35 @@ public class OrganizationService {
                 .orElseThrow(() -> new IllegalStateException("Ruolo ADMIN non trovato nel database"));
 
         Users admin = usersRepository.save(Users.builder()
-                .username(request.adminUsername())
-                .passwordHash(passwordEncoder.encode(request.adminPassword()))
+                .username(pending.getAdminUsername())
+                .passwordHash(pending.getPasswordHash())
                 .role(adminRole)
                 .manager(manager)
                 .organization(org)
                 .verified(true)
                 .build());
 
+        termsAcceptanceRepository.save(TermsAcceptance.builder()
+                .organizationId(org.getId())
+                .organizationName(org.getName())
+                .userId(admin.getId())
+                .username(admin.getUsername())
+                .signerEmail(pending.getAdminEmail())
+                .termsVersion(pending.getTermsVersion())
+                .onerousClauses(LegalTerms.ONEROUS_CLAUSES)
+                .professionalUseDeclared(true)
+                .signatureMethod(TermsAcceptance.SIGNATURE_EMAIL_OTP)
+                .codeSentAt(pending.getCodeSentAt())
+                .acceptedAt(acceptedAt)
+                .requestIp(pending.getRequestIp())
+                .requestUserAgent(pending.getRequestUserAgent())
+                .confirmIp(confirmOrigin.ip())
+                .confirmUserAgent(confirmOrigin.userAgent())
+                .build());
+
         auditLogService.save("TERMS_ACCEPTED", "Organization", org.getId(), admin.getUsername(), org.getId(),
-                "terms " + LegalTerms.CURRENT_VERSION + "; professional use declared; onerous clauses approved (artt. 1341-1342 c.c.)");
+                "terms " + pending.getTermsVersion() + "; professional use declared; onerous clauses "
+                + LegalTerms.ONEROUS_CLAUSES + " approved (artt. 1341-1342 c.c.); signed with emailed code");
 
         String accessToken = jwtUtils.generateToken(admin);
         String refreshToken = refreshTokenService.createRefreshToken(admin);

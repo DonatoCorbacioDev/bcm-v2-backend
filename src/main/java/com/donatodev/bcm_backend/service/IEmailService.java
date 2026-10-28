@@ -29,6 +29,16 @@ public interface IEmailService {
     void sendResetPasswordEmail(String to, String resetLink);
 
     /**
+     * Sends the one-time code that confirms a self-service registration and
+     * signs the specific approval of the Terms' onerous clauses.
+     *
+     * @param to               the future administrator's email address
+     * @param code             the 6-digit code to type back
+     * @param validityMinutes  how long the code stays valid
+     */
+    void sendRegistrationCode(String to, String code, int validityMinutes);
+
+    /**
      * Sends a generic email with custom subject and body.
      *
      * @param to the recipient's email address

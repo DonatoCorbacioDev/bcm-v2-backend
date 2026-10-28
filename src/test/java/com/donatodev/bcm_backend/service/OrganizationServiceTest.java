@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,23 +28,25 @@ import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.donatodev.bcm_backend.config.LegalTerms;
 import com.donatodev.bcm_backend.dto.OrganizationDTO;
-import com.donatodev.bcm_backend.dto.OrganizationRegistrationRequest;
+import com.donatodev.bcm_backend.dto.RequestOrigin;
 import com.donatodev.bcm_backend.dto.UpdateOrganizationRequest;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
+import com.donatodev.bcm_backend.entity.PendingRegistration;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.SubscriptionTier;
+import com.donatodev.bcm_backend.entity.TermsAcceptance;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.OrganizationNotFoundException;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
+import com.donatodev.bcm_backend.repository.TermsAcceptanceRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -54,7 +57,7 @@ class OrganizationServiceTest {
     @Mock private UsersRepository usersRepository;
     @Mock private ManagersRepository managersRepository;
     @Mock private RolesRepository rolesRepository;
-    @Mock private PasswordEncoder passwordEncoder;
+    @Mock private TermsAcceptanceRepository termsAcceptanceRepository;
     @Mock private JwtUtils jwtUtils;
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private com.donatodev.bcm_backend.repository.ContractsRepository contractsRepository;
@@ -64,11 +67,22 @@ class OrganizationServiceTest {
     @InjectMocks
     private OrganizationService organizationService;
 
-    private OrganizationRegistrationRequest validRequest() {
-        return new OrganizationRegistrationRequest(
-                "Acme Corp", "acme-admin", "secret123",
-                "admin@acme.com", "John", "Doe",
-                LegalTerms.CURRENT_VERSION, true, true, true);
+    private static final RequestOrigin CONFIRM_ORIGIN = new RequestOrigin("203.0.113.9", "Firefox");
+    private static final LocalDateTime CODE_SENT_AT = LocalDateTime.of(2026, 10, 28, 10, 0);
+
+    private PendingRegistration pending(String orgName, String username, String email, String termsVersion) {
+        return PendingRegistration.builder()
+                .publicId("reg-1").organizationName(orgName)
+                .adminFirstName("John").adminLastName("Doe")
+                .adminEmail(email).adminUsername(username)
+                .passwordHash("already-hashed").termsVersion(termsVersion)
+                .codeHash("h").codeSentAt(CODE_SENT_AT).expiresAt(CODE_SENT_AT.plusMinutes(15))
+                .requestIp("198.51.100.7").requestUserAgent("Chrome")
+                .build();
+    }
+
+    private PendingRegistration validPending() {
+        return pending("Acme Corp", "acme-admin", "admin@acme.com", LegalTerms.CURRENT_VERSION);
     }
 
     private Organization savedOrg() {
@@ -84,7 +98,7 @@ class OrganizationServiceTest {
 
         @Test
         @Order(1)
-        @DisplayName("registerOrganization creates org + admin and returns tokens")
+        @DisplayName("createConfirmedOrganization creates org + admin and returns tokens")
         void shouldRegisterOrganizationAndReturnTokens() {
             Organization org = savedOrg();
             Managers manager = Managers.builder().id(1L).email("admin@acme.com").build();
@@ -97,12 +111,11 @@ class OrganizationServiceTest {
             when(managersRepository.save(any())).thenReturn(manager);
             when(rolesRepository.findByRole("ADMIN"))
                     .thenReturn(Optional.of(Roles.builder().role("ADMIN").build()));
-            when(passwordEncoder.encode("secret123")).thenReturn("hashed");
             when(usersRepository.save(any())).thenReturn(admin);
             when(jwtUtils.generateToken(admin)).thenReturn("access-token");
             when(refreshTokenService.createRefreshToken(admin)).thenReturn("refresh-token");
 
-            var response = organizationService.registerOrganization(validRequest());
+            var response = organizationService.createConfirmedOrganization(validPending(), CONFIRM_ORIGIN);
 
             assertEquals("access-token", response.token());
             assertEquals("refresh-token", response.refreshToken());
@@ -113,45 +126,67 @@ class OrganizationServiceTest {
             assertNotNull(created.getValue().getTermsAcceptedAt());
             verify(auditLogService).save(eq("TERMS_ACCEPTED"), eq("Organization"), eq(1L), eq("acme-admin"),
                     eq(1L), contains(LegalTerms.CURRENT_VERSION));
+
+            ArgumentCaptor<Users> user = ArgumentCaptor.forClass(Users.class);
+            verify(usersRepository).save(user.capture());
+            assertEquals("already-hashed", user.getValue().getPasswordHash());
+            assertTrue(user.getValue().isVerified());
+
+            ArgumentCaptor<TermsAcceptance> evidence = ArgumentCaptor.forClass(TermsAcceptance.class);
+            verify(termsAcceptanceRepository).save(evidence.capture());
+            TermsAcceptance signed = evidence.getValue();
+            assertEquals(1L, signed.getOrganizationId());
+            assertEquals("Acme Corp", signed.getOrganizationName());
+            assertEquals(1L, signed.getUserId());
+            assertEquals("acme-admin", signed.getUsername());
+            assertEquals("admin@acme.com", signed.getSignerEmail());
+            assertEquals(LegalTerms.CURRENT_VERSION, signed.getTermsVersion());
+            assertEquals(LegalTerms.ONEROUS_CLAUSES, signed.getOnerousClauses());
+            assertTrue(signed.isProfessionalUseDeclared());
+            assertEquals(TermsAcceptance.SIGNATURE_EMAIL_OTP, signed.getSignatureMethod());
+            assertEquals(CODE_SENT_AT, signed.getCodeSentAt());
+            assertEquals(created.getValue().getTermsAcceptedAt(), signed.getAcceptedAt());
+            assertEquals("198.51.100.7", signed.getRequestIp());
+            assertEquals("Chrome", signed.getRequestUserAgent());
+            assertEquals("203.0.113.9", signed.getConfirmIp());
+            assertEquals("Firefox", signed.getConfirmUserAgent());
         }
 
         @Test
-        @DisplayName("registerOrganization refuses a stale Terms version before creating anything")
+        @DisplayName("createConfirmedOrganization refuses a stale Terms version before creating anything")
         void shouldRefuseStaleTermsVersion() {
-            OrganizationRegistrationRequest stale = new OrganizationRegistrationRequest(
-                    "Acme Corp", "acme-admin", "secret123", "admin@acme.com", "John", "Doe",
-                    "2020-01-01", true, true, true);
+            PendingRegistration stale = pending("Acme Corp", "acme-admin", "admin@acme.com", "2020-01-01");
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                    () -> organizationService.registerOrganization(stale));
+                    () -> organizationService.createConfirmedOrganization(stale, CONFIRM_ORIGIN));
             assertTrue(ex.getMessage().contains("Termini di servizio sono stati aggiornati"));
             verify(organizationRepository, never()).save(any());
         }
 
         @Test
         @Order(2)
-        @DisplayName("registerOrganization throws when username already exists")
+        @DisplayName("createConfirmedOrganization throws when username already exists")
         void shouldThrowWhenUsernameExists() {
             when(usersRepository.existsByUsername("acme-admin")).thenReturn(true);
-            var request = validRequest();
+            var request = validPending();
             assertThrows(IllegalArgumentException.class,
-                    () -> organizationService.registerOrganization(request));
+                    () -> organizationService.createConfirmedOrganization(request, CONFIRM_ORIGIN));
         }
 
         @Test
         @Order(3)
-        @DisplayName("registerOrganization throws when email already in use")
+        @DisplayName("createConfirmedOrganization throws when email already in use")
         void shouldThrowWhenEmailExists() {
             when(usersRepository.existsByUsername("acme-admin")).thenReturn(false);
             when(managersRepository.existsByEmail("admin@acme.com")).thenReturn(true);
-            var request = validRequest();
+            var request = validPending();
             assertThrows(IllegalArgumentException.class,
-                    () -> organizationService.registerOrganization(request));
+                    () -> organizationService.createConfirmedOrganization(request, CONFIRM_ORIGIN));
         }
 
         @Test
         @Order(4)
-        @DisplayName("registerOrganization appends suffix when slug already exists")
+        @DisplayName("createConfirmedOrganization appends suffix when slug already exists")
         void shouldGenerateUniqueSlugWhenBaseSlugTaken() {
             Organization org = savedOrg();
             Managers manager = Managers.builder().id(1L).build();
@@ -167,12 +202,11 @@ class OrganizationServiceTest {
             when(managersRepository.save(any())).thenReturn(manager);
             when(rolesRepository.findByRole("ADMIN"))
                     .thenReturn(Optional.of(Roles.builder().role("ADMIN").build()));
-            when(passwordEncoder.encode(anyString())).thenReturn("hashed");
             when(usersRepository.save(any())).thenReturn(admin);
             when(jwtUtils.generateToken(any())).thenReturn("token");
             when(refreshTokenService.createRefreshToken(any())).thenReturn("rt");
 
-            var response = organizationService.registerOrganization(validRequest());
+            var response = organizationService.createConfirmedOrganization(validPending(), CONFIRM_ORIGIN);
             assertNotNull(response.token());
         }
 
@@ -215,15 +249,13 @@ class OrganizationServiceTest {
 
         @Test
         @Order(7)
-        @DisplayName("registerOrganization with special-char-only name uses 'org' as slug base")
+        @DisplayName("createConfirmedOrganization with special-char-only name uses 'org' as slug base")
         void shouldUseOrgSlugWhenNameProducesEmptyBase() {
             Organization org = savedOrg();
             Managers manager = Managers.builder().id(1L).build();
             Users admin = Users.builder().id(1L).username("acme-admin").organization(org).build();
 
-            OrganizationRegistrationRequest req = new OrganizationRegistrationRequest(
-                    "!!!###", "spec-admin", "secret123", "spec@test.com", "Spec", "Admin",
-                    LegalTerms.CURRENT_VERSION, true, true, true);
+            PendingRegistration req = pending("!!!###", "spec-admin", "spec@test.com", LegalTerms.CURRENT_VERSION);
 
             when(usersRepository.existsByUsername("spec-admin")).thenReturn(false);
             when(managersRepository.existsByEmail("spec@test.com")).thenReturn(false);
@@ -232,12 +264,11 @@ class OrganizationServiceTest {
             when(managersRepository.save(any())).thenReturn(manager);
             when(rolesRepository.findByRole("ADMIN"))
                     .thenReturn(Optional.of(com.donatodev.bcm_backend.entity.Roles.builder().role("ADMIN").build()));
-            when(passwordEncoder.encode(anyString())).thenReturn("hashed");
             when(usersRepository.save(any())).thenReturn(admin);
             when(jwtUtils.generateToken(any())).thenReturn("token");
             when(refreshTokenService.createRefreshToken(any())).thenReturn("rt");
 
-            var response = organizationService.registerOrganization(req);
+            var response = organizationService.createConfirmedOrganization(req, CONFIRM_ORIGIN);
 
             assertNotNull(response.token());
         }

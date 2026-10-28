@@ -50,21 +50,49 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
     }
 
     @Test
-    @DisplayName("flyway_schema_history: all 44 migrations recorded as successful, none pending")
+    @DisplayName("flyway_schema_history: all migrations recorded as successful, none pending")
     void allMigrationsAppliedSuccessfully() {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
 
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 46,
-                "Expected at least 46 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 47,
+                "Expected at least 47 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(46, maxVersion, "Highest applied migration version should be V46");
+        assertEquals(47, maxVersion, "Highest applied migration version should be V47");
+    }
+
+    @Test
+    @DisplayName("V47 creates pending_registrations and terms_acceptances, the evidence table without foreign keys")
+    void v47CreatesRegistrationTables() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        List<String> tables = jdbc.queryForList(
+                "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() "
+                        + "AND TABLE_NAME IN ('pending_registrations', 'terms_acceptances') ORDER BY TABLE_NAME",
+                String.class);
+        assertEquals(List.of("pending_registrations", "terms_acceptances"), tables);
+
+        // The evidence must outlive the organization and user it refers to.
+        Integer foreignKeys = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() "
+                        + "AND TABLE_NAME = 'terms_acceptances'",
+                Integer.class);
+        assertEquals(0, foreignKeys);
+
+        jdbc.update("INSERT INTO terms_acceptances (organization_id, organization_name, user_id, username, "
+                + "signer_email, terms_version, onerous_clauses, professional_use_declared, signature_method, "
+                + "code_sent_at, accepted_at, request_ip, confirm_ip) VALUES (999999, 'Gone Srl', 999999, 'gone', "
+                + "'gone@corp.it', '2026-10-21', '5, 9, 11, 12, 13, 15', TRUE, 'EMAIL_OTP', NOW(), NOW(), "
+                + "'2001:db8:85a3:0:0:8a2e:370:7334', '203.0.113.9')");
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM terms_acceptances WHERE organization_id = 999999", Integer.class));
+        jdbc.update("DELETE FROM terms_acceptances WHERE organization_id = 999999");
     }
 
     @Test

@@ -61,6 +61,22 @@ public class DummyEmailService implements IEmailService {
     }
 
     /**
+     * Simulates sending the registration code by logging it — dev/test only,
+     * and the CI smoke test reads it from this line to confirm its registration.
+     *
+     * @param to the recipient email address
+     * @param code the one-time code
+     * @param validityMinutes how long the code stays valid
+     */
+    @Override
+    public void sendRegistrationCode(String to, String code, int validityMinutes) {
+        if (logger.isInfoEnabled()) {
+            logger.info("[TEST] Fake registration code email sent to: {} with code: {} (valid {} min)",
+                    sanitize(to), sanitize(code), validityMinutes);
+        }
+    }
+
+    /**
      * Simulates sending a generic email by logging to the console.
      *
      * @param to the recipient email address
