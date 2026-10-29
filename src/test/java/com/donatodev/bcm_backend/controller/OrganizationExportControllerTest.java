@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HexFormat;
@@ -185,7 +186,7 @@ class OrganizationExportControllerTest {
                 .name(marker + " counterparty").type(CounterpartyType.CUSTOMER).organization(o).build());
         Contracts contract = contractsRepository.save(Contracts.builder()
                 .contractNumber(marker + "-CNT").projectName(marker + " project").counterparty(counterparty)
-                .businessArea(area).manager(m).financialType(type).startDate(LocalDate.of(2026, 1, 1))
+                .businessArea(area).manager(m).financialType(type).startDate(LocalDate.of(2026, Month.JANUARY, 1))
                 .status(ContractStatus.ACTIVE).organization(o).build());
         contractManagerRepository.save(ContractManager.builder().contract(contract).manager(m).build());
         contractHistoryRepository.save(ContractHistory.builder().contract(contract).modifiedBy(u)
@@ -202,7 +203,7 @@ class OrganizationExportControllerTest {
                 .contentType("application/pdf").versionNumber(1).embedding("[0.1,0.2]").build());
         SepaPaymentBatch batch = sepaPaymentBatchRepository.save(SepaPaymentBatch.builder()
                 .contract(contract).orgId(o.getId()).messageId(marker + "-MSG")
-                .executionDate(LocalDate.of(2026, 2, 1)).totalAmount(BigDecimal.TEN).currency("EUR")
+                .executionDate(LocalDate.of(2026, Month.FEBRUARY, 1)).totalAmount(BigDecimal.TEN).currency("EUR")
                 .numberOfTransactions(1).storagePath(marker + "/sepa.xml").fileName(marker + "-sepa.xml").build());
         ElectronicInvoice invoice = ElectronicInvoice.builder().contract(contract).orgId(o.getId())
                 .storagePath(marker + "/invoice.xml").fileName(marker + "-invoice.xml").fileSize(10L)
@@ -335,7 +336,7 @@ class OrganizationExportControllerTest {
         }
         assertThat(new String(entries.get("manifest.json"), StandardCharsets.UTF_8))
                 .doesNotContainIgnoringCase("theirs");
-        assertThat(entries.keySet()).noneMatch(path -> path.contains("theirs"));
+        assertThat(entries.keySet()).isNotEmpty().noneMatch(path -> path.contains("theirs"));
     }
 
     @Test
@@ -363,10 +364,10 @@ class OrganizationExportControllerTest {
         }
         assertThat(archivePath).isEqualTo("files/contracts/%d/%d-__.._evil name.pdf"
                 .formatted(contract.getId(), document.getId()));
-        assertThat(entries.get(archivePath)).isEqualTo(pdf);
+        assertThat(entries).containsEntry(archivePath, pdf);
         for (String path : entries.keySet()) {
             assertThat(path).doesNotContain("\\");
-            assertThat(Arrays.asList(path.split("/"))).as(path).doesNotContain("..");
+            assertThat(Arrays.asList(path.split("/"))).as(path).isNotEmpty().doesNotContain("..");
         }
 
         JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
@@ -396,8 +397,9 @@ class OrganizationExportControllerTest {
         JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
         List<String> missing = new ArrayList<>();
         manifest.get("missingFiles").forEach(m -> missing.add(m.asText()));
-        assertThat(missing).hasSize(3).allMatch(path -> path.startsWith("files/"));
-        assertThat(missing).noneMatch(entries::containsKey);
+        assertThat(missing).hasSize(3)
+                .allMatch(path -> path.startsWith("files/"))
+                .noneMatch(entries::containsKey);
         assertThat(entries).containsKey("data/contracts.json");
     }
 
@@ -429,6 +431,20 @@ class OrganizationExportControllerTest {
 
         JsonNode analysis = objectMapper.readTree(entries.get("data/ml_analyses.json")).get(0);
         assertThat(analysis.get("result").get("label").asText()).isEqualTo("ours");
+    }
+
+    @Test
+    @WithMockUser(username = "export-admin", roles = "ADMIN")
+    @DisplayName("A cached ML result that isn't valid JSON is exported as text instead of failing")
+    void exportsUnreadableMlResultAsText() throws Exception {
+        mlResultCacheRepository.save(MlResultCache.builder().orgId(org.getId()).cacheKey("RISK_ALL")
+                .jsonResult("not json {").computedAt(LocalDateTime.now()).build());
+
+        Map<String, byte[]> entries = export();
+
+        JsonNode analysis = objectMapper.readTree(entries.get("data/ml_analyses.json")).get(0);
+        assertThat(analysis.get("result").isTextual()).isTrue();
+        assertThat(analysis.get("result").asText()).isEqualTo("not json {");
     }
 
     @Test

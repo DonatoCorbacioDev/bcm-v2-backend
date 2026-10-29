@@ -203,6 +203,31 @@ class OrganizationDeletionControllerTest {
         }
 
         @Test
+        @WithMockUser(username = "no-email-admin", roles = "ADMIN")
+        @DisplayName("An admin with no email address can't receive the code")
+        void requiresAnEmailAddress() throws Exception {
+            usersRepository.save(Users.builder().username("no-email-admin")
+                    .passwordHash(passwordEncoder.encode(PASSWORD)).verified(true)
+                    .role(rolesRepository.findByRole("ADMIN").orElseThrow()).organization(org).build());
+
+            requestDeletion(PASSWORD, ORG_NAME)
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value(containsString("indirizzo email")));
+            assertThat(codeRepository.findByOrganizationId(org.getId())).isEmpty();
+        }
+
+        @Test
+        @WithMockUser(username = "orphan-admin", roles = "ADMIN")
+        @DisplayName("A user with no organization gets 404")
+        void requiresAnOrganization() throws Exception {
+            usersRepository.save(Users.builder().username("orphan-admin")
+                    .passwordHash(passwordEncoder.encode(PASSWORD)).verified(true)
+                    .role(rolesRepository.findByRole("ADMIN").orElseThrow()).build());
+
+            requestDeletion(PASSWORD, ORG_NAME).andExpect(status().isNotFound());
+        }
+
+        @Test
         @WithMockUser(username = "delete-admin", roles = "MANAGER")
         @DisplayName("A manager can't delete the organization")
         void forbidsManager() throws Exception {
@@ -219,6 +244,10 @@ class OrganizationDeletionControllerTest {
         @WithMockUser(username = "delete-admin", roles = "ADMIN")
         @DisplayName("The right code schedules the deletion 30 days ahead and tells every admin")
         void schedulesDeletion() throws Exception {
+            // An admin without an email address is skipped, not a reason to fail.
+            usersRepository.save(Users.builder().username("silent-admin")
+                    .passwordHash(passwordEncoder.encode(PASSWORD)).verified(true)
+                    .role(rolesRepository.findByRole("ADMIN").orElseThrow()).organization(org).build());
             String code = requestAndCaptureCode();
 
             confirm(code).andExpect(status().isOk()).andExpect(jsonPath("$.scheduledFor").exists());
@@ -231,7 +260,8 @@ class OrganizationDeletionControllerTest {
             LocalDate day = saved.getDeletionScheduledFor().toLocalDate();
             verify(emailService).sendOrganizationDeletionScheduled("admin@delete.test", ORG_NAME, "delete-admin", day);
             verify(emailService).sendOrganizationDeletionScheduled("second@delete.test", ORG_NAME, "delete-admin", day);
-            assertThat(auditLogRepository.findAll())
+            verify(emailService, times(2)).sendOrganizationDeletionScheduled(anyString(), anyString(), anyString(), any());
+            assertThat(auditLogRepository.findAll()).isNotEmpty()
                     .anyMatch(log -> log.getAction().equals("ORGANIZATION_DELETION_SCHEDULED"));
         }
 

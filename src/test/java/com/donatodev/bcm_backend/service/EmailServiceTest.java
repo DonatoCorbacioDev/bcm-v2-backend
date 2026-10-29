@@ -129,7 +129,7 @@ class EmailServiceTest {
         when(mailSender.createMimeMessage()).thenReturn(message);
 
         emailService.sendOrganizationDeletionScheduled(RECIPIENT, "Acme\r\nBcc: victim@example.org", "admin",
-                java.time.LocalDate.of(2026, 11, 28));
+                java.time.LocalDate.of(2026, java.time.Month.NOVEMBER, 28));
 
         assertThat(message.getSubject()).doesNotContain("\r", "\n").contains("Acme Bcc: victim@example.org");
         assertThat(message.getHeader("Bcc")).isNull();

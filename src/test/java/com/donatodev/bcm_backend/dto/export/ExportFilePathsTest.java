@@ -32,7 +32,7 @@ class ExportFilePathsTest {
         String safe = ExportFilePaths.safeFileName(original);
 
         assertThat(safe).doesNotContain("/", "\\").doesNotStartWith(".");
-        assertThat(Arrays.asList(("files/contracts/1/2-" + safe).split("/"))).doesNotContain("..");
+        assertThat(Arrays.asList(("files/contracts/1/2-" + safe).split("/"))).isNotEmpty().doesNotContain("..");
     }
 
     @Test

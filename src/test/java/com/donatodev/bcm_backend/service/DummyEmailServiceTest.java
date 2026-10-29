@@ -84,10 +84,26 @@ class DummyEmailServiceTest {
                 dummyEmailService.sendVerificationEmail("a@b.com", "http://link");
                 dummyEmailService.sendResetPasswordEmail("a@b.com", "http://reset");
                 dummyEmailService.sendEmail("a@b.com", "Subject", "Body");
+                dummyEmailService.sendRegistrationCode("a@b.com", "123456", 15);
+                dummyEmailService.sendOrganizationDeletionCode("a@b.com", "Acme", "123456", 15);
+                dummyEmailService.sendOrganizationDeletionScheduled("a@b.com", "Acme", "admin",
+                        java.time.LocalDate.of(2026, java.time.Month.NOVEMBER, 28));
+                dummyEmailService.sendOrganizationDeletionCancelled("a@b.com", "Acme", "admin");
             });
         } finally {
             logger.setLevel(original);
         }
+    }
+
+    @Test
+    @DisplayName("Should log the organization deletion emails without throwing")
+    void shouldLogOrganizationDeletionEmails() {
+        assertDoesNotThrow(() -> {
+            dummyEmailService.sendOrganizationDeletionCode("a@b.com", "Acme\r\nX", "123456", 15);
+            dummyEmailService.sendOrganizationDeletionScheduled("a@b.com", "Acme", "admin",
+                    java.time.LocalDate.of(2026, java.time.Month.NOVEMBER, 28));
+            dummyEmailService.sendOrganizationDeletionCancelled("a@b.com", "Acme", "admin");
+        });
     }
 
     @Test

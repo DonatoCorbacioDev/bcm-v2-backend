@@ -62,8 +62,21 @@ public class OrganizationExportService {
     private final ObjectWriter jsonWriter;
     private final TransactionTemplate readOnlyTransaction;
 
-    /** A data file, already serialized. */
-    private record JsonFile(String path, byte[] json, int records) {
+    /**
+     * A data file, already serialized. A class rather than a record: a
+     * record's generated equals/hashCode would compare the byte[] by
+     * identity, and nothing here needs equality anyway.
+     */
+    private static final class JsonFile {
+        private final String path;
+        private final byte[] json;
+        private final int records;
+
+        private JsonFile(String path, byte[] json, int records) {
+            this.path = path;
+            this.json = json;
+            this.records = records;
+        }
     }
 
     /** Everything read from the database, taken in one transaction. */
@@ -149,11 +162,11 @@ public class OrganizationExportService {
     }
 
     private static ExportedFile writeEntry(ZipOutputStream zip, JsonFile file) throws IOException {
-        zip.putNextEntry(new ZipEntry(file.path()));
-        zip.write(file.json());
+        zip.putNextEntry(new ZipEntry(file.path));
+        zip.write(file.json);
         zip.closeEntry();
-        return new ExportedFile(file.path(), file.records(), file.json().length,
-                HexFormat.of().formatHex(sha256().digest(file.json())));
+        return new ExportedFile(file.path, file.records, file.json.length,
+                HexFormat.of().formatHex(sha256().digest(file.json)));
     }
 
     /**
