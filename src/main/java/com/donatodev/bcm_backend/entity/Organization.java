@@ -64,6 +64,17 @@ public class Organization {
     @Column(name = "terms_accepted_at")
     private LocalDateTime termsAcceptedAt;
 
+    /** When the confirmed self-service deletion will run; null when none is pending. */
+    @Column(name = "deletion_scheduled_for")
+    private LocalDateTime deletionScheduledFor;
+
+    @Column(name = "deletion_requested_at")
+    private LocalDateTime deletionRequestedAt;
+
+    /** Username of the admin who confirmed the deletion. */
+    @Column(name = "deletion_requested_by")
+    private String deletionRequestedBy;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

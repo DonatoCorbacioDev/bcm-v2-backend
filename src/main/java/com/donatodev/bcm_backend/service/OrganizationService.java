@@ -302,6 +302,7 @@ public class OrganizationService {
                 IbanValidator.maskNullable(org.getIban()),
                 IbanValidator.maskNullable(org.getBic()),
                 org.getCreatedAt(),
-                org.getStripeCustomerId() != null);
+                org.getStripeCustomerId() != null,
+                org.getDeletionScheduledFor());
     }
 }

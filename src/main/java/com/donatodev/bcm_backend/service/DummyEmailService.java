@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.time.LocalDate;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Primary;
@@ -73,6 +75,31 @@ public class DummyEmailService implements IEmailService {
         if (logger.isInfoEnabled()) {
             logger.info("[TEST] Fake registration code email sent to: {} with code: {} (valid {} min)",
                     sanitize(to), sanitize(code), validityMinutes);
+        }
+    }
+
+    @Override
+    public void sendOrganizationDeletionCode(String to, String organizationName, String code, int validityMinutes) {
+        if (logger.isInfoEnabled()) {
+            logger.info("[TEST] Fake organization deletion code email sent to: {} for org: {} with code: {} (valid {} min)",
+                    sanitize(to), sanitize(organizationName), sanitize(code), validityMinutes);
+        }
+    }
+
+    @Override
+    public void sendOrganizationDeletionScheduled(String to, String organizationName, String requestedBy,
+            LocalDate scheduledFor) {
+        if (logger.isInfoEnabled()) {
+            logger.info("[TEST] Fake deletion scheduled email sent to: {} for org: {} by: {} on: {}",
+                    sanitize(to), sanitize(organizationName), sanitize(requestedBy), scheduledFor);
+        }
+    }
+
+    @Override
+    public void sendOrganizationDeletionCancelled(String to, String organizationName, String cancelledBy) {
+        if (logger.isInfoEnabled()) {
+            logger.info("[TEST] Fake deletion cancelled email sent to: {} for org: {} by: {}",
+                    sanitize(to), sanitize(organizationName), sanitize(cancelledBy));
         }
     }
 

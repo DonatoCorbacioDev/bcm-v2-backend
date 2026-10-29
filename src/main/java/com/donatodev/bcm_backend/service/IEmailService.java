@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.time.LocalDate;
+
 /**
  * Interface defining email service operations.
  * <p>
@@ -37,6 +39,37 @@ public interface IEmailService {
      * @param validityMinutes  how long the code stays valid
      */
     void sendRegistrationCode(String to, String code, int validityMinutes);
+
+    /**
+     * Sends the one-time code that confirms an organization deletion request.
+     *
+     * @param to               the requesting admin's email address
+     * @param organizationName the organization that would be deleted
+     * @param code             the 6-digit code to type back
+     * @param validityMinutes  how long the code stays valid
+     */
+    void sendOrganizationDeletionCode(String to, String organizationName, String code, int validityMinutes);
+
+    /**
+     * Tells an admin that the organization's deletion is scheduled, and until
+     * when it can still be cancelled and the data exported.
+     *
+     * @param to               an admin's email address
+     * @param organizationName the organization being deleted
+     * @param requestedBy      username of the admin who confirmed it
+     * @param scheduledFor     the day the data will be deleted
+     */
+    void sendOrganizationDeletionScheduled(String to, String organizationName, String requestedBy,
+            LocalDate scheduledFor);
+
+    /**
+     * Tells an admin that a scheduled deletion was cancelled.
+     *
+     * @param to               an admin's email address
+     * @param organizationName the organization that stays
+     * @param cancelledBy      username of the admin who cancelled it
+     */
+    void sendOrganizationDeletionCancelled(String to, String organizationName, String cancelledBy);
 
     /**
      * Sends a generic email with custom subject and body.

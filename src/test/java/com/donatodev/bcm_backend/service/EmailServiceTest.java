@@ -89,6 +89,64 @@ class EmailServiceTest {
         assertThat(raw).contains("042917").contains("15 minuti").contains("1341");
     }
 
+    /** The decoded HTML part, i.e. what a mail client renders. */
+    private String htmlPart() throws Exception {
+        message.saveChanges();
+        return htmlIn(message);
+    }
+
+    private static String htmlIn(jakarta.mail.Part part) throws Exception {
+        if (part.isMimeType("text/html")) {
+            return (String) part.getContent();
+        }
+        if (part.getContent() instanceof jakarta.mail.Multipart multipart) {
+            for (int i = 0; i < multipart.getCount(); i++) {
+                String html = htmlIn(multipart.getBodyPart(i));
+                if (html != null) {
+                    return html;
+                }
+            }
+        }
+        return null;
+    }
+
+    @Test
+    @DisplayName("sends the deletion code, naming the organization with its HTML escaped")
+    void shouldSendOrganizationDeletionCode() throws Exception {
+        when(mailSender.createMimeMessage()).thenReturn(message);
+
+        emailService.sendOrganizationDeletionCode(RECIPIENT, "Acme <b>Srl</b>", "318204", 15);
+
+        verify(mailSender).send(message);
+        assertThat(message.getSubject()).contains("318204");
+        assertThat(htmlPart()).contains("318204").contains("15 minuti").contains("30 giorni")
+                .contains("Acme &lt;b&gt;Srl&lt;/b&gt;").doesNotContain("<b>Srl</b>");
+    }
+
+    @Test
+    @DisplayName("announces a scheduled deletion with its date, keeping the subject on one line")
+    void shouldSendOrganizationDeletionScheduled() throws Exception {
+        when(mailSender.createMimeMessage()).thenReturn(message);
+
+        emailService.sendOrganizationDeletionScheduled(RECIPIENT, "Acme\r\nBcc: victim@example.org", "admin",
+                java.time.LocalDate.of(2026, 11, 28));
+
+        assertThat(message.getSubject()).doesNotContain("\r", "\n").contains("Acme Bcc: victim@example.org");
+        assertThat(message.getHeader("Bcc")).isNull();
+        assertThat(htmlPart()).contains("28/11/2026").contains("admin").contains("35 giorni");
+    }
+
+    @Test
+    @DisplayName("announces a cancelled deletion")
+    void shouldSendOrganizationDeletionCancelled() throws Exception {
+        when(mailSender.createMimeMessage()).thenReturn(message);
+
+        emailService.sendOrganizationDeletionCancelled(RECIPIENT, "Acme", "other-admin");
+
+        assertThat(message.getSubject()).contains("annullata");
+        assertThat(htmlPart()).contains("other-admin").contains("Nessun dato verrà cancellato");
+    }
+
     @Test
     @DisplayName("wraps a registration code email failure")
     void shouldThrowExceptionOnRegistrationCodeEmailFailure() {

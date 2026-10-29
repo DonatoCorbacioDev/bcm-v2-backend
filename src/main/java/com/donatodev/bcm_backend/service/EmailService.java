@@ -6,6 +6,8 @@
 package com.donatodev.bcm_backend.service;
 
 import java.io.UnsupportedEncodingException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -40,6 +42,10 @@ public class EmailService implements IEmailService {
     private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
     static final String SENDER_NAME = "BCM - Business Contracts Manager";
+
+    private static final int DELETION_GRACE_DAYS = OrganizationDeletionService.GRACE_DAYS;
+    private static final DateTimeFormatter ITALIAN_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final Pattern LINE_BREAKS = Pattern.compile("[\r\n]+");
 
     private static final Set<String> RESERVED_DOMAINS = Set.of("example.com", "example.net", "example.org");
     private static final Set<String> RESERVED_TLDS = Set.of("test", "example", "invalid", "localhost");
@@ -96,6 +102,47 @@ public class EmailService implements IEmailService {
                 "Error sending registration code email");
     }
 
+    @Override
+    public void sendOrganizationDeletionCode(String to, String organizationName, String code, int validityMinutes) {
+        String org = HtmlUtils.htmlEscape(organizationName);
+        send(to, "Codice per cancellare l'organizzazione su BCM: " + code,
+                "<p>Ciao!</p><p>Hai chiesto di cancellare l'organizzazione <strong>" + org + "</strong>"
+                + " e tutti i suoi dati da BCM. Per confermare inserisci questo codice:</p>"
+                + "<p style=\"font-size:24px;font-weight:bold;letter-spacing:4px\">" + code + "</p>"
+                + "<p>Il codice è valido per " + validityMinutes + " minuti. Dopo la conferma la"
+                + " cancellazione avviene tra " + DELETION_GRACE_DAYS + " giorni: fino ad allora puoi"
+                + " annullarla ed esportare i dati.</p>"
+                + "<p>Se non sei stato tu, non inserire il codice e cambia subito la password:"
+                + " qualcuno conosce la tua.</p>",
+                "Error sending organization deletion code email");
+    }
+
+    @Override
+    public void sendOrganizationDeletionScheduled(String to, String organizationName, String requestedBy,
+            LocalDate scheduledFor) {
+        String org = HtmlUtils.htmlEscape(organizationName);
+        String date = scheduledFor.format(ITALIAN_DATE);
+        send(to, "Cancellazione dell'organizzazione " + oneLine(organizationName) + " programmata",
+                "<p>Ciao!</p><p>L'amministratore <strong>" + HtmlUtils.htmlEscape(requestedBy) + "</strong>"
+                + " ha confermato la cancellazione dell'organizzazione <strong>" + org + "</strong>.</p>"
+                + "<p>Il <strong>" + date + "</strong> l'organizzazione e tutti i suoi dati (contratti,"
+                + " documenti, fatture, utenti) saranno cancellati definitivamente. Fino ad allora"
+                + " BCM funziona normalmente: puoi esportare i dati dalla pagina Organizzazione, e"
+                + " qualsiasi amministratore può annullare la cancellazione dalla stessa pagina.</p>"
+                + "<p>Le copie di backup vengono eliminate entro 35 giorni dalla loro creazione.</p>",
+                "Error sending organization deletion scheduled email");
+    }
+
+    @Override
+    public void sendOrganizationDeletionCancelled(String to, String organizationName, String cancelledBy) {
+        String org = HtmlUtils.htmlEscape(organizationName);
+        send(to, "Cancellazione dell'organizzazione " + oneLine(organizationName) + " annullata",
+                "<p>Ciao!</p><p>L'amministratore <strong>" + HtmlUtils.htmlEscape(cancelledBy) + "</strong>"
+                + " ha annullato la cancellazione dell'organizzazione <strong>" + org + "</strong>."
+                + " Nessun dato verrà cancellato.</p>",
+                "Error sending organization deletion cancelled email");
+    }
+
     /**
      * Sends a generic email with custom subject and HTML body.
      *
@@ -104,6 +151,11 @@ public class EmailService implements IEmailService {
     @Override
     public void sendEmail(String to, String subject, String body) {
         send(to, subject, body, "Error sending email");
+    }
+
+    /** User-chosen text going into a subject: a line break there would start a new mail header. */
+    private static String oneLine(String value) {
+        return LINE_BREAKS.matcher(value).replaceAll(" ");
     }
 
     private void send(String to, String subject, String html, String failureMessage) {

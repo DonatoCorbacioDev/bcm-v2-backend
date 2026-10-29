@@ -31,7 +31,9 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             "/organizations/register", "/organizations/register/resend",
             "/organizations/register/confirm",
             // Not a brute-force target, but each call reads the whole organization.
-            "/organizations/me/export");
+            "/organizations/me/export",
+            // Both check a secret (password, emailed code).
+            "/organizations/me/deletion", "/organizations/me/deletion/confirm");
 
     private static final String BUCKET_KEY_PREFIX = "rate-limit:";
 

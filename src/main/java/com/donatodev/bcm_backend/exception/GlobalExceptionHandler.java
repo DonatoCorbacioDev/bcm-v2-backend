@@ -178,6 +178,11 @@ public class GlobalExceptionHandler {
      * Handles cases where an organization has reached the resource limit of
      * its current subscription tier.
      */
+    @ExceptionHandler(OrganizationDeletionConflictException.class)
+    public ResponseEntity<ApiErrorResponse> handleOrganizationDeletionConflict(OrganizationDeletionConflictException ex) {
+        return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(TierLimitExceededException.class)
     public ResponseEntity<ApiErrorResponse> handleTierLimitExceeded(TierLimitExceededException ex) {
         return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());

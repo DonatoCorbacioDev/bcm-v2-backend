@@ -57,14 +57,32 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 47,
-                "Expected at least 47 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 48,
+                "Expected at least 48 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(47, maxVersion, "Highest applied migration version should be V47");
+        assertEquals(48, maxVersion, "Highest applied migration version should be V48");
+    }
+
+    @Test
+    @DisplayName("V48 adds the deletion schedule to organizations and a code table removed with them")
+    void v48AddsOrganizationDeletion() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        List<String> columns = jdbc.queryForList(
+                "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                        + "AND TABLE_NAME = 'organizations' AND COLUMN_NAME LIKE 'deletion%' ORDER BY COLUMN_NAME",
+                String.class);
+        assertEquals(List.of("deletion_requested_at", "deletion_requested_by", "deletion_scheduled_for"), columns);
+
+        List<String> deleteRules = jdbc.queryForList(
+                "SELECT DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() "
+                        + "AND TABLE_NAME = 'organization_deletion_codes'",
+                String.class);
+        assertEquals(List.of("CASCADE", "CASCADE"), deleteRules);
     }
 
     @Test

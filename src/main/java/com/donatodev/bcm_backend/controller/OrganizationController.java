@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -26,15 +27,20 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import com.donatodev.bcm_backend.auth.AccessTokenResponse;
 import com.donatodev.bcm_backend.auth.AuthResponseDTO;
 import com.donatodev.bcm_backend.auth.RefreshCookieFactory;
+import com.donatodev.bcm_backend.dto.ConfirmOrganizationDeletionRequest;
 import com.donatodev.bcm_backend.dto.ConfirmRegistrationRequest;
+import com.donatodev.bcm_backend.dto.DeletionCodeSentDTO;
 import com.donatodev.bcm_backend.dto.OrganizationDTO;
+import com.donatodev.bcm_backend.dto.OrganizationDeletionDTO;
 import com.donatodev.bcm_backend.dto.OrganizationRegistrationRequest;
 import com.donatodev.bcm_backend.dto.OrganizationUsageDTO;
 import com.donatodev.bcm_backend.dto.RegistrationStartedDTO;
+import com.donatodev.bcm_backend.dto.RequestOrganizationDeletionRequest;
 import com.donatodev.bcm_backend.dto.RequestOrigin;
 import com.donatodev.bcm_backend.dto.ResendRegistrationCodeRequest;
 import com.donatodev.bcm_backend.dto.UpdateOrganizationRequest;
 import com.donatodev.bcm_backend.service.OrganizationRegistrationService;
+import com.donatodev.bcm_backend.service.OrganizationDeletionService;
 import com.donatodev.bcm_backend.service.OrganizationExportService;
 import com.donatodev.bcm_backend.service.OrganizationService;
 
@@ -49,15 +55,18 @@ public class OrganizationController {
     private final OrganizationRegistrationService registrationService;
     private final RefreshCookieFactory refreshCookieFactory;
     private final OrganizationExportService exportService;
+    private final OrganizationDeletionService deletionService;
 
     public OrganizationController(OrganizationService organizationService,
             OrganizationRegistrationService registrationService,
             RefreshCookieFactory refreshCookieFactory,
-            OrganizationExportService exportService) {
+            OrganizationExportService exportService,
+            OrganizationDeletionService deletionService) {
         this.organizationService = organizationService;
         this.registrationService = registrationService;
         this.refreshCookieFactory = refreshCookieFactory;
         this.exportService = exportService;
+        this.deletionService = deletionService;
     }
 
     /** Step 1: validates the data and emails a confirmation code. Nothing is created yet. */
@@ -114,6 +123,31 @@ public class OrganizationController {
                         ContentDisposition.attachment().filename(fileName).build().toString())
                 .cacheControl(CacheControl.noStore())
                 .body(body);
+    }
+
+    /** Deletion step 1: password + organization name; emails a confirmation code. */
+    @PostMapping("/me/deletion")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<DeletionCodeSentDTO> requestDeletion(
+            @Valid @RequestBody RequestOrganizationDeletionRequest request) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(deletionService.request(request.password(), request.organizationName()));
+    }
+
+    /** Deletion step 2: the emailed code schedules the deletion 30 days ahead. */
+    @PostMapping("/me/deletion/confirm")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<OrganizationDeletionDTO> confirmDeletion(
+            @Valid @RequestBody ConfirmOrganizationDeletionRequest request) {
+        return ResponseEntity.ok(deletionService.confirm(request.code()));
+    }
+
+    /** Calls off a scheduled deletion. */
+    @DeleteMapping("/me/deletion")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> cancelDeletion() {
+        deletionService.cancel();
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/me")

@@ -20,6 +20,8 @@ import com.donatodev.bcm_backend.entity.SubscriptionTier;
  *             subscription the admin can manage in the Stripe Customer Portal.
  *             A boolean on purpose: the {@code cus_...} id itself never
  *             leaves the backend.
+ * @param deletionScheduledFor when a confirmed self-service deletion will run;
+ *             null when none is pending
  */
 public record OrganizationDTO(
         Long id,
@@ -29,5 +31,6 @@ public record OrganizationDTO(
         String iban,
         String bic,
         LocalDateTime createdAt,
-        boolean billingPortalAvailable
+        boolean billingPortalAvailable,
+        LocalDateTime deletionScheduledFor
 ) {}
