@@ -5,8 +5,14 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +21,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import com.donatodev.bcm_backend.auth.AccessTokenResponse;
 import com.donatodev.bcm_backend.auth.AuthResponseDTO;
@@ -28,6 +35,7 @@ import com.donatodev.bcm_backend.dto.RequestOrigin;
 import com.donatodev.bcm_backend.dto.ResendRegistrationCodeRequest;
 import com.donatodev.bcm_backend.dto.UpdateOrganizationRequest;
 import com.donatodev.bcm_backend.service.OrganizationRegistrationService;
+import com.donatodev.bcm_backend.service.OrganizationExportService;
 import com.donatodev.bcm_backend.service.OrganizationService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,13 +48,16 @@ public class OrganizationController {
     private final OrganizationService organizationService;
     private final OrganizationRegistrationService registrationService;
     private final RefreshCookieFactory refreshCookieFactory;
+    private final OrganizationExportService exportService;
 
     public OrganizationController(OrganizationService organizationService,
             OrganizationRegistrationService registrationService,
-            RefreshCookieFactory refreshCookieFactory) {
+            RefreshCookieFactory refreshCookieFactory,
+            OrganizationExportService exportService) {
         this.organizationService = organizationService;
         this.registrationService = registrationService;
         this.refreshCookieFactory = refreshCookieFactory;
+        this.exportService = exportService;
     }
 
     /** Step 1: validates the data and emails a confirmation code. Nothing is created yet. */
@@ -85,6 +96,24 @@ public class OrganizationController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<OrganizationUsageDTO> getMyOrganizationUsage() {
         return ResponseEntity.ok(organizationService.getUsage());
+    }
+
+    /** All of the organization's data as a ZIP (Terms sez. 13, GDPR art. 20). */
+    @GetMapping("/me/export")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<StreamingResponseBody> exportMyOrganization() {
+        // Resolved here, on the request thread: the body below runs later on an
+        // async thread, where TenantContext is no longer set.
+        OrganizationDTO org = organizationService.getMyOrganization();
+        exportService.recordExport(org.id());
+        String fileName = "bcm-export-%s-%s.zip".formatted(org.slug(), LocalDate.now(ZoneId.systemDefault()));
+        StreamingResponseBody body = out -> exportService.writeExport(org.id(), out);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(fileName).build().toString())
+                .cacheControl(CacheControl.noStore())
+                .body(body);
     }
 
     @PutMapping("/me")
