@@ -92,9 +92,13 @@ public class CorsConfig {
         ));
 
         // Configure exposed headers
+        // Content-Disposition carries the server-chosen download name (e.g.
+        // the organization export ZIP); without it a cross-origin frontend
+        // (dev on another port) can't read it and falls back to its own name.
         configuration.setExposedHeaders(Arrays.asList(
                 "Access-Control-Allow-Origin",
-                "Access-Control-Allow-Credentials"
+                "Access-Control-Allow-Credentials",
+                "Content-Disposition"
         ));
 
         // Allow credentials for authentication

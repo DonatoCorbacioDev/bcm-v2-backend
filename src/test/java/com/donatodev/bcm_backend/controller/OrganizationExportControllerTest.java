@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -429,6 +430,17 @@ class OrganizationExportControllerTest {
                         matchesPattern(
                                 "attachment; filename=\"bcm-export-export-corp-\\d{4}-\\d{2}-\\d{2}\\.zip\"")))
                 .andExpect(header().string("Cache-Control", "no-store"));
+    }
+
+    @Test
+    @WithMockUser(username = "export-admin", roles = "ADMIN")
+    @DisplayName("Lets a cross-origin frontend read the download name")
+    void exposesContentDispositionToTheFrontend() throws Exception {
+        MvcResult started = mockMvc.perform(get(EXPORT_URL).header("Origin", "http://localhost:3000"))
+                .andReturn();
+        mockMvc.perform(asyncDispatch(started))
+                .andExpect(header().string("Access-Control-Expose-Headers",
+                        containsString("Content-Disposition")));
     }
 
     @Test
