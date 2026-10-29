@@ -49,6 +49,7 @@ import com.donatodev.bcm_backend.repository.RefreshTokenRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.donatodev.bcm_backend.repository.VerificationTokenRepository;
+import com.donatodev.bcm_backend.util.TestDataCleaner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -92,6 +93,9 @@ class AuthControllerTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
+    private TestDataCleaner testDataCleaner;
+
+    @Autowired
     private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -111,6 +115,9 @@ class AuthControllerTest {
         verificationTokenRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
         inviteTokenRepository.deleteAll();
+        // Rows other test classes may leave behind (contract history, workflow
+        // events...) reference users too: clear them whatever ran before.
+        testDataCleaner.clean();
         usersRepository.deleteAll();
         managersRepository.deleteAll();
         rolesRepository.deleteAll();

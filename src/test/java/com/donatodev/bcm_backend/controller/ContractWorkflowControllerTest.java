@@ -3,6 +3,7 @@ package com.donatodev.bcm_backend.controller;
 import java.time.LocalDate;
 import java.time.Month;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -55,7 +56,11 @@ class ContractWorkflowControllerTest {
     @Autowired private RolesRepository rolesRepository;
     @Autowired private TestDataCleaner testDataCleaner;
 
+    // Also after each test: approvals and rejections write contract_history
+    // rows pointing at users, which broke test classes that only delete users
+    // (AuthControllerTest) whenever they happened to run right after this one.
     @BeforeEach
+    @AfterEach
     void cleanDb() {
         testDataCleaner.clean();
     }

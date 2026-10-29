@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -140,8 +141,13 @@ class OrganizationExportControllerTest {
     private Organization org;
     private Roles adminRole;
 
-    @BeforeEach
-    void setup() {
+    /**
+     * Runs before and after each test: the seed fills tables (contract_history,
+     * workflow events...) that point at users, and other test classes that
+     * only delete users would hit those foreign keys if the rows outlived us.
+     */
+    @AfterEach
+    void cleanDatabase() {
         // Tables TestDataCleaner doesn't know, in foreign-key order around it.
         notificationRepository.deleteAll();
         electronicInvoiceRepository.deleteAll();
@@ -152,6 +158,11 @@ class OrganizationExportControllerTest {
         auditLogRepository.deleteAll();
         termsAcceptanceRepository.deleteAll();
         organizationRepository.deleteAll();
+    }
+
+    @BeforeEach
+    void setup() {
+        cleanDatabase();
 
         org = organizationRepository.save(Organization.builder()
                 .name("Export Corp").slug("export-corp").subscriptionTier(SubscriptionTier.FREE)
