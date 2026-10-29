@@ -54,6 +54,17 @@ class EmailServiceTest {
     }
 
     @Test
+    @DisplayName("falls back to the SMTP username as sender when app.mail.from is not set")
+    void shouldUseSmtpUsernameWhenFromIsMissing() throws Exception {
+        EmailService withoutFrom = new EmailService(mailSender, null, "smtp-user@bcm.test");
+        when(mailSender.createMimeMessage()).thenReturn(message);
+
+        withoutFrom.sendVerificationEmail(RECIPIENT, "http://verify-link");
+
+        assertThat(message.getFrom()[0].toString()).contains("smtp-user@bcm.test");
+    }
+
+    @Test
     @DisplayName("sends the verification email")
     void shouldSendVerificationEmail() {
         when(mailSender.createMimeMessage()).thenReturn(message);

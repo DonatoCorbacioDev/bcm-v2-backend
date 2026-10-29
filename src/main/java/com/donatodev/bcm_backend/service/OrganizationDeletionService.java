@@ -216,7 +216,8 @@ public class OrganizationDeletionService {
     }
 
     private static String emailOf(Users user) {
-        if (user.getManager() == null || user.getManager().getEmail() == null) {
+        // managers.email is NOT NULL: the manager link is the only thing that can be missing.
+        if (user.getManager() == null) {
             throw new IllegalArgumentException(
                     "Al tuo account non è associato un indirizzo email: impossibile inviare il codice.");
         }
@@ -225,7 +226,7 @@ public class OrganizationDeletionService {
 
     private List<String> adminEmails(Organization org) {
         return usersRepository.findByOrganizationIdAndRoleRole(org.getId(), "ADMIN").stream()
-                .filter(u -> u.getManager() != null && u.getManager().getEmail() != null)
+                .filter(u -> u.getManager() != null)
                 .map(u -> u.getManager().getEmail())
                 .distinct()
                 .toList();

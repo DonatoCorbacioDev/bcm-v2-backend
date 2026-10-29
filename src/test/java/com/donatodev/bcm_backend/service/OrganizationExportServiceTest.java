@@ -68,7 +68,9 @@ class OrganizationExportServiceTest {
                 Organization.builder().id(7L).name("Acme").slug("acme").build()));
         when(jsonWriter.writeValueAsBytes(any())).thenThrow(mock(JsonProcessingException.class));
 
-        assertThatThrownBy(() -> service.writeExport(7L, new ByteArrayOutputStream()))
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        assertThatThrownBy(() -> service.writeExport(7L, out))
                 .isInstanceOf(UncheckedIOException.class)
                 .hasMessageContaining("data/organization.json");
     }
