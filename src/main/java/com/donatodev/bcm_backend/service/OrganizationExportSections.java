@@ -7,6 +7,7 @@ package com.donatodev.bcm_backend.service;
 
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,7 @@ import com.donatodev.bcm_backend.dto.export.ContractTemplateExportDTO;
 import com.donatodev.bcm_backend.dto.export.ContractWorkflowEventExportDTO;
 import com.donatodev.bcm_backend.dto.export.CounterpartyExportDTO;
 import com.donatodev.bcm_backend.dto.export.ElectronicInvoiceExportDTO;
+import com.donatodev.bcm_backend.dto.export.ExportFilePaths;
 import com.donatodev.bcm_backend.dto.export.FinancialTypeExportDTO;
 import com.donatodev.bcm_backend.dto.export.FinancialValueExportDTO;
 import com.donatodev.bcm_backend.dto.export.ManagerExportDTO;
@@ -70,6 +72,10 @@ public class OrganizationExportSections {
 
     /** One {@code data/} file: a JSON array of the records the loader returns. */
     public record Section(String path, Function<Long, List<?>> loader) {
+    }
+
+    /** An original file to copy under {@code files/}: where it goes, and where it is on disk. */
+    public record StoredFileRef(String archivePath, String storagePath) {
     }
 
     private final ManagersRepository managersRepository;
@@ -145,6 +151,19 @@ public class OrganizationExportSections {
                 section("data/terms_acceptances.json", orgId -> map(
                         termsAcceptanceRepository.findByOrganizationIdOrderByAcceptedAtDesc(orgId),
                         TermsAcceptanceExportDTO::from)));
+    }
+
+    /** The original documents, invoice XMLs and SEPA files, scoped like their metadata files. */
+    public List<StoredFileRef> files(Long orgId) {
+        return Stream.of(
+                map(contractDocumentRepository.findAllByContract_Organization_Id(orgId),
+                        d -> new StoredFileRef(ExportFilePaths.of(d), d.getStoragePath())),
+                map(electronicInvoiceRepository.findAllByContract_Organization_Id(orgId),
+                        i -> new StoredFileRef(ExportFilePaths.of(i), i.getStoragePath())),
+                map(sepaPaymentBatchRepository.findAllByContract_Organization_Id(orgId),
+                        b -> new StoredFileRef(ExportFilePaths.of(b), b.getStoragePath())))
+                .flatMap(List::stream)
+                .toList();
     }
 
     private static Section section(String path, Function<Long, List<?>> loader) {

@@ -12,13 +12,17 @@ import java.util.List;
  * {@code manifest.json} of an organization export: what the archive holds and
  * how to check it. It is written last, so an archive cut short by a dropped
  * connection has no manifest and can't be mistaken for a complete one.
+ *
+ * @param missingFiles archive paths of original files that {@code data/}
+ *                     references but that were not found in storage
  */
 public record ExportManifest(
         int formatVersion,
         Instant exportedAt,
         Long organizationId,
         String organizationName,
-        List<ExportedFile> files) {
+        List<ExportedFile> files,
+        List<String> missingFiles) {
 
     /**
      * @param records number of records in a {@code data/} file; null for the

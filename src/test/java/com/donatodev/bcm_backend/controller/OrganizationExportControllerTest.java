@@ -16,6 +16,7 @@ import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -85,6 +86,7 @@ import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.SepaPaymentBatchRepository;
 import com.donatodev.bcm_backend.repository.TermsAcceptanceRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+import com.donatodev.bcm_backend.service.LocalStorageService;
 import com.donatodev.bcm_backend.util.TestDataCleaner;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -132,6 +134,7 @@ class OrganizationExportControllerTest {
     @Autowired private MlResultCacheRepository mlResultCacheRepository;
     @Autowired private NotificationRepository notificationRepository;
     @Autowired private TermsAcceptanceRepository termsAcceptanceRepository;
+    @Autowired private LocalStorageService storageService;
 
     private Organization org;
     private Roles adminRole;
@@ -318,6 +321,72 @@ class OrganizationExportControllerTest {
             assertThat(new String(entries.get(path), StandardCharsets.UTF_8)).as(path)
                     .doesNotContainIgnoringCase("theirs");
         }
+        assertThat(new String(entries.get("manifest.json"), StandardCharsets.UTF_8))
+                .doesNotContainIgnoringCase("theirs");
+        assertThat(entries.keySet()).noneMatch(path -> path.contains("theirs"));
+    }
+
+    @Test
+    @WithMockUser(username = "export-admin", roles = "ADMIN")
+    @DisplayName("Copies the original files under files/, where their metadata points, with a safe name")
+    void includesOriginalFiles() throws Exception {
+        Users admin = usersRepository.findByUsername("export-admin").orElseThrow();
+        seedOneOfEverything(org, admin, admin.getManager(), "ours");
+        Contracts contract = contractsRepository.findByOrganization_Id(org.getId()).get(0);
+        byte[] pdf = "%PDF-1.7 original bytes".getBytes(StandardCharsets.UTF_8);
+        ContractDocument document = contractDocumentRepository.save(ContractDocument.builder()
+                .contract(contract).orgId(org.getId())
+                .storagePath(storageService.storeDocument(org.getId(), contract.getId(), pdf))
+                .fileName("..\\../evil name.pdf").fileSize((long) pdf.length)
+                .contentType("application/pdf").versionNumber(2).build());
+
+        Map<String, byte[]> entries = export();
+
+        JsonNode documents = objectMapper.readTree(entries.get("data/contract_documents.json"));
+        String archivePath = null;
+        for (JsonNode d : documents) {
+            if (d.get("id").asLong() == document.getId()) {
+                archivePath = d.get("archivePath").asText();
+            }
+        }
+        assertThat(archivePath).isEqualTo("files/contracts/%d/%d-__.._evil name.pdf"
+                .formatted(contract.getId(), document.getId()));
+        assertThat(entries.get(archivePath)).isEqualTo(pdf);
+        for (String path : entries.keySet()) {
+            assertThat(path).doesNotContain("\\");
+            assertThat(Arrays.asList(path.split("/"))).as(path).doesNotContain("..");
+        }
+
+        JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
+        JsonNode listed = null;
+        for (JsonNode f : manifest.get("files")) {
+            if (f.get("path").asText().equals(archivePath)) {
+                listed = f;
+            }
+        }
+        assertThat(listed).isNotNull();
+        assertThat(listed.get("records").isNull()).isTrue();
+        assertThat(listed.get("sizeBytes").asLong()).isEqualTo(pdf.length);
+        assertThat(listed.get("sha256").asText())
+                .isEqualTo(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(pdf)));
+    }
+
+    @Test
+    @WithMockUser(username = "export-admin", roles = "ADMIN")
+    @DisplayName("A file gone from disk is listed as missing; the rest of the export still arrives")
+    void listsMissingFiles() throws Exception {
+        Users admin = usersRepository.findByUsername("export-admin").orElseThrow();
+        // The seed's storage paths point at nothing on disk.
+        seedOneOfEverything(org, admin, admin.getManager(), "ours");
+
+        Map<String, byte[]> entries = export();
+
+        JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
+        List<String> missing = new ArrayList<>();
+        manifest.get("missingFiles").forEach(m -> missing.add(m.asText()));
+        assertThat(missing).hasSize(3).allMatch(path -> path.startsWith("files/"));
+        assertThat(missing).noneMatch(entries::containsKey);
+        assertThat(entries).containsKey("data/contracts.json");
     }
 
     @Test

@@ -18,12 +18,14 @@ import com.donatodev.bcm_backend.entity.SepaPaymentBatch;
 import com.donatodev.bcm_backend.entity.Users;
 
 /**
- * One element of {@code data/electronic_invoices.json}. The lines are nested
- * because they only exist as part of their invoice. The storage path is internal.
+ * One element of {@code data/electronic_invoices.json}; the original XML is at
+ * {@code archivePath}. The lines are nested because they only exist as part
+ * of their invoice. The storage path is internal.
  */
 public record ElectronicInvoiceExportDTO(
         Long id,
         Long contractId,
+        String archivePath,
         String fileName,
         Long fileSize,
         String contentType,
@@ -71,6 +73,7 @@ public record ElectronicInvoiceExportDTO(
         return new ElectronicInvoiceExportDTO(
                 invoice.getId(),
                 invoice.getContract().getId(),
+                ExportFilePaths.of(invoice),
                 invoice.getFileName(),
                 invoice.getFileSize(),
                 invoice.getContentType(),

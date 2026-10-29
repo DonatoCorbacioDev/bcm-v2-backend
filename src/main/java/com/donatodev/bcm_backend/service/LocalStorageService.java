@@ -6,6 +6,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -78,6 +79,15 @@ public class LocalStorageService {
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to read document", e);
         }
+    }
+
+    /**
+     * Opens a stored file for streaming, for callers that copy it elsewhere
+     * (the organization export) without holding it all in memory. The caller
+     * closes the stream; a missing file throws {@link java.nio.file.NoSuchFileException}.
+     */
+    public InputStream openDocument(String storagePath) throws IOException {
+        return Files.newInputStream(resolveWithinRoot(storagePath));
     }
 
     public void deleteDocument(String storagePath) {

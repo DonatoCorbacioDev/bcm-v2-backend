@@ -85,6 +85,15 @@
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
 
+    <!-- CRLF_INJECTION_LOGS in OrganizationExportService: the only logged
+         values are a Long org id and an int count. Uploaded file names are
+         deliberately never logged. Re-check this exclusion if a String is ever
+         added to a log call. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.OrganizationExportService"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
     <!-- SERVLET_HEADER_USER_AGENT in RequestOrigin: the User-Agent is only
          recorded, next to the IP, as supporting evidence of a Terms acceptance;
          no decision is ever based on it, so a spoofed value can't grant or deny

@@ -11,10 +11,14 @@ import java.time.LocalDate;
 
 import com.donatodev.bcm_backend.entity.SepaPaymentBatch;
 
-/** One element of {@code data/sepa_payment_batches.json}; the storage path is internal. */
+/**
+ * One element of {@code data/sepa_payment_batches.json}; the generated XML is
+ * at {@code archivePath}. The storage path is internal.
+ */
 public record SepaPaymentBatchExportDTO(
         Long id,
         Long contractId,
+        String archivePath,
         String messageId,
         LocalDate executionDate,
         BigDecimal totalAmount,
@@ -27,6 +31,7 @@ public record SepaPaymentBatchExportDTO(
         return new SepaPaymentBatchExportDTO(
                 batch.getId(),
                 batch.getContract().getId(),
+                ExportFilePaths.of(batch),
                 batch.getMessageId(),
                 batch.getExecutionDate(),
                 batch.getTotalAmount(),
