@@ -74,4 +74,8 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
               AND YEAR(ei.invoiceDate) = :year
             """)
     BigDecimal sumConfirmedInvoicedAmountByManagerIdAndYear(@Param("managerId") Long managerId, @Param("year") int year);
+
+    // Scoped through the contract rather than the row's own org_id column,
+    // which older rows may lack: the contract is always set and always knows its org.
+    List<ElectronicInvoice> findAllByContract_Organization_Id(Long organizationId);
 }

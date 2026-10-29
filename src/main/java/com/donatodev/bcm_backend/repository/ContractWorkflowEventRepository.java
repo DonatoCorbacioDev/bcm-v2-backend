@@ -25,4 +25,6 @@ public interface ContractWorkflowEventRepository extends JpaRepository<ContractW
      * @return the contract's workflow events in chronological order
      */
     List<ContractWorkflowEvent> findByContractIdOrderByCreatedAtAsc(Long contractId);
+
+    List<ContractWorkflowEvent> findAllByContract_Organization_Id(Long organizationId);
 }

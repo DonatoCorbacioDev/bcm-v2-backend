@@ -26,6 +26,7 @@ import com.donatodev.bcm_backend.dto.export.OrganizationExportDTO;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.exception.OrganizationNotFoundException;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
+import com.donatodev.bcm_backend.service.OrganizationExportSections.Section;
 import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -43,12 +44,14 @@ public class OrganizationExportService {
     static final String MANIFEST_PATH = "manifest.json";
 
     private final OrganizationRepository organizationRepository;
+    private final OrganizationExportSections sections;
     private final AuditLogService auditLogService;
     private final ObjectWriter jsonWriter;
 
     public OrganizationExportService(OrganizationRepository organizationRepository,
-            AuditLogService auditLogService, ObjectMapper objectMapper) {
+            OrganizationExportSections sections, AuditLogService auditLogService, ObjectMapper objectMapper) {
         this.organizationRepository = organizationRepository;
+        this.sections = sections;
         this.auditLogService = auditLogService;
         this.jsonWriter = objectMapper.writerWithDefaultPrettyPrinter();
     }
@@ -78,9 +81,10 @@ public class OrganizationExportService {
         try (ZipOutputStream zip = new ZipOutputStream(out, StandardCharsets.UTF_8)) {
             files.add(writeJson(zip, "data/organization.json", OrganizationExportDTO.from(org), 1));
 
-            // Step 2: the other data/*.json files, each a JSON array, e.g.
-            // List<ManagerExportDTO> managers = ...;
-            // files.add(writeJson(zip, "data/managers.json", managers, managers.size()));
+            for (Section section : sections.all()) {
+                List<?> records = section.loader().apply(orgId);
+                files.add(writeJson(zip, section.path(), records, records.size()));
+            }
 
             writeJson(zip, MANIFEST_PATH,
                     new ExportManifest(FORMAT_VERSION, Instant.now(), org.getId(), org.getName(), files), 1);

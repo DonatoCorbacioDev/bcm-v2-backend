@@ -27,4 +27,8 @@ public interface SepaPaymentBatchRepository extends JpaRepository<SepaPaymentBat
      * delete) because each one's file on disk must be removed too.
      */
     List<SepaPaymentBatch> findByCreatedAtBefore(Instant cutoff);
+
+    // Scoped through the contract rather than the row's own org_id column,
+    // which older rows may lack: the contract is always set and always knows its org.
+    List<SepaPaymentBatch> findAllByContract_Organization_Id(Long organizationId);
 }

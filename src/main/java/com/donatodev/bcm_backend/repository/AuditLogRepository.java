@@ -6,6 +6,7 @@
 package com.donatodev.bcm_backend.repository;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,4 +42,6 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     @Modifying
     @Transactional
     long deleteByTimestampBefore(Instant cutoff);
+
+    List<AuditLog> findAllByOrgIdOrderByTimestampAsc(Long orgId);
 }

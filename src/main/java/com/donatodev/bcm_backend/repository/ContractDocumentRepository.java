@@ -23,4 +23,8 @@ public interface ContractDocumentRepository extends JpaRepository<ContractDocume
     List<ContractDocument> findByOrgIdAndEmbeddingIsNotNull(Long orgId);
 
     List<ContractDocument> findByVersionGroupIdOrderByVersionNumberDesc(Long versionGroupId);
+
+    // Scoped through the contract rather than the row's own org_id column,
+    // which older rows may lack: the contract is always set and always knows its org.
+    List<ContractDocument> findAllByContract_Organization_Id(Long organizationId);
 }

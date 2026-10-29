@@ -37,4 +37,6 @@ public interface ContractManagerRepository extends JpaRepository<ContractManager
     @Transactional
     @Query(value = "INSERT IGNORE INTO contract_manager (contract_id, manager_id) VALUES (:contractId, :managerId)", nativeQuery = true)
     void insertIgnore(Long contractId, Long managerId);
+
+    List<ContractManager> findAllByContract_Organization_Id(Long organizationId);
 }

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,4 +19,6 @@ public interface MlResultCacheRepository extends JpaRepository<MlResultCache, Lo
     Optional<MlResultCache> findByOrgIdAndCacheKey(Long orgId, String cacheKey);
 
     void deleteByOrgId(Long orgId);
+
+    List<MlResultCache> findAllByOrgId(Long orgId);
 }
