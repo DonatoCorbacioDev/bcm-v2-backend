@@ -211,4 +211,16 @@
         <Bug pattern="POTENTIAL_XML_INJECTION"/>
     </Match>
 
+    <!-- This specific log call already sanitizes all three String arguments;
+         its fourth argument is LocalDate, whose rendering cannot contain CR/LF.
+         FindSecBugs flags the varargs call despite those controls. The regression
+         test DummyEmailServiceTest.shouldSanitizeScheduledDeletionLog captures
+         the formatted log and verifies CR, LF, CRLF and null inputs.
+         Keep this exclusion limited to this method and this finding. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.DummyEmailService"/>
+        <Method name="sendOrganizationDeletionScheduled"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
 </FindBugsFilter>

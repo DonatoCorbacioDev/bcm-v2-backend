@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -104,6 +105,37 @@ class DummyEmailServiceTest {
                     java.time.LocalDate.of(2026, java.time.Month.NOVEMBER, 28));
             dummyEmailService.sendOrganizationDeletionCancelled("a@b.com", "Acme", "admin");
         });
+    }
+
+    @Test
+    @DisplayName("Scheduled deletion email logs stay on one line, including malicious and null inputs")
+    void shouldSanitizeScheduledDeletionLog() {
+        ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger)
+                LoggerFactory.getLogger(DummyEmailService.class);
+        ch.qos.logback.classic.Level original = logger.getLevel();
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(ch.qos.logback.classic.Level.INFO);
+        try {
+            dummyEmailService.sendOrganizationDeletionScheduled(
+                    "recipient\r\nforged", "org\nforged", "admin\rforged",
+                    java.time.LocalDate.of(2026, java.time.Month.NOVEMBER, 28));
+            dummyEmailService.sendOrganizationDeletionScheduled(null, null, null, null);
+
+            assertEquals(2, appender.list.size());
+            assertEquals("[TEST] Fake deletion scheduled email sent to: recipient__forged "
+                    + "for org: org_forged by: admin_forged on: 2026-11-28",
+                    appender.list.get(0).getFormattedMessage());
+            assertEquals("[TEST] Fake deletion scheduled email sent to: null "
+                    + "for org: null by: null on: null",
+                    appender.list.get(1).getFormattedMessage());
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+            logger.setLevel(original);
+        }
     }
 
     @Test
