@@ -266,10 +266,30 @@ def render_party_xml(rng, name, vat, address, regime_fiscale=None):
             </Sede>"""
 
 
-def render_invoice_xml(rng, seq, supplier_name, supplier_vat, supplier_address, buyer_name, buyer_vat, buyer_address, doc_type, invoice_date, number, lines):
+def render_payment_xml(payment, total):
+    """DatiPagamento for a bank transfer (MP05): where the supplier wants to be
+    paid. Element order follows the FatturaPA 1.2.2 XSD, which the backend
+    validates against on upload."""
+    bic = f"\n                <BIC>{payment['bic']}</BIC>" if payment.get("bic") else ""
+    return f"""        <DatiPagamento>
+            <CondizioniPagamento>TP02</CondizioniPagamento>
+            <DettaglioPagamento>
+                <ModalitaPagamento>MP05</ModalitaPagamento>
+                <DataScadenzaPagamento>{payment["due_date"].isoformat()}</DataScadenzaPagamento>
+                <ImportoPagamento>{total:.2f}</ImportoPagamento>
+                <IBAN>{payment["iban"]}</IBAN>{bic}
+            </DettaglioPagamento>
+        </DatiPagamento>
+"""
+
+
+def render_invoice_xml(rng, seq, supplier_name, supplier_vat, supplier_address, buyer_name, buyer_vat, buyer_address, doc_type, invoice_date, number, lines, payment=None):
+    """payment: optional {"iban", "bic", "due_date"}; without it the invoice has
+    no DatiPagamento, so BCM shows "IBAN mancante" and can't pay it by SEPA."""
     summary, total = compute_summary(lines)
     lines_xml = "\n".join(render_line_xml(line) for line in lines)
     summary_xml = render_summary_xml(summary)
+    payment_xml = render_payment_xml(payment, total) if payment else ""
 
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <p:FatturaElettronica xmlns:p="{NAMESPACE}" versione="FPR12">
@@ -304,7 +324,7 @@ def render_invoice_xml(rng, seq, supplier_name, supplier_vat, supplier_address, 
 {lines_xml}
 {summary_xml}
         </DatiBeniServizi>
-    </FatturaElettronicaBody>
+{payment_xml}    </FatturaElettronicaBody>
 </p:FatturaElettronica>
 """
 

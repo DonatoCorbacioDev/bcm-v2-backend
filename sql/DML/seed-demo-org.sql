@@ -38,6 +38,10 @@ USE bcm;
 UPDATE organizations SET name = 'Nortiva Solutions S.r.l.', slug = 'nortiva-solutions',
     subscription_tier = 'PRO' WHERE id = 3;
 
+-- Nortiva's own (synthetic, checksum-valid) bank account: the debtor of every
+-- SEPA transfer, which can't be generated without it. Re-applied nightly.
+UPDATE organizations SET iban = 'IT05X0760101600000045821936', bic = 'NRTVITM1XXX' WHERE id = 3;
+
 -- ── Manager display name (cosmetic only — the login itself stays "demo")
 UPDATE managers SET first_name = 'Marco', last_name = 'Bellini', department = 'Direzione'
 WHERE id = 4 AND organization_id = 3;
@@ -106,6 +110,32 @@ WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Nexora Technologies
 INSERT INTO counterparties (name, type, organization_id)
 SELECT 'Ferramenta Bassano S.r.l.', 'CUSTOMER', 3
 WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Ferramenta Bassano S.r.l.' AND organization_id = 3);
+
+-- Two SUPPLIERS: Nortiva buys from them, receives their FatturaPA invoices
+-- and pays them by SEPA transfer. Every counterparty above is a customer, so
+-- before these existed the demo had no purchase side at all: zero costs, and
+-- incoming invoices had to be attached to customer contracts, where they could
+-- only ever show "Fornitore non corrisponde". VAT numbers and IBANs are
+-- invented but checksum-valid, and are shared with
+-- scripts/seed_demo_purchase_invoices.py (the invoices must carry the same
+-- VAT to match, and the same IBAN to pass the SEPA anti-fraud check).
+-- verified_iban is the account BCM already trusts for that supplier; it is
+-- re-applied every night so a visitor's actions can't change the story.
+INSERT INTO counterparties (name, type, organization_id)
+SELECT 'Nuvola Cloud Services S.r.l.', 'SUPPLIER', 3
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Nuvola Cloud Services S.r.l.' AND organization_id = 3);
+UPDATE counterparties SET type = 'SUPPLIER', vat_number = 'IT07824150960',
+    verified_iban = 'IT70K0306909400000071528400', verified_bic = 'NUVLITM1XXX',
+    contact_email = 'amministrazione@nuvolacloud.example'
+WHERE name = 'Nuvola Cloud Services S.r.l.' AND organization_id = 3;
+
+INSERT INTO counterparties (name, type, organization_id)
+SELECT 'Ferri & Associati S.r.l.', 'SUPPLIER', 3
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Ferri & Associati S.r.l.' AND organization_id = 3);
+UPDATE counterparties SET type = 'SUPPLIER', vat_number = 'IT05391280772',
+    verified_iban = 'IT17M0503411701000062194812', verified_bic = 'FERRITM1XXX',
+    contact_email = 'studio@ferriassociati.example'
+WHERE name = 'Ferri & Associati S.r.l.' AND organization_id = 3;
 
 -- ── Contracts ─────────────────────────────────────────────────
 -- All assigned to manager id 4 (the public "demo" login) — role-based
@@ -183,6 +213,26 @@ SELECT (SELECT id FROM counterparties WHERE name='Ferramenta Bassano S.r.l.' AND
        (SELECT id FROM business_areas WHERE name='Finanza' AND organization_id=3),
        4, DATE_ADD(CURDATE(), INTERVAL 15 DAY), NULL, 'DRAFT', 'IN_REVIEW', 3;
 
+-- 9) Purchase: monthly cloud hosting, the invoice -> match -> SEPA demo.
+-- Its invoices are attached nightly by seed_demo_purchase_invoices.py: last
+-- month's is matched and already paid, this month's is waiting to be matched.
+INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, financial_type_id, annual_value, billing_frequency)
+SELECT (SELECT id FROM counterparties WHERE name='Nuvola Cloud Services S.r.l.' AND organization_id=3),
+       'NRT-2025-007', 'WBS-IT-004', 'Hosting e servizi cloud',
+       (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id=3),
+       4, DATE_SUB(CURDATE(), INTERVAL 12 MONTH), DATE_ADD(CURDATE(), INTERVAL 12 MONTH), 'ACTIVE', 3,
+       (SELECT id FROM financial_types WHERE name='Costi' AND organization_id=3), 57600, 'MONTHLY';
+
+-- 10) Purchase: quarterly tax advisory. Its latest invoice asks to be paid
+-- on a different IBAN than the trusted one, so the SEPA anti-fraud check
+-- blocks the transfer — the classic "supplier changed bank details" scam.
+INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, financial_type_id, annual_value, billing_frequency)
+SELECT (SELECT id FROM counterparties WHERE name='Ferri & Associati S.r.l.' AND organization_id=3),
+       'NRT-2025-008', 'WBS-FIN-003', 'Consulenza fiscale e societaria',
+       (SELECT id FROM business_areas WHERE name='Finanza' AND organization_id=3),
+       4, DATE_SUB(CURDATE(), INTERVAL 10 MONTH), DATE_ADD(CURDATE(), INTERVAL 14 MONTH), 'ACTIVE', 3,
+       (SELECT id FROM financial_types WHERE name='Costi' AND organization_id=3), 26000, 'QUARTERLY';
+
 INSERT INTO contract_workflow_events (contract_id, from_stage, to_stage, action, actor_user_id, comment, created_at)
 SELECT (SELECT id FROM contracts WHERE contract_number = 'NRT-2026-002' AND organization_id = 3),
        'DRAFT', 'IN_REVIEW', 'SUBMIT',
@@ -215,6 +265,7 @@ WHERE organization_id = 3
 -- not every contract needs history for a clean demo.)
 
 SET @ricavi := (SELECT id FROM financial_types WHERE name = 'Ricavi' AND organization_id = 3);
+SET @costi := (SELECT id FROM financial_types WHERE name = 'Costi' AND organization_id = 3);
 SET @area_it := (SELECT id FROM business_areas WHERE name = 'Servizi IT' AND organization_id = 3);
 SET @area_finanza := (SELECT id FROM business_areas WHERE name = 'Finanza' AND organization_id = 3);
 SET @area_legale := (SELECT id FROM business_areas WHERE name = 'Legale' AND organization_id = 3);
@@ -224,6 +275,8 @@ SET @fintera_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-
 SET @trasporti_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-2024-005' AND organization_id = 3);
 SET @vertice_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-2024-004' AND organization_id = 3);
 SET @vertice_start := (SELECT start_date FROM contracts WHERE contract_number = 'NRT-2024-004' AND organization_id = 3);
+SET @nuvola_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-2025-007' AND organization_id = 3);
+SET @ferri_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-2025-008' AND organization_id = 3);
 
 -- Vertice Legal · Audit di Conformità — 3 quarterly rows generated from
 -- the contract's own financial terms (see comment on the INSERT above).
@@ -283,6 +336,29 @@ INSERT INTO financial_values (month_value, year_value, financial_amount, financi
 (MONTH(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)), 27000, @ricavi, @area_operazioni, @trasporti_contract, 3),
 (MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)), 25800, @ricavi, @area_operazioni, @trasporti_contract, 3),
 (MONTH(CURDATE()), YEAR(CURDATE()), 28000, @ricavi, @area_operazioni, @trasporti_contract, 3);
+
+-- Nuvola Cloud · Hosting — 12 monthly costs of 4,800 (VAT included). The
+-- purchase invoices match these by amount and month.
+INSERT INTO financial_values (month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), 4800, @costi, @area_it, @nuvola_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), 4800, @costi, @area_it, @nuvola_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
+(MONTH(CURDATE()), YEAR(CURDATE()), 4800, @costi, @area_it, @nuvola_contract, 3);
+
+-- Ferri & Associati · Consulenza — quarterly costs of 6,500 (VAT included).
+INSERT INTO financial_values (month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), 6500, @costi, @area_finanza, @ferri_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), 6500, @costi, @area_finanza, @ferri_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), 6500, @costi, @area_finanza, @ferri_contract, 3),
+(MONTH(CURDATE()), YEAR(CURDATE()), 6500, @costi, @area_finanza, @ferri_contract, 3);
 
 -- ── Budgets ──────────────────────────────────────────────────
 -- One REVENUE + COST target per area for the current year, so the Budget
