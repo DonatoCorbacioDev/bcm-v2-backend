@@ -1,28 +1,54 @@
 # 🏢 BCM v2.0 - Business Contracts Manager
 
-> SaaS platform for contract lifecycle management built with Spring Boot 3.5.10 and Java 21
+> Multi-tenant SaaS for managing business contracts: deadlines, documents, e-invoices, payments and risk, for small and medium companies.
 
 [![CI](https://github.com/DonatoCorbacioDev/bcm-v2-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/DonatoCorbacioDev/bcm-v2-backend/actions/workflows/ci.yml)
 [![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.10-brightgreen?logo=spring)](https://spring.io/projects/spring-boot)
-[![Coverage](https://img.shields.io/badge/Coverage-99%25%20instructions-brightgreen?style=flat&logo=codecov)](./target/site/jacoco/index.html)
-[![Tests](https://img.shields.io/badge/Tests-1%2C234%20methods-success)](./target/site/jacoco/index.html)
+[![Tests](https://img.shields.io/badge/Tests-1%2C700%2B%20unit%20%2B%20MySQL%20integration-success)](#-testing)
 [![License](https://img.shields.io/badge/License-Custom-blue)](./LICENSE)
 [![Database](https://img.shields.io/badge/Database-MySQL%208.0-blue?logo=mysql)](https://www.mysql.com/)
 [![Flyway](https://img.shields.io/badge/Migrations-Flyway-red?logo=flyway)](https://flywaydb.org/)
 
-## 🎯 Overview
+## ▶️ Try it
 
-BCM v2.0 is the second iteration of my Business Contract Manager system, representing a complete architectural redesign from the original version developed during my master's thesis. This version showcases modern Spring Boot best practices, high test coverage (99% instruction, 96% branch, 99% line — see [Code Quality Metrics](#-code-quality-metrics)), JWT-based security hardening, and automated database versioning with Flyway. It is a portfolio/MVP project moving toward production readiness — see [Roadmap](#-roadmap) and [docs/SECURITY.md](./docs/SECURITY.md) for what's done and what's still open. High coverage means the test suite exercises most branches, not that every test asserts meaningful business behavior — the cross-tenant isolation and auth tests are the ones worth reading first.
+**Live demo:** [bcm.donatocorbacio.dev](https://bcm.donatocorbacio.dev) — log in with `demo` / `BcmDemo#2026`.
+The demo company (Nortiva Solutions S.r.l.) holds synthetic data only and is reset every night, so feel free to click around.
 
-**Project Type:** Portfolio Project | Full-Stack SaaS Backend  
-**Status:** Active Development  
-**Author:** Donato Corbacio  
-**Contact:** donatocorbacio92@gmail.com
+**Run it locally:** one `docker compose up` — see the [Quick Start in bcm-v2-docker](https://github.com/DonatoCorbacioDev/bcm-v2-docker#-quick-start).
 
-> This repository is published as a portfolio/demonstration project for code review and learning purposes. The author retains all commercial rights, including the possibility of a future SaaS launch — see [LICENSE](./LICENSE).
+## 🧭 What it does
 
-This is the API for the [bcm-v2-frontend](https://github.com/DonatoCorbacioDev/bcm-v2-frontend) dashboard — see that repo's [Screenshots](https://github.com/DonatoCorbacioDev/bcm-v2-frontend#-screenshots) section for what the UI looks like.
+Companies lose money on contracts they forget: a renewal that slips by, an invoice that doesn't match what was agreed, a payment sent to the wrong IBAN. BCM keeps each contract together with everything around it:
+
+- **Deadlines** — expiring contracts flagged on the dashboard, in a weekly email digest and in a calendar feed
+- **Documents** — uploaded PDFs with versions, text extraction and semantic search
+- **E-invoices** — Italian FatturaPA XML parsed, validated and matched against the contract's expected amounts
+- **Payments** — SEPA credit-transfer files generated from matched invoices, with IBAN-change fraud checks
+- **Risk** — ML risk scores, cash-flow forecasts and anomaly detection per contract
+- **Each company sees only its own data** — every query is scoped to the organization (multi-tenancy)
+
+## 🗂️ The four repositories
+
+| Repository | What it is |
+|---|---|
+| **bcm-v2-backend** (this one) | REST API — Java 21, Spring Boot, Spring Security + JWT, JPA/Hibernate, MySQL, Flyway, Redis |
+| [bcm-v2-frontend](https://github.com/DonatoCorbacioDev/bcm-v2-frontend) | Web app — Next.js, TypeScript, shadcn/ui ([screenshots](https://github.com/DonatoCorbacioDev/bcm-v2-frontend#-screenshots)) |
+| [bcm-v2-ml](https://github.com/DonatoCorbacioDev/bcm-v2-ml) | ML service — Python, FastAPI: forecasts, risk scores, anomalies, AI agent |
+| [bcm-v2-docker](https://github.com/DonatoCorbacioDev/bcm-v2-docker) | Docker Compose orchestration, CI smoke test, production setup |
+
+## 🔍 For reviewers: where to look first
+
+- **Tenant isolation** — [`CrossTenantAccessTest`](./src/test/java/com/donatodev/bcm_backend/controller/CrossTenantAccessTest.java) and [`CrossTenantIsolationIT`](./src/test/java/com/donatodev/bcm_backend/integration/CrossTenantIsolationIT.java): one organization tries to read and change another's data, and must fail
+- **Authentication** — stateless JWT with rotating refresh tokens in an HttpOnly cookie, TOTP two-factor login, account lockout, Redis-backed rate limiting
+- **Database** — 48 Flyway migrations, checked against a real MySQL with Testcontainers ([`FlywayMigrationIT`](./src/test/java/com/donatodev/bcm_backend/integration/FlywayMigrationIT.java))
+- **Data rights** — full organization export as a ZIP of JSON files plus the original documents (GDPR art. 20)
+- **In production** — Docker Compose behind Caddy on a cloud VM, nightly off-site backups and uptime monitoring
+
+> Portfolio project, live and actively maintained. High coverage means the tests exercise most branches, not that every one checks meaningful behaviour — the isolation and authentication tests above are the ones worth reading. What's done and what's still open: [Roadmap](#-roadmap) and [docs/SECURITY.md](./docs/SECURITY.md).
+
+**Author:** Donato Corbacio · donatocorbacio92@gmail.com
+The author retains all commercial rights, including a possible future SaaS launch — see [LICENSE](./LICENSE).
 
 ---
 
@@ -43,7 +69,8 @@ This is the API for the [bcm-v2-frontend](https://github.com/DonatoCorbacioDev/b
 - Role-based access control (ADMIN, MANAGER)
 - Email verification system
 - Password reset functionality
-- Invite-only user registration
+- Self-service company registration, confirmed with an emailed one-time code
+- Invite-only users inside an organization
 
 ### Business Logic
 
@@ -55,7 +82,7 @@ This is the API for the [bcm-v2-frontend](https://github.com/DonatoCorbacioDev/b
 
 ### Database Management
 
-- Automated, versioned schema migrations with Flyway (31 migrations applied in sequence)
+- Automated, versioned schema migrations with Flyway (48 migrations applied in sequence)
 - Forward-only by design — no automatic rollback; reverting a bad migration means writing and shipping a new corrective migration, not undoing the old one
 - Multi-environment consistency (dev/test/prod)
 
@@ -721,7 +748,7 @@ The rewrite above was the starting point, not the finish line. Since then: multi
 
 **Original Implementation:**
 
-- Initial version developed during master's thesis
+- Initial version developed for my bachelor's degree thesis
 - Angular + Spring Boot + MySQL stack
 - Basic CRUD functionality
 - Single-manager assignment
