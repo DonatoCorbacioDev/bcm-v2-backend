@@ -34,6 +34,7 @@ class RateLimitingFilterTest {
         // (InMemoryRateLimiterConfig) — no divergence between this test double and reality.
         filter = new RateLimitingFilter(new InMemoryRateLimitBucketSource());
         ReflectionTestUtils.setField(filter, "requestsPerMinute", 2);
+        ReflectionTestUtils.setField(filter, "refreshRequestsPerMinute", 4);
     }
 
     private MockHttpServletRequest loginRequest() {
@@ -62,6 +63,51 @@ class RateLimitingFilterTest {
         request.setServletPath(path);
         request.setRemoteAddr("192.168.1.1");
         return request;
+    }
+
+    @Test
+    void loginExhaustionDoesNotBlockRefreshAndRefreshHasItsOwnLimit() throws Exception {
+        FilterChain chain = mock(FilterChain.class);
+        for (int i = 0; i < 2; i++) {
+            filter.doFilter(loginRequest(), new MockHttpServletResponse(), chain);
+        }
+        MockHttpServletResponse blockedLogin = new MockHttpServletResponse();
+        filter.doFilter(loginRequest(), blockedLogin, chain);
+        assertEquals(429, blockedLogin.getStatus());
+        for (int i = 0; i < 4; i++) {
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(pathRequest("/auth/refresh"), response, chain);
+            assertEquals(200, response.getStatus());
+        }
+        MockHttpServletResponse blockedRefresh = new MockHttpServletResponse();
+        filter.doFilter(pathRequest("/auth/refresh"), blockedRefresh, chain);
+        assertEquals(429, blockedRefresh.getStatus());
+        verify(chain, times(6)).doFilter(any(), any());
+    }
+
+    @Test
+    void refreshExhaustionDoesNotConsumeLoginBudgetOrOtherIpBudget() throws Exception {
+        FilterChain chain = mock(FilterChain.class);
+        for (int i = 0; i < 4; i++) {
+            filter.doFilter(pathRequest("/auth/refresh"), new MockHttpServletResponse(), chain);
+        }
+        MockHttpServletResponse blocked = new MockHttpServletResponse();
+        filter.doFilter(pathRequest("/auth/refresh"), blocked, chain);
+        assertEquals(429, blocked.getStatus());
+        for (int i = 0; i < 2; i++) {
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(loginRequest(), response, chain);
+            assertEquals(200, response.getStatus());
+        }
+        MockHttpServletResponse blockedLogin = new MockHttpServletResponse();
+        filter.doFilter(loginRequest(), blockedLogin, chain);
+        assertEquals(429, blockedLogin.getStatus());
+        MockHttpServletRequest otherIp = pathRequest("/auth/refresh");
+        otherIp.setRemoteAddr("10.0.0.2");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(otherIp, response, chain);
+        assertEquals(200, response.getStatus());
+        verify(chain, times(7)).doFilter(any(), any());
     }
 
     @Nested
@@ -137,13 +183,13 @@ class RateLimitingFilterTest {
 
         @Test
         @Order(6)
-        @DisplayName("/auth/forgot-password, /auth/reset-password, /auth/refresh and /auth/complete-invite are rate-limited")
+        @DisplayName("/auth/forgot-password, /auth/reset-password and /auth/complete-invite are rate-limited")
         void shouldRateLimitOtherSensitiveAuthEndpoints() throws Exception {
             FilterChain chain = mock(FilterChain.class);
 
             for (String path : new String[]{
                     "/auth/forgot-password", "/auth/reset-password",
-                    "/auth/refresh", "/auth/complete-invite"}) {
+                    "/auth/complete-invite"}) {
                 for (int i = 0; i < 2; i++) {
                     filter.doFilter(pathRequest(path), new MockHttpServletResponse(), chain);
                 }

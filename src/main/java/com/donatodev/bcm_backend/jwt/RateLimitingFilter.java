@@ -42,6 +42,9 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     @Value("${rate-limit.requests-per-minute:5}")
     private int requestsPerMinute;
 
+    @Value("${rate-limit.refresh-requests-per-minute:30}")
+    private int refreshRequestsPerMinute;
+
     public RateLimitingFilter(RateLimitBucketSource bucketSource) {
         this.bucketSource = bucketSource;
     }
@@ -54,7 +57,11 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         if (RATE_LIMITED_PATHS.contains(request.getServletPath())) {
             String ip = request.getRemoteAddr();
 
-            if (!bucketSource.tryConsume(BUCKET_KEY_PREFIX + ip, requestsPerMinute)) {
+            boolean refresh = "/auth/refresh".equals(request.getServletPath());
+            String bucketKey = BUCKET_KEY_PREFIX + (refresh ? "refresh:" : "") + ip;
+            int limit = refresh ? refreshRequestsPerMinute : requestsPerMinute;
+
+            if (!bucketSource.tryConsume(bucketKey, limit)) {
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 response.getWriter().write(
