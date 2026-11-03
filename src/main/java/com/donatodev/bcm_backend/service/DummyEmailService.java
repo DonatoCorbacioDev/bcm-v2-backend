@@ -103,6 +103,14 @@ public class DummyEmailService implements IEmailService {
         }
     }
 
+    @Override
+    public void sendOrganizationDeleted(String to, String organizationName) {
+        if (logger.isInfoEnabled()) {
+            logger.info("[TEST] Fake organization deleted email sent to: {} for org: {}",
+                    sanitize(to), sanitize(organizationName));
+        }
+    }
+
     /**
      * Simulates sending a generic email by logging to the console.
      *

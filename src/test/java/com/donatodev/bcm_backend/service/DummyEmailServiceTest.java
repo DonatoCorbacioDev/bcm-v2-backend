@@ -90,6 +90,7 @@ class DummyEmailServiceTest {
                 dummyEmailService.sendOrganizationDeletionScheduled("a@b.com", "Acme", "admin",
                         java.time.LocalDate.of(2026, java.time.Month.NOVEMBER, 28));
                 dummyEmailService.sendOrganizationDeletionCancelled("a@b.com", "Acme", "admin");
+                dummyEmailService.sendOrganizationDeleted("a@b.com", "Acme");
             });
         } finally {
             logger.setLevel(original);
@@ -104,6 +105,7 @@ class DummyEmailServiceTest {
             dummyEmailService.sendOrganizationDeletionScheduled("a@b.com", "Acme", "admin",
                     java.time.LocalDate.of(2026, java.time.Month.NOVEMBER, 28));
             dummyEmailService.sendOrganizationDeletionCancelled("a@b.com", "Acme", "admin");
+                dummyEmailService.sendOrganizationDeleted("a@b.com", "Acme");
         });
     }
 

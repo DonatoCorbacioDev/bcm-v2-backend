@@ -11,7 +11,10 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -88,6 +91,44 @@ public class LocalStorageService {
      */
     public InputStream openDocument(String storagePath) throws IOException {
         return Files.newInputStream(resolveWithinRoot(storagePath));
+    }
+
+    /** The directories every stored file lives under, one subdirectory per organization id. */
+    private static final List<String> ORGANIZATION_ROOTS = List.of("contracts", "invoices", "sepa");
+
+    /**
+     * Deletes every stored file of an organization (contract documents,
+     * invoices, SEPA files) by removing its directory under each root, so
+     * files no row points to any more go too. Used when the organization
+     * itself is deleted.
+     *
+     * @return how many files were deleted
+     */
+    public int deleteOrganizationFiles(long orgId) {
+        // 0 is the shared fallback directory of files stored without an org.
+        if (orgId <= 0) {
+            throw new IllegalArgumentException("Invalid organization id: " + orgId);
+        }
+        int deleted = 0;
+        for (String prefix : ORGANIZATION_ROOTS) {
+            Path dir = resolveWithinRoot(prefix + "/" + orgId);
+            if (!Files.isDirectory(dir)) {
+                continue;
+            }
+            // Deepest first, so each directory is empty when its turn comes.
+            // Files.walk doesn't follow symbolic links: a link is deleted, never its target.
+            try (Stream<Path> walk = Files.walk(dir)) {
+                for (Path path : walk.sorted(Comparator.reverseOrder()).toList()) {
+                    if (Files.isRegularFile(path)) {
+                        deleted++;
+                    }
+                    Files.delete(path);
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException("Failed to delete files of organization " + orgId, e);
+            }
+        }
+        return deleted;
     }
 
     public void deleteDocument(String storagePath) {

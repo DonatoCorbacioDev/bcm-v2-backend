@@ -5,6 +5,8 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -182,6 +184,37 @@ class LocalStorageServiceTest {
         void shouldRejectPathEscapingUploadRoot() {
             assertThrows(SecurityException.class,
                     () -> localStorageService.readDocument("../../../../etc/passwd"));
+        }
+            @Test
+        @DisplayName("deleteOrganizationFiles: removes the organization's documents, invoices and SEPA files only")
+        void shouldDeleteOnlyThatOrganizationsFiles() {
+            String doc = localStorageService.storeDocument(7L, 1L, CONTENT);
+            String invoice = localStorageService.storeInvoice(7L, 2L, CONTENT);
+            String sepa = localStorageService.storeSepaPayment(7L, 1L, CONTENT);
+            String otherOrg = localStorageService.storeDocument(8L, 1L, CONTENT);
+            // A file no row points to any more goes too.
+            assertDoesNotThrow(() -> Files.writeString(tempDir.resolve("contracts/7/orphan.pdf"), "x"));
+
+            int deleted = localStorageService.deleteOrganizationFiles(7L);
+
+            assertEquals(4, deleted);
+            for (String path : new String[] {doc, invoice, sepa}) {
+                assertFalse(Files.exists(tempDir.resolve(path)), path);
+            }
+            assertFalse(Files.exists(tempDir.resolve("contracts/7")));
+            assertTrue(Files.exists(tempDir.resolve(otherOrg)));
+        }
+
+        @Test
+        @DisplayName("deleteOrganizationFiles: nothing stored yet deletes nothing")
+        void shouldDeleteNothingWhenNoFiles() {
+            assertEquals(0, localStorageService.deleteOrganizationFiles(9L));
+        }
+
+        @Test
+        @DisplayName("deleteOrganizationFiles: refuses the shared fallback directory 0")
+        void shouldRefuseFallbackDirectory() {
+            assertThrows(IllegalArgumentException.class, () -> localStorageService.deleteOrganizationFiles(0L));
         }
     }
 }

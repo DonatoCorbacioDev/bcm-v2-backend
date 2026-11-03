@@ -143,6 +143,18 @@ public class EmailService implements IEmailService {
                 "Error sending organization deletion cancelled email");
     }
 
+    @Override
+    public void sendOrganizationDeleted(String to, String organizationName) {
+        String org = HtmlUtils.htmlEscape(organizationName);
+        send(to, "L'organizzazione " + oneLine(organizationName) + " è stata cancellata",
+                "<p>Ciao!</p><p>Come richiesto, l'organizzazione <strong>" + org + "</strong> e tutti i"
+                + " suoi dati (contratti, documenti, fatture, utenti) sono stati cancellati da BCM.</p>"
+                + "<p>Le copie di backup vengono eliminate entro 35 giorni dalla loro creazione."
+                + " Conserviamo solo la prova dell'accettazione dei Termini, come richiesto dalla legge.</p>"
+                + "<p>Grazie per aver usato BCM.</p>",
+                "Error sending organization deleted email");
+    }
+
     /**
      * Sends a generic email with custom subject and HTML body.
      *

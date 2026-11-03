@@ -159,6 +159,17 @@ class EmailServiceTest {
     }
 
     @Test
+    @DisplayName("sends the confirmation that the organization is deleted, with the name escaped")
+    void shouldSendOrganizationDeleted() throws Exception {
+        when(mailSender.createMimeMessage()).thenReturn(message);
+
+        emailService.sendOrganizationDeleted(RECIPIENT, "Acme <b>&</b>\r\nBcc: x@evil.test");
+
+        assertThat(message.getSubject()).contains("cancellata").doesNotContain("\n");
+        assertThat(htmlPart()).contains("Acme &lt;b&gt;&amp;&lt;/b&gt;").contains("sono stati cancellati");
+    }
+
+    @Test
     @DisplayName("wraps a registration code email failure")
     void shouldThrowExceptionOnRegistrationCodeEmailFailure() {
         when(mailSender.createMimeMessage()).thenReturn(message);

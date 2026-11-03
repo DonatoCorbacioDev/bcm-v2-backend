@@ -72,6 +72,14 @@ public interface IEmailService {
     void sendOrganizationDeletionCancelled(String to, String organizationName, String cancelledBy);
 
     /**
+     * Tells a former admin that the organization and its data are now deleted.
+     *
+     * @param to               the address the admin had, read before the deletion
+     * @param organizationName the organization that was deleted
+     */
+    void sendOrganizationDeleted(String to, String organizationName);
+
+    /**
      * Sends a generic email with custom subject and body.
      *
      * @param to the recipient's email address
