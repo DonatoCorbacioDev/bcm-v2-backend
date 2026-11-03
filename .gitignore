@@ -50,3 +50,7 @@ sql/DML/seed-test-data.sql
 ### Generated synthetic test fixtures (do not commit) ###
 scripts/sample_invoices/
 
+
+# Python bytecode cache (scripts/*.py)
+__pycache__/
+*.pyc
