@@ -10,7 +10,6 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.donatodev.bcm_backend.dto.RoleDTO;
-import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.exception.RoleNotFoundException;
 import com.donatodev.bcm_backend.mapper.RoleMapper;
 import com.donatodev.bcm_backend.repository.RolesRepository;
@@ -18,7 +17,7 @@ import com.donatodev.bcm_backend.repository.RolesRepository;
 /**
  * Service class for managing business logic related to roles.
  * <p>
- * Provides methods to retrieve, create, update, and delete roles.
+ * Read-only: roles are shared by every organization (see RoleController).
  */
 @Service
 public class RoleService {
@@ -54,43 +53,5 @@ public class RoleService {
         return rolesRepository.findById(id)
                 .map(roleMapper::toDTO)
                 .orElseThrow(() -> new RoleNotFoundException("Ruolo ID " + id + " non trovato"));
-    }
-
-    /**
-     * Creates a new role.
-     *
-     * @param dto the role data transfer object
-     * @return the created {@link RoleDTO}
-     */
-    public RoleDTO createRole(RoleDTO dto) {
-        Roles role = roleMapper.toEntity(dto);
-        role = rolesRepository.save(role);
-        return roleMapper.toDTO(role);
-    }
-
-    /**
-     * Updates an existing role.
-     *
-     * @param id  the ID of the role to update
-     * @param dto the role data transfer object with updated data
-     * @return the updated {@link RoleDTO}
-     * @throws RoleNotFoundException if role not found
-     */
-    public RoleDTO updateRole(Long id, RoleDTO dto) {
-        Roles role = rolesRepository.findById(id)
-                .orElseThrow(() -> new RoleNotFoundException("Ruolo ID " + id + " non trovato"));
-
-        role.setRole(dto.role());
-        role = rolesRepository.save(role);
-        return roleMapper.toDTO(role);
-    }
-
-    /**
-     * Deletes a role by its ID.
-     *
-     * @param id the ID of the role to delete
-     */
-    public void deleteRole(Long id) {
-        rolesRepository.deleteById(id);
     }
 }

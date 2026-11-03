@@ -14,8 +14,6 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.context.ActiveProfiles;
@@ -33,9 +31,6 @@ import com.donatodev.bcm_backend.repository.RolesRepository;
  * <ul>
  *   <li>Fetching all roles</li>
  *   <li>Retrieving a role by ID</li>
- *   <li>Creating new roles</li>
- *   <li>Updating existing roles</li>
- *   <li>Deleting roles</li>
  * </ul>
  * It uses {@code Mockito} for mocking dependencies and ensures proper exception handling
  * via {@link com.donatodev.bcm_backend.exception.RoleNotFoundException}.
@@ -108,75 +103,6 @@ class RoleServiceTest {
             RoleNotFoundException ex =
                 assertThrows(RoleNotFoundException.class, () -> roleService.getRoleById(999L));
             assertEquals("Ruolo ID 999 non trovato", ex.getMessage());
-        }
-
-        /**
-         * Verifies that a new role is created and returned as a RoleDTO.
-         */
-        @Test
-        @Order(4)
-        @DisplayName("Create role returns saved DTO")
-        void shouldCreateRole() {
-            RoleDTO dto = new RoleDTO(null, "MANAGER");
-            Roles entity = Roles.builder().role("MANAGER").build();
-            Roles saved = Roles.builder().id(1L).role("MANAGER").build();
-            RoleDTO savedDTO = new RoleDTO(1L, "MANAGER");
-
-            when(roleMapper.toEntity(dto)).thenReturn(entity);
-            when(rolesRepository.save(entity)).thenReturn(saved);
-            when(roleMapper.toDTO(saved)).thenReturn(savedDTO);
-
-            RoleDTO result = roleService.createRole(dto);
-
-            assertEquals(1L, result.id());
-            assertEquals("MANAGER", result.role());
-        }
-
-        /**
-         * Verifies that an existing role is updated correctly and returned as a RoleDTO.
-         */
-        @Test
-        @Order(5)
-        @DisplayName("Update role returns updated DTO")
-        void shouldUpdateRole() {
-            Roles existing = Roles.builder().id(1L).role("USER").build();
-            RoleDTO updateDTO = new RoleDTO(1L, "ADMIN");
-            RoleDTO updatedDTO = new RoleDTO(1L, "ADMIN");
-
-            when(rolesRepository.findById(1L)).thenReturn(Optional.of(existing));
-            when(rolesRepository.save(existing)).thenReturn(existing);
-            when(roleMapper.toDTO(existing)).thenReturn(updatedDTO);
-
-            RoleDTO result = roleService.updateRole(1L, updateDTO);
-
-            assertEquals("ADMIN", result.role());
-        }
-
-        /**
-         * Verifies that {@link com.donatodev.bcm_backend.exception.RoleNotFoundException}
-         * is thrown when trying to update a non-existent role.
-         */
-        @Test
-        @Order(6)
-        @DisplayName("Update role throws exception if not found")
-        void shouldThrowWhenUpdatingMissingRole() {
-            RoleDTO dto = new RoleDTO(1L, "MODERATOR");
-            when(rolesRepository.findById(1L)).thenReturn(Optional.empty());
-
-            RoleNotFoundException ex =
-                assertThrows(RoleNotFoundException.class, () -> roleService.updateRole(1L, dto));
-            assertEquals("Ruolo ID 1 non trovato", ex.getMessage());
-        }
-
-        /**
-         * Verifies that the delete method of the repository is called for the given ID.
-         */
-        @Test
-        @Order(7)
-        @DisplayName("Delete role calls repository")
-        void shouldDeleteRole() {
-            roleService.deleteRole(1L);
-            verify(rolesRepository, times(1)).deleteById(1L);
         }
     }
 }

@@ -7,6 +7,7 @@ package com.donatodev.bcm_backend.mapper;
 
 import org.springframework.stereotype.Component;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractHistoryDTO;
 import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
@@ -59,12 +60,19 @@ public class ContractHistoryMapper {
      * @throws RuntimeException if the referenced contract or user is not found
      */
     public ContractHistory toEntity(ContractHistoryDTO dto) {
+        // Tenant-scoped: an admin must not write history onto another
+        // organization's contract, nor sign it with another tenant's user.
+        Long orgId = TenantContext.get();
         return ContractHistory.builder()
                 .id(dto.id())
-                .contract(contractsRepository.findById(dto.contractId())
+                .contract((orgId != null
+                        ? contractsRepository.findByIdAndOrganization_Id(dto.contractId(), orgId)
+                        : contractsRepository.findById(dto.contractId()))
                         .orElseThrow(() -> new ContractNotFoundException("Contract not found")))
                 .modifiedBy(dto.modifiedById() != null
-                        ? usersRepository.findById(dto.modifiedById())
+                        ? (orgId != null
+                                ? usersRepository.findByIdAndOrganizationId(dto.modifiedById(), orgId)
+                                : usersRepository.findById(dto.modifiedById()))
                                 .orElseThrow(() -> new UserNotFoundException("User not found"))
                         : null)
                 .modificationDate(dto.modificationDate() != null ? dto.modificationDate() : java.time.LocalDateTime.now(java.time.ZoneId.systemDefault()))

@@ -7,7 +7,6 @@ package com.donatodev.bcm_backend.controller;
 
 import java.util.List;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -18,7 +17,10 @@ import com.donatodev.bcm_backend.service.RoleService;
 /**
  * REST controller for managing user roles.
  * <p>
- * Provides endpoints to retrieve, create, update, and delete roles.
+ * Read-only on purpose: ADMIN and MANAGER are shared by every organization,
+ * so letting one tenant's admin create, rename or delete a role would change
+ * permissions in all the others (renaming MANAGER to ADMIN would promote
+ * every manager everywhere). Roles change only through a Flyway migration.
  */
 @RestController
 @RequestMapping("/roles")
@@ -53,45 +55,5 @@ public class RoleController {
     public ResponseEntity<RoleDTO> getRoleById(@PathVariable Long id) {
         RoleDTO role = roleService.getRoleById(id);
         return ResponseEntity.ok(role);
-    }
-
-    /**
-     * Creates a new role.
-     *
-     * @param roleDTO the role to create
-     * @return the created {@link RoleDTO}
-     */
-    @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping
-    public ResponseEntity<RoleDTO> createRole(@RequestBody RoleDTO roleDTO) {
-        RoleDTO newRole = roleService.createRole(roleDTO);
-        return ResponseEntity.status(HttpStatus.CREATED).body(newRole);
-    }
-
-    /**
-     * Updates an existing role.
-     *
-     * @param id      the ID of the role to update
-     * @param roleDTO the updated role data
-     * @return the updated {@link RoleDTO}
-     */
-    @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/{id}")
-    public ResponseEntity<RoleDTO> updateRole(@PathVariable Long id, @RequestBody RoleDTO roleDTO) {
-        RoleDTO updatedRole = roleService.updateRole(id, roleDTO);
-        return ResponseEntity.ok(updatedRole);
-    }
-
-    /**
-     * Deletes a role by ID.
-     *
-     * @param id the ID of the role to delete
-     * @return HTTP 204 No Content if deletion is successful
-     */
-    @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteRole(@PathVariable Long id) {
-        roleService.deleteRole(id);
-        return ResponseEntity.noContent().build();
     }
 }

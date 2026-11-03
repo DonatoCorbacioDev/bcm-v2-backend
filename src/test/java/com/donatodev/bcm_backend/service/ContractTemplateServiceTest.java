@@ -153,7 +153,7 @@ class ContractTemplateServiceTest {
             ContractTemplate saved = fakeTemplate();
             saved.setBusinessArea(area);
 
-            when(businessAreasRepository.findById(5L)).thenReturn(Optional.of(area));
+            when(businessAreasRepository.findByIdAndOrganizationId(5L, ORG_ID)).thenReturn(Optional.of(area));
             when(templateRepository.save(any(ContractTemplate.class))).thenReturn(saved);
 
             ContractTemplateDTO result = templateService.createTemplate(dto);
@@ -169,7 +169,7 @@ class ContractTemplateServiceTest {
                     null, "NDA", null, null, null,
                     99L, null, false, null, null);
 
-            when(businessAreasRepository.findById(99L)).thenReturn(Optional.empty());
+            when(businessAreasRepository.findByIdAndOrganizationId(99L, ORG_ID)).thenReturn(Optional.empty());
 
             assertThrows(BusinessAreaNotFoundException.class,
                     () -> templateService.createTemplate(dto));
@@ -183,7 +183,7 @@ class ContractTemplateServiceTest {
                     null, "NDA", null, null, null,
                     null, 99L, false, null, null);
 
-            when(managersRepository.findById(99L)).thenReturn(Optional.empty());
+            when(managersRepository.findByIdAndOrganizationId(99L, ORG_ID)).thenReturn(Optional.empty());
 
             assertThrows(ManagerNotFoundException.class,
                     () -> templateService.createTemplate(dto));
@@ -441,7 +441,7 @@ class ContractTemplateServiceTest {
             ContractTemplate saved = fakeTemplate();
             saved.setDefaultManager(manager);
 
-            when(managersRepository.findById(7L)).thenReturn(Optional.of(manager));
+            when(managersRepository.findByIdAndOrganizationId(7L, ORG_ID)).thenReturn(Optional.of(manager));
             when(templateRepository.save(any(ContractTemplate.class))).thenReturn(saved);
 
             ContractTemplateDTO result = templateService.createTemplate(dto);

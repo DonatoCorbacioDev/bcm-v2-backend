@@ -34,7 +34,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * Integration tests for {@link com.donatodev.bcm_backend.controller.RoleController}.
  * <p>
  * This test class verifies the correctness of the REST API endpoints related to {@code Roles},
- * including operations for create, read, update, delete, and error handling.
+ * which are read-only (see {@link RoleController}), and their error handling.
  * </p>
  * <p>
  * All tests are executed with a test profile and in-memory H2 database,
@@ -75,23 +75,6 @@ class RoleControllerTest {
     @DisplayName("API Verification on Role")
     @SuppressWarnings("unused")
     class VerificationApiRole {
-
-        /**
-         * Tests the creation of a new role via POST request.
-         */
-        @Test
-        @Order(1)
-        @DisplayName("The new role has been created")
-        @WithMockUser(roles = "ADMIN")
-        void shouldCreateRole() throws Exception {
-            RoleDTO dto = new RoleDTO(null, "SUPERVISOR");
-
-            mockMvc.perform(post("/roles")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(dto)))
-                    .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.role").value("SUPERVISOR"));
-        }
 
         /**
          * Tests retrieving all roles via GET request.
@@ -135,40 +118,28 @@ class RoleControllerTest {
         }
 
         /**
-         * Tests updating an existing role.
+         * Roles are shared by every organization: no admin may create,
+         * rename or delete one (renaming MANAGER to ADMIN would promote every
+         * manager of every organization).
          */
         @Test
         @Order(4)
-        @DisplayName("The role has been updated successfully")
+        @DisplayName("Roles can't be created, renamed or deleted through the API")
         @WithMockUser(roles = "ADMIN")
-        void shouldUpdateRole() throws Exception {
-            Roles original = repository.save(
-                    Roles.builder().role("OLD_ROLE").build()
-            );
+        void rolesAreReadOnly() throws Exception {
+            Roles manager = repository.save(Roles.builder().role("MANAGER").build());
+            String rename = objectMapper.writeValueAsString(new RoleDTO(manager.getId(), "ADMIN"));
 
-            RoleDTO updatedDTO = new RoleDTO(original.getId(), "NEW_ROLE");
+            mockMvc.perform(post("/roles").contentType(MediaType.APPLICATION_JSON).content(rename))
+                    .andExpect(status().isMethodNotAllowed());
+            mockMvc.perform(put("/roles/{id}", manager.getId()).contentType(MediaType.APPLICATION_JSON).content(rename))
+                    .andExpect(status().isMethodNotAllowed());
+            mockMvc.perform(delete("/roles/{id}", manager.getId()))
+                    .andExpect(status().isMethodNotAllowed());
 
-            mockMvc.perform(put("/roles/{id}", original.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(updatedDTO)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.role").value("NEW_ROLE"));
-        }
-
-        /**
-         * Tests deleting a role by ID.
-         */
-        @Test
-        @Order(5)
-        @DisplayName("The role has been deleted successfully")
-        @WithMockUser(roles = "ADMIN")
-        void shouldDeleteRole() throws Exception {
-            Roles roleToDelete = repository.save(
-                    Roles.builder().role("TEMP_ROLE").build()
-            );
-
-            mockMvc.perform(delete("/roles/{id}", roleToDelete.getId()))
-                    .andExpect(status().isNoContent());
+            org.junit.jupiter.api.Assertions.assertEquals(1, repository.count());
+            org.junit.jupiter.api.Assertions.assertEquals("MANAGER",
+                    repository.findById(manager.getId()).orElseThrow().getRole());
         }
 
         /**

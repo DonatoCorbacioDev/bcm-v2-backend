@@ -17,6 +17,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -25,14 +28,19 @@ import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.CounterpartyType;
+import com.donatodev.bcm_backend.entity.FinancialCategory;
+import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
+import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
+import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
+import com.donatodev.bcm_backend.repository.InviteTokenRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
@@ -44,7 +52,8 @@ import com.donatodev.bcm_backend.util.TestDataCleaner;
 /**
  * Regression tests guarding tenant isolation through the real authentication
  * path: a JWT minted for an organization (carrying its {@code orgId} claim)
- * must never expose another organization's contracts. Unlike most controller
+ * must never expose another organization's data, nor let a write link this
+ * tenant's records to another tenant's (counterparty, area, manager...). Unlike most controller
  * tests in this suite, these do not use {@code @WithMockUser} — that
  * shortcut injects the principal directly into the security context and
  * skips {@link com.donatodev.bcm_backend.jwt.JwtAuthenticationFilter}
@@ -81,6 +90,15 @@ class CrossTenantAccessTest {
 
     @Autowired
     private CounterpartiesRepository counterpartiesRepository;
+
+    @Autowired
+    private FinancialTypesRepository financialTypesRepository;
+
+    @Autowired
+    private InviteTokenRepository inviteTokenRepository;
+
+    @Autowired
+    private ContractHistoryRepository contractHistoryRepository;
 
     @Autowired
     private JwtUtils jwtUtils;
@@ -263,6 +281,101 @@ class CrossTenantAccessTest {
                         .content(body))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.areaId").value(orgAArea.getId()));
+    }
+
+    @Test
+    @DisplayName("POST /users/invite rejects a manager of another organization (the invitee would join that organization)")
+    void inviteRejectsOtherOrganizationManager() throws Exception {
+        String body = """
+                {"username": "intruder", "role": "MANAGER", "managerId": %d}
+                """.formatted(orgBManager.getId());
+
+        mockMvc.perform(post("/users/invite")
+                        .header("Authorization", "Bearer " + orgAAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
+
+        assertTrue(inviteTokenRepository.findAll().stream().noneMatch(t -> "intruder".equals(t.getUsername())));
+    }
+
+    @Test
+    @DisplayName("PUT /contracts/{id} rejects a counterparty, financial type or area of another organization")
+    void updateContractRejectsOtherOrganizationReferences() throws Exception {
+        Organization orgA = orgAArea.getOrganization();
+        Organization orgB = orgBArea.getOrganization();
+        Counterparty ownCounterparty = counterpartiesRepository.save(Counterparty.builder()
+                .name("Own Customer").type(CounterpartyType.CUSTOMER).organization(orgA).build());
+        Counterparty foreignCounterparty = counterpartiesRepository.save(Counterparty.builder()
+                .name("Foreign Customer").vatNumber("IT99999999999").type(CounterpartyType.CUSTOMER).organization(orgB).build());
+        FinancialTypes foreignType = financialTypesRepository.save(FinancialTypes.builder()
+                .name("Foreign type").description("Org B only").category(FinancialCategory.REVENUE).organization(orgB).build());
+        String template = """
+                {
+                  "counterpartyId": %d,
+                  "contractNumber": "CNTR-ORG-A",
+                  "wbsCode": "WBS-A",
+                  "projectName": "Project A",
+                  "status": "ACTIVE",
+                  "startDate": "2025-01-01",
+                  "endDate": "2026-01-01",
+                  "areaId": %d%s
+                }
+                """;
+
+        for (String body : List.of(
+                template.formatted(foreignCounterparty.getId(), orgAArea.getId(), ""),
+                template.formatted(ownCounterparty.getId(), orgBArea.getId(), ""),
+                template.formatted(ownCounterparty.getId(), orgAArea.getId(),
+                        ", \"financialTypeId\": %d, \"annualValue\": 1200, \"billingFrequency\": \"MONTHLY\"".formatted(foreignType.getId())))) {
+            mockMvc.perform(put("/contracts/" + orgAContract.getId())
+                            .header("Authorization", "Bearer " + orgAAdminToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isNotFound());
+        }
+
+        Contracts unchanged = contractsRepository.findById(orgAContract.getId()).orElseThrow();
+        assertNotEquals(foreignCounterparty.getId(), unchanged.getCounterparty().getId());
+    }
+
+    @Test
+    @DisplayName("POST /contract-templates rejects an area or default manager of another organization")
+    void createTemplateRejectsOtherOrganizationReferences() throws Exception {
+        for (String relation : List.of(
+                "\"businessAreaId\": " + orgBArea.getId(),
+                "\"defaultManagerId\": " + orgBManager.getId())) {
+            mockMvc.perform(post("/contract-templates")
+                            .header("Authorization", "Bearer " + orgAAdminToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"name\": \"Leaky template\", " + relation + "}"))
+                    .andExpect(status().isNotFound());
+        }
+    }
+
+    @Test
+    @DisplayName("POST /budgets rejects an area of another organization")
+    void createBudgetRejectsOtherOrganizationArea() throws Exception {
+        mockMvc.perform(post("/budgets")
+                        .header("Authorization", "Bearer " + orgAAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"businessAreaId\": %d, \"category\": \"REVENUE\", \"year\": 2026, \"targetAmount\": 1000}"
+                                .formatted(orgBArea.getId())))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("POST /contract-history rejects a contract of another organization")
+    void createHistoryRejectsOtherOrganizationContract() throws Exception {
+        mockMvc.perform(post("/contract-history")
+                        .header("Authorization", "Bearer " + orgAAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"contractId\": %d, \"previousStatus\": \"ACTIVE\", \"newStatus\": \"CANCELLED\"}"
+                                .formatted(orgBContract.getId())))
+                .andExpect(status().isNotFound());
+
+        assertTrue(contractHistoryRepository.findAll().stream()
+                .noneMatch(h -> h.getContract().getId().equals(orgBContract.getId())));
     }
 
     @Test

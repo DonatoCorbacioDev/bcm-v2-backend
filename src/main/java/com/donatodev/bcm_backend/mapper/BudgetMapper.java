@@ -7,6 +7,7 @@ package com.donatodev.bcm_backend.mapper;
 
 import org.springframework.stereotype.Component;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.BudgetDTO;
 import com.donatodev.bcm_backend.entity.Budget;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
@@ -78,8 +79,7 @@ public class BudgetMapper {
      * @throws BusinessAreaNotFoundException if the referenced business area does not exist
      */
     public Budget toEntity(BudgetDTO dto) {
-        BusinessAreas area = businessAreasRepository.findById(dto.businessAreaId())
-                .orElseThrow(() -> new BusinessAreaNotFoundException("Business area ID " + dto.businessAreaId() + " not found"));
+        BusinessAreas area = resolveBusinessArea(dto.businessAreaId());
 
         return Budget.builder()
                 .id(dto.id())
@@ -98,12 +98,20 @@ public class BudgetMapper {
      * @throws BusinessAreaNotFoundException if the referenced business area does not exist
      */
     public void updateEntity(Budget existing, BudgetDTO dto) {
-        BusinessAreas area = businessAreasRepository.findById(dto.businessAreaId())
-                .orElseThrow(() -> new BusinessAreaNotFoundException("Business area ID " + dto.businessAreaId() + " not found"));
+        BusinessAreas area = resolveBusinessArea(dto.businessAreaId());
 
         existing.setBusinessArea(area);
         existing.setCategory(dto.category());
         existing.setYear(dto.year());
         existing.setTargetAmount(dto.targetAmount());
+    }
+
+    /** Tenant-scoped like ContractMapper: a budget must not target another organization's area. */
+    private BusinessAreas resolveBusinessArea(Long areaId) {
+        Long orgId = TenantContext.get();
+        return (orgId != null
+                ? businessAreasRepository.findByIdAndOrganizationId(areaId, orgId)
+                : businessAreasRepository.findById(areaId))
+                .orElseThrow(() -> new BusinessAreaNotFoundException("Business area ID " + areaId + " not found"));
     }
 }

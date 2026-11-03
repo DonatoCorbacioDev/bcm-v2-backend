@@ -276,7 +276,13 @@ public class UserService {
 		if (!"MANAGER".equals(Normalizer.normalize(role, Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
 			throw new IllegalArgumentException("Solo il ruolo MANAGER è consentito tramite invito.");
 		}
-		Managers manager = managersRepository.findById(managerId)
+		// Scoped to the inviting admin's organization: completeInvite() puts
+		// the new user in the manager's organization, so another tenant's
+		// manager id would let an admin plant a user in that tenant.
+		Long orgId = TenantContext.get();
+		Managers manager = (orgId != null
+				? managersRepository.findByIdAndOrganizationId(managerId, orgId)
+				: managersRepository.findById(managerId))
 				.orElseThrow(() -> new IllegalArgumentException("Manager non trovato"));
 
 		String token = UUID.randomUUID().toString();

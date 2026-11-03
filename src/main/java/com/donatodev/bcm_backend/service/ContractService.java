@@ -126,13 +126,22 @@ public class ContractService {
         this.tierLimitService = tierLimitService;
     }
 
+    // The update path doesn't go through ContractMapper, so these mirror its
+    // tenant-scoped resolvers: another organization's counterparty, type or
+    // area would otherwise show up (name, VAT number) on this tenant's contract.
     private Counterparty resolveCounterpartyForUpdate(Long counterpartyId) {
-        return counterpartiesRepository.findById(counterpartyId)
+        Long orgId = TenantContext.get();
+        return (orgId != null
+                ? counterpartiesRepository.findByIdAndOrganizationId(counterpartyId, orgId)
+                : counterpartiesRepository.findById(counterpartyId))
                 .orElseThrow(() -> new CounterpartyNotFoundException("Controparte non trovata: " + counterpartyId));
     }
 
     private FinancialTypes resolveFinancialTypeForUpdate(Long financialTypeId) {
-        return financialTypesRepository.findById(financialTypeId)
+        Long orgId = TenantContext.get();
+        return (orgId != null
+                ? financialTypesRepository.findByIdAndOrganizationId(financialTypeId, orgId)
+                : financialTypesRepository.findById(financialTypeId))
                 .orElseThrow(() -> new FinancialTypeNotFoundException("Tipo finanziario non trovato: " + financialTypeId));
     }
 
@@ -286,7 +295,10 @@ public class ContractService {
         contract.setEndDate(contractDTO.endDate());
 
         if (contractDTO.areaId() != null) {
-            BusinessAreas area = businessAreasRepository.findById(contractDTO.areaId())
+            Long orgId = TenantContext.get();
+            BusinessAreas area = (orgId != null
+                    ? businessAreasRepository.findByIdAndOrganizationId(contractDTO.areaId(), orgId)
+                    : businessAreasRepository.findById(contractDTO.areaId()))
                     .orElseThrow(() -> new BusinessAreaNotFoundException("Area aziendale non trovata: " + contractDTO.areaId()));
             contract.setBusinessArea(area);
         }
