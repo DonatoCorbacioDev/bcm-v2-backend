@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -114,6 +115,40 @@ class SeedDemoOrgIT extends AbstractMySQLIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM financial_values fv JOIN contracts c ON c.id = fv.contract_id"
                 + " WHERE c.contract_number IN ('NRT-2025-007', 'NRT-2025-008') AND fv.month_value = MONTH(CURDATE())"
                 + " AND fv.year_value = YEAR(CURDATE())", Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Budgets are sized from this year's values, so each area shows the same pace whatever the date")
+    void seedsBudgetsFromYearToDateValues() throws Exception {
+        runSeed();
+
+        double monthsElapsedShare = jdbc.queryForObject("SELECT MONTH(CURDATE()) / 12", Double.class);
+        Map<String, Double> factors = Map.of(
+                "REVENUE:Servizi IT", 0.92, "REVENUE:Finanza", 1.00,
+                "REVENUE:Operazioni", 1.12, "REVENUE:Legale", 1.50,
+                "COST:Servizi IT", 1.20, "COST:Finanza", 1.25);
+        List<Map<String, Object>> budgets = jdbc.queryForList("SELECT CONCAT(b.category, ':', ba.name) AS area,"
+                + " b.target_amount AS target,"
+                + " (SELECT COALESCE(SUM(fv.financial_amount), 0) FROM financial_values fv"
+                + "    JOIN financial_types ft ON ft.id = fv.financial_type_id"
+                + "    WHERE fv.organization_id = 3 AND fv.area_id = b.business_area_id"
+                + "      AND ft.category = b.category AND fv.year_value = b.year_value) AS actual"
+                + " FROM budgets b JOIN business_areas ba ON ba.id = b.business_area_id"
+                + " WHERE b.organization_id = 3 AND b.year_value = YEAR(CURDATE())");
+
+        // Both have a value in the current month, so they always have a budget.
+        assertThat(budgets).extracting(b -> b.get("area")).contains("REVENUE:Servizi IT", "REVENUE:Operazioni");
+        // No cost is ever booked on these two: no empty cost target.
+        assertThat(budgets).extracting(b -> b.get("area")).doesNotContain("COST:Operazioni", "COST:Legale");
+        for (Map<String, Object> budget : budgets) {
+            String area = (String) budget.get("area");
+            double actual = ((Number) budget.get("actual")).doubleValue();
+            double target = ((Number) budget.get("target")).doubleValue();
+            assertThat(actual).as(area).isPositive();
+            // Targets are rounded to the thousand, hence the small tolerance.
+            assertThat(actual / target).as(area)
+                    .isCloseTo(monthsElapsedShare / factors.get(area), within(0.03));
+        }
     }
 
     @Test

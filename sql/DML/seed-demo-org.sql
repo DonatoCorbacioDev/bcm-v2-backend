@@ -361,23 +361,39 @@ INSERT INTO financial_values (month_value, year_value, financial_amount, financi
 (MONTH(CURDATE()), YEAR(CURDATE()), 6500, @costi, @area_finanza, @ferri_contract, 3);
 
 -- ── Budgets ──────────────────────────────────────────────────
--- One REVENUE + COST target per area for the current year, so the Budget
--- vs Actual dashboard isn't empty for a visitor exploring it.
-INSERT INTO budgets (business_area_id, category, year_value, target_amount, organization_id)
-SELECT id, 'REVENUE', YEAR(CURDATE()), CASE name
-    WHEN 'Servizi IT' THEN 800000 WHEN 'Operazioni' THEN 400000
-    WHEN 'Legale' THEN 250000 WHEN 'Finanza' THEN 300000 END,
-    3
-FROM business_areas WHERE organization_id = 3
-ON DUPLICATE KEY UPDATE target_amount = VALUES(target_amount);
+-- One target per area and category for the current year, derived from the
+-- year-to-date values above instead of fixed amounts: the financial values
+-- move with CURDATE(), so fixed targets drifted into an all-red page.
+--
+--   target = year-to-date actual / (months elapsed / 12) * factor
+--
+-- which makes "actual / target" equal "share of the year elapsed / factor"
+-- whatever night the reset runs, so every area keeps telling the same story
+-- against the page's "expected by today" marker:
+--   revenue  Servizi IT 0.92 ahead · Finanza 1.00 on pace ·
+--            Operazioni 1.12 slightly behind · Legale 1.50 well behind
+--   cost     Servizi IT 1.20 · Finanza 1.25, both under control
+-- Areas with nothing booked this year get no budget (early January, or no
+-- costs at all for Operazioni/Legale) rather than a target with no data.
+SET @months_elapsed_share := MONTH(CURDATE()) / 12;
 
 INSERT INTO budgets (business_area_id, category, year_value, target_amount, organization_id)
-SELECT id, 'COST', YEAR(CURDATE()), CASE name
-    WHEN 'Servizi IT' THEN 200000 WHEN 'Operazioni' THEN 150000
-    WHEN 'Legale' THEN 80000 WHEN 'Finanza' THEN 100000 END,
-    3
-FROM business_areas WHERE organization_id = 3
-ON DUPLICATE KEY UPDATE target_amount = VALUES(target_amount);
+SELECT ytd.area_id, ytd.category, YEAR(CURDATE()),
+       ROUND(ytd.total / @months_elapsed_share * CASE CONCAT(ytd.category, ':', ba.name)
+           WHEN 'REVENUE:Servizi IT' THEN 0.92 WHEN 'REVENUE:Finanza' THEN 1.00
+           WHEN 'REVENUE:Operazioni' THEN 1.12 WHEN 'REVENUE:Legale' THEN 1.50
+           WHEN 'COST:Servizi IT' THEN 1.20 WHEN 'COST:Finanza' THEN 1.25
+           ELSE 1.00 END, -3),
+       3
+FROM (
+    SELECT fv.area_id, ft.category, SUM(fv.financial_amount) AS total
+    FROM financial_values fv
+    JOIN financial_types ft ON ft.id = fv.financial_type_id
+    WHERE fv.organization_id = 3 AND fv.year_value = YEAR(CURDATE())
+    GROUP BY fv.area_id, ft.category
+) ytd
+JOIN business_areas ba ON ba.id = ytd.area_id AND ba.organization_id = 3
+WHERE ytd.total > 0;
 
 SELECT 'Demo org reseeded' AS result;
 SELECT COUNT(*) AS total_contracts FROM contracts WHERE organization_id = 3;
