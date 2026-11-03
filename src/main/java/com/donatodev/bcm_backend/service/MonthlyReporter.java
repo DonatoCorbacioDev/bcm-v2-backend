@@ -5,7 +5,9 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.text.NumberFormat;
 import java.time.LocalDate;
+import java.time.Year;
 import java.time.format.TextStyle;
 import java.time.ZoneId;
 import java.util.List;
@@ -110,6 +112,14 @@ public class MonthlyReporter {
         }
     }
 
+    /** "148.800 €": Italian grouping and symbol placement, no cents for a monthly total. */
+    static String formatEuro(double amount) {
+        // NumberFormat isn't thread-safe: a new instance per call, never a shared field.
+        NumberFormat euro = NumberFormat.getCurrencyInstance(Locale.ITALY);
+        euro.setMaximumFractionDigits(0);
+        return HtmlUtils.htmlEscape(euro.format(amount));
+    }
+
     private record ReportStats(int total, int active, int expired, long newContracts, double totalValue) {}
 
     private String buildReportEmail(String orgName, String monthLabel, int year, ReportStats stats) {
@@ -138,11 +148,11 @@ public class MonthlyReporter {
                 + "<div class=\"stat\"><div class=\"stat-value\">" + active + "</div><div>Attivi</div></div>"
                 + "<div class=\"stat\"><div class=\"stat-value\">" + expired + "</div><div>Scaduti</div></div>"
                 + "<div class=\"stat\"><div class=\"stat-value\">" + newContracts + "</div><div>Nuovi questo mese</div></div>"
-                + "<div class=\"stat\"><div class=\"stat-value\">&euro;" + String.format("%.0f", totalValue)
+                + "<div class=\"stat\"><div class=\"stat-value\">" + formatEuro(totalValue)
                 + "</div><div>Valore finanziario del mese</div></div>"
                 + "</div>"
                 + "<div class=\"footer\"><p>Report mensile generato automaticamente da Business Contracts Manager.</p>"
-                + "<p>&#169; 2025 BCM - Business Contracts Manager</p></div>"
+                + "<p>&#169; " + Year.now(ZoneId.systemDefault()) + " BCM - Business Contracts Manager</p></div>"
                 + "</div></body></html>";
     }
 }

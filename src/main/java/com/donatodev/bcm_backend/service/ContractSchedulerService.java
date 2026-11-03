@@ -6,6 +6,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDate;
+import java.time.Year;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.ZoneId;
@@ -236,7 +237,7 @@ public class ContractSchedulerService {
                 + "</div>"
                 + "<div class=\"footer\">"
                 + "<p>Notifica automatica di Business Contracts Manager.</p>"
-                + "<p>&#169; 2025 BCM - Business Contracts Manager</p>"
+                + "<p>&#169; " + Year.now(ZoneId.systemDefault()) + " BCM - Business Contracts Manager</p>"
                 + "</div></div></body></html>";
 
         emailService.sendEmail(manager.getEmail(), subject, body);

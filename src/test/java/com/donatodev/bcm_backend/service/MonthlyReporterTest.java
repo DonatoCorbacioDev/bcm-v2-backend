@@ -1,8 +1,10 @@
 package com.donatodev.bcm_backend.service;
 
+import java.time.Year;
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -15,6 +17,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.doThrow;
@@ -55,6 +58,42 @@ class MonthlyReporterTest {
     @DisplayName("Unit Test: MonthlyReporter")
     @SuppressWarnings("unused")
     class VerifyMonthlyReporter {
+
+        @Test
+        @DisplayName("Formats the monthly total the Italian way and dates the footer with the current year")
+        void shouldFormatAmountAndFooterYear() {
+            Organization org = Organization.builder().id(1L).name("TestOrg")
+                    .subscriptionTier(SubscriptionTier.FREE).build();
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setEmail("admin@testorg.com");
+            Users admin = Users.builder().id(1L).username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .manager(manager).organization(org).build();
+            when(organizationRepository.findAll()).thenReturn(List.of(org));
+            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class)))
+                    .thenReturn(148800.0);
+            when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN")).thenReturn(List.of(admin));
+
+            monthlyReporter.sendMonthlyReports();
+
+            ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+            verify(emailService).sendEmail(eq("admin@testorg.com"), anyString(), body.capture());
+            assertThat(body.getValue())
+                    .contains(MonthlyReporter.formatEuro(148800.0))
+                    .doesNotContain("148800")
+                    .contains("&#169; " + Year.now() + " BCM");
+        }
+
+        @Test
+        @DisplayName("formatEuro uses Italian grouping, the symbol after the amount and no cents, HTML-escaped")
+        void formatEuroIsItalian() {
+            // The no-break space and the symbol come out as entities, so the
+            // email renders the same whatever charset the mail client assumes.
+            assertThat(MonthlyReporter.formatEuro(148800.0)).isEqualTo("148.800&nbsp;&euro;");
+            assertThat(MonthlyReporter.formatEuro(0)).isEqualTo("0&nbsp;&euro;");
+            assertThat(MonthlyReporter.formatEuro(1234.56)).isEqualTo("1.235&nbsp;&euro;");
+        }
 
         @Test
         @Order(1)
