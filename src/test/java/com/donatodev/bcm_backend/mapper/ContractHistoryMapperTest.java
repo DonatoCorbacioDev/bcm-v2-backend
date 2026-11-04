@@ -19,6 +19,7 @@ import com.donatodev.bcm_backend.dto.ContractHistoryDTO;
 import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
@@ -119,6 +120,33 @@ class ContractHistoryMapperTest {
         ContractHistoryDTO dto = mapper.toDTO(history);
 
         assertEquals(null, dto.modifiedById());
+        assertEquals(null, dto.modifiedByName(), "no author: the UI shows it as the system");
+    }
+
+    private ContractHistoryDTO dtoModifiedBy(Users author) {
+        return mapper.toDTO(ContractHistory.builder()
+                .id(100L).contract(contract).modifiedBy(author)
+                .modificationDate(LocalDateTime.of(2024, Month.MAY, 5, 12, 0))
+                .previousStatus(ContractStatus.ACTIVE).newStatus(ContractStatus.EXPIRED)
+                .build());
+    }
+
+    @Test
+    void shouldNameTheAuthorByTheirManagerProfile() {
+        Users author = Users.builder().id(2L).username("m.bellini")
+                .manager(Managers.builder().firstName("Marco").lastName("Bellini").build()).build();
+
+        assertEquals("Marco Bellini", dtoModifiedBy(author).modifiedByName());
+    }
+
+    @Test
+    void shouldFallBackToTheUsernameWithoutAManagerName() {
+        Users noProfile = Users.builder().id(2L).username("admin").build();
+        Users blankProfile = Users.builder().id(3L).username("ops")
+                .manager(Managers.builder().firstName(" ").build()).build();
+
+        assertEquals("admin", dtoModifiedBy(noProfile).modifiedByName());
+        assertEquals("ops", dtoModifiedBy(blankProfile).modifiedByName());
     }
 
     @Test

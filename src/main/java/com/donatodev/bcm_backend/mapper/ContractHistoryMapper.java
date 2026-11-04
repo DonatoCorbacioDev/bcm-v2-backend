@@ -11,6 +11,7 @@ import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractHistoryDTO;
 import com.donatodev.bcm_backend.entity.ContractHistory;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
@@ -42,14 +43,32 @@ public class ContractHistoryMapper {
      * @return the corresponding DTO
      */
     public ContractHistoryDTO toDTO(ContractHistory history) {
+        Users author = history.getModifiedBy();
         return new ContractHistoryDTO(
                 history.getId(),
                 history.getContract().getId(),
-                history.getModifiedBy() != null ? history.getModifiedBy().getId() : null,
+                author != null ? author.getId() : null,
                 history.getModificationDate(),
                 history.getPreviousStatus(),
-                history.getNewStatus()
+                history.getNewStatus(),
+                displayName(author)
         );
+    }
+
+    /** The person's name when the user has a manager profile, else the username. */
+    private static String displayName(Users author) {
+        if (author == null) {
+            return null;
+        }
+        Managers manager = author.getManager();
+        if (manager != null) {
+            String name = ((manager.getFirstName() == null ? "" : manager.getFirstName()) + " "
+                    + (manager.getLastName() == null ? "" : manager.getLastName())).trim();
+            if (!name.isEmpty()) {
+                return name;
+            }
+        }
+        return author.getUsername();
     }
 
     /**

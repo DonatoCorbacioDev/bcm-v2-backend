@@ -21,6 +21,10 @@ import com.donatodev.bcm_backend.entity.ContractStatus;
  * @param modificationDate the timestamp when the modification occurred
  * @param previousStatus  the contract status before the change
  * @param newStatus       the contract status after the change
+ * @param modifiedByName  who made the change, for display: the person's name,
+ *                        else their username; null when there is no author
+ *                        (a scheduler change with no admin, or a deleted user).
+ *                        Read-only: ignored when the DTO is turned into an entity.
  */
 public record ContractHistoryDTO(
         Long id,
@@ -28,5 +32,13 @@ public record ContractHistoryDTO(
         Long modifiedById,
         LocalDateTime modificationDate,
         ContractStatus previousStatus,
-        ContractStatus newStatus
-) {}
+        ContractStatus newStatus,
+        String modifiedByName
+) {
+
+    /** Without the display name: what a client sends when it writes a record. */
+    public ContractHistoryDTO(Long id, Long contractId, Long modifiedById, LocalDateTime modificationDate,
+            ContractStatus previousStatus, ContractStatus newStatus) {
+        this(id, contractId, modifiedById, modificationDate, previousStatus, newStatus, null);
+    }
+}
