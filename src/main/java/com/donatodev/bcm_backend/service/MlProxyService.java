@@ -92,7 +92,7 @@ public class MlProxyService {
         tierLimitService.requireMlAccess(orgId);
         Long managerId = resolveManagerId();
         String key = "FORECAST_" + months + cacheKeySuffix(managerId);
-        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/forecast").queryParam(QUERY_PARAM_MONTHS, months);
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/forecast").queryParam(QUERY_PARAM_MONTHS, months);
         return cachedGet(key, uriBuilder, orgId, managerId, "forecast");
     }
 
@@ -101,7 +101,7 @@ public class MlProxyService {
         tierLimitService.requireMlAccess(orgId);
         Long managerId = resolveManagerId();
         String key = "AGENT_INSIGHTS_" + months + cacheKeySuffix(managerId);
-        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/agent/insights").queryParam(QUERY_PARAM_MONTHS, months);
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/agent/insights").queryParam(QUERY_PARAM_MONTHS, months);
         return cachedGet(key, uriBuilder, orgId, managerId, "agent-insights");
     }
 
@@ -110,14 +110,14 @@ public class MlProxyService {
         tierLimitService.requireMlAccess(orgId);
         Long managerId = resolveManagerId();
         String key = "ANOMALIES" + cacheKeySuffix(managerId);
-        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/anomalies");
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/anomalies");
         return cachedGet(key, uriBuilder, orgId, managerId, "anomalies");
     }
 
     public ResponseEntity<String> getRiskScores() {
         Long orgId = TenantContext.get();
         tierLimitService.requireMlAccess(orgId);
-        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/risk-scores");
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/risk-scores");
         return callMl(uriBuilder, orgId, resolveManagerId(), "risk-scores");
     }
 
@@ -136,7 +136,7 @@ public class MlProxyService {
         Long orgId = TenantContext.get();
         tierLimitService.requireMlAccess(orgId);
         Long managerId = resolveManagerId();
-        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/agent/ask");
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/agent/ask");
         if (orgId != null) {
             uriBuilder.queryParam("org_id", orgId);
         }
@@ -154,15 +154,15 @@ public class MlProxyService {
 
     public ResponseEntity<String> fetchForecastRaw(int months, Long orgId) {
         return callMl(
-                UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/forecast").queryParam(QUERY_PARAM_MONTHS, months), orgId, null, "forecast");
+                UriComponentsBuilder.fromUriString(fastApiUrl + "/forecast").queryParam(QUERY_PARAM_MONTHS, months), orgId, null, "forecast");
     }
 
     public ResponseEntity<String> fetchAnomaliesRaw(Long orgId) {
-        return callMl(UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/anomalies"), orgId, null, "anomalies");
+        return callMl(UriComponentsBuilder.fromUriString(fastApiUrl + "/anomalies"), orgId, null, "anomalies");
     }
 
     public ResponseEntity<String> fetchRiskScoresRaw(Long orgId) {
-        return callMl(UriComponentsBuilder.fromHttpUrl(fastApiUrl + "/risk-scores"), orgId, null, "risk-scores");
+        return callMl(UriComponentsBuilder.fromUriString(fastApiUrl + "/risk-scores"), orgId, null, "risk-scores");
     }
 
     // ── Internal helpers ─────────────────────────────────────────────────────

@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.10</version>
+        <version>4.1.0</version>
         <relativePath /> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.donatodev</groupId>
@@ -63,7 +63,7 @@
         <openpdf.version>3.0.5</openpdf.version>
         <!-- 1.1.x is the last line compatible with Spring Boot 3.x — Spring AI
              2.0 requires Spring Boot 4. -->
-        <spring-ai.version>1.1.8</spring-ai.version>
+        <spring-ai.version>2.0.0</spring-ai.version>
 		
         <!-- Plugin Versions -->
         <jacoco.version>0.8.15</jacoco.version>
@@ -253,7 +253,7 @@
         <!-- AOP Support -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
         </dependency>
 
         <!-- Prometheus metrics export (/actuator/prometheus) -->
@@ -298,6 +298,7 @@
         <dependency>
             <groupId>com.github.spotbugs</groupId>
             <artifactId>spotbugs-annotations</artifactId>
+            <version>4.10.3</version>
             <scope>provided</scope>
         </dependency>
 		
