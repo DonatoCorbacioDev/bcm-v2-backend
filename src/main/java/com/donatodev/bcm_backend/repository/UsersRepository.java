@@ -92,9 +92,10 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
     /**
      * Finds all users with the given username, across all organizations.
      * <p>
-     * Since usernames are only unique per-organization (see {@code uq_usr_name_org}),
-     * this can return more than one result. Used during login to detect
-     * ambiguous usernames that require an {@code organizationSlug} to disambiguate.
+     * Usernames are unique across all organizations since V51
+     * ({@code uq_usr_username}), so this returns at most one user. Kept for
+     * the login path, which still handles an ambiguous username by asking for
+     * an {@code organizationSlug}: defensive, no longer reachable.
      *
      * @param username the username to search for
      * @return the list of users with the given username, possibly empty or containing more than one entry
@@ -114,7 +115,8 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
 
     /**
      * Finds a user by username scoped to the given organization ID. Used by the
-     * per-request JWT authentication path, since usernames are only unique per-organization.
+     * per-request JWT authentication path: scoping by the token's organization
+     * stays as defence in depth, even though usernames are globally unique (V51).
      *
      * @param username the username to search for
      * @param organizationId the ID of the organization the user belongs to
