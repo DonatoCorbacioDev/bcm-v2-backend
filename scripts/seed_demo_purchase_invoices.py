@@ -8,12 +8,18 @@ right after sql/DML/seed-demo-org.sql.
 Shows the whole invoice -> match -> payment flow on the two purchase
 contracts that seed creates, with dates relative to today so it never ages:
 
-  NRT-2025-007 (Nuvola Cloud Services, 4,800/month)
-    - last month's invoice: matched by an admin and already paid by SEPA
+  NRT-117 (Nuvola Cloud Services, 4,800/month)
+    - every earlier month's invoice: matched by an admin and paid by SEPA
     - this month's invoice: matched automatically, waiting for confirmation
-  NRT-2025-008 (Ferri & Associati, 6,500/quarter)
+  NRT-118 (Ferri & Associati, 6,500/quarter)
+    - the earlier quarters' invoices: matched and paid on the trusted IBAN
     - this quarter's invoice asks to be paid on a NEW bank account: the SEPA
       anti-fraud check blocks any transfer until an admin confirms the change
+
+The history matters: the expected costs in seed-demo-org.sql cover the last
+12 months, so with only the newest invoices a supplier showed most of its
+costs as never invoiced. Now invoiced matches expected except what is still
+waiting, which is exactly the story the demo tells.
 
 Supplier VAT numbers and IBANs must stay equal to the ones in
 seed-demo-org.sql: matching compares the invoice VAT with the counterparty's,
@@ -49,6 +55,8 @@ NUVOLA = {
 FERRI = {
     "name": "Ferri & Associati S.r.l.",
     "vat": "IT05391280772",
+    # The trusted IBAN (verified_iban in seed-demo-org.sql), used by past invoices.
+    "iban": "IT17M0503411701000062194812",
     "address": ("Corso Vittorio Emanuele II 104", "70122", "Bari"),
 }
 # Not the verified IBAN in seed-demo-org.sql: the "we changed bank" scam.
@@ -124,8 +132,8 @@ def expect(label, actual, expected, problems):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--base-url", default="http://127.0.0.1:8090/api/v1")
-    parser.add_argument("--cloud-contract-id", type=int, required=True, help="id of NRT-2025-007")
-    parser.add_argument("--advisory-contract-id", type=int, required=True, help="id of NRT-2025-008")
+    parser.add_argument("--cloud-contract-id", type=int, required=True, help="id of NRT-117")
+    parser.add_argument("--advisory-contract-id", type=int, required=True, help="id of NRT-118")
     parser.add_argument("--demo-username", default="demo")
     parser.add_argument("--admin-username", default="demo_admin")
     args = parser.parse_args()
@@ -137,7 +145,6 @@ def main():
         return 1
 
     today = date.today()
-    last_month = first_of_month(today, 1)
     this_month = first_of_month(today, 0)
     problems = []
 
@@ -145,10 +152,23 @@ def main():
     demo = Api(args.base_url, args.demo_username, demo_password)
     admin = Api(args.base_url, args.admin_username, admin_password)
 
-    paid = demo.upload(args.cloud_contract_id, f"NCS-{last_month:%Y-%m}.xml", invoice_xml(
-        NUVOLA, f"NCS-{last_month:%Y-%m}", last_month,
-        f"Hosting e servizi cloud, {MONTHS_IT[last_month.month - 1]} {last_month.year}",
-        4800.00, NUVOLA["iban"], NUVOLA["bic"]))
+    # Past invoices, one per cost line in seed-demo-org.sql: Nuvola for each
+    # of the 11 earlier months, Ferri for the 3 earlier quarters.
+    cloud_paid = []
+    for months_back in range(11, 0, -1):
+        month = first_of_month(today, months_back)
+        cloud_paid.append(demo.upload(args.cloud_contract_id, f"NCS-{month:%Y-%m}.xml", invoice_xml(
+            NUVOLA, f"NCS-{month:%Y-%m}", month,
+            f"Hosting e servizi cloud, {MONTHS_IT[month.month - 1]} {month.year}",
+            4800.00, NUVOLA["iban"], NUVOLA["bic"])))
+    advisory_paid = []
+    for months_back in (9, 6, 3):
+        month = first_of_month(today, months_back)
+        quarter = (month.month - 1) // 3 + 1
+        advisory_paid.append(demo.upload(args.advisory_contract_id, f"FA-{month:%Y-%m}.xml", invoice_xml(
+            FERRI, f"FA-{month:%Y}-{quarter}T", month,
+            f"Consulenza fiscale e societaria, {quarter}° trimestre {month.year}",
+            6500.00, FERRI["iban"])))
     to_review = demo.upload(args.cloud_contract_id, f"NCS-{this_month:%Y-%m}.xml", invoice_xml(
         NUVOLA, f"NCS-{this_month:%Y-%m}", this_month,
         f"Hosting e servizi cloud, {MONTHS_IT[this_month.month - 1]} {this_month.year}",
@@ -159,11 +179,12 @@ def main():
         6500.00, FERRI_NEW_IBAN))
 
     # Confirming a match and paying are admin steps the public demo can't do.
-    confirmed = admin.confirm_match(args.cloud_contract_id, paid["id"])
-    admin.pay_by_sepa(args.cloud_contract_id, [paid["id"]], today)
-
     print("Demo purchase invoices:")
-    expect(f"{paid['invoiceNumber']} match", confirmed["matchStatus"], "CONFIRMED", problems)
+    for contract_id, invoices in ((args.cloud_contract_id, cloud_paid), (args.advisory_contract_id, advisory_paid)):
+        confirmed = [admin.confirm_match(contract_id, invoice["id"]) for invoice in invoices]
+        admin.pay_by_sepa(contract_id, [invoice["id"] for invoice in invoices], today)
+        for invoice in confirmed:
+            expect(f"{invoice['invoiceNumber']} match", invoice["matchStatus"], "CONFIRMED", problems)
     expect(f"{to_review['invoiceNumber']} match", to_review["matchStatus"], "SUGGESTED", problems)
     expect(f"{to_review['invoiceNumber']} IBAN", to_review["supplierIban"], masked(NUVOLA["iban"]), problems)
     expect(f"{new_iban['invoiceNumber']} match", new_iban["matchStatus"], "SUGGESTED", problems)

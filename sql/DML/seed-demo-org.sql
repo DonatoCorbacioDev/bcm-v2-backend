@@ -73,6 +73,10 @@ DELETE cm FROM contract_manager cm JOIN contracts c ON cm.contract_id = c.id WHE
 DELETE ch FROM contract_history ch JOIN contracts c ON ch.contract_id = c.id WHERE c.organization_id = 3;
 DELETE FROM budgets WHERE organization_id = 3;
 DELETE FROM contracts WHERE organization_id = 3;
+-- Notifications point at contracts by number in their text, not by FK, so
+-- they outlive the contracts above: without this the bell kept showing
+-- alerts about contracts long gone (e.g. "SYN-03-0028", a Faker leftover).
+DELETE FROM notifications WHERE org_id = 3;
 
 -- ── Counterparties ───────────────────────────────────────────
 -- All invented company names in a consistent Italian register (no real
@@ -96,8 +100,11 @@ SELECT 'Trasporti Meridiana S.r.l.', 'CUSTOMER', 3
 WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Trasporti Meridiana S.r.l.' AND organization_id = 3);
 
 INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Cyberdue Security S.r.l.', 'CUSTOMER', 3
+SELECT 'Cyberdue Security S.r.l.', 'SUPPLIER', 3
 WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Cyberdue Security S.r.l.' AND organization_id = 3);
+-- A supplier: Nortiva bought the security upgrade from it. Set on every run,
+-- since the row predates this and was created as a customer.
+UPDATE counterparties SET type = 'SUPPLIER' WHERE name = 'Cyberdue Security S.r.l.' AND organization_id = 3;
 
 INSERT INTO counterparties (name, type, organization_id)
 SELECT 'Manifattura Orion S.p.A.', 'CUSTOMER', 3
@@ -146,6 +153,21 @@ WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Rossi Impianti S.r.
 UPDATE counterparties SET type = 'SUPPLIER', contact_email = 'commerciale@rossiimpianti.example'
 WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = 3;
 
+-- Two more tacitly renewing suppliers, the contracts an SME most often
+-- forgets: a software licence (notice due within the week) and office
+-- cleaning (notice due in a month and a half, not urgent yet).
+INSERT INTO counterparties (name, type, organization_id)
+SELECT 'Gestio Software S.r.l.', 'SUPPLIER', 3
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Gestio Software S.r.l.' AND organization_id = 3);
+UPDATE counterparties SET type = 'SUPPLIER', contact_email = 'rinnovi@gestiosoftware.example'
+WHERE name = 'Gestio Software S.r.l.' AND organization_id = 3;
+
+INSERT INTO counterparties (name, type, organization_id)
+SELECT 'Aurora Servizi S.r.l.', 'SUPPLIER', 3
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = 3);
+UPDATE counterparties SET type = 'SUPPLIER', contact_email = 'clienti@auroraservizi.example'
+WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = 3;
+
 -- ── Contracts ─────────────────────────────────────────────────
 -- All assigned to manager id 4 (the public "demo" login) — role-based
 -- visibility scopes a MANAGER to their own contracts only, so this is the
@@ -162,7 +184,7 @@ WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = 3;
 -- output (with its "Generato" badge) even without a live trigger.
 INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, financial_type_id, annual_value, billing_frequency)
 SELECT (SELECT id FROM counterparties WHERE name='Vertice Legal S.r.l.' AND organization_id=3),
-       'NRT-2024-004', 'WBS-LEG-001', 'Audit di Conformità',
+       'NRT-104', 'WBS-LEG-001', 'Audit di Conformità',
        (SELECT id FROM business_areas WHERE name='Legale' AND organization_id=3),
        4, DATE_SUB(CURDATE(), INTERVAL 8 MONTH), DATE_ADD(CURDATE(), INTERVAL 12 DAY), 'ACTIVE', 3,
        (SELECT id FROM financial_types WHERE name='Ricavi' AND organization_id=3), 60000, 'QUARTERLY';
@@ -171,14 +193,14 @@ SELECT (SELECT id FROM counterparties WHERE name='Vertice Legal S.r.l.' AND orga
 -- end_date (4 months ago), none after — matches its status.
 INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
 SELECT (SELECT id FROM counterparties WHERE name='Fintera Consulting S.r.l.' AND organization_id=3),
-       'NRT-2024-002', 'WBS-FIN-001', 'Automazione Reporting Finanziario',
+       'NRT-102', 'WBS-FIN-001', 'Automazione Reporting Finanziario',
        (SELECT id FROM business_areas WHERE name='Finanza' AND organization_id=3),
        4, DATE_SUB(CURDATE(), INTERVAL 16 MONTH), DATE_SUB(CURDATE(), INTERVAL 4 MONTH), 'EXPIRED', 3;
 
 -- 3) Cancelled.
 INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
 SELECT (SELECT id FROM counterparties WHERE name='Cyberdue Security S.r.l.' AND organization_id=3),
-       'NRT-2024-006', 'WBS-IT-002', 'Aggiornamento Sicurezza Informatica',
+       'NRT-106', 'WBS-IT-002', 'Aggiornamento Sicurezza Informatica',
        (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id=3),
        4, DATE_SUB(CURDATE(), INTERVAL 16 MONTH), DATE_SUB(CURDATE(), INTERVAL 10 MONTH), 'CANCELLED', 3;
 
@@ -186,29 +208,29 @@ SELECT (SELECT id FROM counterparties WHERE name='Cyberdue Security S.r.l.' AND 
 -- more than one row during the demo.
 INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
 SELECT (SELECT id FROM counterparties WHERE name='Manifattura Orion S.p.A.' AND organization_id=3),
-       'NRT-2025-002', 'WBS-OPS-002', 'Trasformazione Digitale',
+       'NRT-112', 'WBS-OPS-002', 'Trasformazione Digitale',
        (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id=3),
        4, DATE_SUB(CURDATE(), INTERVAL 9 MONTH), DATE_ADD(CURDATE(), INTERVAL 25 DAY), 'ACTIVE', 3;
 
--- 5) Long-running IT contract, 18 months of steady-growth financial
+-- 5) Long-running IT contract (about 10-13k a month), 18 months of steady-growth financial
 -- history for a chart with real shape on its detail page.
 INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
 SELECT (SELECT id FROM counterparties WHERE name='Solaris Informatica S.p.A.' AND organization_id=3),
-       'NRT-2024-001', 'WBS-IT-001', 'Migrazione Cloud Fase 1',
+       'NRT-101', 'WBS-IT-001', 'Migrazione Cloud Fase 1',
        (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id=3),
        4, DATE_SUB(CURDATE(), INTERVAL 30 MONTH), DATE_ADD(CURDATE(), INTERVAL 5 MONTH), 'ACTIVE', 3;
 
 -- 6) Active operations contract, 10 months of steady financial history.
 INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
 SELECT (SELECT id FROM counterparties WHERE name='Trasporti Meridiana S.r.l.' AND organization_id=3),
-       'NRT-2024-005', 'WBS-OPS-001', 'Ottimizzazione Supply Chain',
+       'NRT-105', 'WBS-OPS-001', 'Ottimizzazione Supply Chain',
        (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id=3),
        4, DATE_SUB(CURDATE(), INTERVAL 10 MONTH), DATE_ADD(CURDATE(), INTERVAL 60 DAY), 'ACTIVE', 3;
 
 -- 7) Recently started, long horizon.
 INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
 SELECT (SELECT id FROM counterparties WHERE name='Nexora Technologies S.r.l.' AND organization_id=3),
-       'NRT-2026-001', 'WBS-IT-003', 'Sviluppo Piattaforma AI',
+       'NRT-121', 'WBS-IT-003', 'Sviluppo Piattaforma AI',
        (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id=3),
        4, DATE_SUB(CURDATE(), INTERVAL 1 MONTH), DATE_ADD(CURDATE(), INTERVAL 24 MONTH), 'ACTIVE', 3;
 
@@ -218,7 +240,7 @@ SELECT (SELECT id FROM counterparties WHERE name='Nexora Technologies S.r.l.' AN
 -- exists without exposing an admin/approver account publicly.
 INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, workflow_stage, organization_id)
 SELECT (SELECT id FROM counterparties WHERE name='Ferramenta Bassano S.r.l.' AND organization_id=3),
-       'NRT-2026-002', 'WBS-FIN-002', 'Fornitura Software Gestionale',
+       'NRT-122', 'WBS-FIN-002', 'Fornitura Software Gestionale',
        (SELECT id FROM business_areas WHERE name='Finanza' AND organization_id=3),
        4, DATE_ADD(CURDATE(), INTERVAL 15 DAY), NULL, 'DRAFT', 'IN_REVIEW', 3;
 
@@ -227,7 +249,7 @@ SELECT (SELECT id FROM counterparties WHERE name='Ferramenta Bassano S.r.l.' AND
 -- month's is matched and already paid, this month's is waiting to be matched.
 INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, financial_type_id, annual_value, billing_frequency)
 SELECT (SELECT id FROM counterparties WHERE name='Nuvola Cloud Services S.r.l.' AND organization_id=3),
-       'NRT-2025-007', 'WBS-IT-004', 'Hosting e servizi cloud',
+       'NRT-117', 'WBS-IT-004', 'Hosting e servizi cloud',
        (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id=3),
        4, DATE_SUB(CURDATE(), INTERVAL 12 MONTH), DATE_ADD(CURDATE(), INTERVAL 12 MONTH), 'ACTIVE', 3,
        (SELECT id FROM financial_types WHERE name='Costi' AND organization_id=3), 57600, 'MONTHLY';
@@ -237,7 +259,7 @@ SELECT (SELECT id FROM counterparties WHERE name='Nuvola Cloud Services S.r.l.' 
 -- blocks the transfer — the classic "supplier changed bank details" scam.
 INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, financial_type_id, annual_value, billing_frequency)
 SELECT (SELECT id FROM counterparties WHERE name='Ferri & Associati S.r.l.' AND organization_id=3),
-       'NRT-2025-008', 'WBS-FIN-003', 'Consulenza fiscale e societaria',
+       'NRT-118', 'WBS-FIN-003', 'Consulenza fiscale e societaria',
        (SELECT id FROM business_areas WHERE name='Finanza' AND organization_id=3),
        4, DATE_SUB(CURDATE(), INTERVAL 10 MONTH), DATE_ADD(CURDATE(), INTERVAL 14 MONTH), 'ACTIVE', 3,
        (SELECT id FROM financial_types WHERE name='Costi' AND organization_id=3), 26000, 'QUARTERLY';
@@ -248,13 +270,34 @@ SELECT (SELECT id FROM counterparties WHERE name='Ferri & Associati S.r.l.' AND 
 -- lists it, and the 30/14/7/1-day reminders target that day, not the end.
 INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, auto_renew, notice_days, renewal_months)
 SELECT (SELECT id FROM counterparties WHERE name='Rossi Impianti S.r.l.' AND organization_id=3),
-       'NRT-2025-009', 'WBS-OPS-003', 'Manutenzione impianti',
+       'NRT-119', 'WBS-OPS-003', 'Manutenzione impianti',
        (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id=3),
        4, DATE_SUB(DATE_ADD(CURDATE(), INTERVAL 110 DAY), INTERVAL 12 MONTH), DATE_ADD(CURDATE(), INTERVAL 110 DAY),
        'ACTIVE', 3, TRUE, 90, 12;
 
+-- 12) Software licence, renews yearly unless cancelled 30 days before the
+-- end; the end is 36 days away, so the last day to give notice is in 6 days:
+-- the most urgent item on the home page.
+INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, auto_renew, notice_days, renewal_months)
+SELECT (SELECT id FROM counterparties WHERE name='Gestio Software S.r.l.' AND organization_id=3),
+       'NRT-123', NULL, 'Licenza software gestionale',
+       (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id=3),
+       4, DATE_SUB(DATE_ADD(CURDATE(), INTERVAL 36 DAY), INTERVAL 12 MONTH), DATE_ADD(CURDATE(), INTERVAL 36 DAY),
+       'ACTIVE', 3, TRUE, 30, 12;
+
+-- 13) Office cleaning, a two-year contract renewing for 12 months unless
+-- cancelled 60 days before the end; notice due in 45 days, outside the home
+-- page's 30-day window: listed with its deadline, not yet urgent. No WBS
+-- code, like most real contracts: the field is optional.
+INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, auto_renew, notice_days, renewal_months)
+SELECT (SELECT id FROM counterparties WHERE name='Aurora Servizi S.r.l.' AND organization_id=3),
+       'NRT-124', NULL, 'Pulizia uffici',
+       (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id=3),
+       4, DATE_SUB(DATE_ADD(CURDATE(), INTERVAL 105 DAY), INTERVAL 24 MONTH), DATE_ADD(CURDATE(), INTERVAL 105 DAY),
+       'ACTIVE', 3, TRUE, 60, 12;
+
 INSERT INTO contract_workflow_events (contract_id, from_stage, to_stage, action, actor_user_id, comment, created_at)
-SELECT (SELECT id FROM contracts WHERE contract_number = 'NRT-2026-002' AND organization_id = 3),
+SELECT (SELECT id FROM contracts WHERE contract_number = 'NRT-122' AND organization_id = 3),
        'DRAFT', 'IN_REVIEW', 'SUBMIT',
        (SELECT id FROM users WHERE username = 'demo' AND organization_id = 3),
        'Inviato per revisione al reparto Finanza',
@@ -290,13 +333,13 @@ SET @area_it := (SELECT id FROM business_areas WHERE name = 'Servizi IT' AND org
 SET @area_finanza := (SELECT id FROM business_areas WHERE name = 'Finanza' AND organization_id = 3);
 SET @area_legale := (SELECT id FROM business_areas WHERE name = 'Legale' AND organization_id = 3);
 SET @area_operazioni := (SELECT id FROM business_areas WHERE name = 'Operazioni' AND organization_id = 3);
-SET @solaris_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-2024-001' AND organization_id = 3);
-SET @fintera_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-2024-002' AND organization_id = 3);
-SET @trasporti_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-2024-005' AND organization_id = 3);
-SET @vertice_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-2024-004' AND organization_id = 3);
-SET @vertice_start := (SELECT start_date FROM contracts WHERE contract_number = 'NRT-2024-004' AND organization_id = 3);
-SET @nuvola_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-2025-007' AND organization_id = 3);
-SET @ferri_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-2025-008' AND organization_id = 3);
+SET @solaris_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-101' AND organization_id = 3);
+SET @fintera_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-102' AND organization_id = 3);
+SET @trasporti_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-105' AND organization_id = 3);
+SET @vertice_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-104' AND organization_id = 3);
+SET @vertice_start := (SELECT start_date FROM contracts WHERE contract_number = 'NRT-104' AND organization_id = 3);
+SET @nuvola_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-117' AND organization_id = 3);
+SET @ferri_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-118' AND organization_id = 3);
 
 -- Vertice Legal · Audit di Conformità — 3 quarterly rows generated from
 -- the contract's own financial terms (see comment on the INSERT above).
@@ -307,57 +350,58 @@ INSERT INTO financial_values (month_value, year_value, financial_amount, financi
 
 -- Solaris Informatica · Migrazione Cloud — 18 months, steady growth.
 INSERT INTO financial_values (month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 17 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 17 MONTH)), 84000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 16 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 16 MONTH)), 87000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), 86000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), 90000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), 93000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), 91000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), 96000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), 99000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  97000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  102000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  106000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  104000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  110000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  114000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  111000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  118000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  123000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(CURDATE()), YEAR(CURDATE()), 129000, @ricavi, @area_it, @solaris_contract, 3);
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 17 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 17 MONTH)), 8400, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 16 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 16 MONTH)), 8700, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), 8600, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), 9000, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), 9300, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), 9100, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), 9600, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), 9900, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  9700, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  10200, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  10600, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  10400, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  11000, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  11400, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  11100, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  11800, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  12300, @ricavi, @area_it, @solaris_contract, 3),
+(MONTH(CURDATE()), YEAR(CURDATE()), 12900, @ricavi, @area_it, @solaris_contract, 3);
 
 -- Fintera Consulting · Reporting Finanziario — EXPIRED, 12 months ending
 -- at its own end_date (4 months ago), none after — matches its status.
 INSERT INTO financial_values (month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), 30000, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), 32000, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), 35000, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), 33000, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), 36000, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), 38000, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  40000, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  38000, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  42000, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  45000, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  48000, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  46000, @ricavi, @area_finanza, @fintera_contract, 3);
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), 3000, @ricavi, @area_finanza, @fintera_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), 3200, @ricavi, @area_finanza, @fintera_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), 3500, @ricavi, @area_finanza, @fintera_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), 3300, @ricavi, @area_finanza, @fintera_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), 3600, @ricavi, @area_finanza, @fintera_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), 3800, @ricavi, @area_finanza, @fintera_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  4000, @ricavi, @area_finanza, @fintera_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  3800, @ricavi, @area_finanza, @fintera_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  4200, @ricavi, @area_finanza, @fintera_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  4500, @ricavi, @area_finanza, @fintera_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  4800, @ricavi, @area_finanza, @fintera_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  4600, @ricavi, @area_finanza, @fintera_contract, 3);
 
 -- Trasporti Meridiana · Supply Chain — active, 10 months of modest,
 -- steady history (keeps the Operazioni area represented in the dashboard
 -- totals too, not just IT/Finanza).
 INSERT INTO financial_values (month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), 22000, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)), 23500, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)), 21000, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), 24500, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)), 25000, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)), 23800, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), 26200, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)), 27000, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)), 25800, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(CURDATE()), YEAR(CURDATE()), 28000, @ricavi, @area_operazioni, @trasporti_contract, 3);
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), 2200, @ricavi, @area_operazioni, @trasporti_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)), 2350, @ricavi, @area_operazioni, @trasporti_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)), 2100, @ricavi, @area_operazioni, @trasporti_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), 2450, @ricavi, @area_operazioni, @trasporti_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)), 2500, @ricavi, @area_operazioni, @trasporti_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)), 2380, @ricavi, @area_operazioni, @trasporti_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), 2620, @ricavi, @area_operazioni, @trasporti_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)), 2700, @ricavi, @area_operazioni, @trasporti_contract, 3),
+(MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)), 2580, @ricavi, @area_operazioni, @trasporti_contract, 3),
+(MONTH(CURDATE()), YEAR(CURDATE()), 2800, @ricavi, @area_operazioni, @trasporti_contract, 3);
 
--- Nuvola Cloud · Hosting — 12 monthly costs of 4,800 (VAT included). The
+-- Nuvola Cloud · Hosting — 12 monthly costs of 4,800 (taxable amount, VAT excluded:
+-- BCM compares contract amounts with an invoice's taxable amount). The
 -- purchase invoices match these by amount and month.
 INSERT INTO financial_values (month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
 (MONTH(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), 4800, @costi, @area_it, @nuvola_contract, 3),
@@ -373,7 +417,7 @@ INSERT INTO financial_values (month_value, year_value, financial_amount, financi
 (MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
 (MONTH(CURDATE()), YEAR(CURDATE()), 4800, @costi, @area_it, @nuvola_contract, 3);
 
--- Ferri & Associati · Consulenza — quarterly costs of 6,500 (VAT included).
+-- Ferri & Associati · Consulenza — quarterly costs of 6,500 (taxable amount, VAT excluded).
 INSERT INTO financial_values (month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
 (MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), 6500, @costi, @area_finanza, @ferri_contract, 3),
 (MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), 6500, @costi, @area_finanza, @ferri_contract, 3),
