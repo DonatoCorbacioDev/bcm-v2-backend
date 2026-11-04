@@ -90,8 +90,8 @@ class OrganizationPurgeServiceTest {
         }
         order.verify(storage).deleteOrganizationFiles(ORG);
         order.verify(emailService).sendOrganizationDeleted("admin@acme.test", "Acme S.r.l.");
-        verify(auditLogService).save(eq("ORGANIZATION_DELETED"), eq("Organization"), eq(ORG), eq("system"), eq(ORG),
-                eq("Organization deleted as scheduled: 3 contracts, 3 users"));
+        verify(auditLogService).save("ORGANIZATION_DELETED", "Organization", ORG, "system", ORG,
+                "Organization deleted as scheduled: 3 contracts, 3 users");
     }
 
     @Test

@@ -74,7 +74,7 @@ class InvoiceTotalsIT extends AbstractMySQLIntegrationTest {
                 .fileName(number + ".xml").fileSize(1024L).contentType("application/xml")
                 .orgId(contract.getOrganization().getId())
                 .supplierName(supplier.getName()).invoiceNumber(number).documentType(type)
-                .invoiceDate(LocalDate.of(year, 1, 15))
+                .invoiceDate(LocalDate.of(year, java.time.Month.JANUARY, 15))
                 .totalAmount(new BigDecimal(total))
                 .taxableAmount(taxable == null ? null : new BigDecimal(taxable))
                 .matchStatus(status)

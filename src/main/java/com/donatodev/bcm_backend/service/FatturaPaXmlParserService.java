@@ -123,12 +123,8 @@ public class FatturaPaXmlParserService {
             for (Element riepilogo : findChildrenByLocalName(datiBeniServizi, "DatiRiepilogo")) {
                 BigDecimal imponibile = parseOptionalAmount(getTextOrNull(riepilogo, "ImponibileImporto"));
                 BigDecimal imposta = parseOptionalAmount(getTextOrNull(riepilogo, "Imposta"));
-                if (imponibile != null) {
-                    taxable = taxable == null ? imponibile : taxable.add(imponibile);
-                }
-                if (imposta != null) {
-                    vat = vat == null ? imposta : vat.add(imposta);
-                }
+                taxable = addOptionalAmount(taxable, imponibile);
+                vat = addOptionalAmount(vat, imposta);
             }
         }
         if (taxable == null) {
@@ -136,6 +132,13 @@ public class FatturaPaXmlParserService {
                     .reduce(BigDecimal::add).orElse(null);
         }
         return new BigDecimal[] { taxable, vat };
+    }
+
+    private static BigDecimal addOptionalAmount(BigDecimal total, BigDecimal amount) {
+        if (amount == null) {
+            return total;
+        }
+        return total == null ? amount : total.add(amount);
     }
 
     String extractSupplierIban(Element dettaglioPagamento) {

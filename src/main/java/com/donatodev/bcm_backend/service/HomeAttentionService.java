@@ -89,6 +89,23 @@ public class HomeAttentionService {
 
         List<Item> invoicesToMatch = new ArrayList<>();
         List<Item> ibanAlerts = new ArrayList<>();
+        collectInvoiceItems(orgId, admin, managerId, today, invoicesToMatch, ibanAlerts);
+
+        // A possible fraud first, then dates in order, then the invoices to file.
+        Comparator<Item> byDate = Comparator.comparing(Item::dueDate, Comparator.nullsLast(Comparator.naturalOrder()));
+        ibanAlerts.sort(byDate);
+        contractItems.sort(byDate);
+        invoicesToMatch.sort(byDate);
+        List<Item> items = new ArrayList<>(ibanAlerts);
+        items.addAll(contractItems);
+        items.addAll(invoicesToMatch);
+
+        return new HomeAttentionDTO(contractItems.size(), invoicesToMatch.size(), ibanAlerts.size(),
+                WINDOW_DAYS, List.copyOf(items));
+    }
+
+    private void collectInvoiceItems(Long orgId, boolean admin, Long managerId, LocalDate today,
+                                     List<Item> invoicesToMatch, List<Item> ibanAlerts) {
         for (ElectronicInvoice invoice : invoiceRepository.findByOrgIdAndSepaBatchIsNull(orgId)) {
             Contracts contract = invoice.getContract();
             if (contract == null || (!admin && !isManagedBy(contract, managerId))) {
@@ -102,17 +119,6 @@ public class HomeAttentionService {
             }
         }
 
-        // A possible fraud first, then dates in order, then the invoices to file.
-        Comparator<Item> byDate = Comparator.comparing(Item::dueDate, Comparator.nullsLast(Comparator.naturalOrder()));
-        ibanAlerts.sort(byDate);
-        contractItems.sort(byDate);
-        invoicesToMatch.sort(byDate);
-        List<Item> items = new ArrayList<>(ibanAlerts);
-        items.addAll(contractItems);
-        items.addAll(invoicesToMatch);
-
-        return new HomeAttentionDTO(contractItems.size(), invoicesToMatch.size(), ibanAlerts.size(),
-                WINDOW_DAYS, List.copyOf(items));
     }
 
     /** The contract's item, if any of its dates needs action within the window. */
@@ -131,7 +137,7 @@ public class HomeAttentionService {
                         : null;
             }
             // Renews tacitly but BCM can't tell when to act or what happens: ask.
-            return !endDate.isAfter(horizon) ? contractItem(Type.RENEWAL_TO_CHECK, contract, endDate, today) : null;
+            return endDate.isAfter(horizon) ? null : contractItem(Type.RENEWAL_TO_CHECK, contract, endDate, today);
         }
         return !endDate.isBefore(today) && !endDate.isAfter(horizon)
                 ? contractItem(Type.EXPIRY, contract, endDate, today)

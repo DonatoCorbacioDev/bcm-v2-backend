@@ -172,27 +172,25 @@ public class ContractSchedulerService {
             if (contract.renewsTacitly()) {
                 renewTacitly(contract, today, safeContractNumber);
                 renewedCount++;
-                continue;
-            }
-            // Renews tacitly, but for how long isn't stated: marking it
-            // EXPIRED would be false, extending it a guess. Left ACTIVE for
-            // the user to update.
-            if (Boolean.TRUE.equals(contract.getAutoRenew())) {
+            } else if (Boolean.TRUE.equals(contract.getAutoRenew())) {
+                // Renews tacitly, but for how long isn't stated: marking it
+                // EXPIRED would be false, extending it a guess. Left ACTIVE for
+                // the user to update.
                 logger.warn("Contract {} (ID: {}) renews tacitly but has no renewal length: left ACTIVE",
                         safeContractNumber, contract.getId());
-                continue;
+            } else {
+                logger.info("Expiring contract: {} (ID: {}) - End date: {}",
+                        safeContractNumber,
+                        contract.getId(),
+                        contract.getEndDate());
+
+                ContractStatus previousStatus = contract.getStatus();
+                contract.setStatus(ContractStatus.EXPIRED);
+                contractsRepository.save(contract);
+
+                createHistoryRecord(contract, previousStatus);
+                expiredCount++;
             }
-            logger.info("Expiring contract: {} (ID: {}) - End date: {}",
-                    safeContractNumber,
-                    contract.getId(),
-                    contract.getEndDate());
-
-            ContractStatus previousStatus = contract.getStatus();
-            contract.setStatus(ContractStatus.EXPIRED);
-            contractsRepository.save(contract);
-
-            createHistoryRecord(contract, previousStatus);
-            expiredCount++;
         }
 
         logger.info("Contract expiration check completed. {} contracts expired, {} renewed tacitly.",

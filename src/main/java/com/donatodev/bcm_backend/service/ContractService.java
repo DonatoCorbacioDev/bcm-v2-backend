@@ -315,13 +315,7 @@ public class ContractService {
         // Derive workflow stage the same way contract creation does: entering
         // DRAFT for the first time starts the workflow; leaving DRAFT for any
         // other status means the approval workflow no longer applies.
-        if (contractDTO.status() == ContractStatus.DRAFT) {
-            if (previousStatus != ContractStatus.DRAFT) {
-                contract.setWorkflowStage(WorkflowStage.DRAFT);
-            }
-        } else {
-            contract.setWorkflowStage(null);
-        }
+        updateWorkflowStage(contract, previousStatus, contractDTO.status());
 
         contract = contractsRepository.save(contract);
 
@@ -722,6 +716,14 @@ public class ContractService {
         }
 
         return new AuthCtx(role, managerId);
+    }
+
+    private static void updateWorkflowStage(Contracts contract, ContractStatus previousStatus, ContractStatus newStatus) {
+        if (newStatus != ContractStatus.DRAFT) {
+            contract.setWorkflowStage(null);
+        } else if (previousStatus != ContractStatus.DRAFT) {
+            contract.setWorkflowStage(WorkflowStage.DRAFT);
+        }
     }
 
     private record AuthCtx(String role, Long managerId) {

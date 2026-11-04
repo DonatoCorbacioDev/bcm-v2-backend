@@ -98,8 +98,8 @@ class OrganizationPurgeIT extends AbstractMySQLIntegrationTest {
         List<Map<String, Object>> audit = jdbc.queryForList(
                 "SELECT action, username, details FROM audit_logs WHERE org_id = ?", doomed.orgId());
         assertThat(audit).hasSize(1);
-        assertThat(audit.get(0).get("action")).isEqualTo("ORGANIZATION_DELETED");
-        assertThat(audit.get(0).get("username")).isEqualTo("system");
+        assertThat(audit.get(0)).containsEntry("action", "ORGANIZATION_DELETED")
+                .containsEntry("username", "system");
         assertThat((String) audit.get(0).get("details")).doesNotContain(doomed.name());
 
         for (String path : doomed.files()) {

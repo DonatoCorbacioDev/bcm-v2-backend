@@ -90,7 +90,7 @@ class SeedDemoOrgIT extends AbstractMySQLIntegrationTest {
                 .isEqualTo(11);
         for (String name : List.of("Nuvola Cloud Services S.r.l.", "Ferri & Associati S.r.l.")) {
             Map<String, Object> supplier = supplier(name);
-            assertThat(supplier.get("type")).as(name).isEqualTo("SUPPLIER");
+            assertThat(supplier).as(name).containsEntry("type", "SUPPLIER");
             assertThat((String) supplier.get("vat_number")).as(name).matches("IT\\d{11}");
             assertThat(IbanValidator.isValid((String) supplier.get("verified_iban"))).as(name).isTrue();
         }
@@ -159,11 +159,11 @@ class SeedDemoOrgIT extends AbstractMySQLIntegrationTest {
         Map<String, Object> maintenance = jdbc.queryForMap(
                 "SELECT auto_renew, notice_days, renewal_months, DATEDIFF(DATE_SUB(end_date, INTERVAL notice_days DAY), CURDATE()) AS days_to_notice"
                         + " FROM contracts WHERE contract_number = 'NRT-2025-009' AND organization_id = 3");
-        assertThat(maintenance.get("auto_renew")).isEqualTo(true);
+        assertThat(maintenance).containsEntry("auto_renew", true);
         assertThat(((Number) maintenance.get("notice_days")).intValue()).isEqualTo(90);
         assertThat(((Number) maintenance.get("renewal_months")).intValue()).isEqualTo(12);
         assertThat(((Number) maintenance.get("days_to_notice")).intValue()).isEqualTo(20);
-        assertThat(supplier("Rossi Impianti S.r.l.").get("type")).isEqualTo("SUPPLIER");
+        assertThat(supplier("Rossi Impianti S.r.l.")).containsEntry("type", "SUPPLIER");
     }
 
     @Test
@@ -189,8 +189,8 @@ class SeedDemoOrgIT extends AbstractMySQLIntegrationTest {
         for (String name : List.of("Nuvola Cloud Services S.r.l.", "Ferri & Associati S.r.l.")) {
             assertThat(script).as(name).contains((String) supplier(name).get("vat_number"));
         }
-        assertThat(script).contains((String) supplier("Nuvola Cloud Services S.r.l.").get("verified_iban"));
         // Ferri's invoice must NOT carry the trusted IBAN: it is the anti-fraud scenario.
-        assertThat(script).doesNotContain((String) supplier("Ferri & Associati S.r.l.").get("verified_iban"));
+        assertThat(script).contains((String) supplier("Nuvola Cloud Services S.r.l.").get("verified_iban"))
+                .doesNotContain((String) supplier("Ferri & Associati S.r.l.").get("verified_iban"));
     }
 }

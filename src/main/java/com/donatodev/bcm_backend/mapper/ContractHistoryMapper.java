@@ -10,6 +10,8 @@ import org.springframework.stereotype.Component;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractHistoryDTO;
 import com.donatodev.bcm_backend.entity.ContractHistory;
+import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
@@ -63,18 +65,21 @@ public class ContractHistoryMapper {
         // Tenant-scoped: an admin must not write history onto another
         // organization's contract, nor sign it with another tenant's user.
         Long orgId = TenantContext.get();
+        Contracts contract = (orgId != null
+                ? contractsRepository.findByIdAndOrganization_Id(dto.contractId(), orgId)
+                : contractsRepository.findById(dto.contractId()))
+                .orElseThrow(() -> new ContractNotFoundException("Contract not found"));
+        Users modifiedBy = null;
+        if (dto.modifiedById() != null) {
+            modifiedBy = (orgId != null
+                    ? usersRepository.findByIdAndOrganizationId(dto.modifiedById(), orgId)
+                    : usersRepository.findById(dto.modifiedById()))
+                    .orElseThrow(() -> new UserNotFoundException("User not found"));
+        }
         return ContractHistory.builder()
                 .id(dto.id())
-                .contract((orgId != null
-                        ? contractsRepository.findByIdAndOrganization_Id(dto.contractId(), orgId)
-                        : contractsRepository.findById(dto.contractId()))
-                        .orElseThrow(() -> new ContractNotFoundException("Contract not found")))
-                .modifiedBy(dto.modifiedById() != null
-                        ? (orgId != null
-                                ? usersRepository.findByIdAndOrganizationId(dto.modifiedById(), orgId)
-                                : usersRepository.findById(dto.modifiedById()))
-                                .orElseThrow(() -> new UserNotFoundException("User not found"))
-                        : null)
+                .contract(contract)
+                .modifiedBy(modifiedBy)
                 .modificationDate(dto.modificationDate() != null ? dto.modificationDate() : java.time.LocalDateTime.now(java.time.ZoneId.systemDefault()))
                 .previousStatus(dto.previousStatus())
                 .newStatus(dto.newStatus())
