@@ -430,4 +430,156 @@ class ContractSchedulerServiceTest {
             return c;
         }
     }
+
+    /**
+     * Tacit renewal: the date that matters is the last day to give notice, and
+     * at the end date a contract that wasn't cancelled renews instead of
+     * expiring.
+     */
+    @Nested
+    @DisplayName("Unit Test: tacit renewal and notice deadline")
+    @SuppressWarnings("unused")
+    class VerifyTacitRenewal {
+
+        private final LocalDate today = LocalDate.now(java.time.ZoneId.systemDefault());
+
+        private Contracts tacitContract(Integer noticeDays, Integer renewalMonths, LocalDate endDate) {
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setFirstName("Anna");
+            manager.setLastName("Verdi");
+            manager.setEmail("anna@example.com");
+            return Contracts.builder()
+                    .id(10L).contractNumber("MAN-2026")
+                    .counterparty(Counterparty.builder().name("Rossi Impianti").type(CounterpartyType.SUPPLIER).build())
+                    .projectName("Manutenzione impianti")
+                    .status(ContractStatus.ACTIVE)
+                    .startDate(endDate.minusYears(1)).endDate(endDate)
+                    .autoRenew(true).noticeDays(noticeDays).renewalMonths(renewalMonths)
+                    .manager(manager)
+                    .build();
+        }
+
+        @Test
+        @DisplayName("Renews an overdue tacit contract by its renewal length instead of expiring it")
+        void renewsInsteadOfExpiring() {
+            LocalDate endDate = today.minusDays(1);
+            Contracts contract = tacitContract(90, 12, endDate);
+            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
+                    .thenReturn(List.of(contract));
+
+            schedulerService.expireOverdueContracts();
+
+            assertEquals(ContractStatus.ACTIVE, contract.getStatus());
+            assertEquals(endDate.plusMonths(12), contract.getEndDate());
+            verify(contractsRepository).save(contract);
+            verify(contractHistoryRepository, never()).save(any());
+            verify(agentNotificationService).notifyTacitRenewal(contract, endDate);
+        }
+
+        @Test
+        @DisplayName("Renews as many periods as needed when the job hasn't run for a while")
+        void catchesUpMissedRenewals() {
+            LocalDate endDate = today.minusMonths(7);
+            Contracts contract = tacitContract(30, 3, endDate);
+            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
+                    .thenReturn(List.of(contract));
+
+            schedulerService.expireOverdueContracts();
+
+            // 3 renewals of 3 months: the first end date not before today.
+            assertEquals(endDate.plusMonths(9), contract.getEndDate());
+        }
+
+        @Test
+        @DisplayName("Leaves ACTIVE, untouched, a tacit contract whose renewal length isn't stated")
+        void leavesUnknownRenewalActive() {
+            LocalDate endDate = today.minusDays(1);
+            Contracts contract = tacitContract(60, null, endDate);
+            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
+                    .thenReturn(List.of(contract));
+
+            schedulerService.expireOverdueContracts();
+
+            assertEquals(ContractStatus.ACTIVE, contract.getStatus());
+            assertEquals(endDate, contract.getEndDate());
+            verify(contractsRepository, never()).save(any());
+            verify(contractHistoryRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Still expires a contract that states it does not renew")
+        void stillExpiresNonRenewing() {
+            Contracts contract = tacitContract(null, null, today.minusDays(1));
+            contract.setAutoRenew(false);
+            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
+                    .thenReturn(List.of(contract));
+
+            schedulerService.expireOverdueContracts();
+
+            assertEquals(ContractStatus.EXPIRED, contract.getStatus());
+        }
+
+        @Test
+        @DisplayName("Reminds 30 days before the notice deadline, not before the end date")
+        void remindsAboutTheNoticeDeadline() {
+            // Notice deadline in 30 days, end date 120 days away.
+            Contracts contract = tacitContract(90, 12, today.plusDays(120));
+            when(contractsRepository.findByStatusAndAutoRenewTrueAndNoticeDaysIsNotNull(ContractStatus.ACTIVE))
+                    .thenReturn(List.of(contract));
+
+            schedulerService.sendExpirationNotifications();
+
+            verify(emailService).sendEmail(
+                    eq("anna@example.com"),
+                    eq("[BCM] Promemoria — restano 30 giorni per disdire il contratto MAN-2026"),
+                    argThat(body -> body.contains("Termine di disdetta in arrivo")
+                            && body.contains("Ultimo giorno per disdire:</span> <span class=\"value\">"
+                                    + today.plusDays(30).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")))
+                            && body.contains("si rinnova automaticamente per altri 12 mesi")));
+            verify(agentNotificationService).notifyNoticeDeadline(contract);
+            verify(agentNotificationService, never()).notifyExpiringContract(any());
+        }
+
+        @Test
+        @DisplayName("Sends no end-date reminder for a contract reminded about its notice deadline")
+        void skipsTheEndDateReminder() {
+            // End date in 30 days, so its deadline (60 days ago) has passed: no reminder at all.
+            Contracts contract = tacitContract(90, 12, today.plusDays(30));
+            when(contractsRepository.findByStatusAndEndDate(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
+                    .thenReturn(List.of(contract))
+                    .thenReturn(Collections.emptyList());
+
+            schedulerService.sendExpirationNotifications();
+
+            verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("Sends no reminder on days that aren't a threshold")
+        void ignoresNonThresholdDays() {
+            Contracts contract = tacitContract(90, 12, today.plusDays(110)); // deadline in 20 days
+            when(contractsRepository.findByStatusAndAutoRenewTrueAndNoticeDaysIsNotNull(ContractStatus.ACTIVE))
+                    .thenReturn(List.of(contract));
+
+            schedulerService.sendExpirationNotifications();
+
+            verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("Uses 'Ultimo avviso' the day before the notice deadline")
+        void finalNoticeTheDayBefore() {
+            Contracts contract = tacitContract(90, 12, today.plusDays(91)); // deadline tomorrow
+            when(contractsRepository.findByStatusAndAutoRenewTrueAndNoticeDaysIsNotNull(ContractStatus.ACTIVE))
+                    .thenReturn(List.of(contract));
+
+            schedulerService.sendExpirationNotifications();
+
+            verify(emailService).sendEmail(
+                    eq("anna@example.com"),
+                    eq("[BCM] Ultimo avviso — domani è l'ultimo giorno per disdire il contratto MAN-2026"),
+                    anyString());
+        }
+    }
 }

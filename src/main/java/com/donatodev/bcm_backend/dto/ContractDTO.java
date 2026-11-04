@@ -10,6 +10,8 @@ import java.time.LocalDate;
 import com.donatodev.bcm_backend.entity.BillingFrequency;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.WorkflowStage;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -38,6 +40,11 @@ import jakarta.validation.constraints.NotNull;
  * @param financialTypeId the financial type generated {@code FinancialValues} rows should use (optional — see financial terms below)
  * @param annualValue the contract's yearly value in euros, divided across periods per {@code billingFrequency} (optional)
  * @param billingFrequency how often the contract invoices; together with {@code financialTypeId}/{@code annualValue}, opts a contract into automatic financial-value generation (optional)
+ * @param autoRenew whether the contract renews tacitly (null = not stated)
+ * @param noticeDays days of notice required to stop the tacit renewal (optional)
+ * @param renewalMonths length of each tacit renewal, in months (optional)
+ * @param noticeDeadline read-only: last day to give notice, {@code endDate - noticeDays}; null unless both terms are stated
+ * @param daysUntilNoticeDeadline read-only: days left until {@code noticeDeadline}, for ACTIVE contracts
  */
 public record ContractDTO(
         Long id,
@@ -58,8 +65,29 @@ public record ContractDTO(
         WorkflowStage workflowStage,
         Long financialTypeId,
         Double annualValue,
-        BillingFrequency billingFrequency
+        BillingFrequency billingFrequency,
+        Boolean autoRenew,
+        @Min(value = 0, message = "Il preavviso non può essere negativo")
+        @Max(value = 3650, message = "Il preavviso non può superare i 10 anni") Integer noticeDays,
+        @Min(value = 1, message = "La durata del rinnovo deve essere di almeno 1 mese")
+        @Max(value = 120, message = "La durata del rinnovo non può superare i 120 mesi") Integer renewalMonths,
+        LocalDate noticeDeadline,
+        Integer daysUntilNoticeDeadline
         ) {
+
+    /**
+     * Compatibility constructor for call sites predating tacit renewal terms —
+     * defaults them to {@code null} ("not stated").
+     */
+    public ContractDTO(Long id, Long counterpartyId, CounterpartyDTO counterparty, String contractNumber, String wbsCode,
+            String projectName, ContractStatus status, LocalDate startDate, LocalDate endDate,
+            Long areaId, Long managerId, String managerName, ManagerDTO manager, BusinessAreaDTO area,
+            Integer daysUntilExpiry, WorkflowStage workflowStage, Long financialTypeId, Double annualValue,
+            BillingFrequency billingFrequency) {
+        this(id, counterpartyId, counterparty, contractNumber, wbsCode, projectName, status, startDate, endDate,
+                areaId, managerId, managerName, manager, area, daysUntilExpiry, workflowStage, financialTypeId,
+                annualValue, billingFrequency, null, null, null, null, null);
+    }
 
     /**
      * Compatibility constructor for call sites predating optional financial

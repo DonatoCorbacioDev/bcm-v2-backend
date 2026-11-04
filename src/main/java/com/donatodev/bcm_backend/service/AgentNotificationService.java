@@ -7,6 +7,7 @@ package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -52,6 +53,46 @@ public class AgentNotificationService {
                     CONTRACT_PREFIX + contract.getContractNumber() + " scade tra " + daysLeft
                             + dayWord + contract.getCounterparty().getName() + ")",
                     NotificationType.WARNING
+            );
+        });
+    }
+
+    /** The last day to give notice of a tacitly renewing contract is near. */
+    public void notifyNoticeDeadline(Contracts contract) {
+        Managers manager = contract.getManager();
+        if (manager == null || manager.getEmail() == null || contract.noticeDeadline() == null) return;
+
+        usersRepository.findByManagerEmailIgnoreCase(manager.getEmail()).ifPresent(user -> {
+            if (user.getOrganization() == null) return;
+            long daysLeft = ChronoUnit.DAYS.between(LocalDate.now(ZoneId.systemDefault()), contract.noticeDeadline());
+            String dayWord = daysLeft == 1 ? " giorno" : " giorni";
+            notificationService.createForUser(
+                    user.getId(),
+                    user.getOrganization().getId(),
+                    "Termine di disdetta in arrivo",
+                    "Restano " + daysLeft + dayWord + " per disdire il contratto " + contract.getContractNumber()
+                            + " (" + contract.getCounterparty().getName() + "), poi si rinnova automaticamente",
+                    NotificationType.WARNING
+            );
+        });
+    }
+
+    /** A contract was not given notice in time and renewed tacitly. */
+    public void notifyTacitRenewal(Contracts contract, LocalDate previousEndDate) {
+        Managers manager = contract.getManager();
+        if (manager == null || manager.getEmail() == null) return;
+
+        usersRepository.findByManagerEmailIgnoreCase(manager.getEmail()).ifPresent(user -> {
+            if (user.getOrganization() == null) return;
+            DateTimeFormatter italianDate = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            notificationService.createForUser(
+                    user.getId(),
+                    user.getOrganization().getId(),
+                    "Contratto rinnovato tacitamente",
+                    CONTRACT_PREFIX + contract.getContractNumber() + " (" + contract.getCounterparty().getName()
+                            + ") si è rinnovato: scadenza spostata dal " + previousEndDate.format(italianDate)
+                            + " al " + contract.getEndDate().format(italianDate),
+                    NotificationType.INFO
             );
         });
     }

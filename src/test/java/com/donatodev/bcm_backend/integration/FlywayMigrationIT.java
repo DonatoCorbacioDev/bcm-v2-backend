@@ -57,14 +57,34 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 48,
-                "Expected at least 48 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 49,
+                "Expected at least 49 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(48, maxVersion, "Highest applied migration version should be V48");
+        assertEquals(49, maxVersion, "Highest applied migration version should be V49");
+    }
+
+    @Test
+    @DisplayName("V49 adds nullable tacit renewal terms to contracts, with range checks")
+    void v49AddsContractTacitRenewal() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        List<String> nullable = jdbc.queryForList(
+                "SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                        + "AND TABLE_NAME = 'contracts' AND COLUMN_NAME IN ('auto_renew', 'notice_days', 'renewal_months') "
+                        + "ORDER BY COLUMN_NAME",
+                String.class);
+        // Existing contracts must keep "not stated": BCM doesn't invent contract terms.
+        assertEquals(List.of("YES", "YES", "YES"), nullable);
+
+        List<String> checks = jdbc.queryForList(
+                "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() "
+                        + "AND TABLE_NAME = 'contracts' AND CONSTRAINT_TYPE = 'CHECK' ORDER BY CONSTRAINT_NAME",
+                String.class);
+        assertTrue(checks.containsAll(List.of("chk_contracts_notice_days", "chk_contracts_renewal_months")), checks.toString());
     }
 
     @Test

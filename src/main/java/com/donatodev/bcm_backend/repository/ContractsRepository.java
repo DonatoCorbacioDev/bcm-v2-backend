@@ -86,6 +86,9 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
      */
     Optional<Contracts> findByIdAndOrganization_Id(Long id, Long orgId);
 
+    /** Active contracts renewing tacitly with a stated notice period: reminded about their notice deadline. */
+    List<Contracts> findByStatusAndAutoRenewTrueAndNoticeDaysIsNotNull(ContractStatus status);
+
     /**
      * Finds all contracts assigned to a specific manager and having the
      * specified status.

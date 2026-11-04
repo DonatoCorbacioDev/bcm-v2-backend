@@ -150,4 +150,38 @@ public class Contracts {
     @Enumerated(EnumType.STRING)
     @Column(name = "billing_frequency")
     private BillingFrequency billingFrequency;
+
+    /**
+     * Tacit renewal terms, all optional and stated by the user (never
+     * inferred): {@code null} means "not stated", and such a contract behaves
+     * as before. With {@code autoRenew} the date that matters is
+     * {@link #noticeDeadline()}, not the end date.
+     */
+    @Column(name = "auto_renew")
+    private Boolean autoRenew;
+
+    /** Days of notice the contract requires to stop a tacit renewal. */
+    @Column(name = "notice_days")
+    private Integer noticeDays;
+
+    /** Length of each tacit renewal, in months. */
+    @Column(name = "renewal_months")
+    private Integer renewalMonths;
+
+    /**
+     * The last day to give notice ({@code endDate - noticeDays}), or
+     * {@code null} when the contract doesn't renew tacitly or its notice
+     * period isn't stated. Not a getter on purpose: it's derived, not mapped.
+     */
+    public LocalDate noticeDeadline() {
+        if (!Boolean.TRUE.equals(autoRenew) || noticeDays == null || endDate == null) {
+            return null;
+        }
+        return endDate.minusDays(noticeDays);
+    }
+
+    /** True when the contract renews tacitly and states for how long, so it can be renewed. */
+    public boolean renewsTacitly() {
+        return Boolean.TRUE.equals(autoRenew) && renewalMonths != null;
+    }
 }

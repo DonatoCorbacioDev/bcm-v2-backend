@@ -293,6 +293,7 @@ public class ContractService {
         contract.setStatus(contractDTO.status());
         contract.setStartDate(contractDTO.startDate());
         contract.setEndDate(contractDTO.endDate());
+        contractMapper.applyRenewalTerms(contract, contractDTO);
 
         if (contractDTO.areaId() != null) {
             Long orgId = TenantContext.get();

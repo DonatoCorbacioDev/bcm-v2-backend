@@ -7,6 +7,7 @@ package com.donatodev.bcm_backend.service;
 
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
@@ -98,6 +99,21 @@ public class CalendarFeedService {
                     .append("DTEND;VALUE=DATE:").append(contract.getEndDate().plusDays(1).format(ICS_DATE)).append("\r\n")
                     .append("SUMMARY:").append(escapeIcsText(summary)).append("\r\n")
                     .append("END:VEVENT\r\n");
+
+            // For a tacit renewal the date to act on is the notice deadline,
+            // not the end date: by then the contract has already renewed.
+            LocalDate noticeDeadline = contract.noticeDeadline();
+            if (noticeDeadline != null) {
+                String noticeSummary = "Ultimo giorno per disdire " + contract.getContractNumber() + " - "
+                        + contract.getCounterparty().getName();
+                ics.append("BEGIN:VEVENT\r\n")
+                        .append("UID:contract-notice-").append(contract.getId()).append("@bcm\r\n")
+                        .append("DTSTAMP:").append(dtstamp).append("\r\n")
+                        .append("DTSTART;VALUE=DATE:").append(noticeDeadline.format(ICS_DATE)).append("\r\n")
+                        .append("DTEND;VALUE=DATE:").append(noticeDeadline.plusDays(1).format(ICS_DATE)).append("\r\n")
+                        .append("SUMMARY:").append(escapeIcsText(noticeSummary)).append("\r\n")
+                        .append("END:VEVENT\r\n");
+            }
         }
 
         ics.append("END:VCALENDAR\r\n");

@@ -102,6 +102,10 @@ public class ContractMapper {
             long days = ChronoUnit.DAYS.between(LocalDate.now(ZoneId.systemDefault()), contract.getEndDate());
             daysUntilExpiry = (int) days;
         }
+        LocalDate noticeDeadline = contract.noticeDeadline();
+        Integer daysUntilNoticeDeadline = contract.getStatus() == ContractStatus.ACTIVE && noticeDeadline != null
+                ? (int) ChronoUnit.DAYS.between(LocalDate.now(ZoneId.systemDefault()), noticeDeadline)
+                : null;
 
         return new ContractDTO(
                 contract.getId(),
@@ -122,7 +126,12 @@ public class ContractMapper {
                 contract.getWorkflowStage(),
                 contract.getFinancialType() != null ? contract.getFinancialType().getId() : null,
                 contract.getAnnualValue(),
-                contract.getBillingFrequency()
+                contract.getBillingFrequency(),
+                contract.getAutoRenew(),
+                contract.getNoticeDays(),
+                contract.getRenewalMonths(),
+                noticeDeadline,
+                daysUntilNoticeDeadline
         );
     }
 
@@ -142,7 +151,7 @@ public class ContractMapper {
             return null;
         }
 
-        return Contracts.builder()
+        Contracts contract = Contracts.builder()
                 .id(dto.id())
                 .counterparty(resolveCounterparty(dto.counterpartyId()))
                 .contractNumber(dto.contractNumber())
@@ -160,6 +169,20 @@ public class ContractMapper {
                 .annualValue(dto.annualValue())
                 .billingFrequency(dto.billingFrequency())
                 .build();
+        applyRenewalTerms(contract, dto);
+        return contract;
+    }
+
+    /**
+     * Copies the tacit renewal terms. Notice and renewal length only mean
+     * something for a contract that renews tacitly, so they are cleared
+     * otherwise instead of lingering unseen in the database.
+     */
+    public void applyRenewalTerms(Contracts contract, ContractDTO dto) {
+        boolean renews = Boolean.TRUE.equals(dto.autoRenew());
+        contract.setAutoRenew(dto.autoRenew());
+        contract.setNoticeDays(renews ? dto.noticeDays() : null);
+        contract.setRenewalMonths(renews ? dto.renewalMonths() : null);
     }
 
     /**
