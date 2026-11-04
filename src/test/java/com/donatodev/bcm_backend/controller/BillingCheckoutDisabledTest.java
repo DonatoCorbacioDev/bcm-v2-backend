@@ -39,7 +39,7 @@ import com.donatodev.bcm_backend.util.TestDataCleaner;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestPropertySource(properties = {
-        "stripe.secret-key=sk_test_configured",
+        "stripe.secret-key=fake-key-for-disabled-checkout-test",
         "stripe.pro-price-id=price_configured",
 })
 @DisplayName("Pro checkout is switched off by default")
