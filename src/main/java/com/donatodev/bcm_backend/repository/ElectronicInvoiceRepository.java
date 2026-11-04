@@ -23,6 +23,9 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
 
     List<ElectronicInvoice> findByContractIdOrderByUploadedAtDesc(Long contractId);
 
+    /** The organization's invoices not paid by a SEPA batch yet: candidates for the home page's to-do list. */
+    List<ElectronicInvoice> findByOrgIdAndSepaBatchIsNull(Long orgId);
+
     Optional<ElectronicInvoice> findByIdAndContractId(Long id, Long contractId);
 
     List<ElectronicInvoice> findByContractIdAndIdIn(Long contractId, List<Long> ids);

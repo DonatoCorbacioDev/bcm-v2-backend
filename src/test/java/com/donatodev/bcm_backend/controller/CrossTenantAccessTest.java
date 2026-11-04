@@ -379,6 +379,24 @@ class CrossTenantAccessTest {
     }
 
     @Test
+    @DisplayName("GET /home/attention lists only the caller's organization's contracts")
+    void homeAttentionIsScopedToCallerOrganization() throws Exception {
+        LocalDate soon = LocalDate.now(java.time.ZoneId.systemDefault()).plusDays(10);
+        orgAContract.setEndDate(soon);
+        contractsRepository.save(orgAContract);
+        orgBContract.setEndDate(soon);
+        contractsRepository.save(orgBContract);
+
+        mockMvc.perform(get("/home/attention")
+                        .header("Authorization", "Bearer " + orgAAdminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].contractNumber").value("CNTR-ORG-A"))
+                .andExpect(jsonPath("$.items[0].type").value("EXPIRY"))
+                .andExpect(jsonPath("$.dueSoonCount").value(1));
+    }
+
+    @Test
     @DisplayName("Sanity check: both organizations' contracts exist in the database")
     void bothContractsExistAcrossOrganizations() {
         List<Contracts> all = contractsRepository.findAll();
