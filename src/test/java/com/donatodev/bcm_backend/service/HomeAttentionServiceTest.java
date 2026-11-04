@@ -191,6 +191,12 @@ class HomeAttentionServiceTest {
         assertEquals(false, HomeAttentionService.ibanChanged(same, supplier));
         assertEquals(false, HomeAttentionService.ibanChanged(none, supplier));
         assertEquals(false, HomeAttentionService.ibanChanged(same, Counterparty.builder().build()));
+        // Normalized on both sides, so a verified IBAN stored with spaces or lowercase still matches.
+        Counterparty storedLoosely = Counterparty.builder().verifiedIban("it17 m050 3411 7010 0006 2194 812").build();
+        assertEquals(false, HomeAttentionService.ibanChanged(
+                invoice(null, InvoiceMatchStatus.CONFIRMED, VERIFIED_IBAN), storedLoosely));
+        assertEquals(true, HomeAttentionService.ibanChanged(
+                invoice(null, InvoiceMatchStatus.CONFIRMED, "IT60X0542811101000000123456"), supplier));
     }
 
     @Test

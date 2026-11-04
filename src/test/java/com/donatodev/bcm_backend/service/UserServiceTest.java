@@ -369,7 +369,7 @@ class UserServiceTest {
                     .build();
 
             SecurityContextHolder.getContext().setAuthentication(
-                    new UsernamePasswordAuthenticationToken("admin", null)
+                    UsernamePasswordAuthenticationToken.authenticated("admin", null, List.of())
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(user));
@@ -517,7 +517,7 @@ class UserServiceTest {
         @DisplayName("Get current user profile fails if user not found")
         void shouldThrowIfCurrentUserNotFound() {
             SecurityContextHolder.getContext().setAuthentication(
-                    new UsernamePasswordAuthenticationToken("ghost", null)
+                    UsernamePasswordAuthenticationToken.authenticated("ghost", null, List.of())
             );
 
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());

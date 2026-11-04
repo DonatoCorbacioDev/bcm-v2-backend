@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-import org.springframework.security.core.context.SecurityContextHolder;
+import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -179,7 +179,7 @@ public class CounterpartyService {
         counterparty.setVerifiedBic(normalizedBic == null || normalizedBic.isBlank() ? null : normalizedBic);
         counterparty = counterpartiesRepository.save(counterparty);
 
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = AuthenticatedUserUtils.getUsernameOrThrow();
         String action = previousIban == null ? "set" : "changed";
         String details = "Verified IBAN for counterparty " + id + " " + action
                 + " (" + IbanValidator.mask(previousIban) + " -> " + IbanValidator.mask(normalizedIban) + ")";

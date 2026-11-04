@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.context.SecurityContextHolder;
+import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -199,7 +199,7 @@ public class ElectronicInvoiceService {
                         String.format(INVOICE_NOT_FOUND, invoiceId, contractId)));
 
         Long financialValueId = request != null ? request.financialValueId() : null;
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = AuthenticatedUserUtils.getUsernameOrThrow();
         return toDTO(invoiceMatchingService.confirmMatch(invoice, financialValueId, username));
     }
 

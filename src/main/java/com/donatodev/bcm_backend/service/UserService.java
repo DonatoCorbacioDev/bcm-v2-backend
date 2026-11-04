@@ -17,7 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.security.core.context.SecurityContextHolder;
+import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -251,7 +251,7 @@ public class UserService {
 	 */
 	@Transactional(readOnly = true)
 	public UserProfileDTO getCurrentUserProfile() {
-		String username = SecurityContextHolder.getContext().getAuthentication().getName();
+		String username = AuthenticatedUserUtils.getUsernameOrThrow();
 		Users user = usersRepository.findByUsername(username)
 				.orElseThrow(() -> new UsernameNotFoundException("Utente non trovato: " + username));
 

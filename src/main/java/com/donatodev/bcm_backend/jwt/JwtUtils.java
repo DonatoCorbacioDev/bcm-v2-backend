@@ -69,7 +69,10 @@ public class JwtUtils {
      * to the username.
      */
     public String generateJwtToken(Authentication authentication) {
-        UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
+        // Spring Security 7 declares the principal nullable: fail loudly instead of an NPE.
+        if (!(authentication.getPrincipal() instanceof UserDetails userPrincipal)) {
+            throw new IllegalArgumentException("Authentication principal is not a UserDetails");
+        }
 
         Instant now = clock.instant();
         Instant expiration = now.plusMillis(jwtExpirationMs);

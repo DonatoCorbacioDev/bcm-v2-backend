@@ -163,8 +163,16 @@ public class HomeAttentionService {
         if (invoice.getSupplierIban() == null || counterparty == null || counterparty.getVerifiedIban() == null) {
             return false;
         }
-        String invoiceIban = invoice.getSupplierIban().replace(" ", "").toUpperCase(Locale.ROOT);
-        return !counterparty.getVerifiedIban().equalsIgnoreCase(invoiceIban);
+        return !normalizeIban(counterparty.getVerifiedIban()).equals(normalizeIban(invoice.getSupplierIban()));
+    }
+
+    /**
+     * Both sides normalized the same way, then compared exactly: an IBAN is
+     * ASCII letters and digits, so equalsIgnoreCase's Unicode case folding
+     * (what IMPROPER_UNICODE warns about) has no business here.
+     */
+    private static String normalizeIban(String iban) {
+        return iban.replace(" ", "").toUpperCase(Locale.ROOT);
     }
 
     private static boolean isManagedBy(Contracts contract, Long managerId) {

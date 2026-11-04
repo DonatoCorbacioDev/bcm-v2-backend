@@ -31,7 +31,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
-import org.springframework.security.core.context.SecurityContextHolder;
+import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.w3c.dom.Document;
@@ -217,7 +217,7 @@ public class SepaPaymentService {
     }
 
     private void logVerifiedIbanLearned(Counterparty counterparty, String iban) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = AuthenticatedUserUtils.getUsernameOrThrow();
         String details = "Verified IBAN for counterparty " + counterparty.getId()
                 + " auto-learned from first SEPA payment (" + IbanValidator.mask(iban) + ")";
         auditLogService.save("VERIFIED_IBAN_LEARNED", "Counterparty", counterparty.getId(), username,
@@ -226,7 +226,7 @@ public class SepaPaymentService {
 
     private void logIbanMismatchBlocked(Counterparty counterparty, ElectronicInvoice invoice,
                                          String verifiedIban, String invoiceIban) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = AuthenticatedUserUtils.getUsernameOrThrow();
         String details = "SEPA payment blocked: invoice " + invoice.getId() + " supplier IBAN ("
                 + IbanValidator.mask(invoiceIban) + ") does not match verified IBAN ("
                 + IbanValidator.mask(verifiedIban) + ") for counterparty " + counterparty.getId();

@@ -11,7 +11,7 @@ import java.time.ZoneId;
 import java.util.Locale;
 import java.util.UUID;
 
-import org.springframework.security.core.context.SecurityContextHolder;
+import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -263,7 +263,7 @@ public class OrganizationService {
                     .orElseThrow(() -> new OrganizationNotFoundException(ORGANIZATION_NOT_FOUND));
         }
         // Fallback when TenantContext is absent (e.g. test context with @WithMockUser)
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = AuthenticatedUserUtils.getUsernameOrThrow();
         return usersRepository.findByUsername(username)
                 .map(u -> {
                     if (u.getOrganization() == null) {

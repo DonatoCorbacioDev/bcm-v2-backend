@@ -70,6 +70,14 @@ class JwtUtilsTest {
         springUser = new User("john", "password", List.of(() -> "ROLE_ADMIN"));
     }
 
+    @Test
+    @DisplayName("Refuses to sign a token for a principal that isn't a UserDetails")
+    void shouldRejectNonUserDetailsPrincipal() {
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken("john", null);
+
+        assertThrows(IllegalArgumentException.class, () -> jwtUtils.generateJwtToken(auth));
+    }
+
     /**
      * Test: Generate and validate JWT token from Authentication.
      */

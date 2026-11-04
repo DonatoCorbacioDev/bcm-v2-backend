@@ -211,6 +211,47 @@
         <Bug pattern="POTENTIAL_XML_INJECTION"/>
     </Match>
 
+    <!-- THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION in SecurityConfig: the
+         clause is imposed by Spring's own API - HttpSecurity.build() and
+         AuthenticationConfiguration.getAuthenticationManager() both declare
+         `throws Exception`, so the @Bean methods calling them must too. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.security.SecurityConfig"/>
+        <Or>
+            <Method name="securityFilterChain"/>
+            <Method name="authenticationManager"/>
+        </Or>
+        <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION"/>
+    </Match>
+
+    <!-- SQL_INJECTION_SPRING_JDBC in OrganizationPurgeService: every SQL
+         string is a compile-time literal - the immutable DELETE_STATEMENTS
+         list and the two COUNT queries passed to count() - and the org id is
+         always bound as a `?` parameter, never concatenated. Re-check this
+         exclusion if a statement is ever built from a variable. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.OrganizationPurgeService"/>
+        <Or>
+            <Method name="deleteRows"/>
+            <Method name="count"/>
+        </Or>
+        <Bug pattern="SQL_INJECTION_SPRING_JDBC"/>
+    </Match>
+
+    <!-- CRLF_INJECTION_LOGS in OrganizationPurgeService: the logged values are
+         a long org id and an exception's Class.getSimpleName(), which cannot
+         carry CR/LF; the exception itself goes in as the throwable argument,
+         rendered by the encoder (structured JSON in prod, which escapes line
+         breaks). The organization name is deliberately never logged. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.OrganizationPurgeService"/>
+        <Or>
+            <Method name="purge"/>
+            <Method name="purgeDueOrganizations"/>
+        </Or>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
     <!-- This specific log call already sanitizes all three String arguments;
          its fourth argument is LocalDate, whose rendering cannot contain CR/LF.
          FindSecBugs flags the varargs call despite those controls. The regression

@@ -8,7 +8,7 @@ package com.donatodev.bcm_backend.service;
 import java.util.List;
 
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.context.SecurityContextHolder;
+import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -151,7 +151,7 @@ public class NotificationService {
     }
 
     private Users resolveCurrentUser() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = AuthenticatedUserUtils.getUsernameOrThrow();
         return usersRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("Utente non trovato: " + username));
     }
