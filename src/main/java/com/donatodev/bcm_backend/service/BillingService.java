@@ -54,6 +54,7 @@ public class BillingService {
     private final String proPriceId;
     private final String webhookSecret;
     private final String frontendBaseUrl;
+    private final boolean checkoutEnabled;
 
     public BillingService(
             StripeCheckoutGateway checkoutGateway,
@@ -62,7 +63,8 @@ public class BillingService {
             @Value("${stripe.secret-key:}") String secretKey,
             @Value("${stripe.pro-price-id:}") String proPriceId,
             @Value("${stripe.webhook-secret:}") String webhookSecret,
-            @Value("${app.frontend-base-url}") String frontendBaseUrl) {
+            @Value("${app.frontend-base-url}") String frontendBaseUrl,
+            @Value("${billing.checkout-enabled:false}") boolean checkoutEnabled) {
         this.checkoutGateway = checkoutGateway;
         this.organizationService = organizationService;
         this.organizationRepository = organizationRepository;
@@ -70,6 +72,7 @@ public class BillingService {
         this.proPriceId = proPriceId;
         this.webhookSecret = webhookSecret;
         this.frontendBaseUrl = frontendBaseUrl;
+        this.checkoutEnabled = checkoutEnabled;
     }
 
     /**
@@ -78,6 +81,14 @@ public class BillingService {
      * @return the Stripe-hosted checkout URL the frontend redirects to
      */
     public String createProCheckoutUrl() {
+        // Feature flag, checked before anything else: while the Pro plan is
+        // not for sale, no Stripe session is created whatever keys are
+        // configured, even if the endpoint is called directly (the button is
+        // only one way in). The role check stays with Spring Security.
+        if (!checkoutEnabled) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Il piano Pro non è ancora acquistabile: scrivici per avere informazioni");
+        }
         if (proPriceId.isBlank()) {
             throw notConfigured();
         }

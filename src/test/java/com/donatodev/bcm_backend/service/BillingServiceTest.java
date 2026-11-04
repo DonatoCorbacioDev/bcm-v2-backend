@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
@@ -65,7 +66,7 @@ class BillingServiceTest {
 
     private BillingService service(String secretKey, String priceId, String webhookSecret) {
         return new BillingService(checkoutGateway, organizationService, organizationRepository,
-                secretKey, priceId, webhookSecret, FRONTEND);
+                secretKey, priceId, webhookSecret, FRONTEND, true);
     }
 
     private static Organization org(SubscriptionTier tier) {
@@ -153,6 +154,20 @@ class BillingServiceTest {
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                     () -> billingService.createProCheckoutUrl());
             assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatusCode());
+        }
+
+        @Test
+        @DisplayName("refuses (409) while checkout is switched off, without contacting Stripe or reading the org")
+        void shouldRefuseWhenCheckoutDisabled() throws Exception {
+            TenantContext.set(1L);
+            BillingService notForSale = new BillingService(checkoutGateway, organizationService, organizationRepository,
+                    "sk_test_x", "price_x", WEBHOOK_SECRET, FRONTEND, false);
+
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class, notForSale::createProCheckoutUrl);
+
+            assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+            verify(checkoutGateway, never()).createSubscriptionCheckout(any(), any(), any(), any(), any());
+            verifyNoInteractions(organizationRepository);
         }
 
         @Test
