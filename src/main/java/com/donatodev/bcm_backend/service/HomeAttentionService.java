@@ -149,7 +149,7 @@ public class HomeAttentionService {
         return new Item(type, contract.getId(), contract.getContractNumber(),
                 invoice.getSupplierName() != null ? invoice.getSupplierName() : counterpartyName(contract),
                 contract.getProjectName(), date, date != null ? (int) ChronoUnit.DAYS.between(today, date) : null,
-                managerName(contract), null, invoice.getId(), invoice.getInvoiceNumber(), invoice.getTotalAmount());
+                managerName(contract), null, invoice.getId(), invoice.getInvoiceNumber(), invoice.comparableAmount());
     }
 
     /** Same comparison the SEPA payment makes before refusing the transfer, so the two agree. */

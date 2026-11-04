@@ -28,6 +28,7 @@ import com.donatodev.bcm_backend.mapper.CounterpartyMapper;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
+import com.donatodev.bcm_backend.repository.FinancialValuesRepository;
 import com.donatodev.bcm_backend.util.IbanValidator;
 
 /**
@@ -47,15 +48,17 @@ public class CounterpartyService {
     private final ContractsRepository contractsRepository;
     private final ElectronicInvoiceRepository invoiceRepository;
     private final AuditLogService auditLogService;
+    private final FinancialValuesRepository financialValuesRepository;
 
     public CounterpartyService(CounterpartiesRepository counterpartiesRepository, CounterpartyMapper counterpartyMapper,
                                 ContractsRepository contractsRepository, ElectronicInvoiceRepository invoiceRepository,
-                                AuditLogService auditLogService) {
+                                AuditLogService auditLogService, FinancialValuesRepository financialValuesRepository) {
         this.counterpartiesRepository = counterpartiesRepository;
         this.counterpartyMapper = counterpartyMapper;
         this.contractsRepository = contractsRepository;
         this.invoiceRepository = invoiceRepository;
         this.auditLogService = auditLogService;
+        this.financialValuesRepository = financialValuesRepository;
     }
 
     public List<CounterpartyDTO> getAllCounterparties() {
@@ -80,17 +83,32 @@ public class CounterpartyService {
         Counterparty counterparty = findCounterpartyInScope(id)
                 .orElseThrow(() -> new CounterpartyNotFoundException(COUNTERPARTY_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
-        int year = Year.now(ZoneId.systemDefault()).getValue();
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        int year = today.getYear();
         int activeContracts = contractsRepository.countActiveContractsByCounterpartyId(id);
         double contractedValue = contractsRepository.sumActiveAnnualValueByCounterpartyId(id);
-        double invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(id, year).doubleValue();
         long invoiceCount = invoiceRepository.countByContractCounterpartyId(id);
         LocalDate lastInvoiceDate = invoiceRepository.findLastInvoiceDateByCounterpartyId(id);
-        double variancePercent = contractedValue == 0 ? 0.0 : ((invoicedYtd - contractedValue) / contractedValue) * 100.0;
+
+        // Only a supplier's invoices reach BCM (received FatturaPA), so only
+        // for a supplier is "invoiced vs expected" meaningful. Expected and
+        // invoiced cover the same period (January to this month), both IVA
+        // esclusa: comparing the yearly contract value with the invoices so
+        // far made a punctual supplier look -50% in June.
+        boolean comparable = counterparty.getType() == CounterpartyType.SUPPLIER
+                || counterparty.getType() == CounterpartyType.BOTH;
+        double invoicedYtd = 0.0;
+        double expectedYtd = 0.0;
+        double variancePercent = 0.0;
+        if (comparable) {
+            invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(id, year).doubleValue();
+            expectedYtd = financialValuesRepository.sumCostByCounterpartyUpToMonth(id, year, today.getMonthValue());
+            variancePercent = expectedYtd == 0 ? 0.0 : ((invoicedYtd - expectedYtd) / expectedYtd) * 100.0;
+        }
 
         return new CounterpartyInvoicingSummaryDTO(
                 counterparty.getId(), counterparty.getName(), activeContracts, contractedValue,
-                invoicedYtd, variancePercent, invoiceCount, lastInvoiceDate);
+                invoicedYtd, variancePercent, invoiceCount, lastInvoiceDate, expectedYtd, comparable);
     }
 
     /**

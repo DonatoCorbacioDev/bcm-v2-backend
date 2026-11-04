@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.math.BigDecimal;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -96,6 +97,8 @@ public class ElectronicInvoiceService {
                 .invoiceNumber(parsed.invoiceNumber())
                 .invoiceDate(parsed.invoiceDate())
                 .totalAmount(parsed.totalAmount())
+                .taxableAmount(parsed.taxableAmount())
+                .vatAmount(parsed.vatAmount())
                 .currency(parsed.currency())
                 .supplierIban(parsed.supplierIban())
                 .supplierBic(parsed.supplierBic())
@@ -256,7 +259,32 @@ public class ElectronicInvoiceService {
                 invoice.getMatchedFinancialValue() != null ? invoice.getMatchedFinancialValue().getId() : null,
                 invoice.getMatchConfidence(),
                 invoice.getMatchedAt(),
-                invoice.getMatchedByUser() != null ? invoice.getMatchedByUser().getUsername() : null);
+                invoice.getMatchedByUser() != null ? invoice.getMatchedByUser().getUsername() : null,
+                invoice.getTaxableAmount(),
+                invoice.getVatAmount(),
+                expectedAmount(invoice),
+                amountDifference(invoice));
+    }
+
+    /** The amount the contract expected for the period the invoice is matched (or suggested) to. */
+    private static BigDecimal expectedAmount(ElectronicInvoice invoice) {
+        return invoice.getMatchedFinancialValue() != null
+                ? BigDecimal.valueOf(invoice.getMatchedFinancialValue().getFinancialAmount()).setScale(2, java.math.RoundingMode.HALF_UP)
+                : null;
+    }
+
+    /**
+     * Invoice taxable amount minus the expected one, to be checked by a
+     * person (a difference can be a valid variation, not an error). Not given
+     * for a credit note, which is not an instalment.
+     */
+    private static BigDecimal amountDifference(ElectronicInvoice invoice) {
+        BigDecimal expected = expectedAmount(invoice);
+        BigDecimal actual = invoice.comparableAmount();
+        if (expected == null || actual == null || ElectronicInvoice.CREDIT_NOTE.equals(invoice.getDocumentType())) {
+            return null;
+        }
+        return actual.subtract(expected);
     }
 
     private List<InvoiceLineItem> toLineItemEntities(List<InvoiceLineItemDTO> dtos, ElectronicInvoice invoice) {

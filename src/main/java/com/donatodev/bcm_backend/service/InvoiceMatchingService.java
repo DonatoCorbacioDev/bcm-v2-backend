@@ -102,7 +102,9 @@ public class InvoiceMatchingService {
             if (isConfirmedToAnotherInvoice(candidate, invoice)) {
                 continue;
             }
-            double score = AMOUNT_WEIGHT * amountScore(invoice.getTotalAmount(), candidate.getFinancialAmount())
+            // Taxable amount: contract amounts are IVA esclusa, so the total
+            // would always look ~22% off.
+            double score = AMOUNT_WEIGHT * amountScore(invoice.comparableAmount(), candidate.getFinancialAmount())
                     + DATE_WEIGHT * dateScore(invoice.getInvoiceDate(), candidate.getMonth(), candidate.getYear());
             if (score > bestScore) {
                 bestScore = score;

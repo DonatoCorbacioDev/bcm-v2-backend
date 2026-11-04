@@ -90,6 +90,7 @@ public class FatturaPaXmlParserService {
         BigDecimal totalAmount = parseOptionalAmount(getTextOrNull(datiGeneraliDocumento, "ImportoTotaleDocumento"));
 
         List<InvoiceLineItemDTO> lineItems = extractLineItems(body);
+        BigDecimal[] taxableAndVat = extractTaxableAndVat(body, lineItems);
 
         // DatiPagamento is genuinely optional (minOccurs="0"): not every
         // invoice carries payment terms.
@@ -105,7 +106,36 @@ public class FatturaPaXmlParserService {
 
         return new FatturaPaInvoiceData(supplierName, supplierVatNumber, documentType,
                 invoiceNumber, invoiceDate, totalAmount, currency, lineItems,
-                supplierIban, supplierBic, paymentDueDate);
+                supplierIban, supplierBic, paymentDueDate, taxableAndVat[0], taxableAndVat[1]);
+    }
+
+    /**
+     * Taxable amount and VAT, summed over the DatiRiepilogo blocks (one per
+     * VAT rate): the document's own totals, which include ancillary charges
+     * and rounding the line items don't. DatiRiepilogo is mandatory in the
+     * schema; should it still be missing, the taxable amount falls back to
+     * the line totals and the VAT is left unknown.
+     */
+    BigDecimal[] extractTaxableAndVat(Element body, List<InvoiceLineItemDTO> lineItems) {
+        BigDecimal taxable = null;
+        BigDecimal vat = null;
+        for (Element datiBeniServizi : findChildrenByLocalName(body, "DatiBeniServizi")) {
+            for (Element riepilogo : findChildrenByLocalName(datiBeniServizi, "DatiRiepilogo")) {
+                BigDecimal imponibile = parseOptionalAmount(getTextOrNull(riepilogo, "ImponibileImporto"));
+                BigDecimal imposta = parseOptionalAmount(getTextOrNull(riepilogo, "Imposta"));
+                if (imponibile != null) {
+                    taxable = taxable == null ? imponibile : taxable.add(imponibile);
+                }
+                if (imposta != null) {
+                    vat = vat == null ? imposta : vat.add(imposta);
+                }
+            }
+        }
+        if (taxable == null) {
+            taxable = lineItems.stream().map(InvoiceLineItemDTO::totalPrice).filter(java.util.Objects::nonNull)
+                    .reduce(BigDecimal::add).orElse(null);
+        }
+        return new BigDecimal[] { taxable, vat };
     }
 
     String extractSupplierIban(Element dettaglioPagamento) {

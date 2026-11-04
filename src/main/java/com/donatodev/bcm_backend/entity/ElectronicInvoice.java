@@ -54,6 +54,13 @@ public class ElectronicInvoice extends StoredFile {
     @Column(name = "total_amount", precision = 15, scale = 2)
     private BigDecimal totalAmount;
 
+    /** Taxable amount (IVA esclusa): what contract amounts are compared with. */
+    @Column(name = "taxable_amount", precision = 15, scale = 2)
+    private BigDecimal taxableAmount;
+
+    @Column(name = "vat_amount", precision = 15, scale = 2)
+    private BigDecimal vatAmount;
+
     @Column(name = "currency", length = 3)
     private String currency;
 
@@ -93,4 +100,16 @@ public class ElectronicInvoice extends StoredFile {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "matched_by_user_id")
     private Users matchedByUser;
+
+    /** TipoDocumento of a credit note: it reduces what was invoiced. */
+    public static final String CREDIT_NOTE = "TD04";
+
+    /**
+     * The amount to compare with the contract: the taxable amount (contract
+     * amounts are IVA esclusa), or the document total for an invoice parsed
+     * before the taxable amount was stored. Not a getter: derived, not mapped.
+     */
+    public BigDecimal comparableAmount() {
+        return taxableAmount != null ? taxableAmount : totalAmount;
+    }
 }

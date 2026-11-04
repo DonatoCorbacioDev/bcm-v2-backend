@@ -45,5 +45,23 @@ public record ElectronicInvoiceDTO(
         Long matchedFinancialValueId,
         Double matchConfidence,
         Instant matchedAt,
-        String matchedByUsername
-) {}
+        String matchedByUsername,
+        BigDecimal taxableAmount,
+        BigDecimal vatAmount,
+        BigDecimal expectedAmount,
+        BigDecimal amountDifference
+) {
+
+    /** Compatibility constructor for call sites predating the taxable amount comparison. */
+    public ElectronicInvoiceDTO(Long id, Long contractId, String fileName, Long fileSize, Instant uploadedAt,
+            String downloadUrl, String supplierName, String supplierVatNumber, String documentType,
+            String invoiceNumber, LocalDate invoiceDate, BigDecimal totalAmount, String currency,
+            List<InvoiceLineItemDTO> lineItems, String supplierIban, String supplierBic, LocalDate paymentDueDate,
+            Long sepaBatchId, InvoiceMatchStatus matchStatus, Long matchedFinancialValueId, Double matchConfidence,
+            Instant matchedAt, String matchedByUsername) {
+        this(id, contractId, fileName, fileSize, uploadedAt, downloadUrl, supplierName, supplierVatNumber,
+                documentType, invoiceNumber, invoiceDate, totalAmount, currency, lineItems, supplierIban,
+                supplierBic, paymentDueDate, sepaBatchId, matchStatus, matchedFinancialValueId, matchConfidence,
+                matchedAt, matchedByUsername, null, null, null, null);
+    }
+}

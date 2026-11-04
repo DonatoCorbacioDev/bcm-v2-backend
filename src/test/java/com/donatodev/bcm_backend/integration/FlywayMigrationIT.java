@@ -57,14 +57,27 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 49,
-                "Expected at least 49 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 50,
+                "Expected at least 50 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(49, maxVersion, "Highest applied migration version should be V49");
+        assertEquals(50, maxVersion, "Highest applied migration version should be V50");
+    }
+
+    @Test
+    @DisplayName("V50 adds nullable taxable amount and VAT to invoices")
+    void v50AddsInvoiceTaxableAmount() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        List<String> columns = jdbc.queryForList(
+                "SELECT CONCAT(COLUMN_NAME, ':', IS_NULLABLE, ':', NUMERIC_SCALE) FROM information_schema.COLUMNS"
+                        + " WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'electronic_invoices'"
+                        + " AND COLUMN_NAME IN ('taxable_amount', 'vat_amount') ORDER BY COLUMN_NAME",
+                String.class);
+        assertEquals(List.of("taxable_amount:YES:2", "vat_amount:YES:2"), columns);
     }
 
     @Test

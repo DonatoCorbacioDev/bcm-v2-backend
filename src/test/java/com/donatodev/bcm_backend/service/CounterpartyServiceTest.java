@@ -75,6 +75,9 @@ class CounterpartyServiceTest {
     @Mock
     private AuditLogService auditLogService;
 
+    @Mock
+    private com.donatodev.bcm_backend.repository.FinancialValuesRepository financialValuesRepository;
+
     @InjectMocks
     private CounterpartyService service;
 
@@ -289,14 +292,16 @@ class CounterpartyServiceTest {
 
         @Test
         @Order(12)
-        @DisplayName("getInvoicingSummary computes variance from contracted value vs. confirmed-invoiced YTD")
+        @DisplayName("getInvoicingSummary compares a supplier's expected costs and invoices over the same months")
         void shouldGetInvoicingSummary() {
-            Counterparty entity = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.CUSTOMER).build();
-            int year = Year.now().getValue();
+            Counterparty entity = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
+            LocalDate today = LocalDate.now();
+            int year = today.getYear();
 
             when(repository.findById(1L)).thenReturn(Optional.of(entity));
             when(contractsRepository.countActiveContractsByCounterpartyId(1L)).thenReturn(3);
-            when(contractsRepository.sumActiveAnnualValueByCounterpartyId(1L)).thenReturn(10000.0);
+            when(contractsRepository.sumActiveAnnualValueByCounterpartyId(1L)).thenReturn(12000.0);
+            when(financialValuesRepository.sumCostByCounterpartyUpToMonth(1L, year, today.getMonthValue())).thenReturn(10000.0);
             when(invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(1L, year))
                     .thenReturn(new BigDecimal("8000.00"));
             when(invoiceRepository.countByContractCounterpartyId(1L)).thenReturn(5L);
@@ -307,32 +312,50 @@ class CounterpartyServiceTest {
             assertEquals(1L, result.counterpartyId());
             assertEquals("Alfa Srl", result.counterpartyName());
             assertEquals(3, result.activeContracts());
-            assertEquals(10000.0, result.contractedValue());
+            assertEquals(12000.0, result.contractedValue());
+            assertEquals(10000.0, result.expectedYtd());
             assertEquals(8000.0, result.invoicedYtd());
             assertEquals(5L, result.invoiceCount());
             assertEquals(LocalDate.of(2026, Month.MARCH, 1), result.lastInvoiceDate());
+            // Against the expected so far, not the yearly value (which would say -33%).
             assertEquals(-20.0, result.variancePercent(), 0.0001);
+            assertEquals(true, result.comparable());
         }
 
         @Test
         @Order(13)
-        @DisplayName("getInvoicingSummary reports zero variance when there is no contracted value yet")
-        void shouldReportZeroVariancePercentWhenContractedValueIsZero() {
+        @DisplayName("getInvoicingSummary doesn't compare a customer: its invoices aren't in BCM")
+        void shouldNotCompareCustomer() {
             Counterparty entity = Counterparty.builder().id(2L).name("Beta Srl").type(CounterpartyType.CUSTOMER).build();
-            int year = Year.now().getValue();
 
             when(repository.findById(2L)).thenReturn(Optional.of(entity));
-            when(contractsRepository.countActiveContractsByCounterpartyId(2L)).thenReturn(0);
-            when(contractsRepository.sumActiveAnnualValueByCounterpartyId(2L)).thenReturn(0.0);
-            when(invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(2L, year))
-                    .thenReturn(BigDecimal.ZERO);
+            when(contractsRepository.countActiveContractsByCounterpartyId(2L)).thenReturn(1);
+            when(contractsRepository.sumActiveAnnualValueByCounterpartyId(2L)).thenReturn(5000.0);
             when(invoiceRepository.countByContractCounterpartyId(2L)).thenReturn(0L);
             when(invoiceRepository.findLastInvoiceDateByCounterpartyId(2L)).thenReturn(null);
 
             CounterpartyInvoicingSummaryDTO result = service.getInvoicingSummary(2L);
 
+            assertEquals(false, result.comparable());
+            assertEquals(5000.0, result.contractedValue());
             assertEquals(0.0, result.variancePercent());
-            assertEquals(null, result.lastInvoiceDate());
+            assertEquals(0.0, result.invoicedYtd());
+            org.mockito.Mockito.verifyNoInteractions(financialValuesRepository);
+        }
+
+        @Test
+        @Order(131)
+        @DisplayName("getInvoicingSummary reports zero variance when nothing is expected yet")
+        void shouldReportZeroVariancePercentWhenNothingExpected() {
+            Counterparty entity = Counterparty.builder().id(3L).name("Gamma Srl").type(CounterpartyType.SUPPLIER).build();
+            LocalDate today = LocalDate.now();
+
+            when(repository.findById(3L)).thenReturn(Optional.of(entity));
+            when(financialValuesRepository.sumCostByCounterpartyUpToMonth(3L, today.getYear(), today.getMonthValue())).thenReturn(0.0);
+            when(invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(3L, today.getYear()))
+                    .thenReturn(new BigDecimal("100.00"));
+
+            assertEquals(0.0, service.getInvoicingSummary(3L).variancePercent());
         }
 
         @Test

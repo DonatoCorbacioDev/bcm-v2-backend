@@ -57,22 +57,43 @@ public interface FinancialValuesRepository extends JpaRepository<FinancialValues
             @Param("category") FinancialCategory category,
             @Param("year") int year);
 
+    // Expected costs from January to :month — the same period as the
+    // supplier invoices received so far, which are what they're compared
+    // with. Revenue is left out: BCM doesn't handle invoices issued to customers.
+
     @Query("""
             SELECT COALESCE(SUM(fv.financialAmount), 0.0)
             FROM FinancialValues fv
             WHERE fv.organization.id = :orgId
-              AND fv.year = :year
+              AND fv.financialType.category = com.donatodev.bcm_backend.entity.FinancialCategory.COST
+              AND fv.year = :year AND fv.month <= :month
             """)
-    double sumAmountByOrgAndYear(@Param("orgId") Long orgId, @Param("year") int year);
+    double sumCostByOrgUpToMonth(@Param("orgId") Long orgId, @Param("year") int year, @Param("month") int month);
 
-    @Query("SELECT COALESCE(SUM(fv.financialAmount), 0.0) FROM FinancialValues fv WHERE fv.year = :year")
-    double sumAmountByYear(@Param("year") int year);
+    @Query("""
+            SELECT COALESCE(SUM(fv.financialAmount), 0.0)
+            FROM FinancialValues fv
+            WHERE fv.financialType.category = com.donatodev.bcm_backend.entity.FinancialCategory.COST
+              AND fv.year = :year AND fv.month <= :month
+            """)
+    double sumCostUpToMonth(@Param("year") int year, @Param("month") int month);
 
     @Query("""
             SELECT COALESCE(SUM(fv.financialAmount), 0.0)
             FROM FinancialValues fv
             WHERE fv.contract.manager.id = :managerId
-              AND fv.year = :year
+              AND fv.financialType.category = com.donatodev.bcm_backend.entity.FinancialCategory.COST
+              AND fv.year = :year AND fv.month <= :month
             """)
-    double sumAmountByManagerAndYear(@Param("managerId") Long managerId, @Param("year") int year);
+    double sumCostByManagerUpToMonth(@Param("managerId") Long managerId, @Param("year") int year, @Param("month") int month);
+
+    @Query("""
+            SELECT COALESCE(SUM(fv.financialAmount), 0.0)
+            FROM FinancialValues fv
+            WHERE fv.contract.counterparty.id = :counterpartyId
+              AND fv.financialType.category = com.donatodev.bcm_backend.entity.FinancialCategory.COST
+              AND fv.year = :year AND fv.month <= :month
+            """)
+    double sumCostByCounterpartyUpToMonth(
+            @Param("counterpartyId") Long counterpartyId, @Param("year") int year, @Param("month") int month);
 }

@@ -437,7 +437,9 @@ public class ContractService {
      */
     public OrganizationInvoicingSummaryDTO getInvoicingSummary() {
         AuthCtx auth = getAuthCtx();
-        int year = Year.now(ZoneId.systemDefault()).getValue();
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        int year = today.getYear();
+        int month = today.getMonthValue();
         double expectedYtd;
         double invoicedYtd;
 
@@ -445,15 +447,15 @@ public class ContractService {
             if (auth.managerId() == null) {
                 return new OrganizationInvoicingSummaryDTO(year, 0, 0, 0, 0);
             }
-            expectedYtd = financialValuesRepository.sumAmountByManagerAndYear(auth.managerId(), year);
+            expectedYtd = financialValuesRepository.sumCostByManagerUpToMonth(auth.managerId(), year, month);
             invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByManagerIdAndYear(auth.managerId(), year).doubleValue();
         } else {
             Long orgId = TenantContext.get();
             if (orgId != null) {
-                expectedYtd = financialValuesRepository.sumAmountByOrgAndYear(orgId, year);
+                expectedYtd = financialValuesRepository.sumCostByOrgUpToMonth(orgId, year, month);
                 invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByOrgIdAndYear(orgId, year).doubleValue();
             } else {
-                expectedYtd = financialValuesRepository.sumAmountByYear(year);
+                expectedYtd = financialValuesRepository.sumCostUpToMonth(year, month);
                 invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByYear(year).doubleValue();
             }
         }

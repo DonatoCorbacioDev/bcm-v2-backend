@@ -154,6 +154,39 @@ class FatturaPaXmlParserServiceTest {
         }
 
         @Test
+        @DisplayName("taxable amount and VAT come from DatiRiepilogo: 1000 + 220 = the 1220 total")
+        void shouldReadTaxableAndVat() throws Exception {
+            FatturaPaInvoiceData data = parserService.parse(loadResource("fattura-pa-sample.xml"));
+
+            assertEquals(0, new BigDecimal("1000.00").compareTo(data.taxableAmount()));
+            assertEquals(0, new BigDecimal("220.00").compareTo(data.vatAmount()));
+        }
+
+        @Test
+        @DisplayName("taxable amount and VAT are summed over every VAT rate")
+        void shouldSumTaxableAcrossRates() throws Exception {
+            FatturaPaInvoiceData data = parserService.parse(loadResource("fattura-pa-multi-line.xml"));
+
+            assertEquals(0, new BigDecimal("500.00").compareTo(data.taxableAmount()));
+            assertEquals(0, new BigDecimal("98.00").compareTo(data.vatAmount()));
+        }
+
+        @Test
+        @DisplayName("without DatiRiepilogo the taxable amount falls back to the line totals, VAT unknown")
+        void shouldFallBackToLineTotals() throws Exception {
+            org.w3c.dom.Element body = buildElement(
+                    "<FatturaElettronicaBody><DatiBeniServizi></DatiBeniServizi></FatturaElettronicaBody>", false);
+            java.util.List<InvoiceLineItemDTO> lines = java.util.List.of(
+                    new InvoiceLineItemDTO(1, "a", null, null, null, new BigDecimal("300.00"), null),
+                    new InvoiceLineItemDTO(2, "b", null, null, null, new BigDecimal("200.00"), null));
+
+            BigDecimal[] taxableAndVat = parserService.extractTaxableAndVat(body, lines);
+
+            assertEquals(0, new BigDecimal("500.00").compareTo(taxableAndVat[0]));
+            assertNull(taxableAndVat[1]);
+        }
+
+        @Test
         @DisplayName("minimal invoice: Nome/Cognome fallback (Denominazione absent), optional fields null")
         void shouldParseMinimalInvoice() throws Exception {
             FatturaPaInvoiceData data = parserService.parse(loadResource("fattura-pa-minimal.xml"));

@@ -12,6 +12,10 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+
+// Every SUM below is of the taxable amount (contract amounts are IVA
+// esclusa), falling back to the total for an invoice parsed before it was
+// stored, and a credit note (TD04) counts negative.
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -22,6 +26,9 @@ import com.donatodev.bcm_backend.entity.InvoiceMatchStatus;
 public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInvoice, Long> {
 
     List<ElectronicInvoice> findByContractIdOrderByUploadedAtDesc(Long contractId);
+
+    /** Invoices parsed before the taxable amount was stored (see InvoiceTaxableAmountBackfill). */
+    List<ElectronicInvoice> findByTaxableAmountIsNull();
 
     /** The organization's invoices not paid by a SEPA batch yet: candidates for the home page's to-do list. */
     List<ElectronicInvoice> findByOrgIdAndSepaBatchIsNull(Long orgId);
@@ -43,7 +50,9 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
     LocalDate findLastInvoiceDateByCounterpartyId(@Param("counterpartyId") Long counterpartyId);
 
     @Query("""
-            SELECT COALESCE(SUM(ei.totalAmount), 0)
+            SELECT COALESCE(SUM(CASE WHEN ei.documentType = 'TD04'
+                    THEN -COALESCE(ei.taxableAmount, ei.totalAmount)
+                    ELSE COALESCE(ei.taxableAmount, ei.totalAmount) END), 0)
             FROM ElectronicInvoice ei
             WHERE ei.contract.counterparty.id = :counterpartyId
               AND ei.matchStatus = com.donatodev.bcm_backend.entity.InvoiceMatchStatus.CONFIRMED
@@ -53,7 +62,9 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
             @Param("counterpartyId") Long counterpartyId, @Param("year") int year);
 
     @Query("""
-            SELECT COALESCE(SUM(ei.totalAmount), 0)
+            SELECT COALESCE(SUM(CASE WHEN ei.documentType = 'TD04'
+                    THEN -COALESCE(ei.taxableAmount, ei.totalAmount)
+                    ELSE COALESCE(ei.taxableAmount, ei.totalAmount) END), 0)
             FROM ElectronicInvoice ei
             WHERE ei.orgId = :orgId
               AND ei.matchStatus = com.donatodev.bcm_backend.entity.InvoiceMatchStatus.CONFIRMED
@@ -62,7 +73,9 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
     BigDecimal sumConfirmedInvoicedAmountByOrgIdAndYear(@Param("orgId") Long orgId, @Param("year") int year);
 
     @Query("""
-            SELECT COALESCE(SUM(ei.totalAmount), 0)
+            SELECT COALESCE(SUM(CASE WHEN ei.documentType = 'TD04'
+                    THEN -COALESCE(ei.taxableAmount, ei.totalAmount)
+                    ELSE COALESCE(ei.taxableAmount, ei.totalAmount) END), 0)
             FROM ElectronicInvoice ei
             WHERE ei.matchStatus = com.donatodev.bcm_backend.entity.InvoiceMatchStatus.CONFIRMED
               AND YEAR(ei.invoiceDate) = :year
@@ -70,7 +83,9 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
     BigDecimal sumConfirmedInvoicedAmountByYear(@Param("year") int year);
 
     @Query("""
-            SELECT COALESCE(SUM(ei.totalAmount), 0)
+            SELECT COALESCE(SUM(CASE WHEN ei.documentType = 'TD04'
+                    THEN -COALESCE(ei.taxableAmount, ei.totalAmount)
+                    ELSE COALESCE(ei.taxableAmount, ei.totalAmount) END), 0)
             FROM ElectronicInvoice ei
             WHERE ei.contract.manager.id = :managerId
               AND ei.matchStatus = com.donatodev.bcm_backend.entity.InvoiceMatchStatus.CONFIRMED

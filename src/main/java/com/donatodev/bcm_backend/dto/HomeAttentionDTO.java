@@ -55,7 +55,7 @@ public record HomeAttentionDTO(
      * @param renewalMonths    for NOTICE_DEADLINE: how long it renews for if not cancelled
      * @param invoiceId        for invoice items: the invoice
      * @param invoiceNumber    for invoice items: its number
-     * @param invoiceAmount    for invoice items: its total as stated on the document
+     * @param invoiceAmount    for invoice items: its taxable amount (IVA esclusa)
      */
     public record Item(
             Type type,

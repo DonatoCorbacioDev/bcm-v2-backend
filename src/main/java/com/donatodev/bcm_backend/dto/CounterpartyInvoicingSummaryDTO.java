@@ -21,5 +21,7 @@ public record CounterpartyInvoicingSummaryDTO(
         double invoicedYtd,
         double variancePercent,
         long invoiceCount,
-        LocalDate lastInvoiceDate) {
+        LocalDate lastInvoiceDate,
+        double expectedYtd,
+        boolean comparable) {
 }

@@ -67,17 +67,10 @@ def first_of_month(day, months_back):
     return date(year, month, 1)
 
 
-def net_of_vat(total):
-    """Taxable amount whose 22% VAT adds up to exactly `total`, so the invoice
-    total equals the contract's monthly cost and the match scores 100%."""
-    net = round(total / (1 + VAT_RATE / 100), 2)
-    while round(net + round(net * VAT_RATE / 100, 2), 2) < total:
-        net = round(net + 0.01, 2)
-    return net
-
-
-def invoice_xml(supplier, number, invoice_date, description, total, iban, bic=None):
-    net = net_of_vat(total)
+def invoice_xml(supplier, number, invoice_date, description, net, iban, bic=None):
+    """`net` is the taxable amount (IVA esclusa), equal to the contract's
+    instalment: BCM compares contract amounts with the taxable amount, so the
+    match scores 100% while the document total carries 22% VAT on top."""
     lines = [{
         "line_number": 1, "description": description, "quantity": 1.0, "unit": "servizio",
         "unit_price": net, "total_price": net, "vat_rate": VAT_RATE,

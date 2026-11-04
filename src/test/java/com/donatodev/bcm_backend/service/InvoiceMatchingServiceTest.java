@@ -146,6 +146,23 @@ class InvoiceMatchingServiceTest {
         }
 
         @Test
+        @Order(101)
+        @DisplayName("compares the taxable amount: 610 € with 22% VAT matches a 500 € instalment fully")
+        void comparesTaxableAmount() {
+            Contracts contract = contract(counterparty());
+            ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
+                    new BigDecimal("610.00"), LocalDate.of(2026, Month.JANUARY, 10));
+            invoice.setTaxableAmount(new BigDecimal("500.00"));
+            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 500.0);
+            when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
+
+            invoiceMatchingService.computeSuggestion(invoice);
+
+            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
+            assertEquals(1.0, invoice.getMatchConfidence(), 0.0001);
+        }
+
+        @Test
         @Order(2)
         @DisplayName("exact amount, one month apart → SUGGESTED with confidence 0.84")
         void suggestsWithOneMonthOffset() {

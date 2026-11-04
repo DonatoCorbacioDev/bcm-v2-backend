@@ -1189,7 +1189,7 @@ class ContractServiceTest {
             TenantContext.set(1L);
             try {
                 int year = java.time.Year.now().getValue();
-                when(financialValuesRepository.sumAmountByOrgAndYear(1L, year)).thenReturn(10000.0);
+                when(financialValuesRepository.sumCostByOrgUpToMonth(1L, year, java.time.LocalDate.now().getMonthValue())).thenReturn(10000.0);
                 when(invoiceRepository.sumConfirmedInvoicedAmountByOrgIdAndYear(1L, year))
                         .thenReturn(new java.math.BigDecimal("7500.00"));
 
@@ -1211,7 +1211,7 @@ class ContractServiceTest {
         void shouldGetInvoicingSummaryAsAdminWithoutTenant() {
             mockAdminAuth();
             int year = java.time.Year.now().getValue();
-            when(financialValuesRepository.sumAmountByYear(year)).thenReturn(5000.0);
+            when(financialValuesRepository.sumCostUpToMonth(year, java.time.LocalDate.now().getMonthValue())).thenReturn(5000.0);
             when(invoiceRepository.sumConfirmedInvoicedAmountByYear(year)).thenReturn(new java.math.BigDecimal("5000.00"));
 
             com.donatodev.bcm_backend.dto.OrganizationInvoicingSummaryDTO result = contractService.getInvoicingSummary();
@@ -1235,7 +1235,7 @@ class ContractServiceTest {
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
 
             int year = java.time.Year.now().getValue();
-            when(financialValuesRepository.sumAmountByManagerAndYear(5L, year)).thenReturn(2000.0);
+            when(financialValuesRepository.sumCostByManagerUpToMonth(5L, year, java.time.LocalDate.now().getMonthValue())).thenReturn(2000.0);
             when(invoiceRepository.sumConfirmedInvoicedAmountByManagerIdAndYear(5L, year))
                     .thenReturn(new java.math.BigDecimal("2000.00"));
 
