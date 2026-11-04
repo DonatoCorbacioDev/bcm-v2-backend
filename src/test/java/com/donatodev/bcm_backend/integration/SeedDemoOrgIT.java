@@ -82,12 +82,12 @@ class SeedDemoOrgIT extends AbstractMySQLIntegrationTest {
     }
 
     @Test
-    @DisplayName("Seeds ten contracts, two of them purchases from suppliers with VAT and a trusted IBAN")
+    @DisplayName("Seeds eleven contracts, two of them purchases from suppliers with VAT and a trusted IBAN")
     void seedsPurchaseSide() throws Exception {
         runSeed();
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM contracts WHERE organization_id = 3", Integer.class))
-                .isEqualTo(10);
+                .isEqualTo(11);
         for (String name : List.of("Nuvola Cloud Services S.r.l.", "Ferri & Associati S.r.l.")) {
             Map<String, Object> supplier = supplier(name);
             assertThat(supplier.get("type")).as(name).isEqualTo("SUPPLIER");
@@ -152,15 +152,30 @@ class SeedDemoOrgIT extends AbstractMySQLIntegrationTest {
     }
 
     @Test
+    @DisplayName("Seeds a tacitly renewing maintenance contract whose last day to give notice is in 20 days")
+    void seedsTacitRenewal() throws Exception {
+        runSeed();
+
+        Map<String, Object> maintenance = jdbc.queryForMap(
+                "SELECT auto_renew, notice_days, renewal_months, DATEDIFF(DATE_SUB(end_date, INTERVAL notice_days DAY), CURDATE()) AS days_to_notice"
+                        + " FROM contracts WHERE contract_number = 'NRT-2025-009' AND organization_id = 3");
+        assertThat(maintenance.get("auto_renew")).isEqualTo(true);
+        assertThat(((Number) maintenance.get("notice_days")).intValue()).isEqualTo(90);
+        assertThat(((Number) maintenance.get("renewal_months")).intValue()).isEqualTo(12);
+        assertThat(((Number) maintenance.get("days_to_notice")).intValue()).isEqualTo(20);
+        assertThat(supplier("Rossi Impianti S.r.l.").get("type")).isEqualTo("SUPPLIER");
+    }
+
+    @Test
     @DisplayName("Running it again, as every night, duplicates nothing")
     void isIdempotent() throws Exception {
         runSeed();
         runSeed();
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM contracts WHERE organization_id = 3", Integer.class))
-                .isEqualTo(10);
+                .isEqualTo(11);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM counterparties WHERE organization_id = 3 AND type = 'SUPPLIER'",
-                Integer.class)).isEqualTo(2);
+                Integer.class)).isEqualTo(3);
     }
 
     @Test

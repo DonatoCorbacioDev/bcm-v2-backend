@@ -137,6 +137,15 @@ UPDATE counterparties SET type = 'SUPPLIER', vat_number = 'IT05391280772',
     contact_email = 'studio@ferriassociati.example'
 WHERE name = 'Ferri & Associati S.r.l.' AND organization_id = 3;
 
+-- Third SUPPLIER: plant maintenance with a tacit renewal, the most common
+-- way an SME ends up paying a year it didn't want. No VAT or IBAN: it has no
+-- invoices in the demo, its story is the notice deadline.
+INSERT INTO counterparties (name, type, organization_id)
+SELECT 'Rossi Impianti S.r.l.', 'SUPPLIER', 3
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = 3);
+UPDATE counterparties SET type = 'SUPPLIER', contact_email = 'commerciale@rossiimpianti.example'
+WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = 3;
+
 -- ── Contracts ─────────────────────────────────────────────────
 -- All assigned to manager id 4 (the public "demo" login) — role-based
 -- visibility scopes a MANAGER to their own contracts only, so this is the
@@ -232,6 +241,17 @@ SELECT (SELECT id FROM counterparties WHERE name='Ferri & Associati S.r.l.' AND 
        (SELECT id FROM business_areas WHERE name='Finanza' AND organization_id=3),
        4, DATE_SUB(CURDATE(), INTERVAL 10 MONTH), DATE_ADD(CURDATE(), INTERVAL 14 MONTH), 'ACTIVE', 3,
        (SELECT id FROM financial_types WHERE name='Costi' AND organization_id=3), 26000, 'QUARTERLY';
+
+-- 11) Purchase with a tacit renewal: 6,000/year plant maintenance, renews
+-- for 12 months unless cancelled 90 days before the end. The end date is 110
+-- days away, so the last day to give notice is in 20 days: the home page
+-- lists it, and the 30/14/7/1-day reminders target that day, not the end.
+INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, auto_renew, notice_days, renewal_months)
+SELECT (SELECT id FROM counterparties WHERE name='Rossi Impianti S.r.l.' AND organization_id=3),
+       'NRT-2025-009', 'WBS-OPS-003', 'Manutenzione impianti',
+       (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id=3),
+       4, DATE_SUB(DATE_ADD(CURDATE(), INTERVAL 110 DAY), INTERVAL 12 MONTH), DATE_ADD(CURDATE(), INTERVAL 110 DAY),
+       'ACTIVE', 3, TRUE, 90, 12;
 
 INSERT INTO contract_workflow_events (contract_id, from_stage, to_stage, action, actor_user_id, comment, created_at)
 SELECT (SELECT id FROM contracts WHERE contract_number = 'NRT-2026-002' AND organization_id = 3),
