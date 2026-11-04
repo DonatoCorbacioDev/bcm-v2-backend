@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -74,7 +75,7 @@ public class PdfBoxService {
     // internal PDDocument construction, which would test the mock rather than real behavior.
     @Generated
     private <T> T withDocument(byte[] pdfBytes, PdfDocumentFunction<T> action) throws IOException {
-        try (PDDocument doc = PDDocument.load(pdfBytes)) {
+        try (PDDocument doc = Loader.loadPDF(pdfBytes)) {
             return action.apply(doc);
         }
     }
