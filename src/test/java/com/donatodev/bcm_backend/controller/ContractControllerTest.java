@@ -25,7 +25,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
@@ -67,7 +67,7 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.donatodev.bcm_backend.service.ContractSchedulerService;
 import com.donatodev.bcm_backend.service.ExportService;
 import com.donatodev.bcm_backend.util.TestDataCleaner;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.openpdf.text.DocumentException;
 
 /**

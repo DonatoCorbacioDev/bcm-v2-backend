@@ -7,7 +7,7 @@ package com.donatodev.bcm_backend.dto.export;
 
 import java.time.LocalDateTime;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 /**
  * One element of {@code data/ml_analyses.json}: an analysis the Service

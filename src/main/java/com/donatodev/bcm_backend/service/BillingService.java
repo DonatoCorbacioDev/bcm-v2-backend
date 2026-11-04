@@ -17,9 +17,9 @@ import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.SubscriptionTier;
 import com.donatodev.bcm_backend.exception.OrganizationNotFoundException;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
@@ -168,7 +168,7 @@ public class BillingService {
         JsonNode object;
         try {
             object = OBJECT_MAPPER.readTree(payload).path("data").path("object");
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payload webhook non valido");
         }
         Event event;

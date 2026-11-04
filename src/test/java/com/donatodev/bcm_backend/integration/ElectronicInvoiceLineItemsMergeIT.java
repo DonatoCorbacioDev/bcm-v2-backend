@@ -18,8 +18,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
@@ -131,26 +131,9 @@ class ElectronicInvoiceLineItemsMergeIT extends AbstractMySQLIntegrationTest {
                 "Line items must survive the persist-then-merge round trip");
     }
 
-    @Test
-    @DisplayName("an immutable line-items list reproduces the original UnsupportedOperationException on re-save")
-    void immutableLineItemsListStillFailsOnResave() {
-        // Stream.toList() (used by the pre-fix toLineItemEntities) returns an
-        // *immutable* List -- this documents exactly why the collector above
-        // was changed to Collectors.toCollection(ArrayList::new).
-        List<InvoiceLineItem> immutableLineItems = Stream.of(InvoiceLineItem.builder()
-                        .lineNumber(1)
-                        .description("Immutable line")
-                        .quantity(BigDecimal.ONE)
-                        .unitPrice(BigDecimal.TEN)
-                        .totalPrice(BigDecimal.TEN)
-                        .vatRate(BigDecimal.ZERO)
-                        .build())
-                .toList();
-
-        ElectronicInvoice invoice = invoiceRepository.save(newInvoiceWithLineItems(immutableLineItems));
-
-        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class,
-                () -> invoiceRepository.save(invoice),
-                "This is the historical bug, pinned so a future refactor can't silently reintroduce it");
-    }
+    // An earlier test pinned the original failure (an immutable Stream.toList()
+    // collection made the re-save throw UnsupportedOperationException). Since
+    // Hibernate 7 (Spring Boot 4) merge no longer fails on it, so that test was
+    // dropped; toLineItemEntities keeps building a mutable list, which works
+    // on every version, and the test above guards the actual behavior.
 }

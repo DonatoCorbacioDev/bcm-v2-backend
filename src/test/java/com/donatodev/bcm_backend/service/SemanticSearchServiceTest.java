@@ -27,7 +27,7 @@ import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 

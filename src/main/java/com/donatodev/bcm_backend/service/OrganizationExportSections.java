@@ -53,10 +53,10 @@ import com.donatodev.bcm_backend.repository.RiskFeedbackRepository;
 import com.donatodev.bcm_backend.repository.SepaPaymentBatchRepository;
 import com.donatodev.bcm_backend.repository.TermsAcceptanceRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.TextNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.StringNode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -182,8 +182,8 @@ public class OrganizationExportSections {
         JsonNode result;
         try {
             result = objectMapper.readTree(entry.getJsonResult());
-        } catch (JsonProcessingException e) {
-            result = TextNode.valueOf(entry.getJsonResult());
+        } catch (JacksonException e) {
+            result = StringNode.valueOf(entry.getJsonResult());
         }
         return new MlResultExportDTO(entry.getCacheKey(), result, entry.getComputedAt());
     }

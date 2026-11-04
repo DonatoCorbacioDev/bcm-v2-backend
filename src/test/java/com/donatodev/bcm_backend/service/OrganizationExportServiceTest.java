@@ -7,7 +7,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
-import java.io.UncheckedIOException;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -21,9 +20,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.exception.OrganizationNotFoundException;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectWriter;
 
 /**
  * The failure paths of {@link OrganizationExportService}; the happy paths
@@ -66,12 +65,12 @@ class OrganizationExportServiceTest {
     void reportsSerializationFailure() throws Exception {
         when(organizationRepository.findById(7L)).thenReturn(Optional.of(
                 Organization.builder().id(7L).name("Acme").slug("acme").build()));
-        when(jsonWriter.writeValueAsBytes(any())).thenThrow(mock(JsonProcessingException.class));
+        when(jsonWriter.writeValueAsBytes(any())).thenThrow(mock(JacksonException.class));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         assertThatThrownBy(() -> service.writeExport(7L, out))
-                .isInstanceOf(UncheckedIOException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("data/organization.json");
     }
 }

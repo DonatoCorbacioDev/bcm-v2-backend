@@ -27,7 +27,7 @@ import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")

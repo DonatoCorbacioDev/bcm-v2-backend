@@ -19,8 +19,8 @@ import com.donatodev.bcm_backend.dto.SemanticSearchResultDTO;
 import com.donatodev.bcm_backend.entity.ContractDocument;
 import com.donatodev.bcm_backend.exception.SemanticSearchUnavailableException;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -124,7 +124,7 @@ public class SemanticSearchService {
     private float[] readEmbedding(ContractDocument doc) {
         try {
             return objectMapper.readValue(doc.getEmbedding(), float[].class);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             logger.warn("Corrupt embedding for document {}, skipping", doc.getId());
             return EMPTY_EMBEDDING;
         }

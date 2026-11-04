@@ -8,7 +8,6 @@ package com.donatodev.bcm_backend.service;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.NoSuchFileException;
 import java.security.DigestOutputStream;
@@ -37,9 +36,9 @@ import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.service.OrganizationExportSections.Section;
 import com.donatodev.bcm_backend.service.OrganizationExportSections.StoredFileRef;
 import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectWriter;
 
 /**
  * Builds the self-service export of an organization's data (Terms sez. 13,
@@ -156,8 +155,9 @@ public class OrganizationExportService {
     private JsonFile serialize(String path, Object value, int records) {
         try {
             return new JsonFile(path, jsonWriter.writeValueAsBytes(value), records);
-        } catch (JsonProcessingException e) {
-            throw new UncheckedIOException("Failed to serialize " + path, e);
+        } catch (JacksonException e) {
+            // Jackson 3 exceptions are unchecked and no longer IOExceptions.
+            throw new IllegalStateException("Failed to serialize " + path, e);
         }
     }
 

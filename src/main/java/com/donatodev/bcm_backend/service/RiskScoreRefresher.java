@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Nightly job that flags high-risk contracts for a notification. Goes through

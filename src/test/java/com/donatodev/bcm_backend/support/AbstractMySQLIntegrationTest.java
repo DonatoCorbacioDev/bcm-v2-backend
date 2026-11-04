@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Tag;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 
 /**
  * Base for integration tests (*IT.java, run via `mvn verify`/failsafe, never
@@ -41,7 +41,7 @@ public abstract class AbstractMySQLIntegrationTest {
     // explicitly declare utf8mb4_unicode_ci (e.g. V37's `counterparties`
     // table) with "Illegal mix of collations" the moment a query compares a
     // column from each.
-    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0")
+    static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.0")
             .withDatabaseName("bcm_it")
             .withUsername("bcm_it")
             .withPassword("bcm_it_password")
