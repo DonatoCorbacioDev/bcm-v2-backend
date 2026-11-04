@@ -23,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
 import com.donatodev.bcm_backend.dto.DiffLineDTO;
+import com.donatodev.bcm_backend.dto.ContractTermsDTO;
 import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 import com.donatodev.bcm_backend.dto.DocumentDiffDTO;
 import com.donatodev.bcm_backend.entity.ContractDocument;
@@ -52,19 +53,22 @@ public class ContractDocumentService {
     private final PdfBoxService pdfBoxService;
     private final MlProxyService mlProxyService;
     private final SemanticSearchService semanticSearchService;
+    private final ContractTermsExtractor termsExtractor;
 
     public ContractDocumentService(ContractDocumentRepository documentRepository,
                                    ContractAccessGuard contractAccessGuard,
                                    LocalStorageService localStorageService,
                                    PdfBoxService pdfBoxService,
                                    MlProxyService mlProxyService,
-                                   SemanticSearchService semanticSearchService) {
+                                   SemanticSearchService semanticSearchService,
+                                   ContractTermsExtractor termsExtractor) {
         this.documentRepository = documentRepository;
         this.contractAccessGuard = contractAccessGuard;
         this.localStorageService = localStorageService;
         this.pdfBoxService = pdfBoxService;
         this.mlProxyService = mlProxyService;
         this.semanticSearchService = semanticSearchService;
+        this.termsExtractor = termsExtractor;
     }
 
     @Transactional(rollbackFor = IOException.class)
@@ -177,6 +181,21 @@ public class ContractDocumentService {
         DocumentAnalysisDTO analysis = pdfBoxService.analyzeDocument(doc.getId(), bytes);
         semanticSearchService.generateAndStoreEmbedding(doc, analysis.rawText());
         return analysis;
+    }
+
+    /**
+     * Renewal, notice and explicit dates read from the document's text by
+     * fixed rules, each with its source sentence. Uses the text extracted at
+     * upload (backfilled if missing), so no PDF parsing on the usual path.
+     */
+    @Transactional
+    public ContractTermsDTO readTerms(Long contractId, Long documentId) {
+        Contracts contract = contractAccessGuard.getContractInScope(contractId);
+        contractAccessGuard.checkManagerCanAccess(contract);
+        ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
+                .orElseThrow(() -> new ContractNotFoundException(
+                        String.format(DOC_NOT_FOUND, documentId, contractId)));
+        return new ContractTermsDTO(doc.getId(), termsExtractor.extract(getOrExtractText(doc)));
     }
 
     public ResponseEntity<String> analyzeClauseRisk(Long contractId, Long documentId) {

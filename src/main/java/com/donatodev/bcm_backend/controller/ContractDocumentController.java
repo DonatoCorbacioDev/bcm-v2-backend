@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
+import com.donatodev.bcm_backend.dto.ContractTermsDTO;
 import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 import com.donatodev.bcm_backend.dto.DocumentDiffDTO;
 import com.donatodev.bcm_backend.service.ContractDocumentService;
@@ -92,6 +93,14 @@ public class ContractDocumentController {
                 .filename(download.fileName()).build());
         headers.setContentType(MediaType.parseMediaType(download.contentType()));
         return ResponseEntity.ok().headers(headers).body(download.bytes());
+    }
+
+    @GetMapping("/{documentId}/terms")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public ResponseEntity<ContractTermsDTO> readTerms(
+            @PathVariable Long contractId,
+            @PathVariable Long documentId) {
+        return ResponseEntity.ok(documentService.readTerms(contractId, documentId));
     }
 
     @PostMapping("/{documentId}/extract")

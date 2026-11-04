@@ -1,0 +1,167 @@
+{
+  "_about": "Evaluation corpus for ContractTermsExtractor. Written by hand BEFORE the rules, Italian contract wording. 'expected' lists only what the text states; a missing key means the text doesn't say it, so the extractor must not propose it. noticeDays: months count as 30 days. 'dev' cases may be used to tune the rules; 'holdout' cases must not: they measure how the rules do on wording they were not tuned on.",
+  "dev": [
+    {
+      "id": "dev-01-classic",
+      "text": "Il presente contratto ha durata di dodici mesi e si intenderà tacitamente rinnovato per un ulteriore anno, salvo disdetta da comunicarsi a mezzo PEC almeno 90 giorni prima della scadenza.",
+      "expected": { "autoRenew": true, "noticeDays": 90, "renewalMonths": 12 }
+    },
+    {
+      "id": "dev-02-months-notice",
+      "text": "Alla scadenza il contratto si rinnova tacitamente di anno in anno, salvo disdetta inviata con un preavviso di tre mesi.",
+      "expected": { "autoRenew": true, "noticeDays": 90, "renewalMonths": 12 }
+    },
+    {
+      "id": "dev-03-words-and-digits",
+      "text": "In mancanza di disdetta, da inviarsi con raccomandata A/R con un preavviso di sessanta (60) giorni, il contratto si rinnoverà automaticamente per periodi di 12 mesi.",
+      "expected": { "autoRenew": true, "noticeDays": 60, "renewalMonths": 12 }
+    },
+    {
+      "id": "dev-04-no-renewal",
+      "text": "Il contratto cesserà di avere effetto alla scadenza naturale senza necessità di disdetta. È escluso ogni rinnovo tacito.",
+      "expected": { "autoRenew": false }
+    },
+    {
+      "id": "dev-05-not-renewed",
+      "text": "Il presente accordo non si rinnova tacitamente: eventuali proroghe dovranno essere concordate per iscritto tra le parti.",
+      "expected": { "autoRenew": false }
+    },
+    {
+      "id": "dev-06-withdrawal-only",
+      "text": "Ciascuna parte potrà recedere dal contratto in qualsiasi momento con un preavviso scritto di 30 giorni, senza oneri a proprio carico.",
+      "expected": {}
+    },
+    {
+      "id": "dev-07-dates-dal-al",
+      "text": "Il contratto ha validità dal 1 gennaio 2026 al 31 dicembre 2026.",
+      "expected": { "startDate": "2026-01-01", "endDate": "2026-12-31" }
+    },
+    {
+      "id": "dev-08-dates-decorrenza",
+      "text": "Il servizio decorre dal 01/03/2026 e il contratto avrà scadenza il 28/02/2027.",
+      "expected": { "startDate": "2026-03-01", "endDate": "2027-02-28" }
+    },
+    {
+      "id": "dev-09-scadenza-il",
+      "text": "Il presente contratto entra in vigore il 15 aprile 2026 e scadrà il 14 aprile 2028.",
+      "expected": { "startDate": "2026-04-15", "endDate": "2028-04-14" }
+    },
+    {
+      "id": "dev-10-ordinal-day",
+      "text": "Con decorrenza dal 1° luglio 2026 e fino al 30 giugno 2027, il Fornitore erogherà il servizio di manutenzione.",
+      "expected": { "startDate": "2026-07-01", "endDate": "2027-06-30" }
+    },
+    {
+      "id": "dev-11-biennio",
+      "text": "Salvo disdetta da inviarsi almeno sei mesi prima della scadenza, il contratto si intenderà rinnovato per un ulteriore biennio.",
+      "expected": { "autoRenew": true, "noticeDays": 180, "renewalMonths": 24 }
+    },
+    {
+      "id": "dev-12-original-vs-renewal",
+      "text": "Il contratto ha durata di 24 mesi dalla data di sottoscrizione e si rinnova tacitamente per ulteriori 12 mesi, salvo disdetta da comunicare almeno 60 giorni prima della scadenza.",
+      "expected": { "autoRenew": true, "noticeDays": 60, "renewalMonths": 12 }
+    },
+    {
+      "id": "dev-13-gg",
+      "text": "La disdetta dovrà pervenire alla controparte almeno 30 gg. prima della scadenza; in difetto il contratto si rinnoverà tacitamente per un anno.",
+      "expected": { "autoRenew": true, "noticeDays": 30, "renewalMonths": 12 }
+    },
+    {
+      "id": "dev-14-conflicting-notice",
+      "text": "Il contratto si rinnova tacitamente salvo disdetta con preavviso di 90 giorni. Per i servizi accessori la disdetta va inviata con preavviso di 30 giorni.",
+      "expected": { "autoRenew": true }
+    },
+    {
+      "id": "dev-15-unrelated-numbers",
+      "text": "Il canone mensile è pari a 450 euro oltre IVA, da corrispondere entro 30 giorni dalla data della fattura. Il Fornitore garantisce un tempo di intervento di 4 ore.",
+      "expected": {}
+    },
+    {
+      "id": "dev-16-uguale-periodo",
+      "text": "Alla scadenza il contratto si intenderà rinnovato per uguale periodo, salvo disdetta da inviarsi con 90 giorni di preavviso.",
+      "expected": { "autoRenew": true, "noticeDays": 90 }
+    },
+    {
+      "id": "dev-17-automatic-renewal-noun",
+      "text": "È previsto il rinnovo automatico del contratto per periodi successivi di un anno, salvo disdetta di una delle parti con preavviso non inferiore a 120 giorni.",
+      "expected": { "autoRenew": true, "noticeDays": 120, "renewalMonths": 12 }
+    },
+    {
+      "id": "dev-18-dates-dot-format",
+      "text": "Data di inizio: 01.09.2026. Data di scadenza: 31.08.2027.",
+      "expected": { "startDate": "2026-09-01", "endDate": "2027-08-31" }
+    },
+    {
+      "id": "dev-19-invoice-period-dates",
+      "text": "Le fatture relative al periodo dal 1 marzo 2026 al 31 marzo 2026 saranno emesse entro il mese successivo.",
+      "expected": {}
+    },
+    {
+      "id": "dev-20-full-maintenance",
+      "text": "CONTRATTO DI MANUTENZIONE IMPIANTI\n\nArt. 1 - Oggetto. Il Fornitore si impegna a eseguire la manutenzione ordinaria degli impianti di climatizzazione presso la sede del Cliente.\n\nArt. 2 - Durata. Il presente contratto ha durata annuale a decorrere dal 1 febbraio 2026, con scadenza il 31 gennaio 2027.\n\nArt. 3 - Rinnovo. Alla scadenza il contratto si intenderà tacitamente rinnovato per un ulteriore anno, salvo disdetta da inviarsi a mezzo PEC almeno 90 giorni prima della scadenza.\n\nArt. 4 - Corrispettivo. Il canone annuo è di 6.000 euro oltre IVA, fatturato in rate trimestrali da pagarsi entro 30 giorni data fattura.\n\nArt. 5 - Recesso. Il Cliente può recedere per giusta causa con preavviso di 15 giorni.",
+      "expected": { "autoRenew": true, "noticeDays": 90, "renewalMonths": 12, "startDate": "2026-02-01", "endDate": "2027-01-31" }
+    },
+    {
+      "id": "dev-21-full-software",
+      "text": "LICENZA D'USO SOFTWARE GESTIONALE\n\n1. La licenza è concessa per un periodo di 12 mesi con decorrenza dal 10/12/2025.\n\n2. La licenza si rinnova automaticamente per periodi di 12 mesi. Il Licenziatario può disdire la licenza con preavviso scritto di trenta giorni rispetto alla scadenza.\n\n3. Il canone di licenza è di 2.400 euro annui.",
+      "expected": { "autoRenew": true, "noticeDays": 30, "renewalMonths": 12, "startDate": "2025-12-10" }
+    },
+    {
+      "id": "dev-22-full-consulting-fixed",
+      "text": "CONTRATTO DI CONSULENZA\n\nArt. 2 - Durata. L'incarico ha durata dal 1 marzo 2026 al 28 febbraio 2027 e cesserà alla scadenza senza necessità di disdetta, essendo escluso qualsiasi rinnovo tacito.\n\nArt. 7 - Recesso. Ciascuna parte potrà recedere con preavviso di 60 giorni da comunicarsi per iscritto.",
+      "expected": { "autoRenew": false, "startDate": "2026-03-01", "endDate": "2027-02-28" }
+    }
+  ],
+  "holdout": [
+    {
+      "id": "ho-01",
+      "text": "Il contratto si intende tacitamente prorogato di dodici mesi in dodici mesi qualora nessuna delle parti comunichi disdetta almeno due mesi prima della scadenza.",
+      "expected": { "autoRenew": true, "noticeDays": 60, "renewalMonths": 12 }
+    },
+    {
+      "id": "ho-02",
+      "text": "Il rinnovo del presente contratto non è automatico e dovrà essere formalizzato con apposito atto scritto.",
+      "expected": { "autoRenew": false }
+    },
+    {
+      "id": "ho-03",
+      "text": "Il presente contratto avrà efficacia dal 1 ottobre 2026 sino al 30 settembre 2029.",
+      "expected": { "startDate": "2026-10-01", "endDate": "2029-09-30" }
+    },
+    {
+      "id": "ho-04",
+      "text": "Salvo disdetta da inviarsi con lettera raccomandata entro 90 giorni dalla scadenza, il contratto si rinnoverà per un altro anno.",
+      "expected": { "autoRenew": true, "renewalMonths": 12 }
+    },
+    {
+      "id": "ho-05",
+      "text": "Il pagamento avverrà a 60 giorni fine mese. Eventuali ritardi superiori a 15 giorni comporteranno l'applicazione degli interessi di mora.",
+      "expected": {}
+    },
+    {
+      "id": "ho-06",
+      "text": "Le parti convengono che il contratto si rinnovi tacitamente per periodi di un anno, salvo disdetta da comunicarsi con un preavviso di almeno 45 giorni.",
+      "expected": { "autoRenew": true, "noticeDays": 45, "renewalMonths": 12 }
+    },
+    {
+      "id": "ho-07",
+      "text": "Il contratto scade il 31/12/2026. Alla scadenza, in assenza di disdetta comunicata con preavviso di 60 giorni, il contratto si intenderà rinnovato per un ulteriore anno.",
+      "expected": { "autoRenew": true, "noticeDays": 60, "renewalMonths": 12, "endDate": "2026-12-31" }
+    },
+    {
+      "id": "ho-08",
+      "text": "Il Cliente potrà recedere dal contratto con un preavviso di 3 mesi, corrispondendo le mensilità maturate fino alla data di efficacia del recesso.",
+      "expected": {}
+    },
+    {
+      "id": "ho-09",
+      "text": "La durata del servizio è di 36 mesi a partire dal 1 gennaio 2027. Non è previsto alcun rinnovo tacito.",
+      "expected": { "autoRenew": false, "startDate": "2027-01-01" }
+    },
+    {
+      "id": "ho-10",
+      "text": "Il contratto si rinnoverà automaticamente di anno in anno, salvo disdetta da inviarsi con PEC almeno 120 giorni prima della data di scadenza.",
+      "expected": { "autoRenew": true, "noticeDays": 120, "renewalMonths": 12 }
+    }
+  ]
+}

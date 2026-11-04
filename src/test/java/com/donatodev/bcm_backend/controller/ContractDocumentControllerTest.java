@@ -29,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
+import com.donatodev.bcm_backend.dto.ContractTermsDTO;
 import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 import com.donatodev.bcm_backend.entity.ContractStatus;
@@ -386,6 +387,38 @@ class ContractDocumentControllerTest {
                     .thenThrow(new ContractNotFoundException("Document ID 999 not found"));
 
             mockMvc.perform(post("/contracts/" + contractId + "/documents/999/extract"))
+                    .andExpect(status().isNotFound());
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /contracts/{id}/documents/{docId}/terms — renewal and dates read by rules")
+    @SuppressWarnings("unused")
+    class Terms {
+
+        @Test
+        @WithMockUser(roles = "MANAGER")
+        @DisplayName("Returns the terms with their source sentence, to a manager too")
+        void shouldReturnTerms() throws Exception {
+            when(contractDocumentService.readTerms(anyLong(), anyLong())).thenReturn(new ContractTermsDTO(1L, java.util.List.of(
+                    new ContractTermsDTO.Term(ContractTermsDTO.Field.NOTICE_DAYS, "90", "3 mesi",
+                            "Salvo disdetta con preavviso di tre mesi."))));
+
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/1/terms"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.terms[0].field").value("NOTICE_DAYS"))
+                    .andExpect(jsonPath("$.terms[0].value").value("90"))
+                    .andExpect(jsonPath("$.terms[0].sentence").value("Salvo disdetta con preavviso di tre mesi."));
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Returns 404 when document not found")
+        void shouldReturn404WhenDocumentNotFound() throws Exception {
+            when(contractDocumentService.readTerms(anyLong(), anyLong()))
+                    .thenThrow(new ContractNotFoundException("Document ID 999 not found"));
+
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/999/terms"))
                     .andExpect(status().isNotFound());
         }
     }

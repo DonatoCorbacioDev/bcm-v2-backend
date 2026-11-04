@@ -22,6 +22,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -35,6 +36,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.donatodev.bcm_backend.dto.ContractDocumentDTO;
+import com.donatodev.bcm_backend.dto.ContractTermsDTO;
 import com.donatodev.bcm_backend.dto.DocumentAnalysisDTO;
 import com.donatodev.bcm_backend.dto.DocumentDiffDTO;
 import com.donatodev.bcm_backend.entity.ContractDocument;
@@ -52,6 +54,9 @@ class ContractDocumentServiceTest {
     @Mock private PdfBoxService pdfBoxService;
     @Mock private MlProxyService mlProxyService;
     @Mock private SemanticSearchService semanticSearchService;
+    // Real rules, not a mock: they are pure and fast, and their own accuracy
+    // is measured in ContractTermsExtractorEvaluationTest.
+    @Spy private ContractTermsExtractor termsExtractor = new ContractTermsExtractor();
 
     @InjectMocks
     private ContractDocumentService contractDocumentService;
@@ -288,6 +293,36 @@ class ContractDocumentServiceTest {
 
             assertThrows(ContractNotFoundException.class,
                     () -> contractDocumentService.extractText(CONTRACT_ID, DOC_ID));
+        }
+
+        // ---- readTerms ----
+
+        @Test
+        @DisplayName("readTerms: reads the text stored at upload, checking manager access first")
+        void shouldReadTermsFromStoredText() {
+            Contracts contract = fakeContract();
+            ContractDocument doc = fakeDoc(contract);
+            doc.setExtractedText("Il contratto si rinnova tacitamente salvo disdetta con preavviso di 90 giorni.");
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(doc));
+
+            ContractTermsDTO result = contractDocumentService.readTerms(CONTRACT_ID, DOC_ID);
+
+            assertEquals(DOC_ID, result.documentId());
+            assertEquals(List.of(ContractTermsDTO.Field.AUTO_RENEW, ContractTermsDTO.Field.NOTICE_DAYS),
+                    result.terms().stream().map(ContractTermsDTO.Term::field).toList());
+            verify(contractAccessGuard).checkManagerCanAccess(contract);
+            verify(localStorageService, never()).readDocument(any());
+        }
+
+        @Test
+        @DisplayName("readTerms: throws ContractNotFoundException when document missing")
+        void shouldThrowWhenDocumentNotFoundOnReadTerms() {
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.empty());
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> contractDocumentService.readTerms(CONTRACT_ID, DOC_ID));
         }
 
         // ---- downloadDocument ----

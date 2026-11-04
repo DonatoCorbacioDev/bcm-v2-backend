@@ -15,6 +15,9 @@ contracts that seed creates, with dates relative to today so it never ages:
     - the earlier quarters' invoices: matched and paid on the trusted IBAN
     - this quarter's invoice asks to be paid on a NEW bank account: the SEPA
       anti-fraud check blocks any transfer until an admin confirms the change
+  NRT-119 (Rossi Impianti, maintenance with tacit renewal)
+    - the contract itself as a PDF (scripts/demo_contract_pdf.py), read back
+      through "Leggi rinnovo e scadenze" to check it finds the same terms
 
 The history matters: the expected costs in seed-demo-org.sql cover the last
 12 months, so with only the newest invoices a supplier showed most of its
@@ -41,6 +44,7 @@ from datetime import date, timedelta
 
 import requests
 
+from demo_contract_pdf import maintenance_contract_text, text_pdf
 from generate_fatturapa_samples import render_invoice_xml
 
 BUYER = ("Nortiva Solutions S.r.l.", "IT03214560012", ("Via Melchiorre Gioia 41", "20124", "Milano"))
@@ -103,6 +107,24 @@ class Api:
                              files={"file": (file_name, xml.encode("utf-8"), "application/xml")}, timeout=30)
         resp.raise_for_status()
         return resp.json()
+
+    def contract_by_number(self, number):
+        resp = requests.get(f"{self.base_url}/contracts/search", headers=self.headers,
+                            params={"q": number, "size": 5}, timeout=15)
+        resp.raise_for_status()
+        return next(c for c in resp.json()["content"] if c["contractNumber"] == number)
+
+    def upload_document(self, contract_id, file_name, pdf):
+        resp = requests.post(f"{self.base_url}/contracts/{contract_id}/documents", headers=self.headers,
+                             files={"file": (file_name, pdf, "application/pdf")}, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+
+    def read_terms(self, contract_id, document_id):
+        resp = requests.get(f"{self.base_url}/contracts/{contract_id}/documents/{document_id}/terms",
+                            headers=self.headers, timeout=15)
+        resp.raise_for_status()
+        return {term["field"]: term["value"] for term in resp.json()["terms"]}
 
     def confirm_match(self, contract_id, invoice_id):
         resp = requests.post(f"{self.base_url}/contracts/{contract_id}/invoices/{invoice_id}/match/confirm",
@@ -189,6 +211,17 @@ def main():
     expect(f"{to_review['invoiceNumber']} IBAN", to_review["supplierIban"], masked(NUVOLA["iban"]), problems)
     expect(f"{new_iban['invoiceNumber']} match", new_iban["matchStatus"], "SUGGESTED", problems)
     expect(f"{new_iban['invoiceNumber']} IBAN", new_iban["supplierIban"], masked(FERRI_NEW_IBAN), problems)
+
+    # The maintenance contract's PDF, with tonight's dates, for "Leggi rinnovo
+    # e scadenze"; reading it back checks the feature works on the live demo.
+    maintenance = demo.contract_by_number("NRT-119")
+    start, end = date.fromisoformat(maintenance["startDate"]), date.fromisoformat(maintenance["endDate"])
+    document = demo.upload_document(maintenance["id"], "Contratto manutenzione Rossi Impianti.pdf",
+                                    text_pdf(maintenance_contract_text(start, end)))
+    terms = demo.read_terms(maintenance["id"], document["id"])
+    print("Demo contract document:")
+    expect("NRT-119 terms", terms, {"AUTO_RENEW": "true", "NOTICE_DAYS": "90", "RENEWAL_MONTHS": "12",
+                                    "START_DATE": start.isoformat(), "END_DATE": end.isoformat()}, problems)
 
     if problems:
         print(f"FAILED: {', '.join(problems)}")
