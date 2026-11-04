@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -26,6 +27,9 @@ import com.donatodev.bcm_backend.entity.ContractDocument;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.CounterpartyType;
+import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.entity.Roles;
+import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 import tools.jackson.databind.ObjectMapper;
 
@@ -36,6 +40,7 @@ class SemanticSearchServiceTest {
 
     @Mock private ContractDocumentRepository documentRepository;
     @Mock private EmbeddingModel embeddingModel;
+    @Mock private CurrentUserResolver currentUserResolver;
     @Spy private ObjectMapper objectMapper = new ObjectMapper();
 
     private SimpleMeterRegistry meterRegistry;
@@ -47,7 +52,8 @@ class SemanticSearchServiceTest {
     @SuppressWarnings("unused")
     void setup() {
         meterRegistry = new SimpleMeterRegistry();
-        semanticSearchService = new SemanticSearchService(documentRepository, embeddingModel, objectMapper, meterRegistry);
+        semanticSearchService = new SemanticSearchService(documentRepository, embeddingModel, objectMapper, meterRegistry,
+                currentUserResolver);
     }
 
     @AfterEach
@@ -61,6 +67,18 @@ class SemanticSearchServiceTest {
         c.setContractNumber("CTR-001");
         c.setCounterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build());
         return c;
+    }
+
+    private void asAdmin() {
+        when(currentUserResolver.resolve()).thenReturn(Users.builder()
+                .role(Roles.builder().role("ADMIN").build()).build());
+    }
+
+    private void asManager(Long managerId) {
+        when(currentUserResolver.resolve()).thenReturn(Users.builder()
+                .role(Roles.builder().role("MANAGER").build())
+                .manager(managerId == null ? null : Managers.builder().id(managerId).build())
+                .build());
     }
 
     private ContractDocument fakeDoc(String embeddingJson) {
@@ -235,6 +253,7 @@ class SemanticSearchServiceTest {
         @DisplayName("ranks the closer document first")
         void ranksResultsByScore() throws Exception {
             TenantContext.set(ORG_ID);
+            asAdmin();
             ContractDocument close = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
             ContractDocument far = fakeDoc(objectMapper.writeValueAsString(new float[]{0f, 1f}));
             far.setId(11L);
@@ -253,6 +272,7 @@ class SemanticSearchServiceTest {
         @DisplayName("respects topK")
         void respectsTopK() throws Exception {
             TenantContext.set(ORG_ID);
+            asAdmin();
             ContractDocument a = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
             ContractDocument b = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
             b.setId(11L);
@@ -267,6 +287,7 @@ class SemanticSearchServiceTest {
         @DisplayName("skips a document with a corrupt embedding instead of failing the whole search")
         void skipsCorruptEmbedding() {
             TenantContext.set(ORG_ID);
+            asAdmin();
             ContractDocument corrupt = fakeDoc("not valid json");
 
             when(documentRepository.findByOrgIdAndEmbeddingIsNotNull(ORG_ID)).thenReturn(List.of(corrupt));
@@ -276,9 +297,42 @@ class SemanticSearchServiceTest {
         }
 
         @Test
+        @DisplayName("a MANAGER only finds documents of contracts assigned to them")
+        void managerSeesOnlyOwnContracts() throws Exception {
+            TenantContext.set(ORG_ID);
+            asManager(7L);
+            ContractDocument own = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
+            own.getContract().setManager(Managers.builder().id(7L).build());
+            ContractDocument others = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
+            others.setId(11L);
+            others.getContract().setManager(Managers.builder().id(8L).build());
+            ContractDocument unassigned = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
+            unassigned.setId(12L);
+
+            when(documentRepository.findByOrgIdAndEmbeddingIsNotNull(ORG_ID)).thenReturn(List.of(own, others, unassigned));
+            when(embeddingModel.embed("query")).thenReturn(new float[]{1f, 0f});
+
+            List<SemanticSearchResultDTO> results = semanticSearchService.search("query", 10);
+
+            assertEquals(List.of(10L), results.stream().map(SemanticSearchResultDTO::documentId).toList());
+        }
+
+        @Test
+        @DisplayName("a non-admin without a manager profile finds nothing, and the embedding model isn't called")
+        void userWithoutManagerFindsNothing() {
+            TenantContext.set(ORG_ID);
+            asManager(null);
+            when(documentRepository.findByOrgIdAndEmbeddingIsNotNull(ORG_ID)).thenReturn(List.of(fakeDoc("[1.0, 0.0]")));
+
+            assertTrue(semanticSearchService.search("query", 10).isEmpty());
+            verifyNoInteractions(embeddingModel);
+        }
+
+        @Test
         @DisplayName("throws SemanticSearchUnavailableException instead of a raw 500 when Ollama is unreachable")
         void throwsUnavailableWhenEmbeddingModelFails() {
             TenantContext.set(ORG_ID);
+            asAdmin();
             ContractDocument doc = fakeDoc("[1.0, 0.0]");
 
             when(documentRepository.findByOrgIdAndEmbeddingIsNotNull(ORG_ID)).thenReturn(List.of(doc));

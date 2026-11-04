@@ -55,14 +55,9 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
     Optional<Users> findByManagerEmailIgnoreCase(String email);
 
     /**
-     * Finds the first user with the given role name.
-     * Used by the scheduler to attribute system-generated history records to an admin account.
-     *
-     * @param roleName the role name (e.g., "ADMIN")
-     * @return an {@link Optional} containing the first matching user, or empty if none found
+     * Users of one organization with the given role. Always scoped: there is
+     * deliberately no cross-organization "first user with role" lookup.
      */
-    Optional<Users> findFirstByRoleRole(String roleName);
-
     List<Users> findByOrganizationIdAndRoleRole(Long orgId, String roleName);
 
     /**

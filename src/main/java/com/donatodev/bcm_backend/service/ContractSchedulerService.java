@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.time.ZoneId;
+import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -343,22 +344,30 @@ public class ContractSchedulerService {
         emailService.sendEmail(manager.getEmail(), subject, body);
     }
 
+    /**
+     * The change is made by the scheduler, so it is attributed to an ADMIN of
+     * the contract's own organization - never to a user of another tenant. An
+     * organization without an admin still gets the record, with no author
+     * (shown as the system, as for a deleted user since V34).
+     */
     private void createHistoryRecord(Contracts contract, ContractStatus previousStatus) {
-        Users systemUser = usersRepository.findFirstByRoleRole("ADMIN")
-                .orElse(null);
+        ContractHistory history = new ContractHistory();
+        history.setContract(contract);
+        history.setModifiedBy(adminOf(contract));
+        history.setModificationDate(LocalDateTime.now(ZoneId.systemDefault()));
+        history.setPreviousStatus(previousStatus);
+        history.setNewStatus(ContractStatus.EXPIRED);
 
-        if (systemUser != null) {
-            ContractHistory history = new ContractHistory();
-            history.setContract(contract);
-            history.setModifiedBy(systemUser);
-            history.setModificationDate(LocalDateTime.now(ZoneId.systemDefault()));
-            history.setPreviousStatus(previousStatus);
-            history.setNewStatus(ContractStatus.EXPIRED);
+        contractHistoryRepository.save(history);
+    }
 
-            contractHistoryRepository.save(history);
-        } else {
-            logger.warn("No admin user found. History record not created for contract ID: {}",
-                    contract.getId());
+    private Users adminOf(Contracts contract) {
+        if (contract.getOrganization() == null) {
+            return null;
         }
+        return usersRepository.findByOrganizationIdAndRoleRole(contract.getOrganization().getId(), "ADMIN")
+                .stream()
+                .min(Comparator.comparing(Users::getId))
+                .orElse(null);
     }
 }

@@ -4,7 +4,6 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,6 +36,7 @@ import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
@@ -98,15 +98,8 @@ class ContractSchedulerServiceTest {
                     .startDate(today.minusMonths(12)).endDate(today.minusDays(7))
                     .build();
 
-            Users adminUser = Users.builder()
-                    .id(1L).username("admin@bcm.com")
-                    .role(Roles.builder().role("ADMIN").build())
-                    .build();
-
             when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
                     .thenReturn(List.of(overdueContract1, overdueContract2));
-            when(usersRepository.findFirstByRoleRole("ADMIN"))
-                    .thenReturn(Optional.of(adminUser));
 
             schedulerService.expireOverdueContracts();
 
@@ -145,17 +138,23 @@ class ContractSchedulerServiceTest {
                     .counterparty(Counterparty.builder().name("Client D").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .startDate(today.minusMonths(6)).endDate(today.minusDays(1))
+                    .organization(Organization.builder().id(3L).build())
                     .build();
 
-            Users adminUser = Users.builder()
+            Users firstAdmin = Users.builder()
                     .id(1L).username("admin@bcm.com")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .build();
+            Users laterAdmin = Users.builder()
+                    .id(9L).username("second-admin@bcm.com")
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
 
             when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
                     .thenReturn(List.of(overdueContract));
-            when(usersRepository.findFirstByRoleRole("ADMIN"))
-                    .thenReturn(Optional.of(adminUser));
+            // Only the contract's own organization is asked for its admins.
+            when(usersRepository.findByOrganizationIdAndRoleRole(3L, "ADMIN"))
+                    .thenReturn(List.of(laterAdmin, firstAdmin));
 
             schedulerService.expireOverdueContracts();
 
@@ -169,7 +168,7 @@ class ContractSchedulerServiceTest {
 
         @Test
         @Order(5)
-        @DisplayName("Should handle missing admin user gracefully")
+        @DisplayName("Writes the history record without an author when the organization has no admin")
         void shouldHandleMissingSystemUser() {
             LocalDate today = TODAY;
 
@@ -178,17 +177,18 @@ class ContractSchedulerServiceTest {
                     .counterparty(Counterparty.builder().name("Client E").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .startDate(today.minusMonths(6)).endDate(today.minusDays(1))
+                    .organization(Organization.builder().id(3L).build())
                     .build();
 
             when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
                     .thenReturn(List.of(overdueContract));
-            when(usersRepository.findFirstByRoleRole("ADMIN"))
-                    .thenReturn(Optional.empty());
+            when(usersRepository.findByOrganizationIdAndRoleRole(3L, "ADMIN"))
+                    .thenReturn(List.of());
 
             schedulerService.expireOverdueContracts();
 
             verify(contractsRepository).save(any(Contracts.class));
-            verify(contractHistoryRepository, never()).save(any());
+            verify(contractHistoryRepository).save(argThat(history -> history.getModifiedBy() == null));
             assertEquals(ContractStatus.EXPIRED, overdueContract.getStatus());
         }
 
@@ -203,16 +203,9 @@ class ContractSchedulerServiceTest {
                     .status(ContractStatus.ACTIVE).endDate(today.minusDays(5))
                     .build();
 
-            Users adminUser = Users.builder()
-                    .id(1L).username("admin@bcm.com")
-                    .role(Roles.builder().role("ADMIN").build())
-                    .build();
-
             // DB returns only the overdue contract — filtering happens in the query, not in Java
             when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
                     .thenReturn(List.of(overdueContract));
-            when(usersRepository.findFirstByRoleRole("ADMIN"))
-                    .thenReturn(Optional.of(adminUser));
 
             schedulerService.expireOverdueContracts();
 

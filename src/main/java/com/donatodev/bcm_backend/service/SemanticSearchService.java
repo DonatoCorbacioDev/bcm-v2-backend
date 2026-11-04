@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.SemanticSearchResultDTO;
 import com.donatodev.bcm_backend.entity.ContractDocument;
+import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.SemanticSearchUnavailableException;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 import tools.jackson.core.JacksonException;
@@ -43,21 +44,25 @@ public class SemanticSearchService {
     private static final int MAX_EMBEDDING_INPUT_CHARS = 6000;
 
     private static final String CRLF_REGEX = "[\r\n]";
+    private static final String ROLE_ADMIN = "ADMIN";
     private static final float[] EMPTY_EMBEDDING = new float[0];
 
     private final ContractDocumentRepository documentRepository;
     private final EmbeddingModel embeddingModel;
     private final ObjectMapper objectMapper;
     private final MeterRegistry meterRegistry;
+    private final CurrentUserResolver currentUserResolver;
 
     public SemanticSearchService(ContractDocumentRepository documentRepository,
                                   EmbeddingModel embeddingModel,
                                   ObjectMapper objectMapper,
-                                  MeterRegistry meterRegistry) {
+                                  MeterRegistry meterRegistry,
+                                  CurrentUserResolver currentUserResolver) {
         this.documentRepository = documentRepository;
         this.embeddingModel = embeddingModel;
         this.objectMapper = objectMapper;
         this.meterRegistry = meterRegistry;
+        this.currentUserResolver = currentUserResolver;
     }
 
     /**
@@ -88,7 +93,8 @@ public class SemanticSearchService {
             return List.of();
         }
         Long orgId = TenantContext.get();
-        List<ContractDocument> candidates = documentRepository.findByOrgIdAndEmbeddingIsNotNull(orgId);
+        List<ContractDocument> candidates = visibleToCurrentUser(
+                documentRepository.findByOrgIdAndEmbeddingIsNotNull(orgId));
         if (candidates.isEmpty()) {
             return List.of();
         }
@@ -119,6 +125,29 @@ public class SemanticSearchService {
 
         results.sort(Comparator.comparingDouble(SemanticSearchResultDTO::score).reversed());
         return results.size() > topK ? results.subList(0, topK) : results;
+    }
+
+    /**
+     * Same visibility as the contract detail page: an ADMIN sees every
+     * document of the organization, a MANAGER only those of contracts
+     * assigned to them, and a user who is neither sees nothing (fail closed).
+     */
+    private List<ContractDocument> visibleToCurrentUser(List<ContractDocument> documents) {
+        if (documents.isEmpty()) {
+            return documents;
+        }
+        Users user = currentUserResolver.resolve();
+        if (ROLE_ADMIN.equals(user.getRole().getRole())) {
+            return documents;
+        }
+        Long managerId = user.getManager() != null ? user.getManager().getId() : null;
+        if (managerId == null) {
+            return List.of();
+        }
+        return documents.stream()
+                .filter(doc -> doc.getContract().getManager() != null
+                        && managerId.equals(doc.getContract().getManager().getId()))
+                .toList();
     }
 
     private float[] readEmbedding(ContractDocument doc) {
