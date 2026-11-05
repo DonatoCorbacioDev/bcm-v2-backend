@@ -50,7 +50,7 @@ Create the database before first run:
 CREATE DATABASE bcm CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-Flyway auto-applies all migrations on startup. Five migration files live in `src/main/resources/db/migration/` (V1–V5).
+Flyway auto-applies all migrations on startup; they live in `src/main/resources/db/migration/` (check the highest `V*` there before adding one). A migration change needs `mvn verify`, not just `mvn test`.
 
 ## Maven Profiles
 
@@ -69,15 +69,15 @@ The app is a stateless REST API running on port 8090 with context path `/api/v1`
 ```
 auth/         AuthController + AuthService (login, invite flow, password reset)
 config/       CorsConfig, OpenApiConfig
-controller/   8 REST controllers
-dto/          19 record-based DTOs (immutable, used as API contracts)
-entity/       14 JPA entities (Lombok @Builder, enum ContractStatus)
+controller/   REST controllers
+dto/          record-based DTOs (immutable, used as API contracts)
+entity/       JPA entities (Lombok @Builder) and enums
 exception/    Per-entity *NotFoundException classes + GlobalExceptionHandler
 jwt/          JwtUtils, JwtAuthenticationFilter, JwtAuthEntryPoint
-mapper/       8 MapStruct mappers (toDTO / toEntity; some inject repositories for lookups)
-repository/   11 Spring Data JPA repositories (custom @Query for complex searches)
-security/     SecurityConfig (Spring Security 6, stateless JWT chain)
-service/      16 service classes (@Transactional business logic)
+mapper/       mappers (toDTO / toEntity; some inject repositories for lookups)
+repository/   Spring Data JPA repositories (organization-scoped finders, custom @Query)
+security/     SecurityConfig (Spring Security 7, stateless JWT chain)
+service/      services (@Transactional business logic), schedulers, startup backfills
 util/         JwtKeyGenerator, TestDataCleaner
 ```
 
