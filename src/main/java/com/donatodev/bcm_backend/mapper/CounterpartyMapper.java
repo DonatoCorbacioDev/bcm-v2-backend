@@ -34,7 +34,11 @@ public class CounterpartyMapper {
                 counterparty.getContactPhone(),
                 counterparty.getNotes(),
                 IbanValidator.maskNullable(counterparty.getVerifiedIban()),
-                IbanValidator.maskNullable(counterparty.getVerifiedBic())
+                IbanValidator.maskNullable(counterparty.getVerifiedBic()),
+                counterparty.getPostalCode(),
+                counterparty.getCity(),
+                counterparty.getProvince(),
+                counterparty.getCountry()
         );
     }
 
@@ -49,10 +53,24 @@ public class CounterpartyMapper {
                 .vatNumber(dto.vatNumber())
                 .taxCode(dto.taxCode())
                 .address(dto.address())
+                .postalCode(blankToNull(dto.postalCode()))
+                .city(blankToNull(dto.city()))
+                .province(upperOrNull(dto.province()))
+                .country(upperOrNull(dto.country()))
                 .contactName(dto.contactName())
                 .contactEmail(dto.contactEmail())
                 .contactPhone(dto.contactPhone())
                 .notes(dto.notes())
                 .build();
+    }
+
+    public static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /** Province and country codes are stored upper case: "mi" and "MI" are the same province. */
+    public static String upperOrNull(String value) {
+        String v = blankToNull(value);
+        return v == null ? null : v.toUpperCase(java.util.Locale.ROOT);
     }
 }

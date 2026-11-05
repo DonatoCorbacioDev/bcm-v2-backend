@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -903,6 +904,64 @@ class ElectronicInvoiceServiceTest {
         void toStringContainsFileName() {
             FileDownload download = new FileDownload(VALID_XML, "invoice.xml", "application/xml");
             assertTrue(download.toString().contains("invoice.xml"));
+        }
+    }
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("fillCounterpartyAddress: the supplier's address from its invoice")
+    class FillCounterpartyAddress {
+
+        private final FatturaPaInvoiceData.SupplierAddress sede =
+                new FatturaPaInvoiceData.SupplierAddress("Via dei Mille 18", "10123", "Torino", "to", "IT");
+
+        private FatturaPaInvoiceData invoiceFrom(String vat) {
+            return new FatturaPaInvoiceData("Nuvola Cloud Services S.r.l.", vat, "TD01", "NCS-1",
+                    LocalDate.of(2026, Month.OCTOBER, 1), new BigDecimal("5856.00"), "EUR", List.of(),
+                    null, null, null, null, null, sede);
+        }
+
+        @Test
+        @DisplayName("fills every empty field when the invoice's VAT number is the counterparty's")
+        void fillsEmptyFields() {
+            com.donatodev.bcm_backend.entity.Counterparty cp = com.donatodev.bcm_backend.entity.Counterparty.builder()
+                    .name("Nuvola").vatNumber("07824150960").build();
+
+            ElectronicInvoiceService.fillCounterpartyAddress(cp, invoiceFrom("IT07824150960"));
+
+            assertEquals("Via dei Mille 18", cp.getAddress());
+            assertEquals("10123", cp.getPostalCode());
+            assertEquals("Torino", cp.getCity());
+            assertEquals("TO", cp.getProvince());
+            assertEquals("IT", cp.getCountry());
+        }
+
+        @Test
+        @DisplayName("never overwrites what a person entered")
+        void keepsExistingValues() {
+            com.donatodev.bcm_backend.entity.Counterparty cp = com.donatodev.bcm_backend.entity.Counterparty.builder()
+                    .name("Nuvola").vatNumber("IT07824150960").address("Corso Francia 5").city("Rivoli").build();
+
+            ElectronicInvoiceService.fillCounterpartyAddress(cp, invoiceFrom("IT07824150960"));
+
+            assertEquals("Corso Francia 5", cp.getAddress());
+            assertEquals("Rivoli", cp.getCity());
+            assertEquals("10123", cp.getPostalCode());
+        }
+
+        @Test
+        @DisplayName("touches nothing for another supplier's invoice, or a counterparty without a VAT number")
+        void ignoresOtherSuppliers() {
+            com.donatodev.bcm_backend.entity.Counterparty other = com.donatodev.bcm_backend.entity.Counterparty.builder()
+                    .name("Ferri").vatNumber("IT05391280772").build();
+            com.donatodev.bcm_backend.entity.Counterparty noVat = com.donatodev.bcm_backend.entity.Counterparty.builder()
+                    .name("Nuvola").build();
+
+            ElectronicInvoiceService.fillCounterpartyAddress(other, invoiceFrom("IT07824150960"));
+            ElectronicInvoiceService.fillCounterpartyAddress(noVat, invoiceFrom("IT07824150960"));
+            ElectronicInvoiceService.fillCounterpartyAddress(null, invoiceFrom("IT07824150960"));
+
+            assertNull(other.getCity());
+            assertNull(noVat.getCity());
         }
     }
 }

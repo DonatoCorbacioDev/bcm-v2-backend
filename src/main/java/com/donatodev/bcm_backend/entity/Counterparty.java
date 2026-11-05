@@ -52,8 +52,23 @@ public class Counterparty {
     @Column(name = "tax_code")
     private String taxCode;
 
+    /** Street and number; the rest of the address in the fields below (V52). */
     @Column(name = "address")
     private String address;
+
+    @Column(name = "postal_code", length = 10)
+    private String postalCode;
+
+    @Column(name = "city", length = 100)
+    private String city;
+
+    /** Italian province code, two letters ("MI"). */
+    @Column(name = "province", length = 2)
+    private String province;
+
+    /** ISO 3166 two-letter country code ("IT"). */
+    @Column(name = "country", length = 2)
+    private String country;
 
     @Column(name = "contact_name")
     private String contactName;

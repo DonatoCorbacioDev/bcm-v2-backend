@@ -143,6 +143,10 @@ public class CounterpartyService {
         counterparty.setVatNumber(dto.vatNumber());
         counterparty.setTaxCode(dto.taxCode());
         counterparty.setAddress(dto.address());
+        counterparty.setPostalCode(CounterpartyMapper.blankToNull(dto.postalCode()));
+        counterparty.setCity(CounterpartyMapper.blankToNull(dto.city()));
+        counterparty.setProvince(CounterpartyMapper.upperOrNull(dto.province()));
+        counterparty.setCountry(CounterpartyMapper.upperOrNull(dto.country()));
         counterparty.setContactName(dto.contactName());
         counterparty.setContactEmail(dto.contactEmail());
         counterparty.setContactPhone(dto.contactPhone());

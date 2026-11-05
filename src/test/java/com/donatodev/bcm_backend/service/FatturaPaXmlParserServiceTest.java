@@ -225,6 +225,29 @@ class FatturaPaXmlParserServiceTest {
         }
 
         @Test
+        @DisplayName("reads the supplier's registered office (Sede) for its address")
+        void shouldReadSupplierAddress() throws Exception {
+            FatturaPaInvoiceData.SupplierAddress address =
+                    parserService.parse(loadResource("fattura-pa-sample.xml")).supplierAddress();
+
+            assertEquals(new FatturaPaInvoiceData.SupplierAddress("Via Roma 1", "00100", "Roma", "RM", "IT"), address);
+        }
+
+        @Test
+        @DisplayName("joins Indirizzo and NumeroCivico; Provincia may be absent")
+        void shouldJoinStreetNumberWithoutProvince() throws Exception {
+            String xml = new String(loadResource("fattura-pa-sample.xml"), java.nio.charset.StandardCharsets.UTF_8)
+                    .replace("<Indirizzo>Via Roma 1</Indirizzo>", "<Indirizzo>Via Roma</Indirizzo><NumeroCivico>12/A</NumeroCivico>")
+                    .replace("<Provincia>RM</Provincia>", "");
+
+            FatturaPaInvoiceData.SupplierAddress address =
+                    parserService.parse(xml.getBytes(java.nio.charset.StandardCharsets.UTF_8)).supplierAddress();
+
+            assertEquals("Via Roma 12/A", address.street());
+            assertNull(address.province());
+        }
+
+        @Test
         @DisplayName("real output from scripts/generate_fatturapa_samples.py (used by demo-reset.sh) passes schema validation")
         void shouldParseGeneratorOutput() throws Exception {
             FatturaPaInvoiceData data = parserService.parse(loadResource("fattura-pa-generator-output.xml"));

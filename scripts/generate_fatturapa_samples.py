@@ -245,8 +245,11 @@ def render_summary_xml(summary):
 
 
 def render_party_xml(rng, name, vat, address, regime_fiscale=None):
-    street, postcode, city = address
-    province = rng.choice(PROVINCE_CODES)
+    # (street, postcode, city) or (street, postcode, city, province): without
+    # a province one is picked at random, which is fine for bulk test data but
+    # not for the public demo, where BCM copies the supplier's address from it.
+    street, postcode, city, *rest = address
+    province = rest[0] if rest else rng.choice(PROVINCE_CODES)
     regime = f"\n                <RegimeFiscale>{regime_fiscale}</RegimeFiscale>" if regime_fiscale else ""
     return f"""            <DatiAnagrafici>
                 <IdFiscaleIVA>

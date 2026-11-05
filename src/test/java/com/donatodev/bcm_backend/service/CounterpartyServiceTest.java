@@ -186,6 +186,25 @@ class CounterpartyServiceTest {
         }
 
         @Test
+        @DisplayName("Update counterparty stores the address parts, codes upper case, blanks as not set")
+        void shouldUpdateAddressParts() {
+            Counterparty existing = Counterparty.builder().id(1L).name("Old").type(CounterpartyType.SUPPLIER).build();
+            CounterpartyDTO updatedDTO = new CounterpartyDTO(1L, "Rossi Impianti", CounterpartyType.SUPPLIER,
+                    null, null, "Via Verdi 3", null, null, null, null, null, null, "20121", "Milano", "mi", " ");
+
+            when(repository.findById(1L)).thenReturn(Optional.of(existing));
+            when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(mapper.toDTO(any())).thenReturn(updatedDTO);
+
+            service.updateCounterparty(1L, updatedDTO);
+
+            assertEquals("20121", existing.getPostalCode());
+            assertEquals("Milano", existing.getCity());
+            assertEquals("MI", existing.getProvince());
+            assertNull(existing.getCountry());
+        }
+
+        @Test
         @Order(6)
         @DisplayName("Update counterparty throws exception if not found")
         void shouldThrowExceptionWhenUpdatingMissingCounterparty() {

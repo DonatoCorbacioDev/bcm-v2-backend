@@ -47,21 +47,21 @@ import requests
 from demo_contract_pdf import maintenance_contract_text, text_pdf
 from generate_fatturapa_samples import render_invoice_xml
 
-BUYER = ("Nortiva Solutions S.r.l.", "IT03214560012", ("Via Melchiorre Gioia 41", "20124", "Milano"))
+BUYER = ("Nortiva Solutions S.r.l.", "IT03214560012", ("Via Melchiorre Gioia 41", "20124", "Milano", "MI"))
 
 NUVOLA = {
     "name": "Nuvola Cloud Services S.r.l.",
     "vat": "IT07824150960",
     "iban": "IT70K0306909400000071528400",
     "bic": "NUVLITM1XXX",
-    "address": ("Via dei Mille 18", "10123", "Torino"),
+    "address": ("Via dei Mille 18", "10123", "Torino", "TO"),
 }
 FERRI = {
     "name": "Ferri & Associati S.r.l.",
     "vat": "IT05391280772",
     # The trusted IBAN (verified_iban in seed-demo-org.sql), used by past invoices.
     "iban": "IT17M0503411701000062194812",
-    "address": ("Corso Vittorio Emanuele II 104", "70122", "Bari"),
+    "address": ("Corso Vittorio Emanuele II 104", "70122", "Bari", "BA"),
 }
 # Not the verified IBAN in seed-demo-org.sql: the "we changed bank" scam.
 FERRI_NEW_IBAN = "IT07B3600003200000087345519"
@@ -107,6 +107,11 @@ class Api:
                              files={"file": (file_name, xml.encode("utf-8"), "application/xml")}, timeout=30)
         resp.raise_for_status()
         return resp.json()
+
+    def counterparty_city(self, name):
+        resp = requests.get(f"{self.base_url}/counterparties", headers=self.headers, timeout=15)
+        resp.raise_for_status()
+        return next((c.get("city"), c.get("province")) for c in resp.json() if c["name"] == name)
 
     def contract_by_number(self, number):
         resp = requests.get(f"{self.base_url}/contracts/search", headers=self.headers,
@@ -211,6 +216,11 @@ def main():
     expect(f"{to_review['invoiceNumber']} IBAN", to_review["supplierIban"], masked(NUVOLA["iban"]), problems)
     expect(f"{new_iban['invoiceNumber']} match", new_iban["matchStatus"], "SUGGESTED", problems)
     expect(f"{new_iban['invoiceNumber']} IBAN", new_iban["supplierIban"], masked(FERRI_NEW_IBAN), problems)
+
+    # The suppliers' address, filled in by BCM from their first invoice.
+    print("Supplier addresses from the invoices:")
+    expect("Nuvola city", demo.counterparty_city(NUVOLA["name"]), ("Torino", "TO"), problems)
+    expect("Ferri city", demo.counterparty_city(FERRI["name"]), ("Bari", "BA"), problems)
 
     # The maintenance contract's PDF, with tonight's dates, for "Leggi rinnovo
     # e scadenze"; reading it back checks the feature works on the live demo.

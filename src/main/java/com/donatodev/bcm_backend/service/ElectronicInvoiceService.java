@@ -28,10 +28,12 @@ import com.donatodev.bcm_backend.dto.FatturaPaInvoiceData;
 import com.donatodev.bcm_backend.dto.InvoiceLineItemDTO;
 import com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest;
 import com.donatodev.bcm_backend.entity.Contracts;
+import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
 import com.donatodev.bcm_backend.entity.InvoiceLineItem;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.DuplicateInvoiceException;
+import com.donatodev.bcm_backend.mapper.CounterpartyMapper;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.donatodev.bcm_backend.util.IbanValidator;
 
@@ -115,6 +117,7 @@ public class ElectronicInvoiceService {
             logger.warn("Invoice match suggestion failed for invoice {}: {}", invoice.getId(), safeMessage);
         }
 
+        fillCounterpartyAddress(contract.getCounterparty(), parsed);
         return toDTO(invoice);
     }
 
@@ -231,6 +234,34 @@ public class ElectronicInvoiceService {
         if (!content.startsWith("<?xml") && !content.startsWith("<")) {
             throw new IllegalArgumentException("Sono supportati solo file XML");
         }
+    }
+
+    /**
+     * Fills in the supplier's address from its invoice, so nobody types what
+     * the invoice already says. Only when the invoice's VAT number is the
+     * counterparty's own (an invoice uploaded on the wrong contract must not
+     * rewrite another company's data), and only the fields still empty:
+     * whatever a person entered is never overwritten. The counterparty is a
+     * managed entity: the change is saved with the invoice's transaction.
+     */
+    static void fillCounterpartyAddress(Counterparty counterparty, FatturaPaInvoiceData parsed) {
+        FatturaPaInvoiceData.SupplierAddress address = parsed.supplierAddress();
+        if (counterparty == null || address == null) {
+            return;
+        }
+        String counterpartyVat = InvoiceMatchingService.normalizeVat(counterparty.getVatNumber());
+        if (counterpartyVat == null || !counterpartyVat.equals(InvoiceMatchingService.normalizeVat(parsed.supplierVatNumber()))) {
+            return;
+        }
+        if (isBlank(counterparty.getAddress())) counterparty.setAddress(address.street());
+        if (isBlank(counterparty.getPostalCode())) counterparty.setPostalCode(address.postalCode());
+        if (isBlank(counterparty.getCity())) counterparty.setCity(address.city());
+        if (isBlank(counterparty.getProvince())) counterparty.setProvince(CounterpartyMapper.upperOrNull(address.province()));
+        if (isBlank(counterparty.getCountry())) counterparty.setCountry(CounterpartyMapper.upperOrNull(address.country()));
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private ElectronicInvoiceDTO toDTO(ElectronicInvoice invoice) {

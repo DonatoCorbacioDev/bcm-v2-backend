@@ -201,7 +201,8 @@ public class InvoiceMatchingService {
         return invoiceName.contains(counterpartyName) || counterpartyName.contains(invoiceName);
     }
 
-    private String normalizeVat(String raw) {
+    /** "IT 0123..." and "0123..." are the same VAT number. Also used to fill a supplier's address from its invoices. */
+    static String normalizeVat(String raw) {
         if (raw == null || raw.isBlank()) {
             return null;
         }

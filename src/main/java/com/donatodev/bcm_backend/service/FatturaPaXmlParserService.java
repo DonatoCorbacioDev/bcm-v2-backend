@@ -80,6 +80,8 @@ public class FatturaPaXmlParserService {
         Element datiAnagrafici = findDescendantByLocalName(header, "CedentePrestatore", "DatiAnagrafici");
         String supplierName = extractSupplierName(datiAnagrafici);
         String supplierVatNumber = extractSupplierVatNumber(datiAnagrafici);
+        FatturaPaInvoiceData.SupplierAddress supplierAddress =
+                extractSupplierAddress(findDescendantByLocalName(header, "CedentePrestatore", "Sede"));
 
         Element body = findFirstChildByLocalName(root, "FatturaElettronicaBody");
         Element datiGeneraliDocumento = findDescendantByLocalName(body, "DatiGenerali", "DatiGeneraliDocumento");
@@ -106,7 +108,21 @@ public class FatturaPaXmlParserService {
 
         return new FatturaPaInvoiceData(supplierName, supplierVatNumber, documentType,
                 invoiceNumber, invoiceDate, totalAmount, currency, lineItems,
-                supplierIban, supplierBic, paymentDueDate, taxableAndVat[0], taxableAndVat[1]);
+                supplierIban, supplierBic, paymentDueDate, taxableAndVat[0], taxableAndVat[1], supplierAddress);
+    }
+
+    /** Sede: Indirizzo, NumeroCivico (optional), CAP, Comune, Provincia (optional), Nazione. */
+    private static FatturaPaInvoiceData.SupplierAddress extractSupplierAddress(Element sede) {
+        if (sede == null) {
+            return null;
+        }
+        String street = getTextOrNull(sede, "Indirizzo");
+        String number = getTextOrNull(sede, "NumeroCivico");
+        if (street != null && number != null) {
+            street = street + " " + number;
+        }
+        return new FatturaPaInvoiceData.SupplierAddress(street, getTextOrNull(sede, "CAP"),
+                getTextOrNull(sede, "Comune"), getTextOrNull(sede, "Provincia"), getTextOrNull(sede, "Nazione"));
     }
 
     /**

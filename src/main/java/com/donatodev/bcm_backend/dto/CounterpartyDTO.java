@@ -10,6 +10,8 @@ import com.donatodev.bcm_backend.entity.CounterpartyType;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 /**
  * Data Transfer Object for Counterparty.
@@ -46,5 +48,19 @@ public record CounterpartyDTO(
         String contactPhone,
         String notes,
         String verifiedIban,
-        String verifiedBic
-) {}
+        String verifiedBic,
+        // The rest of the address (address holds street and number).
+        @Size(max = 10, message = "Il CAP non può superare i 10 caratteri") String postalCode,
+        @Size(max = 100, message = "Il comune non può superare i 100 caratteri") String city,
+        @Pattern(regexp = "^$|^[A-Za-z]{2}$", message = "La provincia è una sigla di 2 lettere") String province,
+        @Pattern(regexp = "^$|^[A-Za-z]{2}$", message = "La nazione è un codice di 2 lettere") String country
+) {
+
+    /** Without the address parts: call sites predating them. */
+    public CounterpartyDTO(Long id, String name, CounterpartyType type, String vatNumber, String taxCode,
+            String address, String contactName, String contactEmail, String contactPhone, String notes,
+            String verifiedIban, String verifiedBic) {
+        this(id, name, type, vatNumber, taxCode, address, contactName, contactEmail, contactPhone, notes,
+                verifiedIban, verifiedBic, null, null, null, null);
+    }
+}
