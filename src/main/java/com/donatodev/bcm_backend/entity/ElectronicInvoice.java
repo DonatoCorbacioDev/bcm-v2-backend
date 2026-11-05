@@ -78,6 +78,10 @@ public class ElectronicInvoice extends StoredFile {
     @Column(name = "payment_due_date")
     private LocalDate paymentDueDate;
 
+    /** FatturaPA ModalitaPagamento code (MP05, MP12...), null when not stated: see {@link PaymentMethods}. */
+    @Column(name = "payment_method", length = 4)
+    private String paymentMethod;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sepa_batch_id")
     private SepaPaymentBatch sepaBatch;

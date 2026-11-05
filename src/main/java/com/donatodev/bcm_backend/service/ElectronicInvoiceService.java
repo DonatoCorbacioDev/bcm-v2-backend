@@ -105,6 +105,7 @@ public class ElectronicInvoiceService {
                 .supplierIban(parsed.supplierIban())
                 .supplierBic(parsed.supplierBic())
                 .paymentDueDate(parsed.paymentDueDate())
+                .paymentMethod(storedPaymentMethod(parsed.paymentMethod()))
                 .build();
         invoice.setLineItems(toLineItemEntities(parsed.lineItems(), invoice));
         invoice = invoiceRepository.save(invoice);
@@ -260,6 +261,11 @@ public class ElectronicInvoiceService {
         if (isBlank(counterparty.getCountry())) counterparty.setCountry(CounterpartyMapper.upperOrNull(address.country()));
     }
 
+    /** "" for an invoice that states no method: read, unlike a null never looked at (see the backfill). */
+    static String storedPaymentMethod(String parsed) {
+        return parsed == null ? "" : parsed.trim();
+    }
+
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
@@ -296,7 +302,8 @@ public class ElectronicInvoiceService {
                 expectedAmount(invoice),
                 amountDifference(invoice),
                 // Same check as the home page's "IBAN cambiato" alert, so the two never disagree.
-                HomeAttentionService.ibanChanged(invoice, invoice.getContract().getCounterparty()));
+                HomeAttentionService.ibanChanged(invoice, invoice.getContract().getCounterparty()),
+                invoice.getPaymentMethod());
     }
 
     /** The amount the contract expected for the period the invoice is matched (or suggested) to. */

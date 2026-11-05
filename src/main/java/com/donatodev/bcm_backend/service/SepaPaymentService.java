@@ -46,6 +46,7 @@ import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.SepaPaymentBatch;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.IbanMismatchException;
+import com.donatodev.bcm_backend.entity.PaymentMethods;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
@@ -103,6 +104,13 @@ public class SepaPaymentService {
         for (ElectronicInvoice invoice : invoices) {
             if (invoice.getSepaBatch() != null) {
                 throw new IllegalArgumentException("La fattura " + invoice.getId() + " è già inclusa in un pagamento SEPA");
+            }
+            // RiBa and direct debits are collected by the supplier: a transfer
+            // on top would pay the invoice twice. Card, cash and the like are
+            // paid outside BCM.
+            if (!PaymentMethods.paidByTransfer(invoice.getPaymentMethod())) {
+                throw new IllegalArgumentException("La fattura " + invoice.getId()
+                        + " non si paga con bonifico (modalità " + invoice.getPaymentMethod() + ")");
             }
             if (invoice.getSupplierIban() == null || invoice.getSupplierIban().isBlank()) {
                 throw new IllegalArgumentException("La fattura " + invoice.getId() + " non ha un IBAN fornitore");

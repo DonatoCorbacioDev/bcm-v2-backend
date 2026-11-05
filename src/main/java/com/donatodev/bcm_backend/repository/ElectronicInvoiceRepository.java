@@ -30,6 +30,9 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
     /** Invoices parsed before the taxable amount was stored (see InvoiceTaxableAmountBackfill). */
     List<ElectronicInvoice> findByTaxableAmountIsNull();
 
+    /** Invoices uploaded before the payment method was read (V53), for the startup backfill. */
+    List<ElectronicInvoice> findByPaymentMethodIsNull();
+
     /** The organization's invoices not paid by a SEPA batch yet: candidates for the home page's to-do list. */
     List<ElectronicInvoice> findByOrgIdAndSepaBatchIsNull(Long orgId);
 

@@ -57,14 +57,14 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 52,
-                "Expected at least 52 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 53,
+                "Expected at least 53 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(52, maxVersion, "Highest applied migration version should be V52");
+        assertEquals(53, maxVersion, "Highest applied migration version should be V53");
     }
 
     @Test

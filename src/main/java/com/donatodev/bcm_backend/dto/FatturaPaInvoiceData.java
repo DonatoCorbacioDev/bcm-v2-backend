@@ -23,8 +23,19 @@ public record FatturaPaInvoiceData(
         LocalDate paymentDueDate,
         BigDecimal taxableAmount,
         BigDecimal vatAmount,
-        SupplierAddress supplierAddress
+        SupplierAddress supplierAddress,
+        /** ModalitaPagamento of the first payment detail (MP05, MP12...), null without payment terms. */
+        String paymentMethod
 ) {
+
+    /** Without the payment method: call sites predating it. */
+    public FatturaPaInvoiceData(String supplierName, String supplierVatNumber, String documentType,
+            String invoiceNumber, LocalDate invoiceDate, BigDecimal totalAmount, String currency,
+            List<InvoiceLineItemDTO> lineItems, String supplierIban, String supplierBic, LocalDate paymentDueDate,
+            BigDecimal taxableAmount, BigDecimal vatAmount, SupplierAddress supplierAddress) {
+        this(supplierName, supplierVatNumber, documentType, invoiceNumber, invoiceDate, totalAmount, currency,
+                lineItems, supplierIban, supplierBic, paymentDueDate, taxableAmount, vatAmount, supplierAddress, null);
+    }
 
     /**
      * The supplier's registered office (CedentePrestatore > Sede), mandatory
@@ -40,7 +51,7 @@ public record FatturaPaInvoiceData(
             List<InvoiceLineItemDTO> lineItems, String supplierIban, String supplierBic, LocalDate paymentDueDate,
             BigDecimal taxableAmount, BigDecimal vatAmount) {
         this(supplierName, supplierVatNumber, documentType, invoiceNumber, invoiceDate, totalAmount, currency,
-                lineItems, supplierIban, supplierBic, paymentDueDate, taxableAmount, vatAmount, null);
+                lineItems, supplierIban, supplierBic, paymentDueDate, taxableAmount, vatAmount, null, null);
     }
 
     /** Compatibility constructor for call sites predating the taxable/VAT split. */
@@ -48,6 +59,6 @@ public record FatturaPaInvoiceData(
             String invoiceNumber, LocalDate invoiceDate, BigDecimal totalAmount, String currency,
             List<InvoiceLineItemDTO> lineItems, String supplierIban, String supplierBic, LocalDate paymentDueDate) {
         this(supplierName, supplierVatNumber, documentType, invoiceNumber, invoiceDate, totalAmount, currency,
-                lineItems, supplierIban, supplierBic, paymentDueDate, null, null, null);
+                lineItems, supplierIban, supplierBic, paymentDueDate, null, null, null, null);
     }
 }

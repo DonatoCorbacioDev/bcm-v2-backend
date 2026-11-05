@@ -52,8 +52,26 @@ public record ElectronicInvoiceDTO(
         BigDecimal amountDifference,
         // The invoice asks to be paid on an IBAN other than the one verified
         // for its supplier: SEPA payment is blocked until someone checks it.
-        boolean ibanChanged
+        boolean ibanChanged,
+        // FatturaPA ModalitaPagamento (MP05 bank transfer, MP12 RiBa, MP19-21
+        // direct debit...), null when the invoice states none.
+        String paymentMethod
 ) {
+
+    /** Without the payment method: call sites predating it. */
+    public ElectronicInvoiceDTO(Long id, Long contractId, String fileName, Long fileSize, Instant uploadedAt,
+            String downloadUrl, String supplierName, String supplierVatNumber, String documentType,
+            String invoiceNumber, LocalDate invoiceDate, BigDecimal totalAmount, String currency,
+            List<InvoiceLineItemDTO> lineItems, String supplierIban, String supplierBic, LocalDate paymentDueDate,
+            Long sepaBatchId, InvoiceMatchStatus matchStatus, Long matchedFinancialValueId, Double matchConfidence,
+            Instant matchedAt, String matchedByUsername, BigDecimal taxableAmount, BigDecimal vatAmount,
+            BigDecimal expectedAmount, BigDecimal amountDifference, boolean ibanChanged) {
+        this(id, contractId, fileName, fileSize, uploadedAt, downloadUrl, supplierName, supplierVatNumber,
+                documentType, invoiceNumber, invoiceDate, totalAmount, currency, lineItems, supplierIban,
+                supplierBic, paymentDueDate, sepaBatchId, matchStatus, matchedFinancialValueId, matchConfidence,
+                matchedAt, matchedByUsername, taxableAmount, vatAmount, expectedAmount, amountDifference,
+                ibanChanged, null);
+    }
 
     /** Without the IBAN check: call sites predating it. */
     public ElectronicInvoiceDTO(Long id, Long contractId, String fileName, Long fileSize, Instant uploadedAt,

@@ -225,6 +225,23 @@ class FatturaPaXmlParserServiceTest {
         }
 
         @Test
+        @DisplayName("reads the payment method (ModalitaPagamento); null without payment terms")
+        void shouldReadPaymentMethod() throws Exception {
+            String payment = "        </DatiBeniServizi>\n        <DatiPagamento>\n"
+                    + "            <CondizioniPagamento>TP02</CondizioniPagamento>\n"
+                    + "            <DettaglioPagamento>\n"
+                    + "                <ModalitaPagamento>MP12</ModalitaPagamento>\n"
+                    + "                <ImportoPagamento>1220.00</ImportoPagamento>\n"
+                    + "            </DettaglioPagamento>\n"
+                    + "        </DatiPagamento>";
+            String xml = new String(loadResource("fattura-pa-sample.xml"), java.nio.charset.StandardCharsets.UTF_8)
+                    .replace("        </DatiBeniServizi>", payment);
+
+            assertEquals("MP12", parserService.parse(xml.getBytes(java.nio.charset.StandardCharsets.UTF_8)).paymentMethod());
+            assertNull(parserService.parse(loadResource("fattura-pa-sample.xml")).paymentMethod());
+        }
+
+        @Test
         @DisplayName("reads the supplier's registered office (Sede) for its address")
         void shouldReadSupplierAddress() throws Exception {
             FatturaPaInvoiceData.SupplierAddress address =

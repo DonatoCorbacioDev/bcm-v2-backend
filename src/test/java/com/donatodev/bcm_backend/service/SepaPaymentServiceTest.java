@@ -214,6 +214,25 @@ class SepaPaymentServiceTest {
                     () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
         }
 
+        @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"MP12", "MP19", "MP08"})
+        @DisplayName("refuses an invoice not paid by bank transfer: RiBa and direct debits would be paid twice")
+        void shouldRefuseInvoiceNotPaidByTransfer(String method) {
+            Contracts contract = fakeContract();
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            invoice.setPaymentMethod(method);
+
+            List<Long> invoiceIds = List.of(10L);
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+
+            IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
+            assertTrue(e.getMessage().contains("non si paga con bonifico"));
+        }
+
         @Test
         @DisplayName("throws when some invoice IDs don't belong to the contract")
         void shouldThrowWhenInvoiceIdsNotFound() {

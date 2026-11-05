@@ -99,16 +99,20 @@ public class FatturaPaXmlParserService {
         String supplierIban = null;
         String supplierBic = null;
         LocalDate paymentDueDate = null;
+        String paymentMethod = null;
         Element dettaglioPagamento = findDescendantByLocalName(body, "DatiPagamento", "DettaglioPagamento");
         if (dettaglioPagamento != null) {
             supplierIban = extractSupplierIban(dettaglioPagamento);
             supplierBic = getTextOrNull(dettaglioPagamento, "BIC");
             paymentDueDate = parseOptionalDate(getTextOrNull(dettaglioPagamento, "DataScadenzaPagamento"));
+            // Mandatory inside DettaglioPagamento per the schema.
+            paymentMethod = getTextOrNull(dettaglioPagamento, "ModalitaPagamento");
         }
 
         return new FatturaPaInvoiceData(supplierName, supplierVatNumber, documentType,
                 invoiceNumber, invoiceDate, totalAmount, currency, lineItems,
-                supplierIban, supplierBic, paymentDueDate, taxableAndVat[0], taxableAndVat[1], supplierAddress);
+                supplierIban, supplierBic, paymentDueDate, taxableAndVat[0], taxableAndVat[1], supplierAddress,
+                paymentMethod);
     }
 
     /** Sede: Indirizzo, NumeroCivico (optional), CAP, Comune, Provincia (optional), Nazione. */

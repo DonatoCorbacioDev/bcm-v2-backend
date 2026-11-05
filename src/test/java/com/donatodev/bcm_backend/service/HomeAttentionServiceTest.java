@@ -197,6 +197,10 @@ class HomeAttentionServiceTest {
                 invoice(null, InvoiceMatchStatus.CONFIRMED, VERIFIED_IBAN), storedLoosely));
         assertEquals(true, HomeAttentionService.ibanChanged(
                 invoice(null, InvoiceMatchStatus.CONFIRMED, "IT60X0542811101000000123456"), supplier));
+        // RiBa: the supplier collects, no money goes to that IBAN, so no alert.
+        ElectronicInvoice riba = invoice(null, InvoiceMatchStatus.CONFIRMED, "IT60X0542811101000000123456");
+        riba.setPaymentMethod("MP12");
+        assertEquals(false, HomeAttentionService.ibanChanged(riba, supplier));
     }
 
     @Test

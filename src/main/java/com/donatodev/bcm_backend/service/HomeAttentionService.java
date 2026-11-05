@@ -24,6 +24,7 @@ import com.donatodev.bcm_backend.dto.HomeAttentionDTO;
 import com.donatodev.bcm_backend.dto.HomeAttentionDTO.Item;
 import com.donatodev.bcm_backend.dto.HomeAttentionDTO.Type;
 import com.donatodev.bcm_backend.entity.ContractStatus;
+import com.donatodev.bcm_backend.entity.PaymentMethods;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
@@ -161,6 +162,11 @@ public class HomeAttentionService {
     /** Same comparison the SEPA payment makes before refusing the transfer, so the two agree. */
     static boolean ibanChanged(ElectronicInvoice invoice, Counterparty counterparty) {
         if (invoice.getSupplierIban() == null || counterparty == null || counterparty.getVerifiedIban() == null) {
+            return false;
+        }
+        // The IBAN only matters to an invoice BCM pays by transfer: with RiBa
+        // or a direct debit no money is sent to it.
+        if (!PaymentMethods.paidByTransfer(invoice.getPaymentMethod())) {
             return false;
         }
         return !normalizeIban(counterparty.getVerifiedIban()).equals(normalizeIban(invoice.getSupplierIban()));
