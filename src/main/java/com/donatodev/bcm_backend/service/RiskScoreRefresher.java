@@ -9,6 +9,7 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -36,22 +37,31 @@ public class RiskScoreRefresher {
     private final OrganizationRepository organizationRepository;
     private final ContractsRepository contractsRepository;
     private final AgentNotificationService agentNotificationService;
+    private final boolean notificationsEnabled;
 
     public RiskScoreRefresher(
             MlProxyService mlProxyService,
             ObjectMapper objectMapper,
             OrganizationRepository organizationRepository,
             ContractsRepository contractsRepository,
-            AgentNotificationService agentNotificationService) {
+            AgentNotificationService agentNotificationService,
+            @Value("${ml.risk-notifications.enabled:false}") boolean notificationsEnabled) {
         this.mlProxyService = mlProxyService;
         this.objectMapper = objectMapper;
         this.organizationRepository = organizationRepository;
         this.contractsRepository = contractsRepository;
         this.agentNotificationService = agentNotificationService;
+        this.notificationsEnabled = notificationsEnabled;
     }
 
     @Scheduled(cron = "0 30 6 * * *")
     public void refreshRiskScores() {
+        // Off by default: the current risk model isn't reliable enough to
+        // alert anyone, real customers included, until it is redone.
+        if (!notificationsEnabled) {
+            logger.info("High-risk notifications are off (ml.risk-notifications.enabled=false): risk refresh skipped.");
+            return;
+        }
         List<Long> orgIds = organizationRepository.findAll().stream().map(org -> org.getId()).toList();
         logger.info("Starting risk score refresh for {} organization(s)...", orgIds.size());
 

@@ -47,7 +47,16 @@ class RiskScoreRefresherTest {
     @org.junit.jupiter.api.BeforeEach
     void setup() {
         riskScoreRefresher = new RiskScoreRefresher(
-                mlProxyService, objectMapper, organizationRepository, contractsRepository, agentNotificationService);
+                mlProxyService, objectMapper, organizationRepository, contractsRepository, agentNotificationService, true);
+    }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("With notifications off (the default) the job asks the ML service nothing and notifies no one")
+    void shouldDoNothingWhenNotificationsAreOff() {
+        new RiskScoreRefresher(mlProxyService, objectMapper, organizationRepository, contractsRepository,
+                agentNotificationService, false).refreshRiskScores();
+
+        org.mockito.Mockito.verifyNoInteractions(mlProxyService, organizationRepository, agentNotificationService);
     }
 
     private Organization org(Long id) {
