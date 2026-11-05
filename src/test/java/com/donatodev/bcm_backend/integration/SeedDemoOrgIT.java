@@ -179,6 +179,18 @@ class SeedDemoOrgIT extends AbstractMySQLIntegrationTest {
     }
 
     @Test
+    @DisplayName("Every counterparty has a contact person, and every tacitly renewing purchase a yearly value")
+    void seedsContactsAndRenewalValues() throws Exception {
+        runSeed();
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM counterparties WHERE organization_id = 3"
+                + " AND (contact_name IS NULL OR contact_name = '')", Integer.class)).isZero();
+        assertThat(jdbc.queryForList("SELECT c.annual_value FROM contracts c JOIN counterparties cp ON cp.id = c.counterparty_id"
+                + " WHERE c.organization_id = 3 AND c.auto_renew AND cp.type = 'SUPPLIER' ORDER BY c.contract_number", Double.class))
+                .containsExactly(6000.0, 2400.0, 9600.0);
+    }
+
+    @Test
     @DisplayName("Contract numbers carry no year, so they never contradict dates that move every night")
     void contractNumbersCarryNoYear() throws Exception {
         runSeed();

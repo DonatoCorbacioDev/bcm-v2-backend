@@ -263,7 +263,8 @@ public class UserService {
 				user.getRole().getRole(),
 				user.isVerified(),
 				user.isCanApproveContracts(),
-				organization != null ? organization.getName() : null
+				organization != null ? organization.getName() : null,
+				user.getManager() != null ? user.getManager().getFirstName() : null
 		);
 	}
 

@@ -24,5 +24,8 @@ public record UserProfileDTO(
     String role,
     boolean verified,
     boolean canApproveContracts,
-    String organizationName
+    String organizationName,
+    // The person's first name, from their manager profile (null without one):
+    // what the app greets them with, instead of the username.
+    String firstName
 ) {}

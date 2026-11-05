@@ -168,6 +168,23 @@ WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Aurora Servizi S.r.
 UPDATE counterparties SET type = 'SUPPLIER', contact_email = 'clienti@auroraservizi.example'
 WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = 3;
 
+-- A contact person for every counterparty (invented names, .example email
+-- domains), so the Controparti list isn't a column of "N/D". No VAT numbers
+-- for the customers on purpose: an invented one could belong to a real company.
+UPDATE counterparties SET contact_name = 'Giulia Ferraro', contact_email = 'g.ferraro@solaris.example' WHERE name = 'Solaris Informatica S.p.A.' AND organization_id = 3;
+UPDATE counterparties SET contact_name = 'Andrea Conti', contact_email = 'a.conti@fintera.example' WHERE name = 'Fintera Consulting S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET contact_name = 'Elena Marino', contact_email = 'e.marino@verticelegal.example' WHERE name = 'Vertice Legal S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET contact_name = 'Paolo Greco', contact_email = 'p.greco@meridiana.example' WHERE name = 'Trasporti Meridiana S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET contact_name = 'Sara Lombardi', contact_email = 's.lombardi@cyberdue.example' WHERE name = 'Cyberdue Security S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET contact_name = 'Luca Bianchi', contact_email = 'l.bianchi@orion.example' WHERE name = 'Manifattura Orion S.p.A.' AND organization_id = 3;
+UPDATE counterparties SET contact_name = 'Chiara Romano', contact_email = 'c.romano@nexora.example' WHERE name = 'Nexora Technologies S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET contact_name = 'Marco Gallo', contact_email = 'm.gallo@ferramentabassano.example' WHERE name = 'Ferramenta Bassano S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET contact_name = 'Davide Costa' WHERE name = 'Nuvola Cloud Services S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET contact_name = 'Roberta Ferri' WHERE name = 'Ferri & Associati S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET contact_name = 'Giorgio Rossi' WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET contact_name = 'Valentina Neri' WHERE name = 'Gestio Software S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET contact_name = 'Francesca Moretti' WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = 3;
+
 -- ── Contracts ─────────────────────────────────────────────────
 -- All assigned to manager id 4 (the public "demo" login) — role-based
 -- visibility scopes a MANAGER to their own contracts only, so this is the
@@ -295,6 +312,19 @@ SELECT (SELECT id FROM counterparties WHERE name='Aurora Servizi S.r.l.' AND org
        (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id=3),
        4, DATE_SUB(DATE_ADD(CURDATE(), INTERVAL 105 DAY), INTERVAL 24 MONTH), DATE_ADD(CURDATE(), INTERVAL 105 DAY),
        'ACTIVE', 3, TRUE, 60, 12;
+
+-- Yearly value of the three tacitly renewing purchases, so each supplier's
+-- page shows what the contract is worth instead of "0 €". No monthly cost
+-- rows for them: their story is the notice deadline, not the invoices.
+UPDATE contracts SET financial_type_id = (SELECT id FROM financial_types WHERE name = 'Costi' AND organization_id = 3),
+       annual_value = 6000, billing_frequency = 'QUARTERLY'
+WHERE contract_number = 'NRT-119' AND organization_id = 3;
+UPDATE contracts SET financial_type_id = (SELECT id FROM financial_types WHERE name = 'Costi' AND organization_id = 3),
+       annual_value = 2400, billing_frequency = 'ANNUAL'
+WHERE contract_number = 'NRT-123' AND organization_id = 3;
+UPDATE contracts SET financial_type_id = (SELECT id FROM financial_types WHERE name = 'Costi' AND organization_id = 3),
+       annual_value = 9600, billing_frequency = 'MONTHLY'
+WHERE contract_number = 'NRT-124' AND organization_id = 3;
 
 INSERT INTO contract_workflow_events (contract_id, from_stage, to_stage, action, actor_user_id, comment, created_at)
 SELECT (SELECT id FROM contracts WHERE contract_number = 'NRT-122' AND organization_id = 3),

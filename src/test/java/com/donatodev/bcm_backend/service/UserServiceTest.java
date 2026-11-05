@@ -9,6 +9,7 @@ import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
@@ -380,6 +381,23 @@ class UserServiceTest {
             assertEquals("ADMIN", result.role());
             assertTrue(result.verified());
             assertEquals("Acme", result.organizationName());
+            assertNull(result.firstName(), "no manager profile: no name to greet with");
+        }
+
+        @Test
+        @DisplayName("Get current user profile: first name from the manager profile")
+        void shouldReturnFirstNameFromManagerProfile() {
+            Users user = Users.builder()
+                    .id(1L)
+                    .username("demo")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .manager(Managers.builder().id(4L).firstName("Marco").lastName("Bellini").build())
+                    .build();
+            SecurityContextHolder.getContext().setAuthentication(
+                    UsernamePasswordAuthenticationToken.authenticated("demo", null, List.of()));
+            when(usersRepository.findByUsername("demo")).thenReturn(Optional.of(user));
+
+            assertEquals("Marco", userService.getCurrentUserProfile().firstName());
         }
 
         /**
