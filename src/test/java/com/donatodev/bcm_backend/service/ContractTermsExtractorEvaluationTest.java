@@ -30,10 +30,12 @@ import tools.jackson.databind.ObjectMapper;
  * and recall (of the values the text states, how many are found).
  * <p>
  * The bar for showing the feature to users is no wrong value at all
- * (precision 1.0) and at least 80% of the stated values found. "dev" cases
- * were available while writing the rules; "holdout" cases were not tuned on,
- * so they are the honest estimate. Both are written by the same author, so
- * neither replaces real contracts.
+ * (precision 1.0) and at least 80% of the stated values found, on cases the
+ * rules were never tuned on. The dev splits ("dev", "dev2") were used to write
+ * or fix the rules, so they gate regressions only. The blind splits
+ * ("holdout", "holdout3") are measures, reported and not gated: each was run
+ * once with the rules frozen, and the last one (holdout3) did not pass, so the
+ * feature stays hidden. None of them replaces real contracts.
  */
 @DisplayName("ContractTermsExtractor evaluation on the corpus")
 class ContractTermsExtractorEvaluationTest {
@@ -122,11 +124,34 @@ class ContractTermsExtractorEvaluationTest {
     }
 
     @Test
-    @DisplayName("holdout split (not tuned on): no wrong value, at least 80% of stated values found")
+    @DisplayName("holdout split (written by the rules' author): reported, not gated")
     void holdoutSplit() throws IOException {
+        // Measured once with rules sha1 2fa295f7: precision 1.00, recall 0.90.
+        // One later fix also covers one of its misses, so it is no longer clean.
         Result result = evaluate("holdout");
         print("holdout", result);
+        assertThat(result.perField()).hasSize(Field.values().length);
+    }
+
+    @Test
+    @DisplayName("dev2 split (ChatGPT, blind; the rules were fixed on it after one holdout run): no wrong value, recall at least 80%")
+    void dev2Split() throws IOException {
+        Result result = evaluate("dev2");
+        print("dev2", result);
         assertThat(result.total().precision()).as("precision").isEqualTo(1.0);
         assertThat(result.total().recall()).as("recall").isGreaterThanOrEqualTo(0.8);
+    }
+
+    @Test
+    @DisplayName("holdout3 split (ChatGPT, new chat, blind): reported, not gated")
+    void holdout3Split() throws IOException {
+        // Measured once with rules sha1 1bd35aa0: precision 0.94, recall 0.62,
+        // below the bar (1.0 / 0.8). Two wrong renewals, one introduced by the
+        // negation fix made on dev2 ("non modifica il regime di rinnovo"):
+        // keyword rules have hit their limit on negation. The feature stays
+        // behind the AI flag; this corpus is the baseline for a model to beat.
+        Result result = evaluate("holdout3");
+        print("holdout3", result);
+        assertThat(result.perField()).hasSize(Field.values().length);
     }
 }

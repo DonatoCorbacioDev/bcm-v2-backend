@@ -52,8 +52,14 @@ public class ContractTermsExtractor {
             .sorted((a, b) -> b.length() - a.length()).toList()) + ")(?:\\s?\\((\\d{1,3})\\))?";
 
     private static final Pattern NOT_RENEWING = Pattern.compile(
-            "non\\s(?:si\\s)?(?:è\\s|sarà\\s)?(?:tacitamente\\s)?rinnov"
-            + "|esclus\\p{L}*\\s(?:ogni\\s|il\\s|qualsiasi\\s|qualunque\\s)?(?:forma\\sdi\\s)?rinnovo\\s(?:tacito|automatico)"
+            // "non" up to four plain words before the renewal: "non si rinnova",
+            // "non sarà soggetto a proroga", "non è previsto alcun rinnovo".
+            // Only letters in between: a comma or a number ends the reach, so
+            // "qualora non venga data disdetta, si rinnova" stays a renewal.
+            "\\bnon\\s(?:\\p{L}+\\s){0,4}(?:rinnov|prorog)"
+            // Any form of "escludere" up to five words before it: "escluso ogni
+            // meccanismo di rinnovo", "escludono espressamente il rinnovo".
+            + "|esclu(?:s|d)\\p{L}*\\s(?:\\p{L}+\\s){0,5}(?:rinnov|prorog)"
             + "|rinnovo\\s(?:tacito|automatico)\\s(?:è\\s)?esclus"
             + "|senza\\s(?:alcun\\s)?rinnovo\\s(?:tacito|automatico)"
             + "|non\\s(?:è\\s)?(?:previsto|ammesso)\\s(?:il\\s|alcun\\s)?rinnovo"
@@ -61,7 +67,8 @@ public class ContractTermsExtractor {
 
     private static final Pattern RENEWING = Pattern.compile(
             "tacitamente\\s(?:rinnov|prorog)|(?:rinnov|prorog)\\p{L}*\\s(?:tacitamente|automaticamente)"
-            + "|tacito\\srinnovo|rinnovo\\s(?:tacito|automatico)|automaticamente\\srinnov"
+            + "|tacito\\srinnovo|rinnovo\\s(?:tacito|automatico)|automaticamente\\s(?:rinnov|prorog)"
+            + "|(?:rinnov|prorog)\\p{L}*\\sdi\\sdiritto"
             + "|salvo\\sdisdetta|in\\s(?:mancanza|assenza|difetto)\\sdi\\sdisdetta");
 
     private static final String UNIT = "(giorni|gg\\.?|mesi|mese)";
@@ -75,7 +82,18 @@ public class ContractTermsExtractor {
             "di\\sanno\\sin\\sanno|(?:per|di)\\s(?:un\\s)?(?:ulteriore|altro|nuovo)\\s(?:periodo\\sdi\\s)?anno"
             + "|rinnov\\p{L}*\\s(?:tacitamente\\s|automaticamente\\s)?per\\sun\\sanno");
     private static final Pattern RENEWAL_MULTI_YEAR = Pattern.compile(
-            "(?:per|di)\\s(?:un\\s)?(?:ulteriore|altro|nuovo)\\s(biennio|triennio)");
+            "(?:per|di)\\s(?:un\\s)?(?:ulteriore|altro|nuovo)\\s(biennio|triennio)"
+            + "|di\\s(biennio|triennio)\\sin\\s(?:biennio|triennio)");
+    /** "di tre mesi in tre mesi", "di dodici mesi in dodici mesi". */
+    private static final Pattern RENEWAL_X_IN_X = Pattern.compile(
+            "di\\s" + NUMBER + "\\s(mesi|mese|anni|anno)\\sin\\s\\p{L}+\\s(?:mesi|mese|anni|anno)");
+    private static final Map<String, Integer> PERIOD_ADJECTIVES = Map.of(
+            "mensili", 1, "bimestrali", 2, "trimestrali", 3, "semestrali", 6, "annuali", 12,
+            "biennali", 24, "triennali", 36);
+    /** "per ulteriori periodi semestrali", "per successivi periodi annuali", "per ulteriori annualità". */
+    private static final Pattern RENEWAL_ADJECTIVE = Pattern.compile(
+            "periodi\\s(?:successivi\\s|ulteriori\\s)?(" + String.join("|", PERIOD_ADJECTIVES.keySet()) + ")"
+            + "|(?:ulteriori|successive)\\sannualità|(?:una\\s)?(?:ulteriore|nuova)\\sannualità");
     private static final Pattern RENEWAL_PERIOD = Pattern.compile(
             "(?:(?:per|di)\\s(?:ulteriori|successivi|altri)\\s"
             + "|(?:per\\s)?(?:un\\s)?(?:ulteriore|nuovo|successivo)\\speriodo\\sdi\\s"
@@ -88,11 +106,11 @@ public class ContractTermsExtractor {
             + "|(\\d{1,2})[/.\\-](\\d{1,2})[/.\\-](\\d{4}))";
     private static final Pattern START_DATE = Pattern.compile(
             "(?:a\\sdecorrere\\sdal(?:la\\sdata\\sdel)?|con\\sdecorrenza\\sda(?:l)?|decorre\\sdal|a\\spartire\\sdal"
-            + "|con\\seffetto\\sdal|ha\\sinizio\\s(?:il|dal)|entra\\sin\\svigore\\s(?:il|dal)"
-            + "|data\\sdi\\sinizio:?\\s(?:il\\s)?)\\s?" + DATE);
+            + "|con\\seffetto\\sdal|(?:ha|avrà)\\sinizio\\s(?:il|dal)|entra\\sin\\svigore\\s(?:il|dal)"
+            + "|data\\sdi\\sinizio:?\\s(?:il\\s)?)\\s?(?:giorno\\s)?" + DATE);
     private static final Pattern END_DATE = Pattern.compile(
             "(?:con\\sscadenza\\s(?:il|al)|(?:avrà\\s)?scadenza\\sil|scadrà\\sil|scade\\sil|fino\\sal|sino\\sal"
-            + "|termina\\sil|terminerà\\sil|data\\sdi\\sscadenza:?\\s(?:il\\s)?|data\\sdi\\sfine:?\\s(?:il\\s)?)\\s?" + DATE);
+            + "|termin(?:a|erà)\\s(?:\\p{L}+mente\\s)?il|(?:avrà\\s)?termine\\sil|data\\sdi\\sscadenza:?\\s(?:il\\s)?|data\\sdi\\sfine:?\\s(?:il\\s)?)\\s?" + DATE);
     private static final Pattern FROM_TO = Pattern.compile("\\bdal\\s" + DATE + "\\sal\\s" + DATE);
     /** "dal ... al ..." names the contract's own term only in a sentence about its duration. */
     private static final Pattern ABOUT_TERM = Pattern.compile("durata|validità|efficacia|vigore|contratto\\sha|incarico\\sha");
@@ -178,7 +196,20 @@ public class ContractTermsExtractor {
         }
         Matcher multiYear = RENEWAL_MULTI_YEAR.matcher(lower);
         if (multiYear.find()) {
-            out.add("biennio".equals(multiYear.group(1)) ? "24" : "36", multiYear.group(), sentence);
+            String span = multiYear.group(1) != null ? multiYear.group(1) : multiYear.group(2);
+            out.add("biennio".equals(span) ? "24" : "36", multiYear.group(), sentence);
+        }
+        Matcher xInX = RENEWAL_X_IN_X.matcher(lower);
+        while (xInX.find()) {
+            Integer amount = number(xInX.group(1), xInX.group(2));
+            if (amount != null) {
+                out.add(String.valueOf(xInX.group(3).startsWith("ann") ? amount * 12 : amount), xInX.group(), sentence);
+            }
+        }
+        Matcher adjective = RENEWAL_ADJECTIVE.matcher(lower);
+        while (adjective.find()) {
+            int months = adjective.group(1) != null ? PERIOD_ADJECTIVES.get(adjective.group(1)) : 12;
+            out.add(String.valueOf(months), adjective.group(), sentence);
         }
         Matcher period = RENEWAL_PERIOD.matcher(lower);
         while (period.find()) {
