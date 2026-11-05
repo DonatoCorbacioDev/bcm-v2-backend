@@ -49,8 +49,25 @@ public record ElectronicInvoiceDTO(
         BigDecimal taxableAmount,
         BigDecimal vatAmount,
         BigDecimal expectedAmount,
-        BigDecimal amountDifference
+        BigDecimal amountDifference,
+        // The invoice asks to be paid on an IBAN other than the one verified
+        // for its supplier: SEPA payment is blocked until someone checks it.
+        boolean ibanChanged
 ) {
+
+    /** Without the IBAN check: call sites predating it. */
+    public ElectronicInvoiceDTO(Long id, Long contractId, String fileName, Long fileSize, Instant uploadedAt,
+            String downloadUrl, String supplierName, String supplierVatNumber, String documentType,
+            String invoiceNumber, LocalDate invoiceDate, BigDecimal totalAmount, String currency,
+            List<InvoiceLineItemDTO> lineItems, String supplierIban, String supplierBic, LocalDate paymentDueDate,
+            Long sepaBatchId, InvoiceMatchStatus matchStatus, Long matchedFinancialValueId, Double matchConfidence,
+            Instant matchedAt, String matchedByUsername, BigDecimal taxableAmount, BigDecimal vatAmount,
+            BigDecimal expectedAmount, BigDecimal amountDifference) {
+        this(id, contractId, fileName, fileSize, uploadedAt, downloadUrl, supplierName, supplierVatNumber,
+                documentType, invoiceNumber, invoiceDate, totalAmount, currency, lineItems, supplierIban,
+                supplierBic, paymentDueDate, sepaBatchId, matchStatus, matchedFinancialValueId, matchConfidence,
+                matchedAt, matchedByUsername, taxableAmount, vatAmount, expectedAmount, amountDifference, false);
+    }
 
     /** Compatibility constructor for call sites predating the taxable amount comparison. */
     public ElectronicInvoiceDTO(Long id, Long contractId, String fileName, Long fileSize, Instant uploadedAt,

@@ -263,7 +263,9 @@ public class ElectronicInvoiceService {
                 invoice.getTaxableAmount(),
                 invoice.getVatAmount(),
                 expectedAmount(invoice),
-                amountDifference(invoice));
+                amountDifference(invoice),
+                // Same check as the home page's "IBAN cambiato" alert, so the two never disagree.
+                HomeAttentionService.ibanChanged(invoice, invoice.getContract().getCounterparty()));
     }
 
     /** The amount the contract expected for the period the invoice is matched (or suggested) to. */

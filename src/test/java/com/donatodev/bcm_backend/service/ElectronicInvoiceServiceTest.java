@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -278,6 +279,28 @@ class ElectronicInvoiceServiceTest {
             assertEquals(1, result.size());
             assertEquals(INVOICE_ID, result.get(0).id());
             assertEquals(1, result.get(0).lineItems().size());
+            assertFalse(result.get(0).ibanChanged(), "no IBAN on the invoice: nothing changed");
+        }
+
+        @Test
+        @DisplayName("getInvoices: flags an invoice whose IBAN differs from the supplier's verified one")
+        void shouldFlagChangedIban() {
+            Contracts contract = fakeContract();
+            contract.setCounterparty(com.donatodev.bcm_backend.entity.Counterparty.builder()
+                    .name("Acme Forniture S.r.l.").verifiedIban("IT17M0503411701000062194812").build());
+            ElectronicInvoice sameIban = fakeInvoice(contract, sampleLineItems());
+            sameIban.setSupplierIban("IT17 M050 3411 7010 0006 2194 812");
+            ElectronicInvoice otherIban = fakeInvoice(contract, sampleLineItems());
+            otherIban.setSupplierIban("IT07B3600003200000087345519");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdOrderByUploadedAtDesc(CONTRACT_ID))
+                    .thenReturn(List.of(sameIban, otherIban));
+
+            List<ElectronicInvoiceDTO> result = electronicInvoiceService.getInvoices(CONTRACT_ID);
+
+            assertFalse(result.get(0).ibanChanged());
+            assertTrue(result.get(1).ibanChanged());
         }
 
         @Test
