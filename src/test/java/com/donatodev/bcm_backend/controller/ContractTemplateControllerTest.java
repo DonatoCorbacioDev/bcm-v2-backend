@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -37,6 +38,7 @@ import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractTemplateRepository;
+import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
@@ -66,6 +68,9 @@ class ContractTemplateControllerTest {
 
     @Autowired
     private ContractTemplateRepository templateRepository;
+
+    @Autowired
+    private ContractsRepository contractsRepository;
 
     @Autowired
     private BusinessAreasRepository businessAreasRepository;
@@ -245,6 +250,31 @@ class ContractTemplateControllerTest {
             mockMvc.perform(delete("/contract-templates/{id}", saved.getId())
                     .header("Authorization", "Bearer " + managerToken))
                     .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @Order(9)
+        @DisplayName("POST /contract-templates/{id}/instantiate is forbidden for MANAGER: creating contracts is admin-only")
+        void shouldForbidInstantiateForManager() throws Exception {
+            BusinessAreas area = businessAreasRepository.save(
+                    BusinessAreas.builder().name("Manager Area").description("d").organization(org).build());
+            ContractTemplate saved = templateRepository.save(ContractTemplate.builder()
+                    .name("Manager Template").businessArea(area).autoRenew(false).orgId(org.getId()).build());
+            Counterparty cp = counterpartiesRepository.save(Counterparty.builder()
+                    .name("Manager Corp").type(CounterpartyType.CUSTOMER).organization(org).build());
+            InstantiateTemplateDTO req = new InstantiateTemplateDTO(
+                    cp.getId(), "CTR-MGR-001", null, null,
+                    LocalDate.of(2026, Month.JANUARY, 1), LocalDate.of(2026, Month.DECEMBER, 31),
+                    null, null, null);
+            long before = contractsRepository.count();
+
+            mockMvc.perform(post("/contract-templates/{id}/instantiate", saved.getId())
+                    .header("Authorization", "Bearer " + managerToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(req)))
+                    .andExpect(status().isForbidden());
+
+            assertEquals(before, contractsRepository.count());
         }
 
         @Test

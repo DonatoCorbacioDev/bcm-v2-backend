@@ -69,7 +69,8 @@ public class ContractTemplateController {
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
+    // Admin-only like POST /contracts: instantiating a template creates a contract.
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/instantiate")
     public ResponseEntity<ContractDTO> instantiateTemplate(
             @PathVariable Long id,
