@@ -57,14 +57,47 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
         List<Boolean> successFlags = jdbc.queryForList(
                 "SELECT success FROM flyway_schema_history ORDER BY installed_rank", Boolean.class);
 
-        assertTrue(successFlags.size() >= 53,
-                "Expected at least 53 applied migrations, found " + successFlags.size());
+        assertTrue(successFlags.size() >= 54,
+                "Expected at least 54 applied migrations, found " + successFlags.size());
         assertFalse(successFlags.contains(false), "At least one migration is recorded as failed");
 
         Integer maxVersion = jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE version IS NOT NULL",
                 Integer.class);
-        assertEquals(53, maxVersion, "Highest applied migration version should be V53");
+        assertEquals(54, maxVersion, "Highest applied migration version should be V54");
+    }
+
+    @Test
+    @DisplayName("V54 gives Costi and Ricavi to an organization with no financial types, and leaves the others alone")
+    void v54AddsDefaultFinancialTypesOnlyWhereThereAreNone() throws Exception {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.update("INSERT INTO organizations (id, name, slug) VALUES (9101, 'V54 Empty Org', 'v54-empty-org')");
+        jdbc.update("INSERT INTO organizations (id, name, slug) VALUES (9102, 'V54 Own Types Org', 'v54-own-types-org')");
+        jdbc.update("INSERT INTO financial_types (name, description, category, organization_id) "
+                + "VALUES ('Canoni', 'tipo scelto dal cliente', 'COST', 9102)");
+
+        // The migration itself, re-run against these two organizations only so
+        // that rows of tests running in parallel are never touched.
+        String sql;
+        try (var in = getClass().getResourceAsStream(
+                "/db/migration/V54__default_financial_types_for_orgs_without_any.sql")) {
+            sql = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        String statement = sql.lines().filter(line -> !line.startsWith("--")).reduce("", (a, b) -> a + "\n" + b)
+                .trim().replaceFirst(";$", "") + " AND o.id IN (9101, 9102)";
+        jdbc.update(statement);
+        jdbc.update(statement); // a second run changes nothing
+
+        try {
+            assertEquals(List.of("Costi:COST", "Ricavi:REVENUE"), jdbc.queryForList(
+                    "SELECT CONCAT(name, ':', category) FROM financial_types WHERE organization_id = 9101 ORDER BY name",
+                    String.class));
+            assertEquals(List.of("Canoni"), jdbc.queryForList(
+                    "SELECT name FROM financial_types WHERE organization_id = 9102", String.class));
+        } finally {
+            jdbc.update("DELETE FROM financial_types WHERE organization_id IN (9101, 9102)");
+            jdbc.update("DELETE FROM organizations WHERE id IN (9101, 9102)");
+        }
     }
 
     @Test

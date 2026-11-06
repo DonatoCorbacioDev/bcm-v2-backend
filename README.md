@@ -99,7 +99,7 @@ Eight short records of why things are the way they are, in [docs/adr](./docs/adr
 
 ### Stack
 
-Java 21 · Spring Boot 4.1 · Spring Security (JWT, TOTP two-factor) · JPA/Hibernate 7 · MySQL 8 · Flyway (53 migrations) · Redis · Jackson 3 · Apache PDFBox + Tesseract OCR · JUnit 5, Mockito, Testcontainers · SpotBugs + FindSecBugs · SonarCloud
+Java 21 · Spring Boot 4.1 · Spring Security (JWT, TOTP two-factor) · JPA/Hibernate 7 · MySQL 8 · Flyway (54 migrations) · Redis · Jackson 3 · Apache PDFBox + Tesseract OCR · JUnit 5, Mockito, Testcontainers · SpotBugs + FindSecBugs · SonarCloud
 
 ---
 

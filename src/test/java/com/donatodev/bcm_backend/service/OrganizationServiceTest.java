@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.service;
 
 import java.time.LocalDateTime;
 import java.time.Month;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -64,6 +65,7 @@ class OrganizationServiceTest {
     @Mock private com.donatodev.bcm_backend.repository.ContractsRepository contractsRepository;
     @Mock private TierLimitService tierLimitService;
     @Mock private AuditLogService auditLogService;
+    @Mock private com.donatodev.bcm_backend.repository.FinancialTypesRepository financialTypesRepository;
 
     @InjectMocks
     private OrganizationService organizationService;
@@ -151,6 +153,15 @@ class OrganizationServiceTest {
             assertEquals("Chrome", signed.getRequestUserAgent());
             assertEquals("203.0.113.9", signed.getConfirmIp());
             assertEquals("Firefox", signed.getConfirmUserAgent());
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<com.donatodev.bcm_backend.entity.FinancialTypes>> types =
+                    ArgumentCaptor.forClass(List.class);
+            verify(financialTypesRepository).saveAll(types.capture());
+            assertEquals(List.of("Costi:COST", "Ricavi:REVENUE"), types.getValue().stream()
+                    .map(t -> t.getName() + ":" + t.getCategory()).toList(),
+                    "a new organization can enter a contract's annual value right away");
+            assertTrue(types.getValue().stream().allMatch(t -> t.getOrganization() == org));
         }
 
         @Test

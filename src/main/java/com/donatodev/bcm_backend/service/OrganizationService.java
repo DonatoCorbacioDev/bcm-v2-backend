@@ -8,6 +8,7 @@ package com.donatodev.bcm_backend.service;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -22,6 +23,8 @@ import com.donatodev.bcm_backend.dto.OrganizationDTO;
 import com.donatodev.bcm_backend.dto.OrganizationUsageDTO;
 import com.donatodev.bcm_backend.dto.RequestOrigin;
 import com.donatodev.bcm_backend.dto.UpdateOrganizationRequest;
+import com.donatodev.bcm_backend.entity.FinancialCategory;
+import com.donatodev.bcm_backend.entity.FinancialTypes;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.PendingRegistration;
@@ -32,6 +35,7 @@ import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.OrganizationNotFoundException;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
+import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
@@ -54,6 +58,7 @@ public class OrganizationService {
     private final ContractsRepository contractsRepository;
     private final TierLimitService tierLimitService;
     private final AuditLogService auditLogService;
+    private final FinancialTypesRepository financialTypesRepository;
 
     public OrganizationService(
             OrganizationRepository organizationRepository,
@@ -65,7 +70,8 @@ public class OrganizationService {
             RefreshTokenService refreshTokenService,
             ContractsRepository contractsRepository,
             TierLimitService tierLimitService,
-            AuditLogService auditLogService) {
+            AuditLogService auditLogService,
+            FinancialTypesRepository financialTypesRepository) {
         this.organizationRepository = organizationRepository;
         this.usersRepository = usersRepository;
         this.managersRepository = managersRepository;
@@ -76,6 +82,21 @@ public class OrganizationService {
         this.contractsRepository = contractsRepository;
         this.tierLimitService = tierLimitService;
         this.auditLogService = auditLogService;
+        this.financialTypesRepository = financialTypesRepository;
+    }
+
+    /**
+     * A new organization starts with "Costi" and "Ricavi", so a contract's
+     * annual value can be entered right away instead of after finding the
+     * financial types page in the settings. V54 does the same for existing
+     * organizations that have none.
+     */
+    private void createDefaultFinancialTypes(Organization org) {
+        financialTypesRepository.saveAll(List.of(
+                FinancialTypes.builder().name("Costi").description("Spese per fornitori e servizi")
+                        .category(FinancialCategory.COST).organization(org).build(),
+                FinancialTypes.builder().name("Ricavi").description("Ricavi dalla vendita di prodotti o servizi")
+                        .category(FinancialCategory.REVENUE).organization(org).build()));
     }
 
     /**
@@ -107,6 +128,8 @@ public class OrganizationService {
                 .termsVersion(pending.getTermsVersion())
                 .termsAcceptedAt(acceptedAt)
                 .build());
+
+        createDefaultFinancialTypes(org);
 
         Managers manager = managersRepository.save(Managers.builder()
                 .firstName(pending.getAdminFirstName())

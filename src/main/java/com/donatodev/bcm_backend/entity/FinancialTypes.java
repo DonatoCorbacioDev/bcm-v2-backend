@@ -10,6 +10,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -21,7 +22,8 @@ import lombok.experimental.SuperBuilder;
  * associated with business contracts.
  */
 @Entity
-@Table(name = "financial_types")
+@Table(name = "financial_types",
+        uniqueConstraints = @UniqueConstraint(name = "uq_ft_name_org", columnNames = {"name", "organization_id"}))
 @Getter
 @Setter
 @SuperBuilder

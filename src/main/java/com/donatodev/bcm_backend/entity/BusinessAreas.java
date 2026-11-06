@@ -7,6 +7,7 @@ package com.donatodev.bcm_backend.entity;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
@@ -15,7 +16,8 @@ import lombok.experimental.SuperBuilder;
  * Represents the business domains in which contracts operate.
  */
 @Entity
-@Table(name = "business_areas")
+@Table(name = "business_areas",
+        uniqueConstraints = @UniqueConstraint(name = "uq_ba_name_org", columnNames = {"name", "organization_id"}))
 @SuperBuilder
 @NoArgsConstructor
 public class BusinessAreas extends OrgNamedEntity {

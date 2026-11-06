@@ -33,7 +33,9 @@ public abstract class OrgNamedEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", nullable = false, unique = true)
+    // Unique per organization, not globally: each entity declares the
+    // (name, organization_id) constraint, as the database does (V8).
+    @Column(name = "name", nullable = false)
     private String name;
 
     @Column(name = "description")

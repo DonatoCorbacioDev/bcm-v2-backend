@@ -81,6 +81,7 @@ class OrganizationControllerTest {
     @Autowired private AuditLogRepository auditLogRepository;
     @Autowired private PendingRegistrationRepository pendingRegistrationRepository;
     @Autowired private TermsAcceptanceRepository termsAcceptanceRepository;
+    @Autowired private com.donatodev.bcm_backend.repository.FinancialTypesRepository financialTypesRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private OrganizationRegistrationService registrationService;
     @MockitoSpyBean private DummyEmailService dummyEmailService;
@@ -100,6 +101,7 @@ class OrganizationControllerTest {
         usersRepository.deleteAll();
         managersRepository.deleteAll();
         rolesRepository.deleteAll();
+        financialTypesRepository.deleteAll(); // registration creates Costi and Ricavi
         organizationRepository.deleteAll();
         rolesRepository.save(Roles.builder().role("ADMIN").build());
         rolesRepository.save(Roles.builder().role("MANAGER").build());
