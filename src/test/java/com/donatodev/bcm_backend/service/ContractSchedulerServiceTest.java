@@ -580,7 +580,7 @@ class ContractSchedulerServiceTest {
             Contracts contract = tacitContract(90, 12, endDate);
             when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
                     .thenReturn(List.of(contract));
-            org.mockito.Mockito.doThrow(new IllegalStateException("notifications down"))
+            doThrow(new IllegalStateException("notifications down"))
                     .when(agentNotificationService).notifyTacitRenewal(contract, endDate);
 
             schedulerService.expireOverdueContracts();

@@ -223,7 +223,7 @@ public class ContractTermsExtractor {
         }
         Matcher multiYear = RENEWAL_MULTI_YEAR.matcher(lower);
         if (multiYear.find()) {
-            String span = multiYear.group(1) != null ? multiYear.group(1) : multiYear.group(2);
+            String span = multiYear.group(multiYear.group(1) != null ? 1 : 2);
             out.add("biennio".equals(span) ? "24" : "36", multiYear.group(), sentence);
         }
         readCountedRenewals(RENEWAL_X_IN_X, lower, sentence, out, false);

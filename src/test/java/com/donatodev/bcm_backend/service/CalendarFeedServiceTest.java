@@ -238,8 +238,12 @@ class CalendarFeedServiceTest {
 
             assertTrue(ics.contains("UID:contract-4@bcm\r\n"));
             assertTrue(ics.contains("UID:contract-notice-4@bcm\r\nDTSTAMP:"));
-            assertTrue(ics.contains("DTSTART;VALUE=DATE:20261002\r\nDTEND;VALUE=DATE:20261003\r\n"
-                    + "SUMMARY:Ultimo giorno per disdire NRT-119 - Rossi Impianti\r\n"));
+            // CRLF line ends, as RFC 5545 requires.
+            assertTrue(ics.contains("""
+                    DTSTART;VALUE=DATE:20261002\r
+                    DTEND;VALUE=DATE:20261003\r
+                    SUMMARY:Ultimo giorno per disdire NRT-119 - Rossi Impianti\r
+                    """));
         }
 
         @Test

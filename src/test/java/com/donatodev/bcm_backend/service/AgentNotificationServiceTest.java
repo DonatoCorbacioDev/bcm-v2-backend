@@ -438,9 +438,9 @@ class AgentNotificationServiceTest {
 
             agentNotificationService.notifyNoticeDeadline(renewing(manager(), end, 30));
 
-            verify(notificationService).createForUser(eq(5L), eq(10L), eq("Termine di disdetta in arrivo"),
-                    eq("Restano 10 giorni per disdire il contratto NRT-119 (Rossi Impianti), poi si rinnova automaticamente"),
-                    eq(NotificationType.WARNING));
+            verify(notificationService).createForUser(5L, 10L, "Termine di disdetta in arrivo",
+                    "Restano 10 giorni per disdire il contratto NRT-119 (Rossi Impianti), poi si rinnova automaticamente",
+                    NotificationType.WARNING);
         }
 
         @Test
@@ -479,9 +479,9 @@ class AgentNotificationServiceTest {
             agentNotificationService.notifyTacitRenewal(
                     renewing(manager(), LocalDate.of(2027, Month.DECEMBER, 31), 30), LocalDate.of(2026, Month.DECEMBER, 31));
 
-            verify(notificationService).createForUser(eq(5L), eq(10L), eq("Contratto rinnovato tacitamente"),
-                    eq("Contratto NRT-119 (Rossi Impianti) si è rinnovato: scadenza spostata dal 31/12/2026 al 31/12/2027"),
-                    eq(NotificationType.INFO));
+            verify(notificationService).createForUser(5L, 10L, "Contratto rinnovato tacitamente",
+                    "Contratto NRT-119 (Rossi Impianti) si è rinnovato: scadenza spostata dal 31/12/2026 al 31/12/2027",
+                    NotificationType.INFO);
         }
     }
 }

@@ -165,8 +165,9 @@ class OrganizationServiceTest {
             when(managersRepository.save(any())).thenReturn(Managers.builder().id(1L).email("admin@acme.com").build());
             when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.empty());
 
+            PendingRegistration pending = validPending();
             IllegalStateException e = assertThrows(IllegalStateException.class,
-                    () -> organizationService.createConfirmedOrganization(validPending(), CONFIRM_ORIGIN));
+                    () -> organizationService.createConfirmedOrganization(pending, CONFIRM_ORIGIN));
             assertEquals("Ruolo ADMIN non trovato nel database", e.getMessage());
             verify(usersRepository, never()).save(any());
         }
