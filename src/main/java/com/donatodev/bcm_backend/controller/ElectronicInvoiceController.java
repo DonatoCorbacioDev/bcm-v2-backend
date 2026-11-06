@@ -30,6 +30,7 @@ import com.donatodev.bcm_backend.dto.ElectronicInvoiceDTO;
 import com.donatodev.bcm_backend.dto.UpdateInvoicePaymentDetailsRequest;
 import com.donatodev.bcm_backend.service.ElectronicInvoiceService;
 import com.donatodev.bcm_backend.service.FileDownload;
+import com.donatodev.bcm_backend.security.DisabledInPublicDemo;
 
 import jakarta.validation.Valid;
 
@@ -88,6 +89,7 @@ public class ElectronicInvoiceController {
         return ResponseEntity.noContent().build();
     }
 
+    @DisabledInPublicDemo
     @PatchMapping("/{invoiceId}/payment-details")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ElectronicInvoiceDTO> updatePaymentDetails(

@@ -57,6 +57,11 @@ public class UserService {
 	@Value("${app.frontend-base-url:http://localhost:3000}")
 	private String frontendBaseUrl;
 
+	// Same setting as PublicDemoGuard: tells the profile page to show the
+	// password and two-factor cards as disabled for the public demo login.
+	@Value("${bcm.demo.locked-username:}")
+	private String demoLockedUsername;
+
 	public UserService(
 			UsersRepository usersRepository,
 			UserMapper userMapper,
@@ -264,8 +269,26 @@ public class UserService {
 				user.isVerified(),
 				user.isCanApproveContracts(),
 				organization != null ? organization.getName() : null,
-				user.getManager() != null ? user.getManager().getFirstName() : null
+				user.getManager() != null ? user.getManager().getFirstName() : null,
+				demoLockedUsername != null && !demoLockedUsername.isBlank()
+						&& demoLockedUsername.trim().equals(user.getUsername())
 		);
+	}
+
+	/**
+	 * Changes the signed-in user's own password after checking the current one.
+	 *
+	 * @throws IllegalArgumentException if the current password is wrong
+	 */
+	@Transactional
+	public void changeOwnPassword(String currentPassword, String newPassword) {
+		String username = AuthenticatedUserUtils.getUsernameOrThrow();
+		Users user = usersRepository.findByUsername(username)
+				.orElseThrow(() -> new UsernameNotFoundException("Utente non trovato: " + username));
+		if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+			throw new IllegalArgumentException("La password attuale non è corretta");
+		}
+		updatePassword(user, newPassword);
 	}
 
 	public String inviteUser(String username, String role, Long managerId) {

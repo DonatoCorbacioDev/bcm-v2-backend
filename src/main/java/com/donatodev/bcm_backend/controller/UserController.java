@@ -15,12 +15,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.donatodev.bcm_backend.dto.ChangeOwnPasswordRequest;
 import com.donatodev.bcm_backend.dto.InviteUserRequest;
 import com.donatodev.bcm_backend.dto.UpdateUserRequest;
 import com.donatodev.bcm_backend.dto.UserDTO;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.mapper.UserMapper;
 import com.donatodev.bcm_backend.service.UserService;
+import com.donatodev.bcm_backend.security.DisabledInPublicDemo;
 
 import jakarta.validation.Valid;
 
@@ -39,6 +41,18 @@ public class UserController {
 	public UserController(UserService userService, UserMapper userMapper) {
         this.userService = userService;
         this.userMapper = userMapper;
+    }
+
+    /**
+     * Changes the signed-in user's own password, whatever their role (the
+     * admin-only PATCH /users/{id} is for managing other people).
+     */
+    @PreAuthorize("isAuthenticated()")
+    @DisabledInPublicDemo
+    @PostMapping("/me/password")
+    public ResponseEntity<Void> changeOwnPassword(@RequestBody @Valid ChangeOwnPasswordRequest request) {
+        userService.changeOwnPassword(request.currentPassword(), request.newPassword());
+        return ResponseEntity.noContent().build();
     }
 
     /**

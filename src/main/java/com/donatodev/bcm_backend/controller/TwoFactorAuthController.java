@@ -17,6 +17,7 @@ import com.donatodev.bcm_backend.dto.TotpConfirmResponse;
 import com.donatodev.bcm_backend.dto.TotpSetupResponse;
 import com.donatodev.bcm_backend.dto.TotpStatusResponse;
 import com.donatodev.bcm_backend.service.TwoFactorAuthService;
+import com.donatodev.bcm_backend.security.DisabledInPublicDemo;
 
 import jakarta.validation.Valid;
 
@@ -35,11 +36,13 @@ public class TwoFactorAuthController {
         return ResponseEntity.ok(twoFactorAuthService.status());
     }
 
+    @DisabledInPublicDemo
     @PostMapping("/setup")
     public ResponseEntity<TotpSetupResponse> setup() {
         return ResponseEntity.ok(twoFactorAuthService.setup());
     }
 
+    @DisabledInPublicDemo
     @PostMapping("/confirm")
     public ResponseEntity<TotpConfirmResponse> confirm(@Valid @RequestBody TotpCodeRequest request) {
         return ResponseEntity.ok(twoFactorAuthService.confirm(request.code()));

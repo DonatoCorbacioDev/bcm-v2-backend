@@ -24,6 +24,7 @@ import com.donatodev.bcm_backend.dto.CreateSepaPaymentRequest;
 import com.donatodev.bcm_backend.dto.SepaPaymentBatchDTO;
 import com.donatodev.bcm_backend.service.FileDownload;
 import com.donatodev.bcm_backend.service.SepaPaymentService;
+import com.donatodev.bcm_backend.security.DisabledInPublicDemo;
 
 import jakarta.validation.Valid;
 
@@ -37,6 +38,7 @@ public class SepaPaymentController {
         this.sepaPaymentService = sepaPaymentService;
     }
 
+    @DisabledInPublicDemo
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<byte[]> createSepaPayment(

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.donatodev.bcm_backend.dto.FinancialValueDTO;
 import com.donatodev.bcm_backend.service.FinancialValueService;
+import com.donatodev.bcm_backend.security.DisabledInPublicDemo;
 
 /**
  * REST controller for managing financial values.
@@ -63,6 +64,7 @@ public class FinancialValueController {
      * @return the created {@link FinancialValueDTO}
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @DisabledInPublicDemo
     @PostMapping
     public ResponseEntity<FinancialValueDTO> createValue(@RequestBody FinancialValueDTO dto) {
         FinancialValueDTO newValue = financialValueService.createValue(dto);
@@ -77,6 +79,7 @@ public class FinancialValueController {
      * @return the updated {@link FinancialValueDTO}
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @DisabledInPublicDemo
     @PutMapping("/{id}")
     public ResponseEntity<FinancialValueDTO> updateValue(@PathVariable Long id, @RequestBody FinancialValueDTO dto) {
         FinancialValueDTO updated = financialValueService.updateValue(id, dto);

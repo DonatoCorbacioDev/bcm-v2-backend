@@ -23,6 +23,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -398,6 +399,43 @@ class UserServiceTest {
             when(usersRepository.findByUsername("demo")).thenReturn(Optional.of(user));
 
             assertEquals("Marco", userService.getCurrentUserProfile().firstName());
+            assertFalse(userService.getCurrentUserProfile().demoAccount(), "no demo account configured");
+
+            org.springframework.test.util.ReflectionTestUtils.setField(userService, "demoLockedUsername", "demo");
+            assertTrue(userService.getCurrentUserProfile().demoAccount());
+        }
+
+        @Test
+        @DisplayName("Change own password: checks the current one, then stores the new hash")
+        void shouldChangeOwnPasswordAfterCheckingCurrentOne() {
+            Users user = Users.builder().id(1L).username("marco").passwordHash("old-hash").build();
+            SecurityContextHolder.getContext().setAuthentication(
+                    UsernamePasswordAuthenticationToken.authenticated("marco", null, List.of()));
+            when(usersRepository.findByUsername("marco")).thenReturn(Optional.of(user));
+            when(passwordEncoder.matches("OldPass#2026", "old-hash")).thenReturn(true);
+            when(passwordEncoder.encode("NewPass#2026")).thenReturn("new-hash");
+
+            userService.changeOwnPassword("OldPass#2026", "NewPass#2026");
+
+            assertEquals("new-hash", user.getPasswordHash());
+            verify(usersRepository).save(user);
+        }
+
+        @Test
+        @DisplayName("Change own password: a wrong current password changes nothing")
+        void shouldRefuseOwnPasswordChangeWithWrongCurrentOne() {
+            Users user = Users.builder().id(1L).username("marco").passwordHash("old-hash").build();
+            SecurityContextHolder.getContext().setAuthentication(
+                    UsernamePasswordAuthenticationToken.authenticated("marco", null, List.of()));
+            when(usersRepository.findByUsername("marco")).thenReturn(Optional.of(user));
+            when(passwordEncoder.matches("wrong", "old-hash")).thenReturn(false);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> userService.changeOwnPassword("wrong", "NewPass#2026"));
+
+            assertEquals("La password attuale non è corretta", ex.getMessage());
+            assertEquals("old-hash", user.getPasswordHash());
+            verify(usersRepository, never()).save(any());
         }
 
         /**

@@ -27,5 +27,8 @@ public record UserProfileDTO(
     String organizationName,
     // The person's first name, from their manager profile (null without one):
     // what the app greets them with, instead of the username.
-    String firstName
+    String firstName,
+    // True for the public demo login: the profile page shows password and
+    // two-factor as disabled instead of forms the backend would refuse.
+    boolean demoAccount
 ) {}
