@@ -185,6 +185,22 @@ UPDATE counterparties SET contact_name = 'Giorgio Rossi' WHERE name = 'Rossi Imp
 UPDATE counterparties SET contact_name = 'Valentina Neri' WHERE name = 'Gestio Software S.r.l.' AND organization_id = 3;
 UPDATE counterparties SET contact_name = 'Francesca Moretti' WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = 3;
 
+-- Where each company is (city and province only: no street address, nothing
+-- that could point at a real business), so the "Comune" column isn't empty.
+-- Not for Nuvola and Ferri: their addresses come from their own invoices,
+-- which is what seed_demo_purchase_invoices.py checks every night.
+UPDATE counterparties SET city = 'Milano',   province = 'MI', country = 'IT' WHERE name = 'Solaris Informatica S.p.A.' AND organization_id = 3;
+UPDATE counterparties SET city = 'Roma',     province = 'RM', country = 'IT' WHERE name = 'Fintera Consulting S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET city = 'Bologna',  province = 'BO', country = 'IT' WHERE name = 'Vertice Legal S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET city = 'Napoli',   province = 'NA', country = 'IT' WHERE name = 'Trasporti Meridiana S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET city = 'Padova',   province = 'PD', country = 'IT' WHERE name = 'Cyberdue Security S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET city = 'Brescia',  province = 'BS', country = 'IT' WHERE name = 'Manifattura Orion S.p.A.' AND organization_id = 3;
+UPDATE counterparties SET city = 'Firenze',  province = 'FI', country = 'IT' WHERE name = 'Nexora Technologies S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET city = 'Bassano del Grappa', province = 'VI', country = 'IT' WHERE name = 'Ferramenta Bassano S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET city = 'Lecce',    province = 'LE', country = 'IT' WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET city = 'Verona',   province = 'VR', country = 'IT' WHERE name = 'Gestio Software S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET city = 'Taranto',  province = 'TA', country = 'IT' WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = 3;
+
 -- ── Contracts ─────────────────────────────────────────────────
 -- All assigned to manager id 4 (the public "demo" login) — role-based
 -- visibility scopes a MANAGER to their own contracts only, so this is the

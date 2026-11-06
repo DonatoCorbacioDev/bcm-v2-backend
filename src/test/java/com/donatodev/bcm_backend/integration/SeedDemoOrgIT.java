@@ -191,6 +191,18 @@ class SeedDemoOrgIT extends AbstractMySQLIntegrationTest {
     }
 
     @Test
+    @DisplayName("Every counterparty has a city, except the two suppliers whose address comes from their invoices")
+    void seedsCities() throws Exception {
+        runSeed();
+
+        assertThat(jdbc.queryForList("SELECT name FROM counterparties WHERE organization_id = 3"
+                + " AND (city IS NULL OR city = '') ORDER BY name", String.class))
+                .containsExactly("Ferri & Associati S.r.l.", "Nuvola Cloud Services S.r.l.");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM counterparties WHERE organization_id = 3"
+                + " AND city IS NOT NULL AND (province IS NULL OR CHAR_LENGTH(province) <> 2)", Integer.class)).isZero();
+    }
+
+    @Test
     @DisplayName("Contract numbers carry no year, so they never contradict dates that move every night")
     void contractNumbersCarryNoYear() throws Exception {
         runSeed();

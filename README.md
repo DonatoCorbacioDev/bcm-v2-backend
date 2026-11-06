@@ -26,7 +26,7 @@ Companies lose money on contracts nobody is watching: a contract that renews its
 |---|---|
 | **Tacit renewals** | Notice period and renewal length per contract; BCM computes the last day to give notice and reminds you before it, not on the end date |
 | **Supplier invoices** | Italian e-invoices (FatturaPA XML) validated against the official schema, matched to the contract's expected amounts on the taxable amount, credit notes included |
-| **Payment fraud checks** | Each supplier has a verified IBAN: an invoice asking to be paid elsewhere is flagged and can't be paid until someone confirms the change |
+| **Changed-IBAN check** | Each supplier has a verified IBAN: an invoice asking to be paid elsewhere is flagged and can't go into a SEPA file until someone confirms the change (BCM can't stop a transfer made by hand in the bank) |
 | **Payments** | SEPA credit-transfer files (pain.001) for invoices paid by bank transfer; RiBa and direct debits are recognised and never paid twice |
 | **Counterparties** | Customers and suppliers, with the supplier's address filled in from its own invoices |
 | **One company, one space** | Every query is scoped to the organization; tested by one organization trying to read and change another's data |
