@@ -224,6 +224,25 @@ class CalendarFeedServiceTest {
         }
 
         @Test
+        @DisplayName("a tacit renewal gets a second event on the last day to give notice")
+        void shouldAddNoticeDeadlineEvent() {
+            Users user = adminUser("token-4");
+            Contracts renewing = contract(4L, "NRT-119", "Rossi Impianti", LocalDate.of(2026, Month.DECEMBER, 31));
+            renewing.setAutoRenew(true);
+            renewing.setNoticeDays(90);
+            when(usersRepository.findByCalendarToken("token-4")).thenReturn(Optional.of(user));
+            when(contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, ORG_ID))
+                    .thenReturn(List.of(renewing));
+
+            String ics = calendarFeedService.buildIcsFeed("token-4");
+
+            assertTrue(ics.contains("UID:contract-4@bcm\r\n"));
+            assertTrue(ics.contains("UID:contract-notice-4@bcm\r\nDTSTAMP:"));
+            assertTrue(ics.contains("DTSTART;VALUE=DATE:20261002\r\nDTEND;VALUE=DATE:20261003\r\n"
+                    + "SUMMARY:Ultimo giorno per disdire NRT-119 - Rossi Impianti\r\n"));
+        }
+
+        @Test
         @DisplayName("skips contracts with no end date")
         void shouldSkipContractsWithoutEndDate() {
             Users user = adminUser("token-3");

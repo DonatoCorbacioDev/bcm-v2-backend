@@ -72,7 +72,7 @@ public class ContractTemplateService {
                 .notificationDays(dto.notificationDays())
                 .orgId(orgId)
                 .build();
-        applyRelations(template, dto.businessAreaId(), dto.defaultManagerId());
+        applyRelations(template, dto.businessAreaId(), dto.defaultManagerId(), orgId);
         return toDTO(templateRepository.save(template));
     }
 
@@ -86,7 +86,7 @@ public class ContractTemplateService {
         template.setDefaultDurationDays(dto.defaultDurationDays());
         template.setAutoRenew(dto.autoRenew());
         template.setNotificationDays(dto.notificationDays());
-        applyRelations(template, dto.businessAreaId(), dto.defaultManagerId());
+        applyRelations(template, dto.businessAreaId(), dto.defaultManagerId(), orgId);
         return toDTO(templateRepository.save(template));
     }
 
@@ -130,14 +130,12 @@ public class ContractTemplateService {
         return contractService.createContract(contractDTO);
     }
 
-    private void applyRelations(ContractTemplate template, Long businessAreaId, Long defaultManagerId) {
+    private void applyRelations(ContractTemplate template, Long businessAreaId, Long defaultManagerId, Long orgId) {
         // Tenant-scoped like ContractMapper: a template must not point at
-        // another organization's area or manager.
-        Long orgId = TenantContext.get();
+        // another organization's area or manager. Every caller has already
+        // required the organization (requireOrgId).
         if (businessAreaId != null) {
-            BusinessAreas area = (orgId != null
-                    ? businessAreasRepository.findByIdAndOrganizationId(businessAreaId, orgId)
-                    : businessAreasRepository.findById(businessAreaId))
+            BusinessAreas area = businessAreasRepository.findByIdAndOrganizationId(businessAreaId, orgId)
                     .orElseThrow(() -> new BusinessAreaNotFoundException(
                             "Area aziendale non trovata: " + businessAreaId));
             template.setBusinessArea(area);
@@ -145,9 +143,7 @@ public class ContractTemplateService {
             template.setBusinessArea(null);
         }
         if (defaultManagerId != null) {
-            Managers manager = (orgId != null
-                    ? managersRepository.findByIdAndOrganizationId(defaultManagerId, orgId)
-                    : managersRepository.findById(defaultManagerId))
+            Managers manager = managersRepository.findByIdAndOrganizationId(defaultManagerId, orgId)
                     .orElseThrow(() -> new ManagerNotFoundException(
                             "Manager non trovato: " + defaultManagerId));
             template.setDefaultManager(manager);

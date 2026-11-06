@@ -116,7 +116,9 @@ public class FatturaPaXmlParserService {
     }
 
     /** Sede: Indirizzo, NumeroCivico (optional), CAP, Comune, Provincia (optional), Nazione. */
-    private static FatturaPaInvoiceData.SupplierAddress extractSupplierAddress(Element sede) {
+    // Package-private for the tests: Sede is mandatory in the schema, so a
+    // missing one only reaches here if validation is ever bypassed.
+    static FatturaPaInvoiceData.SupplierAddress extractSupplierAddress(Element sede) {
         if (sede == null) {
             return null;
         }

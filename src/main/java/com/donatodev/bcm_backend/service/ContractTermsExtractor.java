@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,6 +37,8 @@ public class ContractTermsExtractor {
 
     private static final int DAYS_PER_MONTH = 30;
     private static final int MAX_SENTENCE_CHARS = 400;
+    /** PDF text often spaces words with U+00A0, which \s does not match. */
+    private static final char NO_BREAK_SPACE = '\u00A0';
 
     private static final Map<String, Integer> NUMBER_WORDS = Map.ofEntries(
             Map.entry("un", 1), Map.entry("uno", 1), Map.entry("una", 1), Map.entry("due", 2),
@@ -51,25 +54,29 @@ public class ContractTermsExtractor {
     private static final String NUMBER = "(\\d{1,3}|" + String.join("|", NUMBER_WORDS.keySet().stream()
             .sorted((a, b) -> b.length() - a.length()).toList()) + ")(?:\\s?\\((\\d{1,3})\\))?";
 
-    private static final Pattern NOT_RENEWING = Pattern.compile(
+    private static final Rule NOT_RENEWING = Rule.of(
             // "non" up to four plain words before the renewal: "non si rinnova",
             // "non sarà soggetto a proroga", "non è previsto alcun rinnovo".
             // Only letters in between: a comma or a number ends the reach, so
             // "qualora non venga data disdetta, si rinnova" stays a renewal.
-            "\\bnon\\s(?:\\p{L}+\\s){0,4}(?:rinnov|prorog)"
+            "\\bnon\\s(?:\\p{L}+\\s){0,4}(?:rinnov|prorog)",
             // Any form of "escludere" up to five words before it: "escluso ogni
             // meccanismo di rinnovo", "escludono espressamente il rinnovo".
-            + "|esclu(?:s|d)\\p{L}*\\s(?:\\p{L}+\\s){0,5}(?:rinnov|prorog)"
-            + "|rinnovo\\s(?:tacito|automatico)\\s(?:è\\s)?esclus"
-            + "|senza\\s(?:alcun\\s)?rinnovo\\s(?:tacito|automatico)"
-            + "|non\\s(?:è\\s)?(?:previsto|ammesso)\\s(?:il\\s|alcun\\s)?rinnovo"
-            + "|rinnovo\\s(?:\\p{L}+\\s){0,4}non\\sè\\sautomatico");
+            "esclu[sd]\\p{L}*\\s(?:\\p{L}+\\s){0,5}(?:rinnov|prorog)",
+            "rinnovo\\s(?:tacito|automatico)\\s(?:è\\s)?esclus",
+            "senza\\s(?:alcun\\s)?rinnovo\\s(?:tacito|automatico)",
+            "non\\s(?:è\\s)?(?:previsto|ammesso)\\s(?:il\\s|alcun\\s)?rinnovo",
+            "rinnovo\\s(?:\\p{L}+\\s){0,4}non\\sè\\sautomatico");
 
-    private static final Pattern RENEWING = Pattern.compile(
-            "tacitamente\\s(?:rinnov|prorog)|(?:rinnov|prorog)\\p{L}*\\s(?:tacitamente|automaticamente)"
-            + "|tacito\\srinnovo|rinnovo\\s(?:tacito|automatico)|automaticamente\\s(?:rinnov|prorog)"
-            + "|(?:rinnov|prorog)\\p{L}*\\sdi\\sdiritto"
-            + "|salvo\\sdisdetta|in\\s(?:mancanza|assenza|difetto)\\sdi\\sdisdetta");
+    private static final Rule RENEWING = Rule.of(
+            "tacitamente\\s(?:rinnov|prorog)",
+            "(?:rinnov|prorog)\\p{L}*\\s(?:tacitamente|automaticamente)",
+            "tacito\\srinnovo",
+            "rinnovo\\s(?:tacito|automatico)",
+            "automaticamente\\s(?:rinnov|prorog)",
+            "(?:rinnov|prorog)\\p{L}*\\sdi\\sdiritto",
+            "salvo\\sdisdetta",
+            "in\\s(?:mancanza|assenza|difetto)\\sdi\\sdisdetta");
 
     private static final String UNIT = "(giorni|gg\\.?|mesi|mese)";
     private static final Pattern NOTICE_AFTER_KEYWORD = Pattern.compile(
@@ -93,7 +100,7 @@ public class ContractTermsExtractor {
     /** "per ulteriori periodi semestrali", "per successivi periodi annuali", "per ulteriori annualità". */
     private static final Pattern RENEWAL_ADJECTIVE = Pattern.compile(
             "periodi\\s(?:successivi\\s|ulteriori\\s)?(" + String.join("|", PERIOD_ADJECTIVES.keySet()) + ")"
-            + "|(?:ulteriori|successive)\\sannualità|(?:una\\s)?(?:ulteriore|nuova)\\sannualità");
+            + "|(?:ulteriori|successive)\\sannualità|(?:una\\s)?(?:ulteriore|nuova)\\sannualità", Pattern.CANON_EQ);
     private static final Pattern RENEWAL_PERIOD = Pattern.compile(
             "(?:(?:per|di)\\s(?:ulteriori|successivi|altri)\\s"
             + "|(?:per\\s)?(?:un\\s)?(?:ulteriore|nuovo|successivo)\\speriodo\\sdi\\s"
@@ -104,16 +111,32 @@ public class ContractTermsExtractor {
             + "|settembre|ottobre|novembre|dicembre";
     private static final String DATE = "(?:(\\d{1,2})[°º]?\\s(" + MONTHS + ")\\s(\\d{4})"
             + "|(\\d{1,2})[/.\\-](\\d{1,2})[/.\\-](\\d{4}))";
-    private static final Pattern START_DATE = Pattern.compile(
-            "(?:a\\sdecorrere\\sdal(?:la\\sdata\\sdel)?|con\\sdecorrenza\\sda(?:l)?|decorre\\sdal|a\\spartire\\sdal"
-            + "|con\\seffetto\\sdal|(?:ha|avrà)\\sinizio\\s(?:il|dal)|entra\\sin\\svigore\\s(?:il|dal)"
-            + "|data\\sdi\\sinizio:?\\s(?:il\\s)?)\\s?(?:giorno\\s)?" + DATE);
-    private static final Pattern END_DATE = Pattern.compile(
-            "(?:con\\sscadenza\\s(?:il|al)|(?:avrà\\s)?scadenza\\sil|scadrà\\sil|scade\\sil|fino\\sal|sino\\sal"
-            + "|termin(?:a|erà)\\s(?:\\p{L}+mente\\s)?il|(?:avrà\\s)?termine\\sil|data\\sdi\\sscadenza:?\\s(?:il\\s)?|data\\sdi\\sfine:?\\s(?:il\\s)?)\\s?" + DATE);
+    /** Each start-date wording, followed by the date: groups 1-6 are the DATE groups. */
+    private static final Rule START_DATE = Rule.withSuffix("\\s?(?:giorno\\s)?" + DATE,
+            "a\\sdecorrere\\sdal(?:la\\sdata\\sdel)?",
+            "con\\sdecorrenza\\sda(?:l)?",
+            "decorre\\sdal",
+            "a\\spartire\\sdal",
+            "con\\seffetto\\sdal",
+            "(?:ha|avrà)\\sinizio\\s(?:il|dal)",
+            "entra\\sin\\svigore\\s(?:il|dal)",
+            "data\\sdi\\sinizio:?\\s(?:il\\s)?");
+    /** Each end-date wording, followed by the date: groups 1-6 are the DATE groups. */
+    private static final Rule END_DATE = Rule.withSuffix("\\s?" + DATE,
+            "con\\sscadenza\\s(?:il|al)",
+            "(?:avrà\\s)?scadenza\\sil",
+            "scadrà\\sil",
+            "scade\\sil",
+            "fino\\sal",
+            "sino\\sal",
+            "termin(?:a|erà)\\s(?:\\p{L}+mente\\s)?il",
+            "(?:avrà\\s)?termine\\sil",
+            "data\\sdi\\sscadenza:?\\s(?:il\\s)?",
+            "data\\sdi\\sfine:?\\s(?:il\\s)?");
     private static final Pattern FROM_TO = Pattern.compile("\\bdal\\s" + DATE + "\\sal\\s" + DATE);
     /** "dal ... al ..." names the contract's own term only in a sentence about its duration. */
-    private static final Pattern ABOUT_TERM = Pattern.compile("durata|validità|efficacia|vigore|contratto\\sha|incarico\\sha");
+    private static final Pattern ABOUT_TERM = Pattern.compile(
+            "durata|validità|efficacia|vigore|contratto\\sha|incarico\\sha", Pattern.CANON_EQ);
 
     private static final Pattern NOTICE_CONTEXT = Pattern.compile("disdett|disdir|rinnov|prorog");
     private static final Pattern RENEWAL_CONTEXT = Pattern.compile("rinnov|prorog");
@@ -149,7 +172,7 @@ public class ContractTermsExtractor {
 
     private static List<String> sentences(String text) {
         List<String> result = new ArrayList<>();
-        for (String block : BLANK_LINE.split(text.replace(' ', ' '))) {
+        for (String block : BLANK_LINE.split(text.replace(NO_BREAK_SPACE, ' '))) {
             String flat = WHITESPACE.matcher(block).replaceAll(" ").trim();
             for (String sentence : SENTENCE_END.split(flat)) {
                 if (!sentence.isBlank()) {
@@ -162,13 +185,13 @@ public class ContractTermsExtractor {
     }
 
     private static void readRenewal(String sentence, String lower, Candidates out) {
-        Matcher not = NOT_RENEWING.matcher(lower);
-        if (not.find()) {
+        MatchResult not = NOT_RENEWING.first(lower, 0);
+        if (not != null) {
             out.add("false", sentence.substring(not.start(), not.end()), sentence);
             return;
         }
-        Matcher yes = RENEWING.matcher(lower);
-        if (yes.find()) {
+        MatchResult yes = RENEWING.first(lower, 0);
+        if (yes != null) {
             out.add("true", sentence.substring(yes.start(), yes.end()), sentence);
         }
     }
@@ -177,16 +200,20 @@ public class ContractTermsExtractor {
         for (Pattern pattern : List.of(NOTICE_AFTER_KEYWORD, NOTICE_BEFORE_DEADLINE)) {
             Matcher m = pattern.matcher(lower);
             while (m.find()) {
-                Integer amount = number(m.group(1), m.group(2));
-                if (amount == null) {
-                    continue;
-                }
+                int amount = number(m.group(1), m.group(2));
                 boolean months = m.group(3).startsWith("mes");
                 int days = months ? amount * DAYS_PER_MONTH : amount;
-                String asWritten = amount + (months ? (amount == 1 ? " mese" : " mesi") : " giorni");
-                out.add(String.valueOf(days), asWritten, sentence);
+                out.add(String.valueOf(days), noticeAsWritten(amount, months), sentence);
             }
         }
+    }
+
+    /** "90 giorni", "3 mesi", "1 mese": the notice in the unit the text used. */
+    private static String noticeAsWritten(int amount, boolean months) {
+        if (!months) {
+            return amount + " giorni";
+        }
+        return amount + (amount == 1 ? " mese" : " mesi");
     }
 
     private static void readRenewalLength(String sentence, String lower, Candidates out) {
@@ -199,25 +226,28 @@ public class ContractTermsExtractor {
             String span = multiYear.group(1) != null ? multiYear.group(1) : multiYear.group(2);
             out.add("biennio".equals(span) ? "24" : "36", multiYear.group(), sentence);
         }
-        Matcher xInX = RENEWAL_X_IN_X.matcher(lower);
-        while (xInX.find()) {
-            Integer amount = number(xInX.group(1), xInX.group(2));
-            if (amount != null) {
-                out.add(String.valueOf(xInX.group(3).startsWith("ann") ? amount * 12 : amount), xInX.group(), sentence);
-            }
-        }
+        readCountedRenewals(RENEWAL_X_IN_X, lower, sentence, out, false);
         Matcher adjective = RENEWAL_ADJECTIVE.matcher(lower);
         while (adjective.find()) {
             int months = adjective.group(1) != null ? PERIOD_ADJECTIVES.get(adjective.group(1)) : 12;
             out.add(String.valueOf(months), adjective.group(), sentence);
         }
-        Matcher period = RENEWAL_PERIOD.matcher(lower);
-        while (period.find()) {
-            Integer amount = number(period.group(1), period.group(2));
-            if (amount != null) {
-                int months = period.group(3).startsWith("ann") ? amount * 12 : amount;
-                out.add(String.valueOf(months), sentence.substring(period.start(), period.end()), sentence);
-            }
+        readCountedRenewals(RENEWAL_PERIOD, lower, sentence, out, true);
+    }
+
+    /**
+     * Renewals stated as a number of months or years (groups 1-3: number,
+     * digits in brackets, unit). {@code quoteSentence}: quote the sentence's
+     * own text instead of the lower-cased match.
+     */
+    private static void readCountedRenewals(Pattern pattern, String lower, String sentence, Candidates out,
+            boolean quoteSentence) {
+        Matcher m = pattern.matcher(lower);
+        while (m.find()) {
+            int amount = number(m.group(1), m.group(2));
+            int months = m.group(3).startsWith("ann") ? amount * 12 : amount;
+            String asWritten = quoteSentence ? sentence.substring(m.start(), m.end()) : m.group();
+            out.add(String.valueOf(months), asWritten, sentence);
         }
     }
 
@@ -227,18 +257,16 @@ public class ContractTermsExtractor {
             addDate(start, fromTo, 1, sentence);
             addDate(end, fromTo, 7, sentence);
         }
-        Matcher s = START_DATE.matcher(lower);
-        while (s.find()) {
+        for (MatchResult s : START_DATE.all(lower)) {
             addDate(start, s, 1, sentence);
         }
-        Matcher e = END_DATE.matcher(lower);
-        while (e.find()) {
+        for (MatchResult e : END_DATE.all(lower)) {
             addDate(end, e, 1, sentence);
         }
     }
 
     /** Reads the DATE group starting at {@code first}: either "1 gennaio 2026" (3 groups) or "01/01/2026" (next 3). */
-    private static void addDate(Candidates out, Matcher m, int first, String sentence) {
+    private static void addDate(Candidates out, MatchResult m, int first, String sentence) {
         try {
             LocalDate date;
             if (m.group(first) != null) {
@@ -258,12 +286,17 @@ public class ContractTermsExtractor {
         return List.of(MONTHS.split("\\|")).indexOf(name) + 1;
     }
 
-    private static Integer number(String token, String digitsInBrackets) {
+    /**
+     * The value of a NUMBER match: the digits in brackets win ("sessanta (60)"),
+     * then the digits, then the word. NUMBER only accepts digits or a word of
+     * NUMBER_WORDS, so there is always a value.
+     */
+    private static int number(String token, String digitsInBrackets) {
         if (digitsInBrackets != null) {
-            return Integer.valueOf(digitsInBrackets);
+            return Integer.parseInt(digitsInBrackets);
         }
         if (token.chars().allMatch(Character::isDigit)) {
-            return Integer.valueOf(token);
+            return Integer.parseInt(token);
         }
         return NUMBER_WORDS.get(token);
     }
@@ -282,6 +315,54 @@ public class ContractTermsExtractor {
 
     private static String valueOf(List<Term> terms, Field field) {
         return terms.stream().filter(t -> t.field() == field).map(Term::value).findFirst().orElse(null);
+    }
+
+    /**
+     * Wordings tried as alternatives, as one pattern {@code a|b|c} would, but
+     * each kept simple: the leftmost match wins and, at the same position, the
+     * earlier wording, exactly as regex alternation does. CANON_EQ: an accented
+     * letter written as letter + combining accent (some PDFs) still matches.
+     */
+    private record Rule(List<Pattern> patterns) {
+
+        static Rule of(String... regexes) {
+            return withSuffix("", regexes);
+        }
+
+        static Rule withSuffix(String suffix, String... regexes) {
+            List<Pattern> compiled = new ArrayList<>();
+            for (String regex : regexes) {
+                compiled.add(Pattern.compile("(?:" + regex + ")" + suffix, Pattern.CANON_EQ));
+            }
+            return new Rule(List.copyOf(compiled));
+        }
+
+        /** The match the alternation of every wording would find from {@code from}, or null. */
+        MatchResult first(String text, int from) {
+            MatchResult best = null;
+            for (Pattern pattern : patterns) {
+                Matcher m = pattern.matcher(text);
+                if (m.find(from) && (best == null || m.start() < best.start())) {
+                    best = m.toMatchResult();
+                }
+            }
+            return best;
+        }
+
+        /**
+         * Every match without overlaps, as repeated find() on the alternation
+         * returns them. Every wording matches at least one character, so each
+         * search starts after the previous match and the loop ends.
+         */
+        List<MatchResult> all(String text) {
+            List<MatchResult> matches = new ArrayList<>();
+            MatchResult m = first(text, 0);
+            while (m != null) {
+                matches.add(m);
+                m = first(text, m.end());
+            }
+            return matches;
+        }
     }
 
     /** Every value read for one field; it is proposed only if they all agree. */

@@ -86,4 +86,20 @@ class InvoiceTaxableAmountBackfillTest {
 
         verify(localStorageService, never()).readDocument(anyString());
     }
+
+    @Test
+    @DisplayName("Skips an XML that states no taxable amount, and logs nothing when there is nothing to do")
+    void skipsXmlWithoutTaxableAmount() {
+        ElectronicInvoice invoice = stored(4L, "no-taxable.xml");
+        byte[] xml = "<xml/>".getBytes();
+        when(invoiceRepository.findByTaxableAmountIsNull()).thenReturn(List.of(invoice)).thenReturn(List.of());
+        when(localStorageService.readDocument("no-taxable.xml")).thenReturn(xml);
+        when(parser.parse(xml)).thenReturn(parsed(null, null));
+
+        backfill.backfill();
+        backfill.backfill();
+
+        assertNull(invoice.getTaxableAmount());
+        verify(invoiceRepository, never()).save(invoice);
+    }
 }

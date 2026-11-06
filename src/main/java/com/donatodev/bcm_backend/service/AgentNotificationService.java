@@ -12,6 +12,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,12 +39,21 @@ public class AgentNotificationService {
         this.usersRepository = usersRepository;
     }
 
-    public void notifyExpiringContract(Contracts contract) {
+    /**
+     * The user account of the person who follows the contract, if there is
+     * one and it belongs to an organization: who the contract notifications go to.
+     */
+    private Optional<Users> managerUser(Contracts contract) {
         Managers manager = contract.getManager();
-        if (manager == null || manager.getEmail() == null) return;
+        if (manager == null || manager.getEmail() == null) {
+            return Optional.empty();
+        }
+        return usersRepository.findByManagerEmailIgnoreCase(manager.getEmail())
+                .filter(user -> user.getOrganization() != null);
+    }
 
-        usersRepository.findByManagerEmailIgnoreCase(manager.getEmail()).ifPresent(user -> {
-            if (user.getOrganization() == null) return;
+    public void notifyExpiringContract(Contracts contract) {
+        managerUser(contract).ifPresent(user -> {
             long daysLeft = ChronoUnit.DAYS.between(LocalDate.now(ZoneId.systemDefault()), contract.getEndDate());
             String dayWord = daysLeft == 1 ? " giorno (" : " giorni (";
             notificationService.createForUser(
@@ -59,11 +69,9 @@ public class AgentNotificationService {
 
     /** The last day to give notice of a tacitly renewing contract is near. */
     public void notifyNoticeDeadline(Contracts contract) {
-        Managers manager = contract.getManager();
-        if (manager == null || manager.getEmail() == null || contract.noticeDeadline() == null) return;
+        if (contract.noticeDeadline() == null) return;
 
-        usersRepository.findByManagerEmailIgnoreCase(manager.getEmail()).ifPresent(user -> {
-            if (user.getOrganization() == null) return;
+        managerUser(contract).ifPresent(user -> {
             long daysLeft = ChronoUnit.DAYS.between(LocalDate.now(ZoneId.systemDefault()), contract.noticeDeadline());
             String dayWord = daysLeft == 1 ? " giorno" : " giorni";
             notificationService.createForUser(
@@ -79,11 +87,7 @@ public class AgentNotificationService {
 
     /** A contract was not given notice in time and renewed tacitly. */
     public void notifyTacitRenewal(Contracts contract, LocalDate previousEndDate) {
-        Managers manager = contract.getManager();
-        if (manager == null || manager.getEmail() == null) return;
-
-        usersRepository.findByManagerEmailIgnoreCase(manager.getEmail()).ifPresent(user -> {
-            if (user.getOrganization() == null) return;
+        managerUser(contract).ifPresent(user -> {
             DateTimeFormatter italianDate = DateTimeFormatter.ofPattern("dd/MM/yyyy");
             notificationService.createForUser(
                     user.getId(),
@@ -98,11 +102,7 @@ public class AgentNotificationService {
     }
 
     public void notifyHighRisk(Contracts contract, double riskScore) {
-        Managers manager = contract.getManager();
-        if (manager == null || manager.getEmail() == null) return;
-
-        usersRepository.findByManagerEmailIgnoreCase(manager.getEmail()).ifPresent(user -> {
-            if (user.getOrganization() == null) return;
+        managerUser(contract).ifPresent(user -> {
             String safeNumber = contract.getContractNumber().replaceAll(CRLF_REGEX, "_");
             logger.info("Creating high-risk notification for contract: {} (score: {})", safeNumber, riskScore);
             notificationService.createForUser(
@@ -117,11 +117,7 @@ public class AgentNotificationService {
     }
 
     public void notifyAnomalyDetected(Contracts contract, String anomalyMessage) {
-        Managers manager = contract.getManager();
-        if (manager == null || manager.getEmail() == null) return;
-
-        usersRepository.findByManagerEmailIgnoreCase(manager.getEmail()).ifPresent(user -> {
-            if (user.getOrganization() == null) return;
+        managerUser(contract).ifPresent(user -> {
             notificationService.createForUser(
                     user.getId(),
                     user.getOrganization().getId(),
@@ -173,11 +169,7 @@ public class AgentNotificationService {
     }
 
     private void notifySubmitter(Contracts contract, String title, String message, NotificationType type) {
-        Managers manager = contract.getManager();
-        if (manager == null || manager.getEmail() == null) return;
-
-        usersRepository.findByManagerEmailIgnoreCase(manager.getEmail()).ifPresent(user -> {
-            if (user.getOrganization() == null) return;
+        managerUser(contract).ifPresent(user -> {
             notificationService.createForUser(user.getId(), user.getOrganization().getId(), title, message, type);
         });
     }

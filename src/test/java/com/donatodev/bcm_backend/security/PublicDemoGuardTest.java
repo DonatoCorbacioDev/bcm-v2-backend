@@ -132,4 +132,14 @@ class PublicDemoGuardTest {
         assertFalse(guard.isPublicDemo(null));
         assertTrue(new PublicDemoGuard(" demo ").isPublicDemo("demo"));
     }
+
+    @Test
+    @DisplayName("locks nobody without the setting, and ignores requests that aren't controller methods")
+    void nullSettingAndStaticResources() throws Exception {
+        PublicDemoGuard guard = new PublicDemoGuard(null);
+        assertFalse(guard.isPublicDemo("demo"));
+
+        PublicDemoGuard locked = new PublicDemoGuard("demo");
+        assertTrue(locked.preHandle(null, null, new Object()));
+    }
 }

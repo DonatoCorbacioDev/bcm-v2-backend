@@ -48,7 +48,7 @@ public class SecurityConfig {
             JwtAuthenticationFilter jwtAuthenticationFilter,
             JwtAuthEntryPoint jwtAuthEntryPoint,
             CustomUserDetailsService userDetailsService,
-            AuthenticationManager authenticationManager) throws Exception {
+            AuthenticationManager authenticationManager) {
 
         http
                 .cors(Customizer.withDefaults())
@@ -94,7 +94,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) {
         return config.getAuthenticationManager();
     }
 

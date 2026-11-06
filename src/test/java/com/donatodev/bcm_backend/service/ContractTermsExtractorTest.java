@@ -35,14 +35,26 @@ class ContractTermsExtractorTest {
     @Test
     @DisplayName("Each term carries the sentence it comes from and how the text says it")
     void keepsSourceSentence() {
-        List<Term> terms = extractor.extract("Art. 3 - Rinnovo.\n\nIl contratto si rinnova tacitamente "
-                + "salvo disdetta con preavviso di tre mesi.");
+        List<Term> terms = extractor.extract("""
+                Art. 3 - Rinnovo.
+
+                Il contratto si rinnova tacitamente salvo disdetta con preavviso di tre mesi.""");
 
         Term notice = only(terms, Field.NOTICE_DAYS);
         assertThat(notice.value()).isEqualTo("90");
         assertThat(notice.asWritten()).isEqualTo("3 mesi");
         assertThat(notice.sentence()).isEqualTo("Il contratto si rinnova tacitamente salvo disdetta con preavviso di tre mesi.");
         assertThat(only(terms, Field.AUTO_RENEW).value()).isEqualTo("true");
+    }
+
+    @Test
+    @DisplayName("An accent written as letter + combining mark (some PDFs) reads like the composed letter")
+    void decomposedAccent() {
+        // "è" as "e" + U+0300: without canonical equivalence "rinnovo tacito è
+        // escluso" would miss the exclusion and read "rinnovo tacito" as a renewal.
+        List<Term> terms = extractor.extract("Il rinnovo tacito è escluso.");
+
+        assertThat(only(terms, Field.AUTO_RENEW).value()).isEqualTo("false");
     }
 
     @Test
@@ -99,5 +111,25 @@ class ContractTermsExtractorTest {
         String filler = "parola ".repeat(120);
         Term renew = only(extractor.extract("Il contratto si rinnova tacitamente " + filler + "fine."), Field.AUTO_RENEW);
         assertThat(renew.sentence()).endsWith("…").hasSizeLessThanOrEqualTo(401);
+    }
+
+    @Test
+    @DisplayName("Blank lines before the text are skipped, not read as an empty sentence")
+    void leadingBlankLines() {
+        List<Term> terms = extractor.extract("""
+
+
+                Il contratto si rinnova tacitamente.""");
+
+        assertThat(only(terms, Field.AUTO_RENEW).sentence()).isEqualTo("Il contratto si rinnova tacitamente.");
+    }
+
+    @Test
+    @DisplayName("Dropping two impossible dates keeps the other values read from the text")
+    void startAfterEndKeepsOtherTerms() {
+        List<Term> terms = extractor.extract(
+                "Il contratto decorre dal 1 marzo 2027. Il contratto scade il 31 dicembre 2026. Si rinnova tacitamente.");
+
+        assertThat(terms).extracting(Term::field).containsExactly(Field.AUTO_RENEW);
     }
 }

@@ -402,4 +402,86 @@ class AgentNotificationServiceTest {
             verify(notificationService, never()).createForUser(anyLong(), anyLong(), anyString(), anyString(), any());
         }
     }
+
+    @Nested
+    @DisplayName("Tacit renewal notifications")
+    class TacitRenewal {
+
+        private final Organization org = Organization.builder().id(10L).name("TestOrg").build();
+
+        private Contracts renewing(Managers manager, LocalDate endDate, Integer noticeDays) {
+            return Contracts.builder()
+                    .id(1L).contractNumber("NRT-119")
+                    .counterparty(Counterparty.builder().name("Rossi Impianti").type(CounterpartyType.SUPPLIER).build())
+                    .status(ContractStatus.ACTIVE).startDate(LocalDate.of(2026, Month.JANUARY, 1))
+                    .endDate(endDate).autoRenew(true).noticeDays(noticeDays).renewalMonths(12)
+                    .manager(manager).build();
+        }
+
+        private Managers manager() {
+            Managers manager = new Managers();
+            manager.setId(1L);
+            manager.setEmail("manager@test.com");
+            return manager;
+        }
+
+        private void userInOrg() {
+            when(usersRepository.findByManagerEmailIgnoreCase("manager@test.com"))
+                    .thenReturn(Optional.of(Users.builder().id(5L).username("mgr").organization(org).build()));
+        }
+
+        @Test
+        @DisplayName("warns how many days are left to give notice, in the plural")
+        void noticeDeadlinePlural() {
+            userInOrg();
+            LocalDate end = LocalDate.now().plusDays(40);
+
+            agentNotificationService.notifyNoticeDeadline(renewing(manager(), end, 30));
+
+            verify(notificationService).createForUser(eq(5L), eq(10L), eq("Termine di disdetta in arrivo"),
+                    eq("Restano 10 giorni per disdire il contratto NRT-119 (Rossi Impianti), poi si rinnova automaticamente"),
+                    eq(NotificationType.WARNING));
+        }
+
+        @Test
+        @DisplayName("says \"1 giorno\" on the last day but one")
+        void noticeDeadlineSingular() {
+            userInOrg();
+
+            agentNotificationService.notifyNoticeDeadline(renewing(manager(), LocalDate.now().plusDays(31), 30));
+
+            verify(notificationService).createForUser(anyLong(), anyLong(), anyString(),
+                    contains("Restano 1 giorno per disdire"), any());
+        }
+
+        @Test
+        @DisplayName("sends nothing without a notice deadline, a manager, an email, a user or an organization")
+        void noticeDeadlineNobodyToTell() {
+            agentNotificationService.notifyNoticeDeadline(renewing(manager(), LocalDate.now().plusDays(40), null));
+            agentNotificationService.notifyNoticeDeadline(renewing(null, LocalDate.now().plusDays(40), 30));
+            Managers noEmail = manager();
+            noEmail.setEmail(null);
+            agentNotificationService.notifyNoticeDeadline(renewing(noEmail, LocalDate.now().plusDays(40), 30));
+            when(usersRepository.findByManagerEmailIgnoreCase("manager@test.com"))
+                    .thenReturn(Optional.empty())
+                    .thenReturn(Optional.of(Users.builder().id(5L).username("mgr").build()));
+            agentNotificationService.notifyNoticeDeadline(renewing(manager(), LocalDate.now().plusDays(40), 30));
+            agentNotificationService.notifyNoticeDeadline(renewing(manager(), LocalDate.now().plusDays(40), 30));
+
+            verify(notificationService, never()).createForUser(anyLong(), anyLong(), anyString(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("tells the manager the contract renewed, with the old and new end date")
+        void renewed() {
+            userInOrg();
+
+            agentNotificationService.notifyTacitRenewal(
+                    renewing(manager(), LocalDate.of(2027, Month.DECEMBER, 31), 30), LocalDate.of(2026, Month.DECEMBER, 31));
+
+            verify(notificationService).createForUser(eq(5L), eq(10L), eq("Contratto rinnovato tacitamente"),
+                    eq("Contratto NRT-119 (Rossi Impianti) si è rinnovato: scadenza spostata dal 31/12/2026 al 31/12/2027"),
+                    eq(NotificationType.INFO));
+        }
+    }
 }

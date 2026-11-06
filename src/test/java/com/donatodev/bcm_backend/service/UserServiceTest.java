@@ -422,6 +422,32 @@ class UserServiceTest {
         }
 
         @Test
+        @DisplayName("Change own password: an account that no longer exists is reported, not created")
+        void shouldRefuseOwnPasswordChangeForMissingUser() {
+            SecurityContextHolder.getContext().setAuthentication(
+                    UsernamePasswordAuthenticationToken.authenticated("ghost", null, List.of()));
+            when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
+
+            assertThrows(UsernameNotFoundException.class, () -> userService.changeOwnPassword("a", "NewPass#2026"));
+            verify(usersRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Get current user profile: a blank demo setting locks nobody")
+        void blankDemoSettingIsNoDemo() {
+            Users user = Users.builder().id(1L).username("demo").role(Roles.builder().role("MANAGER").build()).build();
+            SecurityContextHolder.getContext().setAuthentication(
+                    UsernamePasswordAuthenticationToken.authenticated("demo", null, List.of()));
+            when(usersRepository.findByUsername("demo")).thenReturn(Optional.of(user));
+            org.springframework.test.util.ReflectionTestUtils.setField(userService, "demoLockedUsername", "   ");
+
+            assertFalse(userService.getCurrentUserProfile().demoAccount());
+
+            org.springframework.test.util.ReflectionTestUtils.setField(userService, "demoLockedUsername", "showroom");
+            assertFalse(userService.getCurrentUserProfile().demoAccount(), "another account is the demo one");
+        }
+
+        @Test
         @DisplayName("Change own password: a wrong current password changes nothing")
         void shouldRefuseOwnPasswordChangeWithWrongCurrentOne() {
             Users user = Users.builder().id(1L).username("marco").passwordHash("old-hash").build();

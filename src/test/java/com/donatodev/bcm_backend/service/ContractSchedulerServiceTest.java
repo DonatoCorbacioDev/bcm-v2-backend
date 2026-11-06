@@ -561,6 +561,35 @@ class ContractSchedulerServiceTest {
         }
 
         @Test
+        @DisplayName("Without a stated renewal length the notice reminder just says it renews automatically")
+        void noticeReminderWithoutRenewalLength() {
+            Contracts contract = tacitContract(90, null, today.plusDays(120));
+            when(contractsRepository.findByStatusAndAutoRenewTrueAndNoticeDaysIsNotNull(ContractStatus.ACTIVE))
+                    .thenReturn(List.of(contract));
+
+            schedulerService.sendExpirationNotifications();
+
+            verify(emailService).sendEmail(eq("anna@example.com"), anyString(),
+                    argThat(body -> body.contains("dopo, si rinnova automaticamente.")));
+        }
+
+        @Test
+        @DisplayName("A failed in-app notification doesn't undo the renewal")
+        void renewalSurvivesNotificationFailure() {
+            LocalDate endDate = today.minusDays(1);
+            Contracts contract = tacitContract(90, 12, endDate);
+            when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
+                    .thenReturn(List.of(contract));
+            org.mockito.Mockito.doThrow(new IllegalStateException("notifications down"))
+                    .when(agentNotificationService).notifyTacitRenewal(contract, endDate);
+
+            schedulerService.expireOverdueContracts();
+
+            assertEquals(endDate.plusMonths(12), contract.getEndDate());
+            verify(contractsRepository).save(contract);
+        }
+
+        @Test
         @DisplayName("Uses 'Ultimo avviso' the day before the notice deadline")
         void finalNoticeTheDayBefore() {
             Contracts contract = tacitContract(90, 12, today.plusDays(91)); // deadline tomorrow

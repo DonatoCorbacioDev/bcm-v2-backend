@@ -252,4 +252,99 @@ class HomeAttentionServiceTest {
         assertEquals(List.of(), service.getAttention().items());
         verifyNoInteractions(contractsRepository, invoiceRepository);
     }
+
+    @Test
+    @DisplayName("Skips contracts without an end date and tacit renewals whose end date is still far")
+    void skipsWhatHasNoDateToAct() {
+        loggedInAs("ADMIN", null);
+        Contracts open = contract("OPEN-1", today.plusDays(5), marco);
+        open.setEndDate(null);
+        Contracts farRenewal = contract("FAR-1", today.plusDays(200), marco);
+        farRenewal.setAutoRenew(true);
+        when(contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, ORG))
+                .thenReturn(List.of(open, farRenewal));
+        when(invoiceRepository.findByOrgIdAndSepaBatchIsNull(ORG)).thenReturn(List.of());
+
+        assertEquals(List.of(), service.getAttention().items());
+    }
+
+    @Test
+    @DisplayName("A notice deadline without the renewal length is a renewal to check, not a deadline")
+    void deadlineWithoutRenewalLength() {
+        loggedInAs("ADMIN", null);
+        Contracts c = contract("MAN-9", today.plusDays(20), marco);
+        c.setAutoRenew(true);
+        c.setNoticeDays(10);
+        when(contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, ORG)).thenReturn(List.of(c));
+        when(invoiceRepository.findByOrgIdAndSepaBatchIsNull(ORG)).thenReturn(List.of());
+
+        assertEquals(Type.RENEWAL_TO_CHECK, service.getAttention().items().get(0).type());
+    }
+
+    @Test
+    @DisplayName("Leaves out a notice deadline further than the window")
+    void deadlineBeyondWindow() {
+        loggedInAs("ADMIN", null);
+        Contracts c = contract("MAN-10", today.plusDays(200), marco);
+        c.setAutoRenew(true);
+        c.setNoticeDays(30);
+        c.setRenewalMonths(12);
+        when(contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, ORG)).thenReturn(List.of(c));
+        when(invoiceRepository.findByOrgIdAndSepaBatchIsNull(ORG)).thenReturn(List.of());
+
+        assertEquals(List.of(), service.getAttention().items());
+    }
+
+    @Test
+    @DisplayName("A manager sees only contracts of this organization, and invoices of contracts they follow")
+    void managerScopeEdges() {
+        loggedInAs("MANAGER", marco);
+        Contracts mine = contract("MINE-1", today.plusDays(5), marco);
+        Contracts otherOrg = contract("OTHER-1", today.plusDays(5), marco);
+        otherOrg.setOrganization(Organization.builder().id(99L).build());
+        Contracts noOrg = contract("NOORG-1", today.plusDays(5), marco);
+        noOrg.setOrganization(null);
+        Contracts annas = contract("ANNA-1", today.plusDays(5), anna);
+        Contracts unassigned = contract("NOBODY-1", today.plusDays(5), null);
+        when(contractsRepository.findByManagerIdAndStatus(4L, ContractStatus.ACTIVE))
+                .thenReturn(List.of(mine, otherOrg, noOrg));
+        ElectronicInvoice orphan = invoice(mine, InvoiceMatchStatus.SUGGESTED, null);
+        orphan.setContract(null);
+        when(invoiceRepository.findByOrgIdAndSepaBatchIsNull(ORG)).thenReturn(List.of(
+                orphan,
+                invoice(annas, InvoiceMatchStatus.SUGGESTED, null),
+                invoice(unassigned, InvoiceMatchStatus.SUGGESTED, null),
+                invoice(mine, InvoiceMatchStatus.SUGGESTED, null)));
+
+        HomeAttentionDTO home = service.getAttention();
+
+        // Their contract's deadline, then the one invoice of a contract they follow.
+        assertEquals(List.of("MINE-1", "MINE-1"), home.items().stream().map(HomeAttentionDTO.Item::contractNumber).toList());
+        assertEquals(1, home.invoicesToMatchCount());
+    }
+
+    @Test
+    @DisplayName("Names an invoice by its contract's counterparty when the XML has no supplier name, and copes with no date")
+    void invoiceFallbacks() {
+        loggedInAs("ADMIN", null);
+        when(contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, ORG)).thenReturn(List.of());
+        Contracts c = contract("INV-1", today.plusDays(300), null);
+        ElectronicInvoice named = invoice(c, InvoiceMatchStatus.SUGGESTED, null);
+        named.setSupplierName("Nuvola Cloud Services S.r.l.");
+        ElectronicInvoice unnamed = invoice(c, InvoiceMatchStatus.SUGGESTED, null);
+        unnamed.setInvoiceDate(null);
+        Contracts noCounterparty = contract("INV-2", today.plusDays(300), null);
+        noCounterparty.setCounterparty(null);
+        ElectronicInvoice orphan = invoice(c, InvoiceMatchStatus.SUGGESTED, null);
+        orphan.setContract(null);
+        when(invoiceRepository.findByOrgIdAndSepaBatchIsNull(ORG)).thenReturn(List.of(
+                named, unnamed, invoice(noCounterparty, InvoiceMatchStatus.SUGGESTED, null), orphan));
+
+        List<HomeAttentionDTO.Item> items = service.getAttention().items();
+
+        assertEquals("Nuvola Cloud Services S.r.l.", items.get(0).counterpartyName());
+        assertEquals("Fornitore INV-1", items.get(2).counterpartyName());
+        assertEquals(null, items.get(2).daysLeft());
+        assertEquals(null, items.get(1).counterpartyName());
+    }
 }

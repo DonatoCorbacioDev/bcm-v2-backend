@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -338,6 +340,19 @@ class CounterpartyServiceTest {
             // Against the expected so far, not the yearly value (which would say -33%).
             assertEquals(-20.0, result.variancePercent(), 0.0001);
             assertEquals(true, result.comparable());
+        }
+
+        @Test
+        @Order(12)
+        @DisplayName("getInvoicingSummary compares a counterparty that is both customer and supplier")
+        void shouldCompareBoth() {
+            Counterparty entity = Counterparty.builder().id(3L).name("Gamma Srl").type(CounterpartyType.BOTH).build();
+            when(repository.findById(3L)).thenReturn(Optional.of(entity));
+            // COALESCE(SUM(...), 0) in the query: never null from the database.
+            when(invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(eq(3L), anyInt()))
+                    .thenReturn(BigDecimal.ZERO);
+
+            assertEquals(true, service.getInvoicingSummary(3L).comparable());
         }
 
         @Test

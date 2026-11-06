@@ -206,6 +206,31 @@ class LocalStorageServiceTest {
         }
 
         @Test
+        @DisplayName("deleteOrganizationFiles: a file that can't be removed is reported, not silently left")
+        void shouldReportFileThatCannotBeDeleted() throws Exception {
+            String doc = localStorageService.storeDocument(6L, 1L, CONTENT);
+            java.nio.file.Path file = tempDir.resolve(doc);
+            java.nio.file.Path parent = file.getParent();
+            boolean posix = java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix");
+            // POSIX: a file can't be removed from a directory without write permission.
+            // Windows: a read-only file can't be removed.
+            if (posix) {
+                Files.setPosixFilePermissions(parent, java.nio.file.attribute.PosixFilePermissions.fromString("r-x------"));
+            } else {
+                Files.setAttribute(file, "dos:readonly", true);
+            }
+            try {
+                assertThrows(java.io.UncheckedIOException.class, () -> localStorageService.deleteOrganizationFiles(6L));
+            } finally {
+                if (posix) {
+                    Files.setPosixFilePermissions(parent, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+                } else {
+                    Files.setAttribute(file, "dos:readonly", false);
+                }
+            }
+        }
+
+        @Test
         @DisplayName("deleteOrganizationFiles: nothing stored yet deletes nothing")
         void shouldDeleteNothingWhenNoFiles() {
             assertEquals(0, localStorageService.deleteOrganizationFiles(9L));

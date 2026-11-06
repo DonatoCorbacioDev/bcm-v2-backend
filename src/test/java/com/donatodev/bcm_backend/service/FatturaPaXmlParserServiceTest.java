@@ -227,13 +227,15 @@ class FatturaPaXmlParserServiceTest {
         @Test
         @DisplayName("reads the payment method (ModalitaPagamento); null without payment terms")
         void shouldReadPaymentMethod() throws Exception {
-            String payment = "        </DatiBeniServizi>\n        <DatiPagamento>\n"
-                    + "            <CondizioniPagamento>TP02</CondizioniPagamento>\n"
-                    + "            <DettaglioPagamento>\n"
-                    + "                <ModalitaPagamento>MP12</ModalitaPagamento>\n"
-                    + "                <ImportoPagamento>1220.00</ImportoPagamento>\n"
-                    + "            </DettaglioPagamento>\n"
-                    + "        </DatiPagamento>";
+            String payment = """
+                            </DatiBeniServizi>
+                            <DatiPagamento>
+                                <CondizioniPagamento>TP02</CondizioniPagamento>
+                                <DettaglioPagamento>
+                                    <ModalitaPagamento>MP12</ModalitaPagamento>
+                                    <ImportoPagamento>1220.00</ImportoPagamento>
+                                </DettaglioPagamento>
+                            </DatiPagamento>""";
             String xml = new String(loadResource("fattura-pa-sample.xml"), java.nio.charset.StandardCharsets.UTF_8)
                     .replace("        </DatiBeniServizi>", payment);
 
@@ -262,6 +264,34 @@ class FatturaPaXmlParserServiceTest {
 
             assertEquals("Via Roma 12/A", address.street());
             assertNull(address.province());
+        }
+
+        /** A bare DOM element, for the defensive paths the schema never lets through parse(). */
+        private org.w3c.dom.Element element(String xml) throws Exception {
+            javax.xml.parsers.DocumentBuilderFactory factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
+            return factory.newDocumentBuilder()
+                    .parse(new java.io.ByteArrayInputStream(xml.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                    .getDocumentElement();
+        }
+
+        @Test
+        @DisplayName("no Sede, no address; a NumeroCivico without Indirizzo is not a street")
+        void shouldHandleMissingSedeAndStreet() throws Exception {
+            assertNull(FatturaPaXmlParserService.extractSupplierAddress(null));
+            assertNull(FatturaPaXmlParserService.extractSupplierAddress(
+                    element("<Sede><NumeroCivico>12</NumeroCivico><Comune>Roma</Comune></Sede>")).street());
+        }
+
+        @Test
+        @DisplayName("a DatiRiepilogo without Imposta still adds its taxable amount; the VAT stays unknown")
+        void shouldSkipMissingImposta() throws Exception {
+            BigDecimal[] taxableAndVat = parserService.extractTaxableAndVat(element(
+                    "<Body><DatiBeniServizi><DatiRiepilogo><ImponibileImporto>100.00</ImponibileImporto>"
+                    + "</DatiRiepilogo></DatiBeniServizi></Body>"), List.of());
+
+            assertEquals(new BigDecimal("100.00"), taxableAndVat[0]);
+            assertNull(taxableAndVat[1]);
         }
 
         @Test

@@ -195,4 +195,29 @@ class ContractHistoryMapperTest {
         RuntimeException ex = assertThrows(RuntimeException.class, () -> mapper.toEntity(dto));
         assertEquals("User not found", ex.getMessage());
     }
+
+    @Test
+    void shouldNameTheAuthorByLastNameAlone() {
+        Users author = Users.builder().id(2L).username("bellini")
+                .manager(Managers.builder().lastName("Bellini").build()).build();
+
+        assertEquals("Bellini", dtoModifiedBy(author).modifiedByName());
+    }
+
+    @Test
+    void shouldLookUpContractAndAuthorInTheCurrentOrganizationOnly() {
+        com.donatodev.bcm_backend.config.TenantContext.set(7L);
+        try {
+            when(contractsRepository.findByIdAndOrganization_Id(1L, 7L)).thenReturn(Optional.of(contract));
+            when(usersRepository.findByIdAndOrganizationId(2L, 7L)).thenReturn(Optional.of(user));
+
+            ContractHistory entity = mapper.toEntity(new ContractHistoryDTO(
+                    100L, 1L, 2L, LocalDateTime.of(2024, Month.MAY, 5, 12, 0), ContractStatus.EXPIRED, ContractStatus.ACTIVE));
+
+            assertEquals(contract, entity.getContract());
+            assertEquals(user, entity.getModifiedBy());
+        } finally {
+            com.donatodev.bcm_backend.config.TenantContext.clear();
+        }
+    }
 }

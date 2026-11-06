@@ -949,6 +949,28 @@ class ElectronicInvoiceServiceTest {
         }
 
         @Test
+        @DisplayName("does nothing for an invoice without a Sede, and fills fields holding only spaces")
+        void withoutAddressAndBlankFields() {
+            com.donatodev.bcm_backend.entity.Counterparty cp = com.donatodev.bcm_backend.entity.Counterparty.builder()
+                    .name("Nuvola").vatNumber("IT07824150960").postalCode("  ").province("TO").country("IT").build();
+            FatturaPaInvoiceData noSede = new FatturaPaInvoiceData("Nuvola Cloud Services S.r.l.", "IT07824150960",
+                    "TD01", "NCS-1", LocalDate.of(2026, Month.OCTOBER, 1), new BigDecimal("5856.00"), "EUR", List.of(),
+                    null, null, null, null, null, null);
+
+            ElectronicInvoiceService.fillCounterpartyAddress(cp, noSede);
+            assertEquals("  ", cp.getPostalCode());
+
+            ElectronicInvoiceService.fillCounterpartyAddress(cp, invoiceFrom("IT07824150960"));
+            assertEquals("10123", cp.getPostalCode());
+            assertEquals("TO", cp.getProvince());
+            assertEquals("IT", cp.getCountry());
+
+            cp.setPostalCode("10100");
+            ElectronicInvoiceService.fillCounterpartyAddress(cp, invoiceFrom("IT07824150960"));
+            assertEquals("10100", cp.getPostalCode(), "a postal code typed in stays");
+        }
+
+        @Test
         @DisplayName("touches nothing for another supplier's invoice, or a counterparty without a VAT number")
         void ignoresOtherSuppliers() {
             com.donatodev.bcm_backend.entity.Counterparty other = com.donatodev.bcm_backend.entity.Counterparty.builder()
@@ -962,6 +984,40 @@ class ElectronicInvoiceServiceTest {
 
             assertNull(other.getCity());
             assertNull(noVat.getCity());
+        }
+    }
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("amountDifference: the invoice against what the contract expects")
+    class AmountDifference {
+
+        private ElectronicInvoice invoice(BigDecimal taxable, BigDecimal total, Double expected, String type) {
+            ElectronicInvoice i = new ElectronicInvoice();
+            i.setTaxableAmount(taxable);
+            i.setTotalAmount(total);
+            i.setDocumentType(type);
+            if (expected != null) {
+                com.donatodev.bcm_backend.entity.FinancialValues fv = new com.donatodev.bcm_backend.entity.FinancialValues();
+                fv.setFinancialAmount(expected);
+                i.setMatchedFinancialValue(fv);
+            }
+            return i;
+        }
+
+        @Test
+        @DisplayName("is the taxable amount minus the expected instalment")
+        void difference() {
+            assertEquals(new BigDecimal("150.00"),
+                    ElectronicInvoiceService.amountDifference(invoice(new BigDecimal("650.00"), null, 500.0, "TD01")));
+        }
+
+        @Test
+        @DisplayName("is not given without an expected amount, without any amount, or for a credit note")
+        void notGiven() {
+            assertNull(ElectronicInvoiceService.amountDifference(invoice(new BigDecimal("650.00"), null, null, "TD01")));
+            assertNull(ElectronicInvoiceService.amountDifference(invoice(null, null, 500.0, "TD01")));
+            assertNull(ElectronicInvoiceService.amountDifference(
+                    invoice(new BigDecimal("650.00"), null, 500.0, ElectronicInvoice.CREDIT_NOTE)));
         }
     }
 }

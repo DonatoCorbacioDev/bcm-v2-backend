@@ -91,33 +91,32 @@ public class CalendarFeedService {
             if (contract.getEndDate() == null) {
                 continue;
             }
-            String summary = "Scadenza contratto " + contract.getContractNumber() + " - " + contract.getCounterparty().getName();
-            ics.append("BEGIN:VEVENT\r\n")
-                    .append("UID:contract-").append(contract.getId()).append("@bcm\r\n")
-                    .append("DTSTAMP:").append(dtstamp).append("\r\n")
-                    .append("DTSTART;VALUE=DATE:").append(contract.getEndDate().format(ICS_DATE)).append("\r\n")
-                    .append("DTEND;VALUE=DATE:").append(contract.getEndDate().plusDays(1).format(ICS_DATE)).append("\r\n")
-                    .append("SUMMARY:").append(escapeIcsText(summary)).append("\r\n")
-                    .append("END:VEVENT\r\n");
+            appendEvent(ics, "contract-" + contract.getId(), dtstamp, contract.getEndDate(),
+                    "Scadenza contratto " + contract.getContractNumber() + " - " + contract.getCounterparty().getName());
 
             // For a tacit renewal the date to act on is the notice deadline,
             // not the end date: by then the contract has already renewed.
             LocalDate noticeDeadline = contract.noticeDeadline();
             if (noticeDeadline != null) {
-                String noticeSummary = "Ultimo giorno per disdire " + contract.getContractNumber() + " - "
-                        + contract.getCounterparty().getName();
-                ics.append("BEGIN:VEVENT\r\n")
-                        .append("UID:contract-notice-").append(contract.getId()).append("@bcm\r\n")
-                        .append("DTSTAMP:").append(dtstamp).append("\r\n")
-                        .append("DTSTART;VALUE=DATE:").append(noticeDeadline.format(ICS_DATE)).append("\r\n")
-                        .append("DTEND;VALUE=DATE:").append(noticeDeadline.plusDays(1).format(ICS_DATE)).append("\r\n")
-                        .append("SUMMARY:").append(escapeIcsText(noticeSummary)).append("\r\n")
-                        .append("END:VEVENT\r\n");
+                appendEvent(ics, "contract-notice-" + contract.getId(), dtstamp, noticeDeadline,
+                        "Ultimo giorno per disdire " + contract.getContractNumber() + " - "
+                                + contract.getCounterparty().getName());
             }
         }
 
         ics.append("END:VCALENDAR\r\n");
         return ics.toString();
+    }
+
+    /** One all-day event (RFC 5545): the end is exclusive, so the day after. */
+    private void appendEvent(StringBuilder ics, String uid, String dtstamp, LocalDate day, String summary) {
+        ics.append("BEGIN:VEVENT\r\n")
+                .append("UID:").append(uid).append("@bcm\r\n")
+                .append("DTSTAMP:").append(dtstamp).append("\r\n")
+                .append("DTSTART;VALUE=DATE:").append(day.format(ICS_DATE)).append("\r\n")
+                .append("DTEND;VALUE=DATE:").append(day.plusDays(1).format(ICS_DATE)).append("\r\n")
+                .append("SUMMARY:").append(escapeIcsText(summary)).append("\r\n")
+                .append("END:VEVENT\r\n");
     }
 
     private List<Contracts> resolveContracts(Users user) {

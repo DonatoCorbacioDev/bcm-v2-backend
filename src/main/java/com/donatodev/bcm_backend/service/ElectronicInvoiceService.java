@@ -318,7 +318,7 @@ public class ElectronicInvoiceService {
      * person (a difference can be a valid variation, not an error). Not given
      * for a credit note, which is not an instalment.
      */
-    private static BigDecimal amountDifference(ElectronicInvoice invoice) {
+    static BigDecimal amountDifference(ElectronicInvoice invoice) {
         BigDecimal expected = expectedAmount(invoice);
         BigDecimal actual = invoice.comparableAmount();
         if (expected == null || actual == null || ElectronicInvoice.CREDIT_NOTE.equals(invoice.getDocumentType())) {

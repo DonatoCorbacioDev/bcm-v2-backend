@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,10 +127,11 @@ public class OrganizationPurgeService {
      * @return false if it was skipped (cancelled meanwhile, or a paid plan)
      */
     boolean purge(long orgId) {
-        DeletedOrganization deleted = transaction.execute(status -> deleteRows(orgId));
-        if (deleted == null) {
+        Optional<DeletedOrganization> result = transaction.execute(status -> deleteRows(orgId));
+        if (result.isEmpty()) {
             return false;
         }
+        DeletedOrganization deleted = result.get();
 
         int files = 0;
         try {
@@ -153,24 +155,25 @@ public class OrganizationPurgeService {
         return true;
     }
 
-    private DeletedOrganization deleteRows(long orgId) {
+    /** Empty when the organization is skipped: gone, no longer due, or on a paid plan again. */
+    private Optional<DeletedOrganization> deleteRows(long orgId) {
         // Locked: a "cancel" arriving now waits, then finds nothing to cancel.
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT name, deletion_scheduled_for, subscription_tier, stripe_customer_id"
                 + " FROM organizations WHERE id = ? FOR UPDATE", orgId);
         if (rows.isEmpty()) {
-            return null;
+            return Optional.empty();
         }
         Map<String, Object> org = rows.get(0);
         Timestamp scheduledFor = (Timestamp) org.get("deletion_scheduled_for");
         if (scheduledFor == null || scheduledFor.toLocalDateTime().isAfter(now())) {
-            return null;
+            return Optional.empty();
         }
         // Same rule as at confirmation: a live Stripe subscription would keep
         // billing an organization that no longer exists.
         if (!SubscriptionTier.FREE.name().equals(org.get("subscription_tier")) && org.get("stripe_customer_id") != null) {
             logger.warn("Organization {} not deleted: it has a paid subscription again.", orgId);
-            return null;
+            return Optional.empty();
         }
 
         List<String> adminEmails = jdbc.queryForList(
@@ -186,7 +189,7 @@ public class OrganizationPurgeService {
         // Ids and counts only: the name and the people are what was asked to be forgotten.
         auditLogService.save(AUDIT_ACTION, "Organization", orgId, AUDIT_USER, orgId,
                 "Organization deleted as scheduled: " + contracts + " contracts, " + users + " users");
-        return new DeletedOrganization(orgId, (String) org.get("name"), adminEmails, contracts, users);
+        return Optional.of(new DeletedOrganization(orgId, (String) org.get("name"), adminEmails, contracts, users));
     }
 
     private int count(String sql, long orgId) {

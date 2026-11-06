@@ -165,4 +165,18 @@ class OrganizationPurgeServiceTest {
 
         verify(emailService).sendOrganizationDeleted("admin@acme.test", "Acme S.r.l.");
     }
+
+    @Test
+    @DisplayName("Counts a skipped organization as not deleted, and a count the database returns empty as zero")
+    void skippedAndEmptyCounts() {
+        due(ORG);
+        when(jdbc.queryForList(contains("FOR UPDATE"), eq(ORG))).thenReturn(List.of());
+        assertThat(service.purgeDueOrganizations()).isZero();
+
+        organization(LocalDateTime.now().minusDays(1), "FREE", null);
+        when(jdbc.queryForObject(anyString(), eq(Integer.class), eq(ORG))).thenReturn(null);
+        assertThat(service.purge(ORG)).isTrue();
+        verify(auditLogService).save(anyString(), anyString(), eq(ORG), anyString(), eq(ORG),
+                contains("0 contracts, 0 users"));
+    }
 }

@@ -153,6 +153,37 @@ class OrganizationServiceTest {
             assertEquals("Chrome", signed.getRequestUserAgent());
             assertEquals("203.0.113.9", signed.getConfirmIp());
             assertEquals("Firefox", signed.getConfirmUserAgent());
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("createConfirmedOrganization fails loudly when the ADMIN role is missing from the database")
+        void shouldFailWithoutAdminRole() {
+            Organization org = savedOrg();
+            when(organizationRepository.findBySlug(anyString())).thenReturn(Optional.empty());
+            when(organizationRepository.save(any())).thenReturn(org);
+            when(managersRepository.save(any())).thenReturn(Managers.builder().id(1L).email("admin@acme.com").build());
+            when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.empty());
+
+            IllegalStateException e = assertThrows(IllegalStateException.class,
+                    () -> organizationService.createConfirmedOrganization(validPending(), CONFIRM_ORIGIN));
+            assertEquals("Ruolo ADMIN non trovato nel database", e.getMessage());
+            verify(usersRepository, never()).save(any());
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("createConfirmedOrganization gives the new organization Costi and Ricavi")
+        void shouldCreateDefaultFinancialTypes() {
+            Organization org = savedOrg();
+            Users admin = Users.builder().id(1L).username("acme-admin").organization(org).build();
+            when(organizationRepository.findBySlug(anyString())).thenReturn(Optional.empty());
+            when(organizationRepository.save(any())).thenReturn(org);
+            when(managersRepository.save(any())).thenReturn(Managers.builder().id(1L).email("admin@acme.com").build());
+            when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.of(Roles.builder().role("ADMIN").build()));
+            when(usersRepository.save(any())).thenReturn(admin);
+
+            organizationService.createConfirmedOrganization(validPending(), CONFIRM_ORIGIN);
 
             @SuppressWarnings("unchecked")
             ArgumentCaptor<List<com.donatodev.bcm_backend.entity.FinancialTypes>> types =
