@@ -23,15 +23,14 @@ import org.springframework.security.authentication.AuthenticationTrustResolverIm
 import com.donatodev.bcm_backend.dto.*;
 import com.donatodev.bcm_backend.entity.*;
 import com.donatodev.bcm_backend.exception.RefreshTokenException;
-import com.donatodev.bcm_backend.exception.RegistrationException;
 import com.donatodev.bcm_backend.service.*;
 import com.donatodev.bcm_backend.service.RefreshTokenService;
 
 import jakarta.validation.Valid;
 
 /**
- * REST controller for handling user authentication, registration, 
- * email verification, password reset, and retrieving the current user.
+ * REST controller for login (with two-factor), token refresh and logout,
+ * password reset, accepting an invitation, and the current user's profile.
  */
 @RestController
 @RequestMapping("/auth")
@@ -39,16 +38,12 @@ public class AuthController {
 
     private final AuthService authService;
     private final UserService userService;
-    private final VerificationTokenService verificationTokenService;
     private final IEmailService emailService;
     private final PasswordResetTokenService passwordResetTokenService;
     private final RefreshTokenService refreshTokenService;
     private final RefreshCookieFactory refreshCookieFactory;
     private final TwoFactorAuthService twoFactorAuthService;
     private final AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
-
-    @Value("${app.backend-base-url}")
-    private String backendBaseUrl;
 
     @Value("${app.frontend-base-url}")
     private String frontendBaseUrl;
@@ -58,7 +53,6 @@ public class AuthController {
     public AuthController(
             AuthService authService,
             UserService userService,
-            VerificationTokenService verificationTokenService,
             IEmailService emailService,
             PasswordResetTokenService passwordResetTokenService,
             RefreshTokenService refreshTokenService,
@@ -66,7 +60,6 @@ public class AuthController {
             TwoFactorAuthService twoFactorAuthService) {
         this.authService = authService;
         this.userService = userService;
-        this.verificationTokenService = verificationTokenService;
         this.emailService = emailService;
         this.passwordResetTokenService = passwordResetTokenService;
         this.refreshTokenService = refreshTokenService;
@@ -75,56 +68,14 @@ public class AuthController {
     }
 
     public AuthController() {
-        this(null, null, null, null, null, null, null, null);
+        this(null, null, null, null, null, null, null);
     }
 
-    /**
-     * Verifies the user account using the provided verification token.
-     *
-     * @param token the verification token sent via email
-     * @return 200 OK if successful, otherwise 400 BAD REQUEST
-     */
-    @GetMapping("/verify")
-    public ResponseEntity<String> verifyUser(@RequestParam("token") String token) {
-        try {
-            VerificationToken verificationToken = verificationTokenService.getByToken(token);
-
-            if (verificationToken.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.systemDefault()))) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body("Token di verifica scaduto. Registrati di nuovo.");
-            }
-
-            Users user = verificationToken.getUser();
-            user.setVerified(true);
-            userService.save(user);
-            verificationTokenService.deleteToken(verificationToken);
-
-            return ResponseEntity.ok("Email verificata con successo. Ora puoi accedere.");
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Token di verifica non valido o scaduto.");
-        }
-    }
-
-    /**
-     * Registers a new user and sends a verification email.
-     *
-     * @param userDTO the user registration data
-     * @return 201 CREATED if successful, otherwise error
-     */
-    @PostMapping("/register")
-    public ResponseEntity<String> register(@Valid @RequestBody UserDTO userDTO) {
-        try {
-            Users createdUser = userService.registerUser(userDTO);
-            VerificationToken token = verificationTokenService.createToken(createdUser);
-            String verificationLink = backendBaseUrl + "/auth/verify?token=" + token.getToken();
-            emailService.sendVerificationEmail(createdUser.getManager().getEmail(), verificationLink);
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body("Utente registrato. Controlla la tua email per confermare l'account.");
-        } catch (Exception e) {
-        	throw new RegistrationException("Errore interno: " + e.getMessage(), e);
-        }
-    }
+    // There is deliberately no public POST /auth/register (nor the
+    // GET /auth/verify that confirmed it): it took a managerId and a roleId
+    // from the body, so anyone could create an ADMIN inside another
+    // organization (OWASP API1/API3/API5). New organizations sign up through
+    // /organizations/register, people join one by invitation.
 
     /**
      * Authenticates a user and returns a JWT access token. The refresh token

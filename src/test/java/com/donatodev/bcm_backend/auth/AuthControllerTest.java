@@ -131,39 +131,36 @@ class AuthControllerTest {
         managerId = manager.getId();
     }
 
-    /**
-     * Test successful user registration.
-     */
-    @Test
-    @Order(1)
-    void shouldRegisterSuccessfully() throws Exception {
-        UserDTO dto = new UserDTO(null, "donato", "abc123", managerId, roleId, false, null);
-
-        mockMvc.perform(post("/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isCreated())
-                .andExpect(content().string(containsString("Utente registrato")));
+    /** A verified user with the setup's manager and role, as an invitation leaves one. */
+    private Users verifiedUser(String username, String password) {
+        return usersRepository.save(Users.builder()
+                .username(username).passwordHash(passwordEncoder.encode(password)).verified(true)
+                .manager(managersRepository.findById(managerId).orElseThrow())
+                .role(rolesRepository.findById(roleId).orElseThrow()).build());
     }
 
     /**
-     * Test successful email verification with valid token.
+     * OWASP API1/API3/API5: the legacy public sign-up took a managerId and a
+     * roleId from the body, so anyone could create an ADMIN inside another
+     * organization, attached to one of its managers, and have the manager's
+     * verification email activate it. Sign-up is /organizations/register
+     * (emailed code) and users join by invitation: there is no public way to
+     * create a user in an existing organization.
      */
     @Test
-    @Order(2)
-    void shouldVerifyEmailSuccessfully() throws Exception {
-        Users user = usersRepository.save(Users.builder()
-                .username("verifyme").passwordHash("abc").verified(false)
-                .manager(managersRepository.findById(managerId).orElseThrow())
-                .role(rolesRepository.findById(roleId).orElseThrow()).build());
+    @Order(1)
+    void anonymousCannotCreateAnAdminInSomeoneElsesOrganization() throws Exception {
+        Roles admin = rolesRepository.save(Roles.builder().role("ADMIN").build());
+        UserDTO attack = new UserDTO(null, "intruder", "Intruder#2026", managerId, admin.getId(), false, null);
 
-        verificationTokenRepository.save(VerificationToken.builder()
-                .token("verify-token").user(user)
-                .expiryDate(LocalDateTime.of(2030, Month.JANUARY, 1, 12, 0)).build());
+        mockMvc.perform(post("/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(attack)))
+                .andExpect(status().is4xxClientError());
+        mockMvc.perform(get("/auth/verify?token=anything"))
+                .andExpect(status().is4xxClientError());
 
-        mockMvc.perform(get("/auth/verify?token=verify-token"))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Email verificata con successo")));
+        assertThat(usersRepository.findByUsername("intruder")).isEmpty();
     }
 
     /**
@@ -172,17 +169,7 @@ class AuthControllerTest {
     @Test
     @Order(3)
     void shouldLoginSuccessfully() throws Exception {
-        // Register new user
-        UserDTO dto = new UserDTO(null, "loginuser", "mypwd123", managerId, roleId, false, null);
-        mockMvc.perform(post("/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isCreated());
-
-        // Verify user manually
-        Users user = usersRepository.findByUsername("loginuser").orElseThrow();
-        user.setVerified(true);
-        usersRepository.save(user);
+        verifiedUser("loginuser", "mypwd123");
 
         AuthRequestDTO loginDto = new AuthRequestDTO("loginuser", "mypwd123");
 
@@ -274,25 +261,6 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.username").value("admin"));
     }
 
-    /**
-     * Test rejection of expired verification token.
-     */
-    @Test
-    @Order(7)
-    void shouldRejectExpiredVerificationToken() throws Exception {
-        Users user = usersRepository.save(Users.builder()
-                .username("expiredtoken").passwordHash("abc").verified(false)
-                .manager(managersRepository.findById(managerId).orElseThrow())
-                .role(rolesRepository.findById(roleId).orElseThrow()).build());
-
-        verificationTokenRepository.save(VerificationToken.builder()
-                .token("expired-verify-token").user(user)
-                .expiryDate(LocalDateTime.of(2020, Month.JANUARY, 1, 12, 0)).build());
-
-        mockMvc.perform(get("/auth/verify?token=expired-verify-token"))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString("Token di verifica scaduto")));
-    }
 
     /**
      * Test rejection of expired reset token.
@@ -319,22 +287,6 @@ class AuthControllerTest {
     }
 
     /**
-     * Test failure when registering with invalid manager ID.
-     */
-    @Test
-    @Order(9)
-    void shouldFailRegisterWithInvalidManagerId() throws Exception {
-        // uso un managerId inesistente per forzare un'eccezione
-        UserDTO dto = new UserDTO(null, "broken", "pass123", 999L, roleId, false, null);
-
-        mockMvc.perform(post("/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.message").value(containsString("Manager ID 999 not found")));
-    }
-
-    /**
      * Test failure when resetting password with invalid token.
      */
     @Test
@@ -347,57 +299,6 @@ class AuthControllerTest {
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(containsString("Token non valido")));
-    }
-
-    /**
-     * Test bad request when verification token does not exist.
-     */
-    @Test
-    @Order(11)
-    void shouldReturnBadRequestWhenVerificationTokenIsInvalid() throws Exception {
-        // Non esiste alcun token "invalid-token" nel DB
-        mockMvc.perform(get("/auth/verify?token=invalid-token"))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString("Token di verifica non valido o scaduto.")));
-    }
-
-    /**
-     * Test validation error when password is too short.
-     */
-    @Test
-    @Order(12)
-    void shouldReturnValidationError() throws Exception {
-        UserDTO invalidDto = new UserDTO(null, "validUser", "123", managerId, roleId, false, null);
-
-        mockMvc.perform(post("/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(invalidDto)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").exists())
-                .andExpect(jsonPath("$.message").value(containsString("La password deve contenere almeno 6 caratteri")));
-    }
-
-    /**
-     * Test handling of generic exceptions during registration.
-     */
-    @Test
-    @Order(13)
-    void shouldHandleGenericException() throws Exception {
-        // Creo e poi elimino il manager per simulare errore
-        Managers ghostManager = managersRepository.save(Managers.builder()
-                .firstName("Ghost").lastName("Manager").email("ghost@test.com")
-                .department("Ghost").phoneNumber("0000000000").build());
-
-        Long ghostManagerId = ghostManager.getId();
-        managersRepository.deleteById(ghostManagerId);
-
-        UserDTO dto = new UserDTO(null, "testuser", "password", ghostManagerId, roleId, false, null);
-
-        mockMvc.perform(post("/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.message").value(containsString("Errore interno")));
     }
 
     /**
@@ -527,15 +428,7 @@ class AuthControllerTest {
     @Test
     @Order(22)
     void shouldRefreshTokenSuccessfully() throws Exception {
-        UserDTO dto = new UserDTO(null, "refreshuser", "pass123", managerId, roleId, false, null);
-        mockMvc.perform(post("/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isCreated());
-
-        Users user = usersRepository.findByUsername("refreshuser").orElseThrow();
-        user.setVerified(true);
-        usersRepository.save(user);
+        verifiedUser("refreshuser", "pass123");
 
         MockHttpServletResponse loginResponse = mockMvc.perform(post("/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -564,15 +457,7 @@ class AuthControllerTest {
     @Test
     @Order(29)
     void shouldDetectRefreshTokenReuseAndRevokeAllSessions() throws Exception {
-        UserDTO dto = new UserDTO(null, "reuseuser", "pass123", managerId, roleId, false, null);
-        mockMvc.perform(post("/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isCreated());
-
-        Users user = usersRepository.findByUsername("reuseuser").orElseThrow();
-        user.setVerified(true);
-        usersRepository.save(user);
+        verifiedUser("reuseuser", "pass123");
 
         MockHttpServletResponse loginResponse = mockMvc.perform(post("/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -654,15 +539,7 @@ class AuthControllerTest {
     @Test
     @Order(24)
     void shouldLogoutAndRevokeRefreshToken() throws Exception {
-        UserDTO dto = new UserDTO(null, "logoutuser", "pass123", managerId, roleId, false, null);
-        mockMvc.perform(post("/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isCreated());
-
-        Users user = usersRepository.findByUsername("logoutuser").orElseThrow();
-        user.setVerified(true);
-        usersRepository.save(user);
+        verifiedUser("logoutuser", "pass123");
 
         MockHttpServletResponse loginResponse = mockMvc.perform(post("/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)

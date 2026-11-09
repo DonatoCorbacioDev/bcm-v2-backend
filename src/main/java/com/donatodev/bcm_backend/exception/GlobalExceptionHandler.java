@@ -122,11 +122,6 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, message);
     }
     
-    @ExceptionHandler(RegistrationException.class)
-    public ResponseEntity<ApiErrorResponse> handleRegistrationException(RegistrationException ex) {
-        return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
-    }
-    
     @ExceptionHandler(RefreshTokenException.class)
     public ResponseEntity<ApiErrorResponse> handleRefreshTokenException(RefreshTokenException ex) {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, ex.getMessage());

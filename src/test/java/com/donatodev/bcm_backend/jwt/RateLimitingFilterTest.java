@@ -45,8 +45,8 @@ class RateLimitingFilterTest {
     }
 
     private MockHttpServletRequest registerRequest() {
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/auth/register");
-        request.setServletPath("/auth/register");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/organizations/register");
+        request.setServletPath("/organizations/register");
         request.setRemoteAddr("192.168.1.1");
         return request;
     }
@@ -152,7 +152,7 @@ class RateLimitingFilterTest {
 
         @Test
         @Order(3)
-        @DisplayName("/auth/register is also rate-limited")
+        @DisplayName("/organizations/register (sign-up) is also rate-limited")
         void shouldRateLimitRegister() throws Exception {
             FilterChain chain = mock(FilterChain.class);
 
