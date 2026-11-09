@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -79,7 +80,7 @@ public class OrganizationExportService {
     }
 
     /** Everything read from the database, taken in one transaction. */
-    private record Snapshot(Long orgId, String orgName, List<JsonFile> dataFiles, List<StoredFileRef> storedFiles) {
+    private record Snapshot(UUID orgId, String orgName, List<JsonFile> dataFiles, List<StoredFileRef> storedFiles) {
     }
 
     public OrganizationExportService(OrganizationRepository organizationRepository,
@@ -100,7 +101,7 @@ public class OrganizationExportService {
      * before streaming starts: a full export is exactly what to look for after
      * a suspected leak, so an attempt is logged even if the download breaks.
      */
-    public void recordExport(Long orgId) {
+    public void recordExport(UUID orgId) {
         auditLogService.save("DATA_EXPORTED", "Organization", orgId,
                 AuthenticatedUserUtils.getUsernameOrThrow(), orgId, "Full data export (ZIP)");
     }
@@ -115,7 +116,7 @@ public class OrganizationExportService {
      * from disk outside it, so a slow download doesn't hold a database
      * connection for minutes.
      */
-    public void writeExport(Long orgId, OutputStream out) throws IOException {
+    public void writeExport(UUID orgId, OutputStream out) throws IOException {
         Snapshot snapshot = Objects.requireNonNull(readOnlyTransaction.execute(status -> takeSnapshot(orgId)));
 
         List<ExportedFile> exported = new ArrayList<>();
@@ -136,7 +137,7 @@ public class OrganizationExportService {
         }
     }
 
-    private Snapshot takeSnapshot(Long orgId) {
+    private Snapshot takeSnapshot(UUID orgId) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new OrganizationNotFoundException("Organizzazione non trovata"));
         List<JsonFile> dataFiles = new ArrayList<>();

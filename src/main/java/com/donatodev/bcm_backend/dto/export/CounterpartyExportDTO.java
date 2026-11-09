@@ -5,12 +5,13 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.CounterpartyType;
 
 /** One element of {@code data/counterparties.json}. */
 public record CounterpartyExportDTO(
-        Long id,
+        UUID id,
         String name,
         CounterpartyType type,
         String vatNumber,

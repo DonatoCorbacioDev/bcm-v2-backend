@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import com.donatodev.bcm_backend.config.TenantContext;
 import java.io.IOException;
@@ -51,7 +53,7 @@ import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 class ContractDocumentServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void setup() {
@@ -78,8 +80,8 @@ class ContractDocumentServiceTest {
     private ContractDocumentService contractDocumentService;
 
     private static final byte[] VALID_PDF = "%PDF-1.4 test".getBytes();
-    private static final long CONTRACT_ID = 1L;
-    private static final long DOC_ID = 10L;
+    private static final UUID CONTRACT_ID = uid(1);
+    private static final UUID DOC_ID = uid(10);
     private static final String BACKEND_URL = "http://localhost:8090/api/v1";
 
     private Contracts fakeContract() {
@@ -534,7 +536,7 @@ class ContractDocumentServiceTest {
         void shouldCollapseVersionsToLatestInList() {
             Contracts contract = fakeContract();
             ContractDocument v2 = fakeDoc(contract);
-            v2.setId(20L);
+            v2.setId(uid(20));
             v2.setVersionNumber(2);
             ContractDocument v1 = fakeDoc(contract);
 
@@ -545,7 +547,7 @@ class ContractDocumentServiceTest {
             List<ContractDocumentDTO> result = contractDocumentService.getDocuments(CONTRACT_ID);
 
             assertEquals(1, result.size());
-            assertEquals(20L, result.get(0).id());
+            assertEquals(uid(20), result.get(0).id());
             assertEquals(2, result.get(0).versionCount());
         }
 
@@ -558,7 +560,7 @@ class ContractDocumentServiceTest {
             Contracts contract = fakeContract();
             ContractDocument existing = fakeDoc(contract);
             ContractDocument saved = fakeDoc(contract);
-            saved.setId(20L);
+            saved.setId(uid(20));
             saved.setVersionNumber(2);
             saved.setFileName("contract-v2.pdf");
 
@@ -602,7 +604,7 @@ class ContractDocumentServiceTest {
             ContractDocument existing = fakeDoc(contract);
             existing.setVersionNumber(3);
             ContractDocument saved = fakeDoc(contract);
-            saved.setId(20L);
+            saved.setId(uid(20));
             saved.setVersionNumber(4);
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
@@ -631,7 +633,7 @@ class ContractDocumentServiceTest {
             Contracts contract = fakeContract();
             ContractDocument v1 = fakeDoc(contract);
             ContractDocument v2 = fakeDoc(contract);
-            v2.setId(20L);
+            v2.setId(uid(20));
             v2.setVersionNumber(2);
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
@@ -668,14 +670,14 @@ class ContractDocumentServiceTest {
             ContractDocument from = fakeDoc(contract);
             from.setExtractedText("Amount: 1000\nOther line");
             ContractDocument to = fakeDoc(contract);
-            to.setId(20L);
+            to.setId(uid(20));
             to.setExtractedText("Amount: 2000\nOther line");
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(from));
-            when(documentRepository.findByIdAndContractId(20L, CONTRACT_ID)).thenReturn(Optional.of(to));
+            when(documentRepository.findByIdAndContractId(uid(20), CONTRACT_ID)).thenReturn(Optional.of(to));
 
-            DocumentDiffDTO result = contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L);
+            DocumentDiffDTO result = contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, uid(20));
 
             assertEquals(2, result.lines().size());
             assertTrue(result.lines().stream().anyMatch(l -> "CHANGE".equals(l.tag())));
@@ -690,16 +692,16 @@ class ContractDocumentServiceTest {
             Contracts contract = fakeContract();
             ContractDocument from = fakeDoc(contract);
             ContractDocument to = fakeDoc(contract);
-            to.setId(20L);
+            to.setId(uid(20));
             to.setExtractedText("New text");
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(from));
-            when(documentRepository.findByIdAndContractId(20L, CONTRACT_ID)).thenReturn(Optional.of(to));
+            when(documentRepository.findByIdAndContractId(uid(20), CONTRACT_ID)).thenReturn(Optional.of(to));
             when(localStorageService.readDocument(from.getStoragePath())).thenReturn(VALID_PDF);
             when(pdfBoxService.extractRawText(VALID_PDF)).thenReturn("Old text");
 
-            contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L);
+            contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, uid(20));
 
             assertEquals("Old text", from.getExtractedText());
             verify(documentRepository).save(from);
@@ -714,10 +716,10 @@ class ContractDocumentServiceTest {
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(from));
-            when(documentRepository.findByIdAndContractId(20L, CONTRACT_ID)).thenReturn(Optional.empty());
+            when(documentRepository.findByIdAndContractId(uid(20), CONTRACT_ID)).thenReturn(Optional.empty());
 
             assertThrows(ContractNotFoundException.class,
-                    () -> contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L));
+                    () -> contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, uid(20)));
         }
 
         @Test
@@ -730,7 +732,7 @@ class ContractDocumentServiceTest {
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.empty());
 
             assertThrows(ContractNotFoundException.class,
-                    () -> contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L));
+                    () -> contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, uid(20)));
         }
 
         @Test
@@ -740,16 +742,16 @@ class ContractDocumentServiceTest {
             Contracts contract = fakeContract();
             ContractDocument from = fakeDoc(contract);
             ContractDocument to = fakeDoc(contract);
-            to.setId(20L);
+            to.setId(uid(20));
             to.setExtractedText("Some text");
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(from));
-            when(documentRepository.findByIdAndContractId(20L, CONTRACT_ID)).thenReturn(Optional.of(to));
+            when(documentRepository.findByIdAndContractId(uid(20), CONTRACT_ID)).thenReturn(Optional.of(to));
             when(localStorageService.readDocument(from.getStoragePath())).thenReturn(VALID_PDF);
             when(pdfBoxService.extractRawText(VALID_PDF)).thenThrow(new RuntimeException());
 
-            DocumentDiffDTO result = contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L);
+            DocumentDiffDTO result = contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, uid(20));
 
             assertNull(from.getExtractedText());
             verify(documentRepository, never()).save(from);
@@ -763,16 +765,16 @@ class ContractDocumentServiceTest {
             Contracts contract = fakeContract();
             ContractDocument from = fakeDoc(contract);
             ContractDocument to = fakeDoc(contract);
-            to.setId(20L);
+            to.setId(uid(20));
             to.setExtractedText("Some text");
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(from));
-            when(documentRepository.findByIdAndContractId(20L, CONTRACT_ID)).thenReturn(Optional.of(to));
+            when(documentRepository.findByIdAndContractId(uid(20), CONTRACT_ID)).thenReturn(Optional.of(to));
             when(localStorageService.readDocument(from.getStoragePath())).thenReturn(VALID_PDF);
             when(pdfBoxService.extractRawText(VALID_PDF)).thenThrow(new RuntimeException("disk read error"));
 
-            contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L);
+            contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, uid(20));
 
             assertNull(from.getExtractedText());
         }
@@ -785,14 +787,14 @@ class ContractDocumentServiceTest {
             ContractDocument from = fakeDoc(contract);
             from.setExtractedText("Line1\nRemoved line\nLine3");
             ContractDocument to = fakeDoc(contract);
-            to.setId(20L);
+            to.setId(uid(20));
             to.setExtractedText("Line1\nLine3\nAdded line");
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(from));
-            when(documentRepository.findByIdAndContractId(20L, CONTRACT_ID)).thenReturn(Optional.of(to));
+            when(documentRepository.findByIdAndContractId(uid(20), CONTRACT_ID)).thenReturn(Optional.of(to));
 
-            DocumentDiffDTO result = contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, 20L);
+            DocumentDiffDTO result = contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, uid(20));
 
             assertTrue(result.lines().stream()
                     .anyMatch(l -> "DELETE".equals(l.tag()) && l.newText() == null));

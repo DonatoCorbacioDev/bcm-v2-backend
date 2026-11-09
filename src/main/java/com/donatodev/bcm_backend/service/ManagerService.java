@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -48,7 +49,7 @@ public class ManagerService {
      * @return a list of {@link ManagerDTO}
      */
     public List<ManagerDTO> getAllManagers() {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         return managersRepository.findByOrganizationId(orgId, Pageable.unpaged())
                 .stream().map(managerMapper::toDTO).toList();
     }
@@ -60,7 +61,7 @@ public class ManagerService {
      * @return the corresponding {@link ManagerDTO}
      * @throws ManagerNotFoundException if manager not found
      */
-    public ManagerDTO getManagerById(Long id) {
+    public ManagerDTO getManagerById(UUID id) {
         return findManagerInScope(id)
                 .map(managerMapper::toDTO)
                 .orElseThrow(() -> new ManagerNotFoundException(MANAGER_ID_PREFIX + id + NOT_FOUND_SUFFIX));
@@ -70,8 +71,8 @@ public class ManagerService {
      * Finds a manager by ID, scoped to the current tenant when
      * {@link TenantContext} carries an organization ID.
      */
-    private Optional<Managers> findManagerInScope(Long id) {
-        Long orgId = TenantContext.require();
+    private Optional<Managers> findManagerInScope(UUID id) {
+        UUID orgId = TenantContext.require();
         return managersRepository.findByIdAndOrganizationId(id, orgId);
     }
 
@@ -85,7 +86,7 @@ public class ManagerService {
         Managers manager = managerMapper.toEntity(managerDTO);
         // Creation must never merge an existing row selected by a client-supplied ID.
         manager.setId(null);
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         Organization org = new Organization();
         org.setId(orgId);
         manager.setOrganization(org);
@@ -101,7 +102,7 @@ public class ManagerService {
      * @return the updated {@link ManagerDTO}
      * @throws ManagerNotFoundException if manager not found
      */
-    public ManagerDTO updateManager(Long id, ManagerDTO managerDTO) {
+    public ManagerDTO updateManager(UUID id, ManagerDTO managerDTO) {
         Managers manager = findManagerInScope(id)
                 .orElseThrow(() -> new ManagerNotFoundException(MANAGER_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
@@ -121,7 +122,7 @@ public class ManagerService {
      * @param id the ID of the manager to delete
      * @throws ManagerNotFoundException if manager not found
      */
-    public void deleteManager(Long id) {
+    public void deleteManager(UUID id) {
         Managers manager = findManagerInScope(id)
                 .orElseThrow(() -> new ManagerNotFoundException(MANAGER_ID_PREFIX + id + NOT_FOUND_SUFFIX));
         managersRepository.delete(manager);
@@ -129,7 +130,7 @@ public class ManagerService {
     
     public Page<ManagerDTO> searchManagers(String q, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         Page<Managers> result;
         if (q == null || q.isBlank()) {
             result = managersRepository.findByOrganizationId(orgId, pageable);
@@ -142,7 +143,7 @@ public class ManagerService {
         return result.map(managerMapper::toDTO);
    }
     
-    public Managers getManagerEntity(Long id) {
+    public Managers getManagerEntity(UUID id) {
         return findManagerInScope(id)
             .orElseThrow(() -> new ManagerNotFoundException(MANAGER_ID_PREFIX + id + NOT_FOUND_SUFFIX));
     }

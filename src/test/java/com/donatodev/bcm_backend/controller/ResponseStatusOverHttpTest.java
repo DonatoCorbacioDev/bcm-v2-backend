@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.DisplayName;
@@ -42,7 +43,7 @@ class ResponseStatusOverHttpTest {
     @DisplayName("a disabled internal endpoint answers 404, not 401")
     void disabledInternalEndpointIs404() {
         ResponseEntity<String> response = restTemplate.exchange(
-                "/internal/organizations/1/tier", HttpMethod.PUT, json("{\"tier\":\"PRO\"}"), String.class);
+                "/internal/organizations/" + uid(1) + "/tier", HttpMethod.PUT, json("{\"tier\":\"PRO\"}"), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }

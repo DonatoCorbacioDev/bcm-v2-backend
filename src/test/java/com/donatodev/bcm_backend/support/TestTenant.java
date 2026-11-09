@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.support;
 
+import java.util.UUID;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.webmvc.test.autoconfigure.MockMvcBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -19,13 +20,13 @@ import com.donatodev.bcm_backend.config.TenantContext;
  */
 public final class TestTenant {
 
-    private static final ThreadLocal<Long> ORG = new ThreadLocal<>();
+    private static final ThreadLocal<UUID> ORG = new ThreadLocal<>();
 
     private TestTenant() {
     }
 
     /** Requests from this test on run as members of {@code orgId}. */
-    public static void use(Long orgId) {
+    public static void use(UUID orgId) {
         ORG.set(orgId);
     }
 
@@ -42,7 +43,7 @@ public final class TestTenant {
         @Bean
         MockMvcBuilderCustomizer testTenantCustomizer() {
             return builder -> builder.defaultRequest(MockMvcRequestBuilders.get("/").with(request -> {
-                Long orgId = ORG.get();
+                UUID orgId = ORG.get();
                 if (orgId != null) {
                     TenantContext.set(orgId);
                 }

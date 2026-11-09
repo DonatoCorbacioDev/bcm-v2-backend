@@ -5,13 +5,14 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import com.donatodev.bcm_backend.entity.Managers;
 
 /** One element of {@code data/managers.json}. */
 public record ManagerExportDTO(
-        Long id,
+        UUID id,
         String firstName,
         String lastName,
         String email,

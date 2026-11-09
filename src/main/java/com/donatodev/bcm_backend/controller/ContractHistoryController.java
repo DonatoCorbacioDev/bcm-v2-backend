@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
@@ -49,7 +50,7 @@ public class ContractHistoryController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/contract/{contractId}")
-    public ResponseEntity<List<ContractHistoryDTO>> getByContractId(@PathVariable Long contractId) {
+    public ResponseEntity<List<ContractHistoryDTO>> getByContractId(@PathVariable UUID contractId) {
         return ResponseEntity.ok(contractHistoryService.getByContractId(contractId));
     }
 
@@ -61,7 +62,7 @@ public class ContractHistoryController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/{id}")
-    public ResponseEntity<ContractHistoryDTO> getById(@PathVariable Long id) {
+    public ResponseEntity<ContractHistoryDTO> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(contractHistoryService.getById(id));
     }
 
@@ -86,7 +87,7 @@ public class ContractHistoryController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
         contractHistoryService.delete(id);
         return ResponseEntity.noContent().build();
     }

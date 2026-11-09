@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.mapper;
 
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 import com.donatodev.bcm_backend.dto.FinancialValueDTO;
@@ -87,7 +88,7 @@ public class FinancialValueMapper {
      * @param orgId    the caller's organization, or {@code null} outside an
      *                 authenticated HTTP request (see the scoped resolve helpers)
      */
-    public void updateEntity(FinancialValues existing, FinancialValueDTO dto, Long orgId) {
+    public void updateEntity(FinancialValues existing, FinancialValueDTO dto, UUID orgId) {
         existing.setMonth(dto.month());
         existing.setYear(dto.year());
         existing.setFinancialAmount(dto.financialAmount());
@@ -110,7 +111,7 @@ public class FinancialValueMapper {
      *              authenticated HTTP request
      * @return the corresponding entity
      */
-    public FinancialValues toEntity(FinancialValueDTO dto, Long orgId) {
+    public FinancialValues toEntity(FinancialValueDTO dto, UUID orgId) {
         return FinancialValues.builder()
                 .id(dto.id())
                 .month(dto.month())
@@ -131,17 +132,17 @@ public class FinancialValueMapper {
     // financial value (real, exploitable cross-tenant leak — see the
     // anomaly-detection join in bcm-v2-ml, which trusts this association).
 
-    private Contracts resolveContract(Long id, Long orgId) {
+    private Contracts resolveContract(UUID id, UUID orgId) {
         return contractsRepository.findByIdAndOrganization_Id(id, orgId)
                 .orElseThrow(() -> new ContractNotFoundException("Contratto ID " + id + " non trovato"));
     }
 
-    private FinancialTypes resolveFinancialType(Long id, Long orgId) {
+    private FinancialTypes resolveFinancialType(UUID id, UUID orgId) {
         return financialTypesRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new FinancialTypeNotFoundException("Tipo finanziario ID " + id + " non trovato"));
     }
 
-    private BusinessAreas resolveBusinessArea(Long id, Long orgId) {
+    private BusinessAreas resolveBusinessArea(UUID id, UUID orgId) {
         return businessAreaRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new BusinessAreaNotFoundException("Area di business ID " + id + " non trovata"));
     }

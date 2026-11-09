@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -68,12 +70,12 @@ class SepaPaymentControllerTest {
 
     @MockitoBean private SepaPaymentService sepaPaymentService;
 
-    private Long contractId;
+    private UUID contractId;
 
     private static final byte[] SAMPLE_XML = "<Document/>".getBytes();
 
     private SepaPaymentBatchDTO sampleBatchDTO() {
-        return new SepaPaymentBatchDTO(1L, contractId, LocalDate.of(2027, Month.JULY, 1),
+        return new SepaPaymentBatchDTO(uid(1), contractId, LocalDate.of(2027, Month.JULY, 1),
                 new BigDecimal("150.50"), "EUR", 2, "sepa-1-2027-07-01.xml", Instant.parse("2027-06-30T10:00:00Z"));
     }
 
@@ -114,9 +116,9 @@ class SepaPaymentControllerTest {
         @DisplayName("Admin generates a SEPA payment — returns 201 with XML attachment")
         void shouldCreateAsAdmin() throws Exception {
             FileDownload download = new FileDownload(SAMPLE_XML, "sepa-1.xml", "application/xml");
-            when(sepaPaymentService.createSepaPayment(anyLong(), any(), any())).thenReturn(download);
+            when(sepaPaymentService.createSepaPayment(any(UUID.class), any(), any())).thenReturn(download);
 
-            CreateSepaPaymentRequest request = new CreateSepaPaymentRequest(List.of(1L, 2L), null);
+            CreateSepaPaymentRequest request = new CreateSepaPaymentRequest(List.of(uid(1), uid(2)), null);
 
             mockMvc.perform(post("/contracts/" + contractId + "/sepa-payments")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -132,9 +134,9 @@ class SepaPaymentControllerTest {
         @DisplayName("Manager generates a SEPA payment — returns 201")
         void shouldCreateAsManager() throws Exception {
             FileDownload download = new FileDownload(SAMPLE_XML, "sepa-1.xml", "application/xml");
-            when(sepaPaymentService.createSepaPayment(anyLong(), any(), any())).thenReturn(download);
+            when(sepaPaymentService.createSepaPayment(any(UUID.class), any(), any())).thenReturn(download);
 
-            CreateSepaPaymentRequest request = new CreateSepaPaymentRequest(List.of(1L), null);
+            CreateSepaPaymentRequest request = new CreateSepaPaymentRequest(List.of(uid(1)), null);
 
             mockMvc.perform(post("/contracts/" + contractId + "/sepa-payments")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -147,7 +149,7 @@ class SepaPaymentControllerTest {
         @WithMockUser
         @DisplayName("Plain user cannot generate — returns 403")
         void shouldReturn403ForPlainUser() throws Exception {
-            CreateSepaPaymentRequest request = new CreateSepaPaymentRequest(List.of(1L), null);
+            CreateSepaPaymentRequest request = new CreateSepaPaymentRequest(List.of(uid(1)), null);
 
             mockMvc.perform(post("/contracts/" + contractId + "/sepa-payments")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -173,10 +175,10 @@ class SepaPaymentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Service rejects invalid selection — returns 400")
         void shouldReturn400WhenServiceRejects() throws Exception {
-            when(sepaPaymentService.createSepaPayment(anyLong(), any(), any()))
+            when(sepaPaymentService.createSepaPayment(any(UUID.class), any(), any()))
                     .thenThrow(new IllegalArgumentException("Organization has no IBAN configured for SEPA payments"));
 
-            CreateSepaPaymentRequest request = new CreateSepaPaymentRequest(List.of(1L), null);
+            CreateSepaPaymentRequest request = new CreateSepaPaymentRequest(List.of(uid(1)), null);
 
             mockMvc.perform(post("/contracts/" + contractId + "/sepa-payments")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -196,7 +198,7 @@ class SepaPaymentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns the list of generated batches")
         void shouldListPayments() throws Exception {
-            when(sepaPaymentService.getPayments(anyLong())).thenReturn(List.of(sampleBatchDTO()));
+            when(sepaPaymentService.getPayments(any(UUID.class))).thenReturn(List.of(sampleBatchDTO()));
 
             mockMvc.perform(get("/contracts/" + contractId + "/sepa-payments"))
                     .andExpect(status().isOk())
@@ -217,9 +219,9 @@ class SepaPaymentControllerTest {
         @DisplayName("Returns XML bytes with correct headers")
         void shouldDownloadSuccessfully() throws Exception {
             FileDownload download = new FileDownload(SAMPLE_XML, "sepa-1.xml", "application/xml");
-            when(sepaPaymentService.downloadPayment(anyLong(), anyLong())).thenReturn(download);
+            when(sepaPaymentService.downloadPayment(any(UUID.class), any(UUID.class))).thenReturn(download);
 
-            mockMvc.perform(get("/contracts/" + contractId + "/sepa-payments/1/download"))
+            mockMvc.perform(get("/contracts/" + contractId + "/sepa-payments/" + uid(1) + "/download"))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType("application/xml"))
                     .andExpect(content().bytes(SAMPLE_XML));
@@ -230,10 +232,10 @@ class SepaPaymentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns 404 when batch not found")
         void shouldReturn404WhenNotFound() throws Exception {
-            when(sepaPaymentService.downloadPayment(anyLong(), anyLong()))
+            when(sepaPaymentService.downloadPayment(any(UUID.class), any(UUID.class)))
                     .thenThrow(new ContractNotFoundException("SEPA payment batch ID 999 not found for contract " + contractId));
 
-            mockMvc.perform(get("/contracts/" + contractId + "/sepa-payments/999/download"))
+            mockMvc.perform(get("/contracts/" + contractId + "/sepa-payments/" + uid(999) + "/download"))
                     .andExpect(status().isNotFound());
         }
     }

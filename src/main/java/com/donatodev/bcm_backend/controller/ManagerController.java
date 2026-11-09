@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -56,7 +57,7 @@ public class ManagerController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{id}")
-    public ResponseEntity<ManagerDTO> getManagerById(@PathVariable Long id) {
+    public ResponseEntity<ManagerDTO> getManagerById(@PathVariable UUID id) {
         ManagerDTO manager = managerService.getManagerById(id);
         return ResponseEntity.ok(manager);
     }
@@ -83,7 +84,7 @@ public class ManagerController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("{id}")
-    public ResponseEntity<ManagerDTO> updateManager(@PathVariable Long id, @RequestBody ManagerDTO managerDTO) {
+    public ResponseEntity<ManagerDTO> updateManager(@PathVariable UUID id, @RequestBody ManagerDTO managerDTO) {
         ManagerDTO updatedManager = managerService.updateManager(id, managerDTO);
         return ResponseEntity.ok(updatedManager);
     }
@@ -96,7 +97,7 @@ public class ManagerController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteManager(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteManager(@PathVariable UUID id) {
         managerService.deleteManager(id);
         return ResponseEntity.noContent().build();
     }
@@ -114,7 +115,7 @@ public class ManagerController {
     
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}")
-    public ResponseEntity<ManagerDTO> patchManager(@PathVariable Long id, @RequestBody ManagerDTO managerDTO) {
+    public ResponseEntity<ManagerDTO> patchManager(@PathVariable UUID id, @RequestBody ManagerDTO managerDTO) {
         ManagerDTO updated = managerService.updateManager(id, managerDTO);
         return ResponseEntity.ok(updated);
     }

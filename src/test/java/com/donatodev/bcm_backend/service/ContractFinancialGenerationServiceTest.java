@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -55,9 +57,9 @@ class ContractFinancialGenerationServiceTest {
     private ContractFinancialGenerationService generationService;
 
     private final FinancialTypes financialType = FinancialTypes.builder()
-            .id(1L).name("Vendite").category(FinancialCategory.REVENUE).build();
-    private final BusinessAreas businessArea = BusinessAreas.builder().id(1L).name("IT").build();
-    private final Organization organization = Organization.builder().id(1L).name("Org").build();
+            .id(uid(1)).name("Vendite").category(FinancialCategory.REVENUE).build();
+    private final BusinessAreas businessArea = BusinessAreas.builder().id(uid(1)).name("IT").build();
+    private final Organization organization = Organization.builder().id(uid(1)).name("Org").build();
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
@@ -68,12 +70,12 @@ class ContractFinancialGenerationServiceTest {
         // Lenient: some tests (hasFinancialTerms, slot-collision) never reach
         // a toDTO call at all.
         org.mockito.Mockito.lenient().when(financialValueMapper.toDTO(any(FinancialValues.class)))
-                .thenReturn(new FinancialValueDTO(null, 1, 2025, 0.0, 1L, 1L, 1L, "Vendite", "IT", "Client", FinancialCategory.REVENUE));
+                .thenReturn(new FinancialValueDTO(null, 1, 2025, 0.0, uid(1), uid(1), uid(1), "Vendite", "IT", "Client", FinancialCategory.REVENUE));
     }
 
     private Contracts.ContractsBuilder baseContract(LocalDate start, LocalDate end) {
         return Contracts.builder()
-                .id(10L)
+                .id(uid(10))
                 .startDate(start)
                 .endDate(end)
                 .businessArea(businessArea)
@@ -92,7 +94,7 @@ class ContractFinancialGenerationServiceTest {
                     .annualValue(36000.0)
                     .billingFrequency(BillingFrequency.MONTHLY)
                     .build();
-            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L)).thenReturn(List.of());
+            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(uid(10), uid(1))).thenReturn(List.of());
 
             FinancialGenerationResultDTO result = generationService.generate(contract);
 
@@ -112,7 +114,7 @@ class ContractFinancialGenerationServiceTest {
                     .annualValue(48000.0)
                     .billingFrequency(BillingFrequency.QUARTERLY)
                     .build();
-            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L)).thenReturn(List.of());
+            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(uid(10), uid(1))).thenReturn(List.of());
 
             FinancialGenerationResultDTO result = generationService.generate(contract);
 
@@ -129,7 +131,7 @@ class ContractFinancialGenerationServiceTest {
                     .annualValue(40000.0)
                     .billingFrequency(BillingFrequency.QUARTERLY)
                     .build();
-            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L)).thenReturn(List.of());
+            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(uid(10), uid(1))).thenReturn(List.of());
 
             generationService.generate(contract);
 
@@ -154,10 +156,10 @@ class ContractFinancialGenerationServiceTest {
                     .billingFrequency(BillingFrequency.MONTHLY)
                     .build();
             FinancialValues manualRow = FinancialValues.builder()
-                    .id(99L).month(2).year(2027).financialAmount(500.0)
+                    .id(uid(99)).month(2).year(2027).financialAmount(500.0)
                     .financialType(financialType).businessArea(businessArea).contract(contract)
                     .source(FinancialValueSource.MANUAL).build();
-            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L))
+            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(uid(10), uid(1)))
                     .thenReturn(List.of(manualRow));
 
             FinancialGenerationResultDTO result = generationService.generate(contract);
@@ -186,11 +188,11 @@ class ContractFinancialGenerationServiceTest {
                     .billingFrequency(BillingFrequency.MONTHLY)
                     .build();
             FinancialValues pastGenerated = FinancialValues.builder()
-                    .id(50L).month(lastMonth.getMonthValue()).year(lastMonth.getYear())
+                    .id(uid(50)).month(lastMonth.getMonthValue()).year(lastMonth.getYear())
                     .financialAmount(999.0) // deliberately stale, to prove it's untouched
                     .financialType(financialType).businessArea(businessArea).contract(contract)
                     .source(FinancialValueSource.GENERATED).build();
-            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L))
+            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(uid(10), uid(1)))
                     .thenReturn(List.of(pastGenerated));
 
             generationService.generate(contract);
@@ -212,11 +214,11 @@ class ContractFinancialGenerationServiceTest {
                     .billingFrequency(BillingFrequency.MONTHLY)
                     .build();
             FinancialValues staleGenerated = FinancialValues.builder()
-                    .id(51L).month(thisMonth.getMonthValue()).year(thisMonth.getYear())
+                    .id(uid(51)).month(thisMonth.getMonthValue()).year(thisMonth.getYear())
                     .financialAmount(1.0)
                     .financialType(financialType).businessArea(businessArea).contract(contract)
                     .source(FinancialValueSource.GENERATED).build();
-            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L))
+            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(uid(10), uid(1)))
                     .thenReturn(List.of(staleGenerated));
 
             FinancialGenerationResultDTO result = generationService.generate(contract);
@@ -243,7 +245,7 @@ class ContractFinancialGenerationServiceTest {
                     .annualValue(12000.0)
                     .billingFrequency(BillingFrequency.ANNUAL)
                     .build();
-            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L)).thenReturn(List.of());
+            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(uid(10), uid(1))).thenReturn(List.of());
 
             FinancialGenerationResultDTO result = generationService.generate(contract);
 
@@ -259,21 +261,21 @@ class ContractFinancialGenerationServiceTest {
         @Test
         @DisplayName("false when none of the three fields are set")
         void falseWhenAllAbsent() {
-            Contracts contract = Contracts.builder().id(10L).build();
+            Contracts contract = Contracts.builder().id(uid(10)).build();
             assertFalse(generationService.hasFinancialTerms(contract));
         }
 
         @Test
         @DisplayName("false when only financialType is set")
         void falseWhenOnlyFinancialTypeSet() {
-            Contracts contract = Contracts.builder().id(10L).financialType(financialType).build();
+            Contracts contract = Contracts.builder().id(uid(10)).financialType(financialType).build();
             assertFalse(generationService.hasFinancialTerms(contract));
         }
 
         @Test
         @DisplayName("false when financialType and annualValue are set but billingFrequency is missing")
         void falseWhenBillingFrequencyMissing() {
-            Contracts contract = Contracts.builder().id(10L)
+            Contracts contract = Contracts.builder().id(uid(10))
                     .financialType(financialType).annualValue(1000.0).build();
             assertFalse(generationService.hasFinancialTerms(contract));
         }
@@ -281,7 +283,7 @@ class ContractFinancialGenerationServiceTest {
         @Test
         @DisplayName("true when all three fields are set")
         void trueWhenAllSet() {
-            Contracts contract = Contracts.builder().id(10L)
+            Contracts contract = Contracts.builder().id(uid(10))
                     .financialType(financialType).annualValue(1000.0).billingFrequency(BillingFrequency.MONTHLY).build();
             assertTrue(generationService.hasFinancialTerms(contract));
         }
@@ -295,7 +297,7 @@ class ContractFinancialGenerationServiceTest {
         @DisplayName("does not evict the ML cache when the contract has no organization")
         void skipsCacheEvictionWhenOrganizationIsNull() {
             Contracts contract = Contracts.builder()
-                    .id(10L)
+                    .id(uid(10))
                     .startDate(LocalDate.of(2027, Month.JANUARY, 1))
                     .endDate(LocalDate.of(2027, Month.JANUARY, 31))
                     .businessArea(businessArea)
@@ -303,11 +305,11 @@ class ContractFinancialGenerationServiceTest {
                     .annualValue(1000.0)
                     .billingFrequency(BillingFrequency.MONTHLY)
                     .build();
-            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L)).thenReturn(List.of());
+            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(uid(10), uid(1))).thenReturn(List.of());
 
             generationService.generate(contract);
 
-            verify(mlCacheService, never()).evictAllForOrg(anyLong());
+            verify(mlCacheService, never()).evictAllForOrg(any(UUID.class));
         }
 
         @Test
@@ -317,11 +319,11 @@ class ContractFinancialGenerationServiceTest {
                     .annualValue(1000.0)
                     .billingFrequency(BillingFrequency.MONTHLY)
                     .build();
-            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L)).thenReturn(List.of());
+            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(uid(10), uid(1))).thenReturn(List.of());
 
             generationService.generate(contract);
 
-            verify(mlCacheService).evictAllForOrg(1L);
+            verify(mlCacheService).evictAllForOrg(uid(1));
         }
     }
 
@@ -337,14 +339,14 @@ class ContractFinancialGenerationServiceTest {
                     .billingFrequency(BillingFrequency.MONTHLY)
                     .build();
             FinancialValues first = FinancialValues.builder()
-                    .id(1L).month(1).year(2027).financialAmount(100.0)
+                    .id(uid(1)).month(1).year(2027).financialAmount(100.0)
                     .financialType(financialType).businessArea(businessArea).contract(contract)
                     .source(FinancialValueSource.MANUAL).build();
             FinancialValues duplicate = FinancialValues.builder()
-                    .id(2L).month(1).year(2027).financialAmount(200.0)
+                    .id(uid(2)).month(1).year(2027).financialAmount(200.0)
                     .financialType(financialType).businessArea(businessArea).contract(contract)
                     .source(FinancialValueSource.MANUAL).build();
-            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(10L, 1L))
+            when(financialValuesRepository.findByContract_IdAndFinancialType_Id(uid(10), uid(1)))
                     .thenReturn(List.of(first, duplicate));
 
             FinancialGenerationResultDTO result = generationService.generate(contract);

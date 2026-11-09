@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
@@ -48,7 +50,7 @@ import com.donatodev.bcm_backend.repository.ManagersRepository;
 class ContractImportServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void enterTenant() {
@@ -77,9 +79,9 @@ class ContractImportServiceTest {
 
     private ContractImportService importService;
 
-    private final BusinessAreas area = BusinessAreas.builder().id(1L).name("IT").build();
+    private final BusinessAreas area = BusinessAreas.builder().id(uid(1)).name("IT").build();
     private final Managers manager = Managers.builder()
-            .id(2L).firstName("Mario").lastName("Rossi").email("mario.rossi@example.com").build();
+            .id(uid(2)).firstName("Mario").lastName("Rossi").email("mario.rossi@example.com").build();
 
     private void setupImportService() {
         importService = new ContractImportService(
@@ -87,7 +89,7 @@ class ContractImportServiceTest {
         // lenient: most tests reach parseRow and need a counterparty resolved, a
         // few fail validation before ever getting there and never touch this mock.
         org.mockito.Mockito.lenient().when(counterpartyService.resolveOrCreateByName(org.mockito.ArgumentMatchers.anyString()))
-                .thenAnswer(inv -> Counterparty.builder().id(99L).name(inv.getArgument(0)).type(CounterpartyType.CUSTOMER).build());
+                .thenAnswer(inv -> Counterparty.builder().id(uid(99)).name(inv.getArgument(0)).type(CounterpartyType.CUSTOMER).build());
     }
 
     private static byte[] buildWorkbook(String[]... rows) {
@@ -333,7 +335,7 @@ class ContractImportServiceTest {
         @DisplayName("resolves manager by name even when an unrelated manager in the roster has no email")
         void resolvesManagerPastNullEmailEntry() throws Exception {
             setupImportService();
-            Managers noEmailManager = Managers.builder().id(3L).firstName("Anna").lastName("Bianchi").email(null).build();
+            Managers noEmailManager = Managers.builder().id(uid(3)).firstName("Anna").lastName("Bianchi").email(null).build();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(noEmailManager, manager));
             when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
@@ -776,7 +778,7 @@ class ContractImportServiceTest {
         @DisplayName("skips business areas with a null name while resolving a match")
         void skipsAreasWithNullNameWhenResolving() throws Exception {
             setupImportService();
-            BusinessAreas unnamed = BusinessAreas.builder().id(99L).name(null).build();
+            BusinessAreas unnamed = BusinessAreas.builder().id(uid(99)).name(null).build();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(unnamed, area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
@@ -862,19 +864,19 @@ class ContractImportServiceTest {
         @DisplayName("scopes area/manager lookups to the current tenant when set")
         void scopesToTenant() throws Exception {
             setupImportService();
-            TenantContext.set(9L);
-            when(businessAreasRepository.findAllByOrganizationId(9L)).thenReturn(List.of(area));
-            when(managersRepository.findAllByOrganizationId(9L)).thenReturn(List.of(manager));
-            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(9L))).thenReturn(false);
+            TenantContext.set(uid(9));
+            when(businessAreasRepository.findAllByOrganizationId(uid(9))).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(uid(9))).thenReturn(List.of(manager));
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(uid(9)))).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "01/01/2024", "31/12/2024", null, "IT"});
 
             importService.importFromExcel(toFile(bytes));
 
-            verify(businessAreasRepository).findAllByOrganizationId(9L);
-            verify(managersRepository).findAllByOrganizationId(9L);
-            verify(contractsRepository).existsByContractNumberAndOrganizationId("C-1", 9L);
+            verify(businessAreasRepository).findAllByOrganizationId(uid(9));
+            verify(managersRepository).findAllByOrganizationId(uid(9));
+            verify(contractsRepository).existsByContractNumberAndOrganizationId("C-1", uid(9));
             verify(businessAreasRepository, never()).findAllByOrganizationId(TENANT);
         }
 

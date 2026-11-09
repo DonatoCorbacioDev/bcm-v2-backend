@@ -5,12 +5,12 @@
 
 package com.donatodev.bcm_backend.entity;
 
+import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -39,17 +39,17 @@ public class TermsAcceptance {
     public static final String SIGNATURE_EMAIL_OTP = "EMAIL_OTP";
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
+    private UUID id;
 
     @Column(nullable = false)
-    private Long organizationId;
+    private UUID organizationId;
 
     @Column(nullable = false)
     private String organizationName;
 
     @Column(nullable = false)
-    private Long userId;
+    private UUID userId;
 
     @Column(nullable = false)
     private String username;

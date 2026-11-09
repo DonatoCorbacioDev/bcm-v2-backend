@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.aspect;
 
+import java.util.UUID;
 import java.lang.reflect.Method;
 import java.util.Locale;
 
@@ -45,9 +46,9 @@ public class AuditAspect {
             String className = joinPoint.getTarget().getClass().getSimpleName();
             String action = inferAction(methodName);
             String entityType = inferEntityType(className);
-            Long entityId = extractEntityId(result, joinPoint.getArgs());
+            UUID entityId = extractEntityId(result, joinPoint.getArgs());
             String username = getCurrentUsername();
-            Long orgId = TenantContext.get();
+            UUID orgId = TenantContext.get();
             String details = className + "." + methodName + (entityId != null ? "#" + entityId : "");
 
             auditLogService.save(action, entityType, entityId, username, orgId, details);
@@ -74,27 +75,27 @@ public class AuditAspect {
         return className.replace("Service", "").replace("Impl", "");
     }
 
-    private Long extractEntityId(Object result, Object[] args) {
+    private UUID extractEntityId(Object result, Object[] args) {
         if (result != null) {
             try {
                 Method idMethod = result.getClass().getMethod("id");
                 Object value = idMethod.invoke(result);
-                if (value instanceof Number n) return n.longValue();
+                if (value instanceof UUID uuid) return uuid;
             } catch (ReflectiveOperationException e) {
                 // DTO does not expose id() — try getId() below
             }
             try {
                 Method getIdMethod = result.getClass().getMethod("getId");
                 Object value = getIdMethod.invoke(result);
-                if (value instanceof Number n) return n.longValue();
+                if (value instanceof UUID uuid) return uuid;
             } catch (ReflectiveOperationException e) {
                 // entity does not expose getId() — id will be null in audit log
             }
         }
-        // Fallback: last Long argument — methods follow a (containerId, entityId) convention,
+        // Fallback: last UUID argument — methods follow a (containerId, entityId) convention,
         // e.g. deleteInvoice(contractId, invoiceId), so the entity's own id comes last.
         for (int i = args.length - 1; i >= 0; i--) {
-            if (args[i] instanceof Long id) return id;
+            if (args[i] instanceof UUID id) return id;
         }
         return null;
     }

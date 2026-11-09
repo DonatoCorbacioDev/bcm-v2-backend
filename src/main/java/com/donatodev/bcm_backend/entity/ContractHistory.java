@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.entity;
 
+import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
@@ -30,8 +32,8 @@ public class ContractHistory {
      * Primary key - auto-generated.
      */
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
+    private UUID id;
 
     /**
      * Reference to the contract being modified.

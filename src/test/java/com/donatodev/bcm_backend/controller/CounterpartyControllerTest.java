@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import com.donatodev.bcm_backend.support.TestTenant;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
@@ -144,7 +146,7 @@ class CounterpartyControllerTest {
             mockMvc.perform(get("/counterparties/{id}", saved.getId()))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(jsonPath("$.id").value(saved.getId()))
+                    .andExpect(jsonPath("$.id").value(saved.getId().toString()))
                     .andExpect(jsonPath("$.name").value("Gamma Srl"))
                     .andExpect(jsonPath("$.type").value("BOTH"))
                     .andExpect(jsonPath("$.vatNumber").value("IT123"));
@@ -187,7 +189,7 @@ class CounterpartyControllerTest {
         @DisplayName("Counterparty not found when searching by invalid ID")
         @WithMockUser(roles = "ADMIN")
         void shouldReturnNotFoundForInvalidId() throws Exception {
-            mockMvc.perform(get("/counterparties/{id}", 9999L))
+            mockMvc.perform(get("/counterparties/{id}", uid(9999)))
                     .andExpect(status().isNotFound());
         }
 
@@ -233,7 +235,7 @@ class CounterpartyControllerTest {
 
             mockMvc.perform(get("/counterparties/{id}/invoicing-summary", saved.getId()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.counterpartyId").value(saved.getId()))
+                    .andExpect(jsonPath("$.counterpartyId").value(saved.getId().toString()))
                     .andExpect(jsonPath("$.counterpartyName").value("Delta Srl"))
                     .andExpect(jsonPath("$.activeContracts").value(0))
                     .andExpect(jsonPath("$.invoiceCount").value(0));

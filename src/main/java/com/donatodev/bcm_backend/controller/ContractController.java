@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.io.IOException;
 import java.text.Normalizer;
 import java.util.List;
@@ -98,7 +99,7 @@ public class ContractController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/{id}")
-    public ResponseEntity<ContractDTO> getContractById(@PathVariable Long id) {
+    public ResponseEntity<ContractDTO> getContractById(@PathVariable UUID id) {
         ContractDTO contract = contractService.getContractById(id);
         return ResponseEntity.ok(contract);
     }
@@ -144,7 +145,7 @@ public class ContractController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<ContractDTO> updateContract(@PathVariable Long id, @Valid @RequestBody ContractDTO contractDTO) {
+    public ResponseEntity<ContractDTO> updateContract(@PathVariable UUID id, @Valid @RequestBody ContractDTO contractDTO) {
         ContractDTO updatedContract = contractService.updateContract(id, contractDTO);
         return ResponseEntity.ok(updatedContract);
     }
@@ -157,7 +158,7 @@ public class ContractController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteContract(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteContract(@PathVariable UUID id) {
         contractService.deleteContract(id);
         return ResponseEntity.noContent().build();
     }
@@ -214,7 +215,7 @@ public class ContractController {
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/assign-manager")
     public ResponseEntity<Void> assignManager(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @RequestBody AssignManagerRequest body
     ) {
         contractService.assignManager(id, body.managerId());
@@ -223,14 +224,14 @@ public class ContractController {
 
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @GetMapping("/{id}/collaborators")
-    public ResponseEntity<List<Long>> getCollaborators(@PathVariable Long id) {
+    public ResponseEntity<List<UUID>> getCollaborators(@PathVariable UUID id) {
         return ResponseEntity.ok(contractService.getCollaboratorIds(id));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/collaborators")
     public ResponseEntity<Void> setCollaborators(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @RequestBody CollaboratorsRequest body) {
         contractService.setCollaborators(id, body.managerIds());
         return ResponseEntity.noContent().build();
@@ -348,7 +349,7 @@ public class ContractController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/generate-financial-values")
-    public ResponseEntity<FinancialGenerationResultDTO> generateFinancialValues(@PathVariable Long id) {
+    public ResponseEntity<FinancialGenerationResultDTO> generateFinancialValues(@PathVariable UUID id) {
         return ResponseEntity.ok(contractService.regenerateFinancialValues(id));
     }
 

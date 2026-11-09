@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.math.BigDecimal;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -42,7 +43,7 @@ public class ElectronicInvoiceService {
 
     private static final Logger logger = LoggerFactory.getLogger(ElectronicInvoiceService.class);
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024L;
-    private static final String INVOICE_NOT_FOUND = "Fattura ID %d non trovata per il contratto %d";
+    private static final String INVOICE_NOT_FOUND = "Fattura ID %s non trovata per il contratto %s";
     private static final String CRLF_REGEX = "[\r\n]";
 
     @Value("${app.backend-base-url:http://localhost:8090/api/v1}")
@@ -67,7 +68,7 @@ public class ElectronicInvoiceService {
     }
 
     @Transactional(rollbackFor = IOException.class)
-    public ElectronicInvoiceDTO uploadInvoice(Long contractId, MultipartFile file) throws IOException {
+    public ElectronicInvoiceDTO uploadInvoice(UUID contractId, MultipartFile file) throws IOException {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
 
@@ -76,7 +77,7 @@ public class ElectronicInvoiceService {
         byte[] bytes = file.getBytes();
         FatturaPaInvoiceData parsed = fatturaPaXmlParserService.parse(bytes);
 
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
 
         if (invoiceRepository.existsByOrgIdAndSupplierVatNumberAndInvoiceNumberAndDocumentType(
                 orgId, parsed.supplierVatNumber(), parsed.invoiceNumber(), parsed.documentType())) {
@@ -123,7 +124,7 @@ public class ElectronicInvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public List<ElectronicInvoiceDTO> getInvoices(Long contractId) {
+    public List<ElectronicInvoiceDTO> getInvoices(UUID contractId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         return invoiceRepository.findByContractIdOrderByUploadedAtDesc(contractId)
@@ -133,7 +134,7 @@ public class ElectronicInvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public ElectronicInvoiceDTO getInvoice(Long contractId, Long invoiceId) {
+    public ElectronicInvoiceDTO getInvoice(UUID contractId, UUID invoiceId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         ElectronicInvoice invoice = invoiceRepository.findByIdAndContractId(invoiceId, contractId)
@@ -143,7 +144,7 @@ public class ElectronicInvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public FileDownload downloadInvoice(Long contractId, Long invoiceId) {
+    public FileDownload downloadInvoice(UUID contractId, UUID invoiceId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         ElectronicInvoice invoice = invoiceRepository.findByIdAndContractId(invoiceId, contractId)
@@ -155,7 +156,7 @@ public class ElectronicInvoiceService {
     }
 
     @Transactional
-    public void deleteInvoice(Long contractId, Long invoiceId) {
+    public void deleteInvoice(UUID contractId, UUID invoiceId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         ElectronicInvoice invoice = invoiceRepository.findByIdAndContractId(invoiceId, contractId)
@@ -167,7 +168,7 @@ public class ElectronicInvoiceService {
     }
 
     @Transactional
-    public ElectronicInvoiceDTO updatePaymentDetails(Long contractId, Long invoiceId, UpdateInvoicePaymentDetailsRequest request) {
+    public ElectronicInvoiceDTO updatePaymentDetails(UUID contractId, UUID invoiceId, UpdateInvoicePaymentDetailsRequest request) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         ElectronicInvoice invoice = invoiceRepository.findByIdAndContractId(invoiceId, contractId)
@@ -195,20 +196,20 @@ public class ElectronicInvoiceService {
     }
 
     @Transactional
-    public ElectronicInvoiceDTO confirmMatch(Long contractId, Long invoiceId, ConfirmInvoiceMatchRequest request) {
+    public ElectronicInvoiceDTO confirmMatch(UUID contractId, UUID invoiceId, ConfirmInvoiceMatchRequest request) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         ElectronicInvoice invoice = invoiceRepository.findByIdAndContractId(invoiceId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(INVOICE_NOT_FOUND, invoiceId, contractId)));
 
-        Long financialValueId = request != null ? request.financialValueId() : null;
+        UUID financialValueId = request != null ? request.financialValueId() : null;
         String username = AuthenticatedUserUtils.getUsernameOrThrow();
         return toDTO(invoiceMatchingService.confirmMatch(invoice, financialValueId, username));
     }
 
     @Transactional
-    public ElectronicInvoiceDTO rejectMatch(Long contractId, Long invoiceId) {
+    public ElectronicInvoiceDTO rejectMatch(UUID contractId, UUID invoiceId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         ElectronicInvoice invoice = invoiceRepository.findByIdAndContractId(invoiceId, contractId)
@@ -219,7 +220,7 @@ public class ElectronicInvoiceService {
     }
 
     @Transactional
-    public List<ElectronicInvoiceDTO> recomputeMatches(Long contractId) {
+    public List<ElectronicInvoiceDTO> recomputeMatches(UUID contractId) {
         contractAccessGuard.checkManagerCanAccess(contractAccessGuard.getContractInScope(contractId));
         return invoiceMatchingService.recomputeForContract(contractId).stream().map(this::toDTO).toList();
     }
@@ -271,7 +272,7 @@ public class ElectronicInvoiceService {
     }
 
     private ElectronicInvoiceDTO toDTO(ElectronicInvoice invoice) {
-        String downloadUrl = String.format("%s/contracts/%d/invoices/%d/download",
+        String downloadUrl = String.format("%s/contracts/%s/invoices/%s/download",
                 backendBaseUrl, invoice.getContract().getId(), invoice.getId());
         return new ElectronicInvoiceDTO(
                 invoice.getId(),

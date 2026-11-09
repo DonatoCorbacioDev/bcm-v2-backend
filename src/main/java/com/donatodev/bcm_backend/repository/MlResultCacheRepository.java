@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,11 +15,11 @@ import org.springframework.stereotype.Repository;
 import com.donatodev.bcm_backend.entity.MlResultCache;
 
 @Repository
-public interface MlResultCacheRepository extends JpaRepository<MlResultCache, Long> {
+public interface MlResultCacheRepository extends JpaRepository<MlResultCache, UUID> {
 
-    Optional<MlResultCache> findByOrgIdAndCacheKey(Long orgId, String cacheKey);
+    Optional<MlResultCache> findByOrgIdAndCacheKey(UUID orgId, String cacheKey);
 
-    void deleteByOrgId(Long orgId);
+    void deleteByOrgId(UUID orgId);
 
-    List<MlResultCache> findAllByOrgId(Long orgId);
+    List<MlResultCache> findAllByOrgId(UUID orgId);
 }

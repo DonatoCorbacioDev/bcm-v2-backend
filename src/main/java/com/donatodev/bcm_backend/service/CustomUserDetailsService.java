@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.Collections;
 
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -58,7 +59,7 @@ public class CustomUserDetailsService implements UserDetailsService {
      * @return a fully populated {@link UserDetails} object (never {@code null})
      * @throws UsernameNotFoundException if the user could not be found or the user has no GrantedAuthority
      */
-    public UserDetails loadUserByUsername(String username, Long organizationId) throws UsernameNotFoundException {
+    public UserDetails loadUserByUsername(String username, UUID organizationId) throws UsernameNotFoundException {
         Users user = (organizationId != null)
                 ? usersRepository.findByUsernameAndOrganizationId(username, organizationId)
                         .orElseThrow(() -> new UsernameNotFoundException("Utente non trovato: " + username))

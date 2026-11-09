@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -41,7 +42,7 @@ public class RiskFeedbackController {
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PostMapping("/contracts/{contractId}")
     public ResponseEntity<RiskFeedbackDTO> submitFeedback(
-            @PathVariable Long contractId,
+            @PathVariable UUID contractId,
             @Valid @RequestBody RiskFeedbackRequest request) {
         RiskFeedbackDTO created = riskFeedbackService.create(contractId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);

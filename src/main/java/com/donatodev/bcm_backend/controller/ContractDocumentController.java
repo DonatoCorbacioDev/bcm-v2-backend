@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.io.IOException;
 import java.util.List;
 
@@ -43,7 +44,7 @@ public class ContractDocumentController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ContractDocumentDTO> uploadDocument(
-            @PathVariable Long contractId,
+            @PathVariable UUID contractId,
             @RequestParam("file") MultipartFile file) throws IOException {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(documentService.uploadDocument(contractId, file));
@@ -51,15 +52,15 @@ public class ContractDocumentController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    public ResponseEntity<List<ContractDocumentDTO>> getDocuments(@PathVariable Long contractId) {
+    public ResponseEntity<List<ContractDocumentDTO>> getDocuments(@PathVariable UUID contractId) {
         return ResponseEntity.ok(documentService.getDocuments(contractId));
     }
 
     @PostMapping(value = "/{documentId}/versions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ContractDocumentDTO> uploadNewVersion(
-            @PathVariable Long contractId,
-            @PathVariable Long documentId,
+            @PathVariable UUID contractId,
+            @PathVariable UUID documentId,
             @RequestParam("file") MultipartFile file) throws IOException {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(documentService.uploadNewVersion(contractId, documentId, file));
@@ -68,25 +69,25 @@ public class ContractDocumentController {
     @GetMapping("/{documentId}/versions")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<List<ContractDocumentDTO>> getVersions(
-            @PathVariable Long contractId,
-            @PathVariable Long documentId) {
+            @PathVariable UUID contractId,
+            @PathVariable UUID documentId) {
         return ResponseEntity.ok(documentService.getVersions(contractId, documentId));
     }
 
     @GetMapping("/{documentId}/diff/{otherDocumentId}")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<DocumentDiffDTO> diffVersions(
-            @PathVariable Long contractId,
-            @PathVariable Long documentId,
-            @PathVariable Long otherDocumentId) {
+            @PathVariable UUID contractId,
+            @PathVariable UUID documentId,
+            @PathVariable UUID otherDocumentId) {
         return ResponseEntity.ok(documentService.diffDocuments(contractId, documentId, otherDocumentId));
     }
 
     @GetMapping("/{documentId}/download")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<byte[]> downloadDocument(
-            @PathVariable Long contractId,
-            @PathVariable Long documentId) {
+            @PathVariable UUID contractId,
+            @PathVariable UUID documentId) {
         FileDownload download = documentService.downloadDocument(contractId, documentId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentDisposition(ContentDisposition.attachment()
@@ -98,32 +99,32 @@ public class ContractDocumentController {
     @GetMapping("/{documentId}/terms")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ContractTermsDTO> readTerms(
-            @PathVariable Long contractId,
-            @PathVariable Long documentId) {
+            @PathVariable UUID contractId,
+            @PathVariable UUID documentId) {
         return ResponseEntity.ok(documentService.readTerms(contractId, documentId));
     }
 
     @PostMapping("/{documentId}/extract")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<DocumentAnalysisDTO> extractText(
-            @PathVariable Long contractId,
-            @PathVariable Long documentId) {
+            @PathVariable UUID contractId,
+            @PathVariable UUID documentId) {
         return ResponseEntity.ok(documentService.extractText(contractId, documentId));
     }
 
     @PostMapping("/{documentId}/analyze-clause-risk")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<String> analyzeClauseRisk(
-            @PathVariable Long contractId,
-            @PathVariable Long documentId) {
+            @PathVariable UUID contractId,
+            @PathVariable UUID documentId) {
         return documentService.analyzeClauseRisk(contractId, documentId);
     }
 
     @DeleteMapping("/{documentId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteDocument(
-            @PathVariable Long contractId,
-            @PathVariable Long documentId) {
+            @PathVariable UUID contractId,
+            @PathVariable UUID documentId) {
         documentService.deleteDocument(contractId, documentId);
         return ResponseEntity.noContent().build();
     }

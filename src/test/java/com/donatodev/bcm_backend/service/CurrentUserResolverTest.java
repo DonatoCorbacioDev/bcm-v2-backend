@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,7 +30,7 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 class CurrentUserResolverTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void setup() {
@@ -43,7 +45,7 @@ class CurrentUserResolverTest {
         SecurityContextHolder.clearContext();
     }
 
-    private static final Long ORG_ID = 5L;
+    private static final UUID ORG_ID = uid(5);
     private static final String USERNAME = "admin";
 
     @Mock
@@ -60,7 +62,7 @@ class CurrentUserResolverTest {
         @DisplayName("returns the user scoped to the current organization")
         void shouldResolveWithinTenant() {
             TenantContext.set(ORG_ID);
-            Users user = Users.builder().id(1L).username(USERNAME).build();
+            Users user = Users.builder().id(uid(1)).username(USERNAME).build();
             when(usersRepository.findByUsernameAndOrganizationId(USERNAME, ORG_ID)).thenReturn(Optional.of(user));
 
             assertSame(user, resolver.resolve());
@@ -84,7 +86,7 @@ class CurrentUserResolverTest {
         @Test
         @DisplayName("falls back to a tenant-agnostic lookup by username")
         void shouldResolveWithoutTenant() {
-            Users user = Users.builder().id(1L).username(USERNAME).build();
+            Users user = Users.builder().id(uid(1)).username(USERNAME).build();
             when(usersRepository.findByUsernameAndOrganizationId(USERNAME, TENANT)).thenReturn(Optional.of(user));
 
             assertSame(user, resolver.resolve());

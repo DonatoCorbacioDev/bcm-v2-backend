@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.entity;
 
+import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -14,8 +16,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -38,15 +38,15 @@ import lombok.experimental.SuperBuilder;
 public class SepaPaymentBatch {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
+    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contract_id", nullable = false)
     private Contracts contract;
 
     @Column(name = "org_id")
-    private Long orgId;
+    private UUID orgId;
 
     @Column(name = "message_id", nullable = false, length = 35)
     private String messageId;

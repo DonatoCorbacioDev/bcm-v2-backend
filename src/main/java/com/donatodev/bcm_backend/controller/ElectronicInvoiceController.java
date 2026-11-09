@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.io.IOException;
 import java.util.List;
 
@@ -47,7 +48,7 @@ public class ElectronicInvoiceController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ElectronicInvoiceDTO> uploadInvoice(
-            @PathVariable Long contractId,
+            @PathVariable UUID contractId,
             @RequestParam("file") MultipartFile file) throws IOException {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(invoiceService.uploadInvoice(contractId, file));
@@ -55,23 +56,23 @@ public class ElectronicInvoiceController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    public ResponseEntity<List<ElectronicInvoiceDTO>> getInvoices(@PathVariable Long contractId) {
+    public ResponseEntity<List<ElectronicInvoiceDTO>> getInvoices(@PathVariable UUID contractId) {
         return ResponseEntity.ok(invoiceService.getInvoices(contractId));
     }
 
     @GetMapping("/{invoiceId}")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ElectronicInvoiceDTO> getInvoice(
-            @PathVariable Long contractId,
-            @PathVariable Long invoiceId) {
+            @PathVariable UUID contractId,
+            @PathVariable UUID invoiceId) {
         return ResponseEntity.ok(invoiceService.getInvoice(contractId, invoiceId));
     }
 
     @GetMapping("/{invoiceId}/download")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<byte[]> downloadInvoice(
-            @PathVariable Long contractId,
-            @PathVariable Long invoiceId) {
+            @PathVariable UUID contractId,
+            @PathVariable UUID invoiceId) {
         FileDownload download = invoiceService.downloadInvoice(contractId, invoiceId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentDisposition(ContentDisposition.attachment()
@@ -83,8 +84,8 @@ public class ElectronicInvoiceController {
     @DeleteMapping("/{invoiceId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteInvoice(
-            @PathVariable Long contractId,
-            @PathVariable Long invoiceId) {
+            @PathVariable UUID contractId,
+            @PathVariable UUID invoiceId) {
         invoiceService.deleteInvoice(contractId, invoiceId);
         return ResponseEntity.noContent().build();
     }
@@ -93,8 +94,8 @@ public class ElectronicInvoiceController {
     @PatchMapping("/{invoiceId}/payment-details")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ElectronicInvoiceDTO> updatePaymentDetails(
-            @PathVariable Long contractId,
-            @PathVariable Long invoiceId,
+            @PathVariable UUID contractId,
+            @PathVariable UUID invoiceId,
             @Valid @RequestBody UpdateInvoicePaymentDetailsRequest request) {
         return ResponseEntity.ok(invoiceService.updatePaymentDetails(contractId, invoiceId, request));
     }
@@ -102,8 +103,8 @@ public class ElectronicInvoiceController {
     @PostMapping("/{invoiceId}/match/confirm")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ElectronicInvoiceDTO> confirmMatch(
-            @PathVariable Long contractId,
-            @PathVariable Long invoiceId,
+            @PathVariable UUID contractId,
+            @PathVariable UUID invoiceId,
             @RequestBody(required = false) ConfirmInvoiceMatchRequest request) {
         return ResponseEntity.ok(invoiceService.confirmMatch(contractId, invoiceId, request));
     }
@@ -111,14 +112,14 @@ public class ElectronicInvoiceController {
     @PostMapping("/{invoiceId}/match/reject")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ElectronicInvoiceDTO> rejectMatch(
-            @PathVariable Long contractId,
-            @PathVariable Long invoiceId) {
+            @PathVariable UUID contractId,
+            @PathVariable UUID invoiceId) {
         return ResponseEntity.ok(invoiceService.rejectMatch(contractId, invoiceId));
     }
 
     @PostMapping("/match/recompute")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<ElectronicInvoiceDTO>> recomputeMatches(@PathVariable Long contractId) {
+    public ResponseEntity<List<ElectronicInvoiceDTO>> recomputeMatches(@PathVariable UUID contractId) {
         return ResponseEntity.ok(invoiceService.recomputeMatches(contractId));
     }
 }

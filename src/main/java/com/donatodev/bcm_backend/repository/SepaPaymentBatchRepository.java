@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -15,11 +16,11 @@ import org.springframework.stereotype.Repository;
 import com.donatodev.bcm_backend.entity.SepaPaymentBatch;
 
 @Repository
-public interface SepaPaymentBatchRepository extends JpaRepository<SepaPaymentBatch, Long> {
+public interface SepaPaymentBatchRepository extends JpaRepository<SepaPaymentBatch, UUID> {
 
-    List<SepaPaymentBatch> findByContractIdOrderByCreatedAtDesc(Long contractId);
+    List<SepaPaymentBatch> findByContractIdOrderByCreatedAtDesc(UUID contractId);
 
-    Optional<SepaPaymentBatch> findByIdAndContractId(Long id, Long contractId);
+    Optional<SepaPaymentBatch> findByIdAndContractId(UUID id, UUID contractId);
 
     /**
      * Batches older than the retention cutoff, backing
@@ -30,5 +31,5 @@ public interface SepaPaymentBatchRepository extends JpaRepository<SepaPaymentBat
 
     // Scoped through the contract rather than the row's own org_id column,
     // which older rows may lack: the contract is always set and always knows its org.
-    List<SepaPaymentBatch> findAllByContract_Organization_Id(Long organizationId);
+    List<SepaPaymentBatch> findAllByContract_Organization_Id(UUID organizationId);
 }

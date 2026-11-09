@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import com.donatodev.bcm_backend.support.TestTenant;
 import static org.hamcrest.Matchers.containsString;
@@ -400,7 +401,7 @@ class OrganizationControllerTest {
 
             resend(id)
                     .andExpect(status().isAccepted())
-                    .andExpect(jsonPath("$.registrationId").value(id));
+                    .andExpect(jsonPath("$.registrationId").value(id.toString()));
             String newCode = emailedCode("admin@testcorp.com");
             PendingRegistration pending = pendingRegistrationRepository.findByPublicId(id).orElseThrow();
             assertEquals(2, pending.getCodesSent());

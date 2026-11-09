@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import com.donatodev.bcm_backend.config.TenantContext;
@@ -57,7 +59,7 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 class OrganizationServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void enterTenant() {
@@ -103,7 +105,7 @@ class OrganizationServiceTest {
     }
 
     private Organization savedOrg() {
-        return Organization.builder().id(1L).name("Acme Corp").slug("acme-corp")
+        return Organization.builder().id(uid(1)).name("Acme Corp").slug("acme-corp")
                 .subscriptionTier(SubscriptionTier.FREE).build();
     }
 
@@ -118,8 +120,8 @@ class OrganizationServiceTest {
         @DisplayName("createConfirmedOrganization creates org + admin and returns tokens")
         void shouldRegisterOrganizationAndReturnTokens() {
             Organization org = savedOrg();
-            Managers manager = Managers.builder().id(1L).email("admin@acme.com").build();
-            Users admin = Users.builder().id(1L).username("acme-admin").organization(org).build();
+            Managers manager = Managers.builder().id(uid(1)).email("admin@acme.com").build();
+            Users admin = Users.builder().id(uid(1)).username("acme-admin").organization(org).build();
 
             when(usersRepository.existsByUsername("acme-admin")).thenReturn(false);
             when(managersRepository.existsByEmail("admin@acme.com")).thenReturn(false);
@@ -141,8 +143,8 @@ class OrganizationServiceTest {
             verify(organizationRepository).save(created.capture());
             assertEquals(LegalTerms.CURRENT_VERSION, created.getValue().getTermsVersion());
             assertNotNull(created.getValue().getTermsAcceptedAt());
-            verify(auditLogService).save(eq("TERMS_ACCEPTED"), eq("Organization"), eq(1L), eq("acme-admin"),
-                    eq(1L), contains(LegalTerms.CURRENT_VERSION));
+            verify(auditLogService).save(eq("TERMS_ACCEPTED"), eq("Organization"), eq(uid(1)), eq("acme-admin"),
+                    eq(uid(1)), contains(LegalTerms.CURRENT_VERSION));
 
             ArgumentCaptor<Users> user = ArgumentCaptor.forClass(Users.class);
             verify(usersRepository).save(user.capture());
@@ -152,9 +154,9 @@ class OrganizationServiceTest {
             ArgumentCaptor<TermsAcceptance> evidence = ArgumentCaptor.forClass(TermsAcceptance.class);
             verify(termsAcceptanceRepository).save(evidence.capture());
             TermsAcceptance signed = evidence.getValue();
-            assertEquals(1L, signed.getOrganizationId());
+            assertEquals(uid(1), signed.getOrganizationId());
             assertEquals("Acme Corp", signed.getOrganizationName());
-            assertEquals(1L, signed.getUserId());
+            assertEquals(uid(1), signed.getUserId());
             assertEquals("acme-admin", signed.getUsername());
             assertEquals("admin@acme.com", signed.getSignerEmail());
             assertEquals(LegalTerms.CURRENT_VERSION, signed.getTermsVersion());
@@ -176,7 +178,7 @@ class OrganizationServiceTest {
             Organization org = savedOrg();
             when(organizationRepository.findBySlug(anyString())).thenReturn(Optional.empty());
             when(organizationRepository.save(any())).thenReturn(org);
-            when(managersRepository.save(any())).thenReturn(Managers.builder().id(1L).email("admin@acme.com").build());
+            when(managersRepository.save(any())).thenReturn(Managers.builder().id(uid(1)).email("admin@acme.com").build());
             when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.empty());
 
             PendingRegistration pending = validPending();
@@ -191,10 +193,10 @@ class OrganizationServiceTest {
         @DisplayName("createConfirmedOrganization gives the new organization Costi and Ricavi")
         void shouldCreateDefaultFinancialTypes() {
             Organization org = savedOrg();
-            Users admin = Users.builder().id(1L).username("acme-admin").organization(org).build();
+            Users admin = Users.builder().id(uid(1)).username("acme-admin").organization(org).build();
             when(organizationRepository.findBySlug(anyString())).thenReturn(Optional.empty());
             when(organizationRepository.save(any())).thenReturn(org);
-            when(managersRepository.save(any())).thenReturn(Managers.builder().id(1L).email("admin@acme.com").build());
+            when(managersRepository.save(any())).thenReturn(Managers.builder().id(uid(1)).email("admin@acme.com").build());
             when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.of(Roles.builder().role("ADMIN").build()));
             when(usersRepository.save(any())).thenReturn(admin);
 
@@ -247,8 +249,8 @@ class OrganizationServiceTest {
         @DisplayName("createConfirmedOrganization appends suffix when slug already exists")
         void shouldGenerateUniqueSlugWhenBaseSlugTaken() {
             Organization org = savedOrg();
-            Managers manager = Managers.builder().id(1L).build();
-            Users admin = Users.builder().id(1L).username("acme-admin").organization(org).build();
+            Managers manager = Managers.builder().id(uid(1)).build();
+            Users admin = Users.builder().id(uid(1)).username("acme-admin").organization(org).build();
 
             when(usersRepository.existsByUsername(anyString())).thenReturn(false);
             when(managersRepository.existsByEmail(anyString())).thenReturn(false);
@@ -273,12 +275,12 @@ class OrganizationServiceTest {
         @DisplayName("updateMyOrganization updates name via TenantContext; subscriptionTier is not self-service")
         void shouldUpdateOrganization() {
             Organization org = Organization.builder()
-                    .id(1L).name("Old Name").slug("old-name")
+                    .id(uid(1)).name("Old Name").slug("old-name")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
-            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            com.donatodev.bcm_backend.config.TenantContext.set(uid(1));
             try {
-                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+                when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
                 when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
                 UpdateOrganizationRequest req = new UpdateOrganizationRequest("New Name", null, null);
@@ -295,9 +297,9 @@ class OrganizationServiceTest {
         @Order(6)
         @DisplayName("getMyOrganization throws OrganizationNotFoundException when org not found")
         void shouldThrowWhenOrgNotFound() {
-            com.donatodev.bcm_backend.config.TenantContext.set(99L);
+            com.donatodev.bcm_backend.config.TenantContext.set(uid(99));
             try {
-                when(organizationRepository.findById(99L)).thenReturn(Optional.empty());
+                when(organizationRepository.findById(uid(99))).thenReturn(Optional.empty());
                 assertThrows(OrganizationNotFoundException.class,
                         () -> organizationService.getMyOrganization());
             } finally {
@@ -310,8 +312,8 @@ class OrganizationServiceTest {
         @DisplayName("createConfirmedOrganization with special-char-only name uses 'org' as slug base")
         void shouldUseOrgSlugWhenNameProducesEmptyBase() {
             Organization org = savedOrg();
-            Managers manager = Managers.builder().id(1L).build();
-            Users admin = Users.builder().id(1L).username("acme-admin").organization(org).build();
+            Managers manager = Managers.builder().id(uid(1)).build();
+            Users admin = Users.builder().id(uid(1)).username("acme-admin").organization(org).build();
 
             PendingRegistration req = pending("!!!###", "spec-admin", "spec@test.com", LegalTerms.CURRENT_VERSION);
 
@@ -335,12 +337,12 @@ class OrganizationServiceTest {
         @Order(8)
         @DisplayName("updateMyOrganization with null name does not update name")
         void shouldNotUpdateNameWhenNull() {
-            Organization org = Organization.builder().id(1L).name("Original").slug("original")
+            Organization org = Organization.builder().id(uid(1)).name("Original").slug("original")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
-            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            com.donatodev.bcm_backend.config.TenantContext.set(uid(1));
             try {
-                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+                when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
                 when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
                 // name = null → should NOT update name
@@ -358,12 +360,12 @@ class OrganizationServiceTest {
         @Order(9)
         @DisplayName("updateMyOrganization with blank name does not update name")
         void shouldNotUpdateNameWhenBlank() {
-            Organization org = Organization.builder().id(1L).name("Original").slug("original")
+            Organization org = Organization.builder().id(uid(1)).name("Original").slug("original")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
-            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            com.donatodev.bcm_backend.config.TenantContext.set(uid(1));
             try {
-                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+                when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
                 when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
                 // name = "  " (blank) → should NOT update name
@@ -389,12 +391,12 @@ class OrganizationServiceTest {
         @Order(14)
         @DisplayName("updateMyOrganization accepts a valid IBAN, normalizing case and spaces")
         void shouldUpdateValidIban() {
-            Organization org = Organization.builder().id(1L).name("Acme").slug("acme")
+            Organization org = Organization.builder().id(uid(1)).name("Acme").slug("acme")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
-            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            com.donatodev.bcm_backend.config.TenantContext.set(uid(1));
             try {
-                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+                when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
                 when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
                 UpdateOrganizationRequest req = new UpdateOrganizationRequest(
@@ -415,12 +417,12 @@ class OrganizationServiceTest {
         @Order(15)
         @DisplayName("updateMyOrganization rejects an invalid IBAN")
         void shouldRejectInvalidIban() {
-            Organization org = Organization.builder().id(1L).name("Acme").slug("acme")
+            Organization org = Organization.builder().id(uid(1)).name("Acme").slug("acme")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
-            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            com.donatodev.bcm_backend.config.TenantContext.set(uid(1));
             try {
-                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+                when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
 
                 UpdateOrganizationRequest req = new UpdateOrganizationRequest(
                         null, "IT00X0000000000000000000000", null);
@@ -436,12 +438,12 @@ class OrganizationServiceTest {
         @Order(16)
         @DisplayName("updateMyOrganization with blank IBAN/BIC clears existing values")
         void shouldClearIbanAndBicWhenBlank() {
-            Organization org = Organization.builder().id(1L).name("Acme").slug("acme")
+            Organization org = Organization.builder().id(uid(1)).name("Acme").slug("acme")
                     .subscriptionTier(SubscriptionTier.FREE).iban("DE89370400440532013000").bic("COBADEFFXXX").build();
 
-            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            com.donatodev.bcm_backend.config.TenantContext.set(uid(1));
             try {
-                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+                when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
                 when(organizationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
                 UpdateOrganizationRequest req = new UpdateOrganizationRequest(null, "", "");
@@ -458,13 +460,13 @@ class OrganizationServiceTest {
         @Order(17)
         @DisplayName("getMyOrganization returns the IBAN/BIC masked, not the full value")
         void shouldReturnMaskedIbanOnGet() {
-            Organization org = Organization.builder().id(1L).name("Acme").slug("acme")
+            Organization org = Organization.builder().id(uid(1)).name("Acme").slug("acme")
                     .subscriptionTier(SubscriptionTier.FREE)
                     .iban("DE89370400440532013000").bic("COBADEFFXXX").build();
 
-            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            com.donatodev.bcm_backend.config.TenantContext.set(uid(1));
             try {
-                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+                when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
 
                 OrganizationDTO result = organizationService.getMyOrganization();
 
@@ -479,13 +481,13 @@ class OrganizationServiceTest {
         @Order(18)
         @DisplayName("getUsage returns contract count and the tier's limit")
         void shouldReturnUsageForLimitedTier() {
-            Organization org = Organization.builder().id(1L).name("Acme").slug("acme")
+            Organization org = Organization.builder().id(uid(1)).name("Acme").slug("acme")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
-            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            com.donatodev.bcm_backend.config.TenantContext.set(uid(1));
             try {
-                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
-                when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(8);
+                when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
+                when(contractsRepository.countAllContractsByOrg(uid(1))).thenReturn(8);
                 when(tierLimitService.getContractLimit(SubscriptionTier.FREE)).thenReturn(15);
 
                 var result = organizationService.getUsage();
@@ -501,13 +503,13 @@ class OrganizationServiceTest {
         @Order(19)
         @DisplayName("getUsage returns a null limit for an unlimited tier")
         void shouldReturnNullLimitForUnlimitedTier() {
-            Organization org = Organization.builder().id(1L).name("Acme").slug("acme")
+            Organization org = Organization.builder().id(uid(1)).name("Acme").slug("acme")
                     .subscriptionTier(SubscriptionTier.ENTERPRISE).build();
 
-            com.donatodev.bcm_backend.config.TenantContext.set(1L);
+            com.donatodev.bcm_backend.config.TenantContext.set(uid(1));
             try {
-                when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
-                when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(300);
+                when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
+                when(contractsRepository.countAllContractsByOrg(uid(1))).thenReturn(300);
                 when(tierLimitService.getContractLimit(SubscriptionTier.ENTERPRISE)).thenReturn(null);
 
                 var result = organizationService.getUsage();
@@ -529,14 +531,14 @@ class OrganizationServiceTest {
         @DisplayName("stores the Stripe customer, and the DTO then reports the portal as available")
         void shouldStoreCustomer() {
             Organization org = savedOrg();
-            when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+            when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
 
-            organizationService.linkStripeCustomer(1L, "cus_1");
+            organizationService.linkStripeCustomer(uid(1), "cus_1");
 
             assertEquals("cus_1", org.getStripeCustomerId());
             verify(organizationRepository).save(org);
             when(organizationRepository.save(org)).thenReturn(org);
-            assertTrue(organizationService.changeTier(1L, SubscriptionTier.PRO, "stripe").billingPortalAvailable());
+            assertTrue(organizationService.changeTier(uid(1), SubscriptionTier.PRO, "stripe").billingPortalAvailable());
         }
 
         @Test
@@ -544,9 +546,9 @@ class OrganizationServiceTest {
         void shouldSkipWhenUnchanged() {
             Organization org = savedOrg();
             org.setStripeCustomerId("cus_1");
-            when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+            when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
 
-            organizationService.linkStripeCustomer(1L, "cus_1");
+            organizationService.linkStripeCustomer(uid(1), "cus_1");
 
             verify(organizationRepository, never()).save(any());
         }
@@ -554,10 +556,10 @@ class OrganizationServiceTest {
         @Test
         @DisplayName("throws when the organization does not exist")
         void shouldThrowWhenOrganizationMissing() {
-            when(organizationRepository.findById(99L)).thenReturn(Optional.empty());
+            when(organizationRepository.findById(uid(99))).thenReturn(Optional.empty());
 
             assertThrows(OrganizationNotFoundException.class,
-                    () -> organizationService.linkStripeCustomer(99L, "cus_1"));
+                    () -> organizationService.linkStripeCustomer(uid(99), "cus_1"));
         }
     }
 
@@ -570,21 +572,21 @@ class OrganizationServiceTest {
         @DisplayName("updates the tier and records who triggered it in the audit log")
         void shouldChangeTierAndAudit() {
             Organization org = savedOrg();
-            when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+            when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
             when(organizationRepository.save(org)).thenReturn(org);
 
-            OrganizationDTO result = organizationService.changeTier(1L, SubscriptionTier.PRO, "manual");
+            OrganizationDTO result = organizationService.changeTier(uid(1), SubscriptionTier.PRO, "manual");
 
             assertEquals(SubscriptionTier.PRO, result.subscriptionTier());
-            verify(auditLogService).save("TIER_CHANGED", "Organization", 1L, "system:manual", 1L, "FREE -> PRO");
+            verify(auditLogService).save("TIER_CHANGED", "Organization", uid(1), "system:manual", uid(1), "FREE -> PRO");
         }
 
         @Test
         @DisplayName("is a no-op without an audit entry when the tier is unchanged")
         void shouldNotAuditWhenTierUnchanged() {
-            when(organizationRepository.findById(1L)).thenReturn(Optional.of(savedOrg()));
+            when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(savedOrg()));
 
-            OrganizationDTO result = organizationService.changeTier(1L, SubscriptionTier.FREE, "manual");
+            OrganizationDTO result = organizationService.changeTier(uid(1), SubscriptionTier.FREE, "manual");
 
             assertEquals(SubscriptionTier.FREE, result.subscriptionTier());
             verify(organizationRepository, never()).save(any());
@@ -594,10 +596,10 @@ class OrganizationServiceTest {
         @Test
         @DisplayName("throws when the organization does not exist")
         void shouldThrowWhenOrganizationMissing() {
-            when(organizationRepository.findById(99L)).thenReturn(Optional.empty());
+            when(organizationRepository.findById(uid(99))).thenReturn(Optional.empty());
 
             assertThrows(OrganizationNotFoundException.class,
-                    () -> organizationService.changeTier(99L, SubscriptionTier.PRO, "manual"));
+                    () -> organizationService.changeTier(uid(99), SubscriptionTier.PRO, "manual"));
         }
     }
 }

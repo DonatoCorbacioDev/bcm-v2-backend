@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -71,7 +72,7 @@ import lombok.RequiredArgsConstructor;
 public class OrganizationExportSections {
 
     /** One {@code data/} file: a JSON array of the records the loader returns. */
-    public record Section(String path, Function<Long, List<?>> loader) {
+    public record Section(String path, Function<UUID, List<?>> loader) {
     }
 
     /** An original file to copy under {@code files/}: where it goes, and where it is on disk. */
@@ -154,7 +155,7 @@ public class OrganizationExportSections {
     }
 
     /** The original documents, invoice XMLs and SEPA files, scoped like their metadata files. */
-    public List<StoredFileRef> files(Long orgId) {
+    public List<StoredFileRef> files(UUID orgId) {
         return Stream.of(
                 map(contractDocumentRepository.findAllByContract_Organization_Id(orgId),
                         d -> new StoredFileRef(ExportFilePaths.of(d), d.getStoragePath())),
@@ -166,7 +167,7 @@ public class OrganizationExportSections {
                 .toList();
     }
 
-    private static Section section(String path, Function<Long, List<?>> loader) {
+    private static Section section(String path, Function<UUID, List<?>> loader) {
         return new Section(path, loader);
     }
 

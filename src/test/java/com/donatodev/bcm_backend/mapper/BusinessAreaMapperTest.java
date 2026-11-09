@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.mapper;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.api.Nested;
@@ -24,14 +25,14 @@ class BusinessAreaMapperTest {
         @Test
         void shouldMapEntityToDTO() {
             BusinessAreas area = BusinessAreas.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .name("Finance")
                     .description("Handles budgets")
                     .build();
 
             BusinessAreaDTO dto = businessAreaMapper.toDTO(area);
 
-            assertEquals(1L, dto.id());
+            assertEquals(uid(1), dto.id());
             assertEquals("Finance", dto.name());
             assertEquals("Handles budgets", dto.description());
         }
@@ -39,14 +40,14 @@ class BusinessAreaMapperTest {
         @Test
         void shouldMapEntityToDTOWithNullDescription() {
             BusinessAreas area = BusinessAreas.builder()
-                    .id(2L)
+                    .id(uid(2))
                     .name("IT")
                     .description(null)
                     .build();
 
             BusinessAreaDTO dto = businessAreaMapper.toDTO(area);
 
-            assertEquals(2L, dto.id());
+            assertEquals(uid(2), dto.id());
             assertEquals("IT", dto.name());
             assertNull(dto.description());
         }
@@ -72,22 +73,22 @@ class BusinessAreaMapperTest {
 
         @Test
         void shouldMapDTOToEntity() {
-            BusinessAreaDTO dto = new BusinessAreaDTO(10L, "Marketing", "Handles promotions");
+            BusinessAreaDTO dto = new BusinessAreaDTO(uid(10), "Marketing", "Handles promotions");
 
             BusinessAreas area = businessAreaMapper.toEntity(dto);
 
-            assertEquals(10L, area.getId());
+            assertEquals(uid(10), area.getId());
             assertEquals("Marketing", area.getName());
             assertEquals("Handles promotions", area.getDescription());
         }
 
         @Test
         void shouldMapDTOToEntityWithNullDescription() {
-            BusinessAreaDTO dto = new BusinessAreaDTO(11L, "HR", null);
+            BusinessAreaDTO dto = new BusinessAreaDTO(uid(11), "HR", null);
 
             BusinessAreas area = businessAreaMapper.toEntity(dto);
 
-            assertEquals(11L, area.getId());
+            assertEquals(uid(11), area.getId());
             assertEquals("HR", area.getName());
             assertNull(area.getDescription());
         }

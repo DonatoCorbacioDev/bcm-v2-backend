@@ -5,13 +5,14 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.donatodev.bcm_backend.entity.TermsAcceptance;
 
-public interface TermsAcceptanceRepository extends JpaRepository<TermsAcceptance, Long> {
+public interface TermsAcceptanceRepository extends JpaRepository<TermsAcceptance, UUID> {
 
-    List<TermsAcceptance> findByOrganizationIdOrderByAcceptedAtDesc(Long organizationId);
+    List<TermsAcceptance> findByOrganizationIdOrderByAcceptedAtDesc(UUID organizationId);
 }

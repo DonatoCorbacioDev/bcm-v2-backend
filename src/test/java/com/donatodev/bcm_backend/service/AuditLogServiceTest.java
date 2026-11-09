@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import java.time.Instant;
@@ -37,7 +39,7 @@ import com.donatodev.bcm_backend.repository.AuditLogRepository;
 class AuditLogServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void enterTenant() {
@@ -68,7 +70,7 @@ class AuditLogServiceTest {
             when(auditLogRepository.save(any(AuditLog.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
 
-            auditLogService.save("CREATE", "Contract", 1L, "admin", 10L, "ContractService.createContract");
+            auditLogService.save("CREATE", "Contract", uid(1), "admin", uid(10), "ContractService.createContract");
 
             ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
             verify(auditLogRepository).save(captor.capture());
@@ -76,9 +78,9 @@ class AuditLogServiceTest {
 
             assertEquals("CREATE", saved.getAction());
             assertEquals("Contract", saved.getEntityType());
-            assertEquals(1L, saved.getEntityId());
+            assertEquals(uid(1), saved.getEntityId());
             assertEquals("admin", saved.getUsername());
-            assertEquals(10L, saved.getOrgId());
+            assertEquals(uid(10), saved.getOrgId());
             assertEquals("ContractService.createContract", saved.getDetails());
             assertNotNull(saved.getTimestamp());
         }
@@ -88,8 +90,8 @@ class AuditLogServiceTest {
         @DisplayName("findAll returns page of AuditLogDTOs")
         void shouldReturnPageOfAuditLogs() {
             AuditLog log = AuditLog.builder()
-                    .id(1L).action("UPDATE").entityType("Manager").entityId(5L)
-                    .username("admin").orgId(1L).timestamp(Instant.parse("2027-01-15T12:00:00Z"))
+                    .id(uid(1)).action("UPDATE").entityType("Manager").entityId(uid(5))
+                    .username("admin").orgId(uid(1)).timestamp(Instant.parse("2027-01-15T12:00:00Z"))
                     .details("ManagerService.updateManager").build();
 
             Pageable pageable = PageRequest.of(0, 20);
@@ -110,15 +112,15 @@ class AuditLogServiceTest {
         @DisplayName("findAll with TenantContext uses org-filtered repository")
         void shouldReturnPageOfAuditLogsScopedToOrganization() {
             AuditLog log = AuditLog.builder()
-                    .id(2L).action("DELETE").entityType("Contract").entityId(7L)
-                    .username("manager").orgId(3L).timestamp(Instant.parse("2027-02-01T08:30:00Z"))
+                    .id(uid(2)).action("DELETE").entityType("Contract").entityId(uid(7))
+                    .username("manager").orgId(uid(3)).timestamp(Instant.parse("2027-02-01T08:30:00Z"))
                     .details("ContractService.deleteContract").build();
 
             Pageable pageable = PageRequest.of(0, 20);
 
-            TenantContext.set(3L);
+            TenantContext.set(uid(3));
             try {
-                when(auditLogRepository.findAllByOrgIdOrderByTimestampDesc(3L, pageable))
+                when(auditLogRepository.findAllByOrgIdOrderByTimestampDesc(uid(3), pageable))
                         .thenReturn(new PageImpl<>(List.of(log)));
 
                 Page<AuditLogDTO> result = auditLogService.findAll(pageable);
@@ -127,8 +129,8 @@ class AuditLogServiceTest {
                 AuditLogDTO dto = result.getContent().get(0);
                 assertEquals("DELETE", dto.action());
                 assertEquals("Contract", dto.entityType());
-                assertEquals(3L, dto.orgId());
-                verify(auditLogRepository).findAllByOrgIdOrderByTimestampDesc(3L, pageable);
+                assertEquals(uid(3), dto.orgId());
+                verify(auditLogRepository).findAllByOrgIdOrderByTimestampDesc(uid(3), pageable);
             } finally {
                 TenantContext.clear();
             }

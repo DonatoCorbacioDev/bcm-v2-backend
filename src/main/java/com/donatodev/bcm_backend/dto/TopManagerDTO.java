@@ -5,19 +5,21 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
+
 public class TopManagerDTO {
 
-    private final Long managerId;
+    private final UUID managerId;
     private final String managerName;
     private final Long contractsCount;
 
-    public TopManagerDTO(Long managerId, String managerName, Long contractsCount) {
+    public TopManagerDTO(UUID managerId, String managerName, Long contractsCount) {
         this.managerId = managerId;
         this.managerName = managerName;
         this.contractsCount = contractsCount;
     }
 
-    public Long getManagerId() {
+    public UUID getManagerId() {
         return managerId;
     }
 

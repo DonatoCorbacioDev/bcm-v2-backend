@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -65,7 +66,7 @@ public class RiskFeedbackService {
      * @throws ContractNotFoundException if the contract does not exist in scope
      * @throws AccessDeniedException if a manager targets a contract they don't own
      */
-    public RiskFeedbackDTO create(Long contractId, RiskFeedbackRequest request) {
+    public RiskFeedbackDTO create(UUID contractId, RiskFeedbackRequest request) {
         Users user = getAuthenticatedUser();
         Contracts contract = findContractInScope(contractId)
                 .orElseThrow(() -> new ContractNotFoundException("Contratto non trovato: " + contractId));
@@ -74,7 +75,7 @@ public class RiskFeedbackService {
             throw new AccessDeniedException("non autorizzato a inviare feedback per questo contratto");
         }
 
-        Long orgId = contract.getOrganization() != null ? contract.getOrganization().getId() : TenantContext.get();
+        UUID orgId = contract.getOrganization() != null ? contract.getOrganization().getId() : TenantContext.get();
 
         RiskFeedback feedback = RiskFeedback.builder()
                 .contract(contract)
@@ -101,7 +102,7 @@ public class RiskFeedbackService {
 
         List<RiskFeedback> all;
         if (isAdmin(user)) {
-            Long orgId = TenantContext.require();
+            UUID orgId = TenantContext.require();
             all = riskFeedbackRepository.findByOrganizationIdOrderByCreatedAtDescIdDesc(orgId);
         } else {
             all = riskFeedbackRepository.findByContractManagerIdOrderByCreatedAtDescIdDesc(user.getManager().getId());
@@ -116,7 +117,7 @@ public class RiskFeedbackService {
                         .reversed())
                 .toList();
 
-        Map<Long, RiskFeedback> latestByContract = new LinkedHashMap<>();
+        Map<UUID, RiskFeedback> latestByContract = new LinkedHashMap<>();
         for (RiskFeedback feedback : mostRecentFirst) {
             latestByContract.putIfAbsent(feedback.getContract().getId(), feedback);
         }
@@ -133,8 +134,8 @@ public class RiskFeedbackService {
                 && contract.getManager().getId().equals(user.getManager().getId());
     }
 
-    private Optional<Contracts> findContractInScope(Long contractId) {
-        Long orgId = TenantContext.require();
+    private Optional<Contracts> findContractInScope(UUID contractId) {
+        UUID orgId = TenantContext.require();
         return contractsRepository.findByIdAndOrganization_Id(contractId, orgId);
     }
 

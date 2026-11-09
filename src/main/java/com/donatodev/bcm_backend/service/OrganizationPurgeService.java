@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -76,7 +77,7 @@ public class OrganizationPurgeService {
             "DELETE FROM organizations WHERE id = ?");
 
     /** What has to be known about an organization before its rows are gone. */
-    record DeletedOrganization(long id, String name, List<String> adminEmails, int contracts, int users) {}
+    record DeletedOrganization(UUID id, Long legacyId, String name, List<String> adminEmails, int contracts, int users) {}
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transaction;
@@ -101,11 +102,12 @@ public class OrganizationPurgeService {
      */
     @Scheduled(cron = "0 0 2 * * *")
     public int purgeDueOrganizations() {
-        List<Long> due = jdbc.queryForList(
-                "SELECT id FROM organizations WHERE deletion_scheduled_for <= ? ORDER BY id",
-                Long.class, Timestamp.valueOf(now()));
+        // Ordered by when deletion was scheduled: ids carry no order (ADR-0009).
+        List<UUID> due = jdbc.queryForList(
+                "SELECT id FROM organizations WHERE deletion_scheduled_for <= ? ORDER BY deletion_scheduled_for, id",
+                String.class, Timestamp.valueOf(now())).stream().map(UUID::fromString).toList();
         int deleted = 0;
-        for (Long orgId : due) {
+        for (UUID orgId : due) {
             try {
                 if (purge(orgId)) {
                     deleted++;
@@ -126,7 +128,7 @@ public class OrganizationPurgeService {
      *
      * @return false if it was skipped (cancelled meanwhile, or a paid plan)
      */
-    boolean purge(long orgId) {
+    boolean purge(UUID orgId) {
         Optional<DeletedOrganization> result = transaction.execute(status -> deleteRows(orgId));
         if (result.isEmpty()) {
             return false;
@@ -135,7 +137,7 @@ public class OrganizationPurgeService {
 
         int files = 0;
         try {
-            files = storage.deleteOrganizationFiles(orgId);
+            files = storage.deleteOrganizationFiles(orgId, deleted.legacyId());
         } catch (RuntimeException e) {
             // The rows are gone, so nothing points at these files any more:
             // they need removing by hand, but must not block the emails.
@@ -156,11 +158,13 @@ public class OrganizationPurgeService {
     }
 
     /** Empty when the organization is skipped: gone, no longer due, or on a paid plan again. */
-    private Optional<DeletedOrganization> deleteRows(long orgId) {
+    private Optional<DeletedOrganization> deleteRows(UUID orgId) {
+        // CHAR(36) column: the driver needs the text form, not a java.util.UUID.
+        String id = orgId.toString();
         // Locked: a "cancel" arriving now waits, then finds nothing to cancel.
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT name, deletion_scheduled_for, subscription_tier, stripe_customer_id"
-                + " FROM organizations WHERE id = ? FOR UPDATE", orgId);
+                "SELECT name, deletion_scheduled_for, subscription_tier, stripe_customer_id, legacy_id"
+                + " FROM organizations WHERE id = ? FOR UPDATE", id);
         if (rows.isEmpty()) {
             return Optional.empty();
         }
@@ -179,20 +183,21 @@ public class OrganizationPurgeService {
         List<String> adminEmails = jdbc.queryForList(
                 "SELECT DISTINCT m.email FROM users u JOIN roles r ON r.id = u.role_id"
                 + " JOIN managers m ON m.id = u.manager_id"
-                + " WHERE u.organization_id = ? AND r.role = 'ADMIN'", String.class, orgId);
-        int contracts = count("SELECT COUNT(*) FROM contracts WHERE organization_id = ?", orgId);
-        int users = count("SELECT COUNT(*) FROM users WHERE organization_id = ?", orgId);
+                + " WHERE u.organization_id = ? AND r.role = 'ADMIN'", String.class, id);
+        int contracts = count("SELECT COUNT(*) FROM contracts WHERE organization_id = ?", id);
+        int users = count("SELECT COUNT(*) FROM users WHERE organization_id = ?", id);
 
         for (String statement : DELETE_STATEMENTS) {
-            jdbc.update(statement, orgId);
+            jdbc.update(statement, id);
         }
         // Ids and counts only: the name and the people are what was asked to be forgotten.
         auditLogService.save(AUDIT_ACTION, "Organization", orgId, AUDIT_USER, orgId,
                 "Organization deleted as scheduled: " + contracts + " contracts, " + users + " users");
-        return Optional.of(new DeletedOrganization(orgId, (String) org.get("name"), adminEmails, contracts, users));
+        Long legacyId = org.get("legacy_id") instanceof Number n ? n.longValue() : null;
+        return Optional.of(new DeletedOrganization(orgId, legacyId, (String) org.get("name"), adminEmails, contracts, users));
     }
 
-    private int count(String sql, long orgId) {
+    private int count(String sql, String orgId) {
         Integer n = jdbc.queryForObject(sql, Integer.class, orgId);
         return n == null ? 0 : n;
     }

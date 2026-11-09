@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.time.LocalDate;
 import java.time.Year;
 import java.time.ZoneId;
@@ -62,12 +63,12 @@ public class CounterpartyService {
     }
 
     public List<CounterpartyDTO> getAllCounterparties() {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         List<Counterparty> counterparties = counterpartiesRepository.findAllByOrganizationId(orgId);
         return counterparties.stream().map(counterpartyMapper::toDTO).toList();
     }
 
-    public CounterpartyDTO getCounterpartyById(Long id) {
+    public CounterpartyDTO getCounterpartyById(UUID id) {
         return findCounterpartyInScope(id)
                 .map(counterpartyMapper::toDTO)
                 .orElseThrow(() -> new CounterpartyNotFoundException(COUNTERPARTY_ID_PREFIX + id + NOT_FOUND_SUFFIX));
@@ -77,7 +78,7 @@ public class CounterpartyService {
      * Contracted value vs. confirmed-invoiced-to-date for the current year.
      * Only {@code CONFIRMED} invoice matches count as invoiced.
      */
-    public CounterpartyInvoicingSummaryDTO getInvoicingSummary(Long id) {
+    public CounterpartyInvoicingSummaryDTO getInvoicingSummary(UUID id) {
         Counterparty counterparty = findCounterpartyInScope(id)
                 .orElseThrow(() -> new CounterpartyNotFoundException(COUNTERPARTY_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
@@ -113,8 +114,8 @@ public class CounterpartyService {
      * Finds a counterparty by ID, scoped to the current tenant when
      * {@link TenantContext} carries an organization ID.
      */
-    Optional<Counterparty> findCounterpartyInScope(Long id) {
-        Long orgId = TenantContext.require();
+    Optional<Counterparty> findCounterpartyInScope(UUID id) {
+        UUID orgId = TenantContext.require();
         return counterpartiesRepository.findByIdAndOrganizationId(id, orgId);
     }
 
@@ -122,7 +123,7 @@ public class CounterpartyService {
         Counterparty counterparty = counterpartyMapper.toEntity(dto);
         // Creation must never merge an existing row selected by a client-supplied ID.
         counterparty.setId(null);
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         Organization org = new Organization();
         org.setId(orgId);
         counterparty.setOrganization(org);
@@ -130,7 +131,7 @@ public class CounterpartyService {
         return counterpartyMapper.toDTO(counterparty);
     }
 
-    public CounterpartyDTO updateCounterparty(Long id, CounterpartyDTO dto) {
+    public CounterpartyDTO updateCounterparty(UUID id, CounterpartyDTO dto) {
         Counterparty counterparty = findCounterpartyInScope(id)
                 .orElseThrow(() -> new CounterpartyNotFoundException(COUNTERPARTY_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
@@ -162,7 +163,7 @@ public class CounterpartyService {
      * unlike the generic audit aspect which only records the method name.
      */
     @Transactional
-    public CounterpartyDTO confirmVerifiedIban(Long id, VerifyCounterpartyIbanRequest request) {
+    public CounterpartyDTO confirmVerifiedIban(UUID id, VerifyCounterpartyIbanRequest request) {
         Counterparty counterparty = findCounterpartyInScope(id)
                 .orElseThrow(() -> new CounterpartyNotFoundException(COUNTERPARTY_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
@@ -188,7 +189,7 @@ public class CounterpartyService {
         return counterpartyMapper.toDTO(counterparty);
     }
 
-    public void deleteCounterparty(Long id) {
+    public void deleteCounterparty(UUID id) {
         Counterparty counterparty = findCounterpartyInScope(id)
                 .orElseThrow(() -> new CounterpartyNotFoundException(COUNTERPARTY_ID_PREFIX + id + NOT_FOUND_SUFFIX));
         counterpartiesRepository.delete(counterparty);
@@ -201,7 +202,7 @@ public class CounterpartyService {
      * force the user to pre-create every counterparty by hand first.
      */
     public Counterparty resolveOrCreateByName(String name) {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         Optional<Counterparty> existing = counterpartiesRepository.findByNameIgnoreCaseAndOrganizationId(name, orgId);
         if (existing.isPresent()) {
             return existing.get();

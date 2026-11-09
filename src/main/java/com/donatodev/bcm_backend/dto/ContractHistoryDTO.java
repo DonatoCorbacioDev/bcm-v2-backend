@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import com.donatodev.bcm_backend.entity.ContractStatus;
@@ -27,9 +28,9 @@ import com.donatodev.bcm_backend.entity.ContractStatus;
  *                        Read-only: ignored when the DTO is turned into an entity.
  */
 public record ContractHistoryDTO(
-        Long id,
-        Long contractId,
-        Long modifiedById,
+        UUID id,
+        UUID contractId,
+        UUID modifiedById,
         LocalDateTime modificationDate,
         ContractStatus previousStatus,
         ContractStatus newStatus,
@@ -37,7 +38,7 @@ public record ContractHistoryDTO(
 ) {
 
     /** Without the display name: what a client sends when it writes a record. */
-    public ContractHistoryDTO(Long id, Long contractId, Long modifiedById, LocalDateTime modificationDate,
+    public ContractHistoryDTO(UUID id, UUID contractId, UUID modifiedById, LocalDateTime modificationDate,
             ContractStatus previousStatus, ContractStatus newStatus) {
         this(id, contractId, modifiedById, modificationDate, previousStatus, newStatus, null);
     }

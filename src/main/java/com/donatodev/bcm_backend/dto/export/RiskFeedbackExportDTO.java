@@ -5,15 +5,16 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import com.donatodev.bcm_backend.entity.RiskFeedback;
 
 /** One element of {@code data/risk_feedback.json}. */
 public record RiskFeedbackExportDTO(
-        Long id,
-        Long contractId,
-        Long submittedByUserId,
+        UUID id,
+        UUID contractId,
+        UUID submittedByUserId,
         double riskScore,
         String riskLevel,
         Double mlScore,

@@ -5,15 +5,16 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import java.time.Instant;
 
 public record AuditLogDTO(
-        Long id,
+        UUID id,
         String action,
         String entityType,
-        Long entityId,
+        UUID entityId,
         String username,
-        Long orgId,
+        UUID orgId,
         Instant timestamp,
         String details
 ) {}

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import com.donatodev.bcm_backend.entity.Organization;
@@ -17,7 +18,7 @@ import com.donatodev.bcm_backend.entity.SubscriptionTier;
  * account, not anything the customer entered.
  */
 public record OrganizationExportDTO(
-        Long id,
+        UUID id,
         String name,
         String slug,
         SubscriptionTier subscriptionTier,

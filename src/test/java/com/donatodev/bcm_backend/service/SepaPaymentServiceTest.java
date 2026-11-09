@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -78,8 +80,8 @@ class SepaPaymentServiceTest {
         SecurityContextHolder.clearContext();
     }
 
-    private static final Long CONTRACT_ID = 1L;
-    private static final Long ORG_ID = 5L;
+    private static final UUID CONTRACT_ID = uid(1);
+    private static final UUID ORG_ID = uid(5);
 
     @Mock private ContractAccessGuard contractAccessGuard;
     @Mock private ElectronicInvoiceRepository invoiceRepository;
@@ -102,7 +104,7 @@ class SepaPaymentServiceTest {
         return Organization.builder().id(ORG_ID).name("Acme S.r.l.").iban(iban).bic(bic).build();
     }
 
-    private ElectronicInvoice fakeInvoice(Long id, String supplierIban, String currency, BigDecimal amount) {
+    private ElectronicInvoice fakeInvoice(UUID id, String supplierIban, String currency, BigDecimal amount) {
         ElectronicInvoice invoice = new ElectronicInvoice();
         invoice.setId(id);
         invoice.setSupplierName("Fornitore " + id);
@@ -123,23 +125,23 @@ class SepaPaymentServiceTest {
         void shouldCreateSepaPayment() throws Exception {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice1 = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
-            ElectronicInvoice invoice2 = fakeInvoice(11L, "FR1420041010050500013M02606", "EUR", new BigDecimal("50.50"));
+            ElectronicInvoice invoice1 = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            ElectronicInvoice invoice2 = fakeInvoice(uid(11), "FR1420041010050500013M02606", "EUR", new BigDecimal("50.50"));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L, 11L)))
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(uid(10), uid(11))))
                     .thenReturn(List.of(invoice1, invoice2));
             when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
             when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any()))
                     .thenReturn("sepa/5/1/uuid.xml");
             when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> {
                 SepaPaymentBatch batch = inv.getArgument(0);
-                batch.setId(99L);
+                batch.setId(uid(99));
                 return batch;
             });
 
             LocalDate executionDate = LocalDate.now().plusDays(1);
-            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(10L, 11L), executionDate);
+            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(uid(10), uid(11)), executionDate);
 
             assertEquals("application/xml", result.contentType());
 
@@ -152,8 +154,8 @@ class SepaPaymentServiceTest {
             assertTrue(xmlContains(doc, "IBAN", "FR1420041010050500013M02606"));
 
             verify(invoiceRepository).saveAll(List.of(invoice1, invoice2));
-            assertEquals(99L, invoice1.getSepaBatch().getId());
-            assertEquals(99L, invoice2.getSepaBatch().getId());
+            assertEquals(uid(99), invoice1.getSepaBatch().getId());
+            assertEquals(uid(99), invoice2.getSepaBatch().getId());
         }
 
         @Test
@@ -161,9 +163,9 @@ class SepaPaymentServiceTest {
         void shouldThrowWhenOrgHasNoIban() {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization(null, null);
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
 
-            List<Long> invoiceIds = List.of(10L);
+            List<UUID> invoiceIds = List.of(uid(10));
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
             when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
@@ -179,8 +181,8 @@ class SepaPaymentServiceTest {
         void shouldThrowForInvalidIban(String description, String orgIban, String invoiceIban) {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization(orgIban, "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, invoiceIban, "EUR", new BigDecimal("100.00"));
-            List<Long> invoiceIds = List.of(10L);
+            ElectronicInvoice invoice = fakeInvoice(uid(10), invoiceIban, "EUR", new BigDecimal("100.00"));
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -203,10 +205,10 @@ class SepaPaymentServiceTest {
         void shouldThrowWhenInvoiceAlreadyBatched() {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
-            invoice.setSepaBatch(SepaPaymentBatch.builder().id(1L).build());
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            invoice.setSepaBatch(SepaPaymentBatch.builder().id(uid(1)).build());
 
-            List<Long> invoiceIds = List.of(10L);
+            List<UUID> invoiceIds = List.of(uid(10));
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
             when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
@@ -221,10 +223,10 @@ class SepaPaymentServiceTest {
         void shouldRefuseInvoiceNotPaidByTransfer(String method) {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
             invoice.setPaymentMethod(method);
 
-            List<Long> invoiceIds = List.of(10L);
+            List<UUID> invoiceIds = List.of(uid(10));
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
             when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
@@ -238,10 +240,10 @@ class SepaPaymentServiceTest {
         @DisplayName("throws when some invoice IDs don't belong to the contract")
         void shouldThrowWhenInvoiceIdsNotFound() {
             Contracts contract = fakeContract();
-            List<Long> invoiceIds = List.of(10L, 11L);
+            List<UUID> invoiceIds = List.of(uid(10), uid(11));
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds))
-                    .thenReturn(List.of(fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", BigDecimal.TEN)));
+                    .thenReturn(List.of(fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", BigDecimal.TEN)));
 
             assertThrows(IllegalArgumentException.class,
                     () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
@@ -252,10 +254,10 @@ class SepaPaymentServiceTest {
         void shouldThrowWhenCurrenciesMixed() {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice1 = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", BigDecimal.TEN);
-            ElectronicInvoice invoice2 = fakeInvoice(11L, "FR1420041010050500013M02606", "USD", BigDecimal.TEN);
+            ElectronicInvoice invoice1 = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", BigDecimal.TEN);
+            ElectronicInvoice invoice2 = fakeInvoice(uid(11), "FR1420041010050500013M02606", "USD", BigDecimal.TEN);
 
-            List<Long> invoiceIds = List.of(10L, 11L);
+            List<UUID> invoiceIds = List.of(uid(10), uid(11));
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds))
                     .thenReturn(List.of(invoice1, invoice2));
@@ -270,8 +272,8 @@ class SepaPaymentServiceTest {
         void shouldThrowWhenExecutionDateInPast() {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", BigDecimal.TEN);
-            List<Long> invoiceIds = List.of(10L);
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", BigDecimal.TEN);
+            List<UUID> invoiceIds = List.of(uid(10));
             LocalDate pastDate = LocalDate.now().minusDays(1);
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
@@ -287,8 +289,8 @@ class SepaPaymentServiceTest {
         void shouldDefaultExecutionDateToToday() throws Exception {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
-            List<Long> invoiceIds = List.of(10L);
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -306,11 +308,11 @@ class SepaPaymentServiceTest {
         @DisplayName("refuses a payment when the request carries no organization")
         void shouldThrowWhenNoTenantContextAndContractHasNoOrganization() {
             TenantContext.clear();
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L))).thenReturn(List.of(invoice));
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(uid(10)))).thenReturn(List.of(invoice));
             LocalDate tomorrow = LocalDate.now().plusDays(1);
-            List<Long> invoiceIds = List.of(10L);
+            List<UUID> invoiceIds = List.of(uid(10));
 
             assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class,
                     () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, tomorrow));
@@ -321,8 +323,8 @@ class SepaPaymentServiceTest {
         @DisplayName("throws when the tenant's organization id doesn't resolve to an organization")
         void shouldThrowWhenTenantOrganizationNotFound() {
             Contracts contract = fakeContract();
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
-            List<Long> invoiceIds = List.of(10L);
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -337,8 +339,8 @@ class SepaPaymentServiceTest {
         void shouldDefaultInvoiceCurrencyToEurWhenMissing() {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", null, new BigDecimal("100.00"));
-            List<Long> invoiceIds = List.of(10L);
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", null, new BigDecimal("100.00"));
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -357,7 +359,7 @@ class SepaPaymentServiceTest {
         void shouldCreateZeroInvoiceBatchWhenInvoiceIdsEmpty() throws Exception {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            List<Long> invoiceIds = List.of();
+            List<UUID> invoiceIds = List.of();
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of());
@@ -377,9 +379,9 @@ class SepaPaymentServiceTest {
         void shouldFallBackWhenInvoiceNumberMissing() throws Exception {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
             invoice.setInvoiceNumber(null);
-            List<Long> invoiceIds = List.of(10L);
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -391,7 +393,7 @@ class SepaPaymentServiceTest {
 
             Document doc = parse(result.bytes());
             assertEquals("NOTPROVIDED", textOf(doc, "EndToEndId"));
-            assertEquals("Pagamento fattura 10", textOf(doc, "Ustrd"));
+            assertEquals("Pagamento fattura " + uid(10), textOf(doc, "Ustrd"));
         }
 
         @Test
@@ -399,9 +401,9 @@ class SepaPaymentServiceTest {
         void shouldUseNotProvidedWhenInvoiceNumberSanitizesToEmpty() throws Exception {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
             invoice.setInvoiceNumber("###");
-            List<Long> invoiceIds = List.of(10L);
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -419,8 +421,8 @@ class SepaPaymentServiceTest {
         void shouldDefaultInvoiceAmountToZeroWhenMissing() throws Exception {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", null);
-            List<Long> invoiceIds = List.of(10L);
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", null);
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -438,8 +440,8 @@ class SepaPaymentServiceTest {
         void shouldOmitOrganizationBicWhenMissing() throws Exception {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", null);
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
-            List<Long> invoiceIds = List.of(10L);
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -460,9 +462,9 @@ class SepaPaymentServiceTest {
         void shouldOmitSupplierBicWhenMissing() throws Exception {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
             invoice.setSupplierBic(null);
-            List<Long> invoiceIds = List.of(10L);
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -483,8 +485,8 @@ class SepaPaymentServiceTest {
         void shouldOmitOrganizationBicWhenBlank() throws Exception {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "   ");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
-            List<Long> invoiceIds = List.of(10L);
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -507,8 +509,8 @@ class SepaPaymentServiceTest {
             String longName = "Società Élaboratà ".repeat(5); // > 70 chars, has diacritics
             Organization org = Organization.builder().id(ORG_ID).name(longName)
                     .iban("DE89370400440532013000").bic("COBADEFFXXX").build();
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
-            List<Long> invoiceIds = List.of(10L);
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -529,8 +531,8 @@ class SepaPaymentServiceTest {
             Contracts contract = fakeContract();
             Organization org = Organization.builder().id(ORG_ID).name(null)
                     .iban("DE89370400440532013000").bic("COBADEFFXXX").build();
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
-            List<Long> invoiceIds = List.of(10L);
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -548,8 +550,8 @@ class SepaPaymentServiceTest {
         void shouldWrapParserConfigurationFailure() throws Exception {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
-            List<Long> invoiceIds = List.of(10L);
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -572,8 +574,8 @@ class SepaPaymentServiceTest {
         void shouldWrapTransformerFailure() throws Exception {
             Contracts contract = fakeContract();
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
-            List<Long> invoiceIds = List.of(10L);
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            List<UUID> invoiceIds = List.of(uid(10));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
@@ -605,41 +607,41 @@ class SepaPaymentServiceTest {
         @Test
         @DisplayName("learns the IBAN on the first payment for a counterparty and logs it")
         void shouldLearnIbanOnFirstPayment() {
-            Counterparty counterparty = Counterparty.builder().id(7L).name("Fornitore Srl").type(CounterpartyType.SUPPLIER).build();
+            Counterparty counterparty = Counterparty.builder().id(uid(7)).name("Fornitore Srl").type(CounterpartyType.SUPPLIER).build();
             Contracts contract = fakeContractWithCounterparty(counterparty);
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L))).thenReturn(List.of(invoice));
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(uid(10)))).thenReturn(List.of(invoice));
             when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
             when(counterpartiesRepository.save(any(Counterparty.class))).thenAnswer(inv -> inv.getArgument(0));
             when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
             when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(10L), null);
+            sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(uid(10)), null);
 
             assertEquals("IT60X0542811101000000123456", counterparty.getVerifiedIban());
             verify(counterpartiesRepository).save(counterparty);
-            verify(auditLogService).save(eq("VERIFIED_IBAN_LEARNED"), eq("Counterparty"), eq(7L), eq("admin"), any(), any());
+            verify(auditLogService).save(eq("VERIFIED_IBAN_LEARNED"), eq("Counterparty"), eq(uid(7)), eq("admin"), any(), any());
         }
 
         @Test
         @DisplayName("allows the payment when the invoice IBAN matches the verified one")
         void shouldAllowPaymentWhenIbanMatches() {
-            Counterparty counterparty = Counterparty.builder().id(7L).name("Fornitore Srl").type(CounterpartyType.SUPPLIER)
+            Counterparty counterparty = Counterparty.builder().id(uid(7)).name("Fornitore Srl").type(CounterpartyType.SUPPLIER)
                     .verifiedIban("IT60X0542811101000000123456").build();
             Contracts contract = fakeContractWithCounterparty(counterparty);
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L))).thenReturn(List.of(invoice));
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(uid(10)))).thenReturn(List.of(invoice));
             when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
             when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
             when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(10L), null);
+            sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(uid(10)), null);
 
             verify(counterpartiesRepository, never()).save(any());
             verify(auditLogService, never()).save(any(), any(), any(), any(), any(), any());
@@ -648,13 +650,13 @@ class SepaPaymentServiceTest {
         @Test
         @DisplayName("blocks the payment and logs it when the invoice IBAN differs from the verified one")
         void shouldBlockPaymentOnIbanMismatch() {
-            Counterparty counterparty = Counterparty.builder().id(7L).name("Fornitore Srl").type(CounterpartyType.SUPPLIER)
+            Counterparty counterparty = Counterparty.builder().id(uid(7)).name("Fornitore Srl").type(CounterpartyType.SUPPLIER)
                     .verifiedIban("DE89370400440532013000").build();
             Contracts contract = fakeContractWithCounterparty(counterparty);
             Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
 
-            List<Long> invoiceIds = List.of(10L);
+            List<UUID> invoiceIds = List.of(uid(10));
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
             when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
@@ -664,7 +666,7 @@ class SepaPaymentServiceTest {
 
             verify(batchRepository, never()).save(any());
             verify(counterpartiesRepository, never()).save(any());
-            verify(auditLogService).save(eq("SEPA_IBAN_MISMATCH_BLOCKED"), eq("Counterparty"), eq(7L), eq("admin"), any(), any());
+            verify(auditLogService).save(eq("SEPA_IBAN_MISMATCH_BLOCKED"), eq("Counterparty"), eq(uid(7)), eq("admin"), any(), any());
         }
     }
 
@@ -677,7 +679,7 @@ class SepaPaymentServiceTest {
         void shouldListPayments() {
             Contracts contract = fakeContract();
             SepaPaymentBatch batch = SepaPaymentBatch.builder()
-                    .id(1L).contract(contract).executionDate(LocalDate.now())
+                    .id(uid(1)).contract(contract).executionDate(LocalDate.now())
                     .totalAmount(new BigDecimal("10.00")).currency("EUR")
                     .numberOfTransactions(1).fileName("sepa-1.xml").build();
 
@@ -695,13 +697,13 @@ class SepaPaymentServiceTest {
         void shouldDownloadPayment() {
             Contracts contract = fakeContract();
             SepaPaymentBatch batch = SepaPaymentBatch.builder()
-                    .id(1L).contract(contract).storagePath("sepa/5/1/uuid.xml").fileName("sepa-1.xml").build();
+                    .id(uid(1)).contract(contract).storagePath("sepa/5/1/uuid.xml").fileName("sepa-1.xml").build();
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(batchRepository.findByIdAndContractId(1L, CONTRACT_ID)).thenReturn(Optional.of(batch));
+            when(batchRepository.findByIdAndContractId(uid(1), CONTRACT_ID)).thenReturn(Optional.of(batch));
             when(localStorageService.readDocument("sepa/5/1/uuid.xml")).thenReturn("<xml/>".getBytes());
 
-            FileDownload result = sepaPaymentService.downloadPayment(CONTRACT_ID, 1L);
+            FileDownload result = sepaPaymentService.downloadPayment(CONTRACT_ID, uid(1));
 
             assertEquals("sepa-1.xml", result.fileName());
         }
@@ -711,10 +713,10 @@ class SepaPaymentServiceTest {
         void shouldThrowWhenBatchNotFound() {
             Contracts contract = fakeContract();
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(batchRepository.findByIdAndContractId(1L, CONTRACT_ID)).thenReturn(Optional.empty());
+            when(batchRepository.findByIdAndContractId(uid(1), CONTRACT_ID)).thenReturn(Optional.empty());
 
             assertThrows(ContractNotFoundException.class,
-                    () -> sepaPaymentService.downloadPayment(CONTRACT_ID, 1L));
+                    () -> sepaPaymentService.downloadPayment(CONTRACT_ID, uid(1)));
         }
     }
 

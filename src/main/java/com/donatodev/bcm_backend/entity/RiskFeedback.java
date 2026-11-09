@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.entity;
 
+import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
@@ -27,8 +29,8 @@ import lombok.*;
 public class RiskFeedback {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
+    private UUID id;
 
     @ManyToOne
     @JoinColumn(name = "contract_id", nullable = false)
@@ -39,7 +41,7 @@ public class RiskFeedback {
     private Users submittedBy;
 
     @Column(name = "org_id", nullable = false)
-    private Long organizationId;
+    private UUID organizationId;
 
     /**
      * The rule-based risk score/level shown to the user at the moment of feedback.

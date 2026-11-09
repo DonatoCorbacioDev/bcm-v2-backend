@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -47,7 +48,7 @@ public class ContractTemplateService {
 
     @Transactional(readOnly = true)
     public List<ContractTemplateDTO> getTemplates() {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         return templateRepository.findAllByOrgIdOrderByCreatedAtDesc(orgId)
                 .stream()
                 .map(this::toDTO)
@@ -55,14 +56,14 @@ public class ContractTemplateService {
     }
 
     @Transactional(readOnly = true)
-    public ContractTemplateDTO getTemplate(Long id) {
-        Long orgId = TenantContext.require();
+    public ContractTemplateDTO getTemplate(UUID id) {
+        UUID orgId = TenantContext.require();
         return toDTO(findInScope(id, orgId));
     }
 
     @Transactional
     public ContractTemplateDTO createTemplate(ContractTemplateDTO dto) {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         ContractTemplate template = ContractTemplate.builder()
                 .name(dto.name())
                 .description(dto.description())
@@ -77,8 +78,8 @@ public class ContractTemplateService {
     }
 
     @Transactional
-    public ContractTemplateDTO updateTemplate(Long id, ContractTemplateDTO dto) {
-        Long orgId = TenantContext.require();
+    public ContractTemplateDTO updateTemplate(UUID id, ContractTemplateDTO dto) {
+        UUID orgId = TenantContext.require();
         ContractTemplate template = findInScope(id, orgId);
         template.setName(dto.name());
         template.setDescription(dto.description());
@@ -91,17 +92,17 @@ public class ContractTemplateService {
     }
 
     @Transactional
-    public void deleteTemplate(Long id) {
-        Long orgId = TenantContext.require();
+    public void deleteTemplate(UUID id) {
+        UUID orgId = TenantContext.require();
         templateRepository.delete(findInScope(id, orgId));
     }
 
     @Transactional
-    public ContractDTO instantiateTemplate(Long templateId, InstantiateTemplateDTO req) {
-        Long orgId = TenantContext.require();
+    public ContractDTO instantiateTemplate(UUID templateId, InstantiateTemplateDTO req) {
+        UUID orgId = TenantContext.require();
         ContractTemplate template = findInScope(templateId, orgId);
 
-        Long areaId = req.businessAreaId();
+        UUID areaId = req.businessAreaId();
         if (areaId == null && template.getBusinessArea() != null) {
             areaId = template.getBusinessArea().getId();
         }
@@ -110,7 +111,7 @@ public class ContractTemplateService {
                     "Area aziendale obbligatoria: non definita nel modello e non fornita nella richiesta");
         }
 
-        Long managerId = req.managerId();
+        UUID managerId = req.managerId();
         if (managerId == null && template.getDefaultManager() != null) {
             managerId = template.getDefaultManager().getId();
         }
@@ -130,7 +131,7 @@ public class ContractTemplateService {
         return contractService.createContract(contractDTO);
     }
 
-    private void applyRelations(ContractTemplate template, Long businessAreaId, Long defaultManagerId, Long orgId) {
+    private void applyRelations(ContractTemplate template, UUID businessAreaId, UUID defaultManagerId, UUID orgId) {
         // Tenant-scoped like ContractMapper: a template must not point at
         // another organization's area or manager. Every caller has already
         // required the organization (requireOrgId).
@@ -152,7 +153,7 @@ public class ContractTemplateService {
         }
     }
 
-    private ContractTemplate findInScope(Long id, Long orgId) {
+    private ContractTemplate findInScope(UUID id, UUID orgId) {
         return templateRepository.findByIdAndOrgId(id, orgId)
                 .orElseThrow(() -> new ContractNotFoundException("Modello di contratto non trovato: " + id));
     }

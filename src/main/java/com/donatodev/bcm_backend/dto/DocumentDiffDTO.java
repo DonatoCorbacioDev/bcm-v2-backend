@@ -5,12 +5,13 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import java.util.List;
 
 public record DocumentDiffDTO(
-        Long fromDocumentId,
+        UUID fromDocumentId,
         String fromFileName,
-        Long toDocumentId,
+        UUID toDocumentId,
         String toFileName,
         List<DiffLineDTO> lines
 ) {}

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -71,13 +72,13 @@ public class FinancialValueService {
         Users user = usersRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("Utente" + NOT_FOUND_SUFFIX));
 
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
 
         if ("ADMIN".equals(user.getRole().getRole())) {
             List<FinancialValues> values = financialValuesRepository.findAllByOrganizationId(orgId);
             return values.stream().map(financialValueMapper::toDTO).toList();
         } else {
-            Long managerId = user.getManager().getId();
+            UUID managerId = user.getManager().getId();
             return financialValuesRepository.findByContract_Manager_Id(managerId)
                     .stream()
                     .map(financialValueMapper::toDTO)
@@ -94,7 +95,7 @@ public class FinancialValueService {
      * @throws UserNotFoundException if authenticated user not found
      * @throws SecurityException if access is denied
      */
-    public FinancialValueDTO getValueById(Long id) {
+    public FinancialValueDTO getValueById(UUID id) {
         FinancialValues value = findValueInScope(id)
                 .orElseThrow(() -> new FinancialValueNotFoundException(FINANCIAL_VALUE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
@@ -107,8 +108,8 @@ public class FinancialValueService {
      * Finds a financial value by ID, scoped to the current tenant when
      * {@link TenantContext} carries an organization ID.
      */
-    private Optional<FinancialValues> findValueInScope(Long id) {
-        Long orgId = TenantContext.require();
+    private Optional<FinancialValues> findValueInScope(UUID id) {
+        UUID orgId = TenantContext.require();
         return financialValuesRepository.findByIdAndOrganizationId(id, orgId);
     }
 
@@ -119,7 +120,7 @@ public class FinancialValueService {
      * @return the created {@link FinancialValueDTO}
      */
     public FinancialValueDTO createValue(FinancialValueDTO dto) {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         FinancialValues value = financialValueMapper.toEntity(dto, orgId);
         // Creation must never merge an existing row selected by a client-supplied ID.
         value.setId(null);
@@ -142,8 +143,8 @@ public class FinancialValueService {
      * @throws UserNotFoundException if authenticated user not found
      * @throws SecurityException if access is denied
      */
-    public FinancialValueDTO updateValue(Long id, FinancialValueDTO dto) {
-        Long orgId = TenantContext.require();
+    public FinancialValueDTO updateValue(UUID id, FinancialValueDTO dto) {
+        UUID orgId = TenantContext.require();
         FinancialValues value = findValueInScope(id)
                 .orElseThrow(() -> new FinancialValueNotFoundException(FINANCIAL_VALUE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
@@ -166,8 +167,8 @@ public class FinancialValueService {
      * @throws UserNotFoundException if authenticated user not found
      * @throws SecurityException if access is denied
      */
-    public void deleteValue(Long id) {
-        Long orgId = TenantContext.require();
+    public void deleteValue(UUID id) {
+        UUID orgId = TenantContext.require();
         FinancialValues value = findValueInScope(id)
                 .orElseThrow(() -> new FinancialValueNotFoundException(FINANCIAL_VALUE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
@@ -213,7 +214,7 @@ public class FinancialValueService {
                 .orElseThrow(() -> new UserNotFoundException("Utente" + NOT_FOUND_SUFFIX));
 
         if ("MANAGER".equals(user.getRole().getRole())) {
-            Long managerId = user.getManager().getId();
+            UUID managerId = user.getManager().getId();
             // A contract's manager is optional (Contracts.manager is nullable) — an
             // unassigned contract belongs to no manager, so a MANAGER-role user
             // never has access to its financial values, same as any other mismatch.
@@ -233,9 +234,9 @@ public class FinancialValueService {
      * @param contractId the ID of the contract
      * @return a list of {@link FinancialValueDTO}
      */
-    public List<FinancialValueDTO> getValuesByContractId(Long contractId) {
+    public List<FinancialValueDTO> getValuesByContractId(UUID contractId) {
         contractAccessGuard.checkManagerCanAccess(contractAccessGuard.getContractInScope(contractId));
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         List<FinancialValues> values = financialValuesRepository.findByContractIdAndOrganizationId(contractId, orgId);
         return values.stream().map(financialValueMapper::toDTO).toList();
     }

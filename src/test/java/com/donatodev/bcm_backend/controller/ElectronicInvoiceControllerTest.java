@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -76,7 +78,7 @@ class ElectronicInvoiceControllerTest {
 
     @MockitoBean private ElectronicInvoiceService electronicInvoiceService;
 
-    private Long contractId;
+    private UUID contractId;
 
     private static final byte[] VALID_XML = "<?xml version=\"1.0\"?><FatturaElettronica></FatturaElettronica>".getBytes();
 
@@ -85,8 +87,8 @@ class ElectronicInvoiceControllerTest {
                 "HUR", new BigDecimal("100.00"), new BigDecimal("1000.00"), new BigDecimal("22.00")));
     }
 
-    private ElectronicInvoiceDTO sampleInvoiceDTO(Long contractId) {
-        return new ElectronicInvoiceDTO(1L, contractId, "invoice.xml", (long) VALID_XML.length,
+    private ElectronicInvoiceDTO sampleInvoiceDTO(UUID contractId) {
+        return new ElectronicInvoiceDTO(uid(1), contractId, "invoice.xml", (long) VALID_XML.length,
                 Instant.parse("2027-01-15T12:00:00Z"),
                 "http://localhost:8090/api/v1/contracts/" + contractId + "/invoices/1/download",
                 "Acme Forniture S.r.l.", "IT12345678901", "TD01", "2024/001",
@@ -132,7 +134,7 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Admin uploads a valid FatturaPA XML — returns 201")
         void shouldUploadInvoiceSuccessfully() throws Exception {
-            when(electronicInvoiceService.uploadInvoice(anyLong(), any()))
+            when(electronicInvoiceService.uploadInvoice(any(UUID.class), any()))
                     .thenReturn(sampleInvoiceDTO(contractId));
 
             MockMultipartFile file = new MockMultipartFile(
@@ -150,13 +152,13 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Upload to non-existent contract returns 404")
         void shouldReturn404ForMissingContract() throws Exception {
-            when(electronicInvoiceService.uploadInvoice(anyLong(), any()))
+            when(electronicInvoiceService.uploadInvoice(any(UUID.class), any()))
                     .thenThrow(new ContractNotFoundException("Contract ID 99999 not found"));
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "invoice.xml", "application/xml", VALID_XML);
 
-            mockMvc.perform(multipart("/contracts/99999/invoices").file(file))
+            mockMvc.perform(multipart("/contracts/" + uid(99999) + "/invoices").file(file))
                     .andExpect(status().isNotFound());
         }
 
@@ -165,7 +167,7 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Invalid XML returns 400")
         void shouldRejectInvalidXml() throws Exception {
-            when(electronicInvoiceService.uploadInvoice(anyLong(), any()))
+            when(electronicInvoiceService.uploadInvoice(any(UUID.class), any()))
                     .thenThrow(new IllegalArgumentException("Invalid or malformed XML"));
 
             MockMultipartFile file = new MockMultipartFile(
@@ -198,7 +200,7 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns empty list when no invoices exist")
         void shouldReturnEmptyList() throws Exception {
-            when(electronicInvoiceService.getInvoices(anyLong())).thenReturn(List.of());
+            when(electronicInvoiceService.getInvoices(any(UUID.class))).thenReturn(List.of());
 
             mockMvc.perform(get("/contracts/" + contractId + "/invoices"))
                     .andExpect(status().isOk())
@@ -210,7 +212,7 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns list of invoices with line items")
         void shouldReturnInvoicesWithLineItems() throws Exception {
-            when(electronicInvoiceService.getInvoices(anyLong()))
+            when(electronicInvoiceService.getInvoices(any(UUID.class)))
                     .thenReturn(List.of(sampleInvoiceDTO(contractId)));
 
             mockMvc.perform(get("/contracts/" + contractId + "/invoices"))
@@ -232,10 +234,10 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns invoice detail with line items")
         void shouldReturnInvoiceDetail() throws Exception {
-            when(electronicInvoiceService.getInvoice(anyLong(), anyLong()))
+            when(electronicInvoiceService.getInvoice(any(UUID.class), any(UUID.class)))
                     .thenReturn(sampleInvoiceDTO(contractId));
 
-            mockMvc.perform(get("/contracts/" + contractId + "/invoices/1"))
+            mockMvc.perform(get("/contracts/" + contractId + "/invoices/" + uid(1)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.supplierVatNumber").value("IT12345678901"))
                     .andExpect(jsonPath("$.lineItems[0].description").value("Servizio di consulenza"));
@@ -246,10 +248,10 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns 404 when invoice not found")
         void shouldReturn404WhenInvoiceNotFound() throws Exception {
-            when(electronicInvoiceService.getInvoice(anyLong(), anyLong()))
+            when(electronicInvoiceService.getInvoice(any(UUID.class), any(UUID.class)))
                     .thenThrow(new ContractNotFoundException("Invoice ID 999 not found for contract " + contractId));
 
-            mockMvc.perform(get("/contracts/" + contractId + "/invoices/999"))
+            mockMvc.perform(get("/contracts/" + contractId + "/invoices/" + uid(999)))
                     .andExpect(status().isNotFound());
         }
     }
@@ -266,9 +268,9 @@ class ElectronicInvoiceControllerTest {
         @DisplayName("Returns XML bytes with correct headers")
         void shouldDownloadInvoiceSuccessfully() throws Exception {
             FileDownload download = new FileDownload(VALID_XML, "invoice.xml", "application/xml");
-            when(electronicInvoiceService.downloadInvoice(anyLong(), anyLong())).thenReturn(download);
+            when(electronicInvoiceService.downloadInvoice(any(UUID.class), any(UUID.class))).thenReturn(download);
 
-            mockMvc.perform(get("/contracts/" + contractId + "/invoices/1/download"))
+            mockMvc.perform(get("/contracts/" + contractId + "/invoices/" + uid(1) + "/download"))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType("application/xml"))
                     .andExpect(content().bytes(VALID_XML));
@@ -279,10 +281,10 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns 404 when invoice not found")
         void shouldReturn404WhenInvoiceNotFound() throws Exception {
-            when(electronicInvoiceService.downloadInvoice(anyLong(), anyLong()))
+            when(electronicInvoiceService.downloadInvoice(any(UUID.class), any(UUID.class)))
                     .thenThrow(new ContractNotFoundException("Invoice ID 999 not found for contract " + contractId));
 
-            mockMvc.perform(get("/contracts/" + contractId + "/invoices/999/download"))
+            mockMvc.perform(get("/contracts/" + contractId + "/invoices/" + uid(999) + "/download"))
                     .andExpect(status().isNotFound());
         }
 
@@ -290,7 +292,7 @@ class ElectronicInvoiceControllerTest {
         @Order(3)
         @DisplayName("Unauthenticated download returns 401")
         void shouldReturn401WhenNotAuthenticated() throws Exception {
-            mockMvc.perform(get("/contracts/" + contractId + "/invoices/1/download"))
+            mockMvc.perform(get("/contracts/" + contractId + "/invoices/" + uid(1) + "/download"))
                     .andExpect(status().isUnauthorized());
         }
     }
@@ -306,9 +308,9 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Admin deletes an invoice — returns 204")
         void shouldDeleteSuccessfully() throws Exception {
-            doNothing().when(electronicInvoiceService).deleteInvoice(anyLong(), anyLong());
+            doNothing().when(electronicInvoiceService).deleteInvoice(any(UUID.class), any(UUID.class));
 
-            mockMvc.perform(delete("/contracts/" + contractId + "/invoices/1"))
+            mockMvc.perform(delete("/contracts/" + contractId + "/invoices/" + uid(1)))
                     .andExpect(status().isNoContent());
         }
 
@@ -317,7 +319,7 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "MANAGER")
         @DisplayName("Manager cannot delete — returns 403")
         void shouldReturn403ForManager() throws Exception {
-            mockMvc.perform(delete("/contracts/" + contractId + "/invoices/1"))
+            mockMvc.perform(delete("/contracts/" + contractId + "/invoices/" + uid(1)))
                     .andExpect(status().isForbidden());
         }
 
@@ -327,9 +329,9 @@ class ElectronicInvoiceControllerTest {
         @DisplayName("Delete non-existent invoice returns 404")
         void shouldReturn404WhenInvoiceNotFound() throws Exception {
             doThrow(new ContractNotFoundException("Invoice ID 999 not found for contract " + contractId))
-                    .when(electronicInvoiceService).deleteInvoice(anyLong(), anyLong());
+                    .when(electronicInvoiceService).deleteInvoice(any(UUID.class), any(UUID.class));
 
-            mockMvc.perform(delete("/contracts/" + contractId + "/invoices/999"))
+            mockMvc.perform(delete("/contracts/" + contractId + "/invoices/" + uid(999)))
                     .andExpect(status().isNotFound());
         }
     }
@@ -347,10 +349,10 @@ class ElectronicInvoiceControllerTest {
         void shouldUpdatePaymentDetailsSuccessfully() throws Exception {
             var request = new UpdateInvoicePaymentDetailsRequest("DE89370400440532013000", "COBADEFFXXX",
                     LocalDate.of(2024, Month.JUNE, 30));
-            when(electronicInvoiceService.updatePaymentDetails(anyLong(), anyLong(), any()))
+            when(electronicInvoiceService.updatePaymentDetails(any(UUID.class), any(UUID.class), any()))
                     .thenReturn(sampleInvoiceDTO(contractId));
 
-            mockMvc.perform(patch("/contracts/" + contractId + "/invoices/1/payment-details")
+            mockMvc.perform(patch("/contracts/" + contractId + "/invoices/" + uid(1) + "/payment-details")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk());
@@ -362,10 +364,10 @@ class ElectronicInvoiceControllerTest {
         @DisplayName("Manager can also set payment details — returns 200")
         void shouldAllowManager() throws Exception {
             var request = new UpdateInvoicePaymentDetailsRequest("DE89370400440532013000", null, null);
-            when(electronicInvoiceService.updatePaymentDetails(anyLong(), anyLong(), any()))
+            when(electronicInvoiceService.updatePaymentDetails(any(UUID.class), any(UUID.class), any()))
                     .thenReturn(sampleInvoiceDTO(contractId));
 
-            mockMvc.perform(patch("/contracts/" + contractId + "/invoices/1/payment-details")
+            mockMvc.perform(patch("/contracts/" + contractId + "/invoices/" + uid(1) + "/payment-details")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk());
@@ -377,10 +379,10 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldAcceptBlankIban() throws Exception {
             var request = new UpdateInvoicePaymentDetailsRequest("", null, null);
-            when(electronicInvoiceService.updatePaymentDetails(anyLong(), anyLong(), any()))
+            when(electronicInvoiceService.updatePaymentDetails(any(UUID.class), any(UUID.class), any()))
                     .thenReturn(sampleInvoiceDTO(contractId));
 
-            mockMvc.perform(patch("/contracts/" + contractId + "/invoices/1/payment-details")
+            mockMvc.perform(patch("/contracts/" + contractId + "/invoices/" + uid(1) + "/payment-details")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk());
@@ -393,7 +395,7 @@ class ElectronicInvoiceControllerTest {
         void shouldReturn400ForOversizedIban() throws Exception {
             var request = new UpdateInvoicePaymentDetailsRequest("A".repeat(35), null, null);
 
-            mockMvc.perform(patch("/contracts/" + contractId + "/invoices/1/payment-details")
+            mockMvc.perform(patch("/contracts/" + contractId + "/invoices/" + uid(1) + "/payment-details")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isBadRequest());
@@ -411,11 +413,11 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Admin confirms the suggested match — returns 200")
         void shouldConfirmSuccessfully() throws Exception {
-            when(electronicInvoiceService.confirmMatch(anyLong(), anyLong(), any()))
+            when(electronicInvoiceService.confirmMatch(any(UUID.class), any(UUID.class), any()))
                     .thenReturn(sampleInvoiceDTO(contractId));
 
             mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                            .post("/contracts/" + contractId + "/invoices/1/match/confirm")
+                            .post("/contracts/" + contractId + "/invoices/" + uid(1) + "/match/confirm")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
                     .andExpect(status().isOk());
@@ -427,7 +429,7 @@ class ElectronicInvoiceControllerTest {
         @DisplayName("Manager cannot confirm — returns 403")
         void shouldReturn403ForManager() throws Exception {
             mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                            .post("/contracts/" + contractId + "/invoices/1/match/confirm"))
+                            .post("/contracts/" + contractId + "/invoices/" + uid(1) + "/match/confirm"))
                     .andExpect(status().isForbidden());
         }
 
@@ -436,11 +438,11 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Confirming with no candidate returns 400")
         void shouldReturn400WhenNoCandidate() throws Exception {
-            when(electronicInvoiceService.confirmMatch(anyLong(), anyLong(), any()))
+            when(electronicInvoiceService.confirmMatch(any(UUID.class), any(UUID.class), any()))
                     .thenThrow(new IllegalArgumentException("Nessun abbinamento da confermare per la fattura 1"));
 
             mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                            .post("/contracts/" + contractId + "/invoices/1/match/confirm"))
+                            .post("/contracts/" + contractId + "/invoices/" + uid(1) + "/match/confirm"))
                     .andExpect(status().isBadRequest());
         }
     }
@@ -456,11 +458,11 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Admin rejects the suggested match — returns 200")
         void shouldRejectSuccessfully() throws Exception {
-            when(electronicInvoiceService.rejectMatch(anyLong(), anyLong()))
+            when(electronicInvoiceService.rejectMatch(any(UUID.class), any(UUID.class)))
                     .thenReturn(sampleInvoiceDTO(contractId));
 
             mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                            .post("/contracts/" + contractId + "/invoices/1/match/reject"))
+                            .post("/contracts/" + contractId + "/invoices/" + uid(1) + "/match/reject"))
                     .andExpect(status().isOk());
         }
 
@@ -470,7 +472,7 @@ class ElectronicInvoiceControllerTest {
         @DisplayName("Manager cannot reject — returns 403")
         void shouldReturn403ForManager() throws Exception {
             mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                            .post("/contracts/" + contractId + "/invoices/1/match/reject"))
+                            .post("/contracts/" + contractId + "/invoices/" + uid(1) + "/match/reject"))
                     .andExpect(status().isForbidden());
         }
     }
@@ -486,7 +488,7 @@ class ElectronicInvoiceControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Admin recomputes matches for the contract — returns 200 with the updated list")
         void shouldRecomputeSuccessfully() throws Exception {
-            when(electronicInvoiceService.recomputeMatches(anyLong()))
+            when(electronicInvoiceService.recomputeMatches(any(UUID.class)))
                     .thenReturn(List.of(sampleInvoiceDTO(contractId)));
 
             mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders

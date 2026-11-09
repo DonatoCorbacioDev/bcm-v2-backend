@@ -249,7 +249,7 @@ public class OrganizationService {
      * @param source who triggered the change, recorded in the audit log (e.g. "manual", "stripe")
      */
     @Transactional
-    public OrganizationDTO changeTier(Long orgId, SubscriptionTier tier, String source) {
+    public OrganizationDTO changeTier(UUID orgId, SubscriptionTier tier, String source) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new OrganizationNotFoundException(ORGANIZATION_NOT_FOUND));
         SubscriptionTier previous = org.getSubscriptionTier();
@@ -269,7 +269,7 @@ public class OrganizationService {
      * redelivered webhook writes nothing.
      */
     @Transactional
-    public void linkStripeCustomer(Long orgId, String stripeCustomerId) {
+    public void linkStripeCustomer(UUID orgId, String stripeCustomerId) {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new OrganizationNotFoundException(ORGANIZATION_NOT_FOUND));
         if (stripeCustomerId.equals(org.getStripeCustomerId())) {

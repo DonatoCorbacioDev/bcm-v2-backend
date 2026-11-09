@@ -5,12 +5,13 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import com.donatodev.bcm_backend.entity.FinancialCategory;
 import com.donatodev.bcm_backend.entity.FinancialTypes;
 
 /** One element of {@code data/financial_types.json}. */
 public record FinancialTypeExportDTO(
-        Long id,
+        UUID id,
         String name,
         String description,
         FinancialCategory category) {

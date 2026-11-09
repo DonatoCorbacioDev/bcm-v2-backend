@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -15,7 +16,7 @@ import org.springframework.data.repository.query.Param;
 
 import com.donatodev.bcm_backend.entity.PendingRegistration;
 
-public interface PendingRegistrationRepository extends JpaRepository<PendingRegistration, Long> {
+public interface PendingRegistrationRepository extends JpaRepository<PendingRegistration, UUID> {
 
     Optional<PendingRegistration> findByPublicId(String publicId);
 

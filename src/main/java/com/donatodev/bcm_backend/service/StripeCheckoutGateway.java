@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -39,7 +40,7 @@ public class StripeCheckoutGateway {
      *        subscription, reused so a resubscribing org keeps one customer
      *        (and its invoice history); null to let Checkout create one
      */
-    public String createSubscriptionCheckout(Long orgId, String priceId, String existingCustomerId,
+    public String createSubscriptionCheckout(UUID orgId, String priceId, String existingCustomerId,
             String successUrl, String cancelUrl) throws StripeException {
         String orgIdValue = String.valueOf(orgId);
         SessionCreateParams.Builder params = SessionCreateParams.builder()

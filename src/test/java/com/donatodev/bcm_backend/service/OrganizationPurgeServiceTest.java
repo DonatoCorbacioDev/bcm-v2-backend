@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -39,7 +41,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 @DisplayName("Unit Test: OrganizationPurgeService")
 class OrganizationPurgeServiceTest {
 
-    private static final long ORG = 42L;
+    private static final UUID ORG = uid(42);
+    /** The numeric id the organization had before V55: its old file folder. */
+    private static final Long LEGACY_ID = 42L;
 
     private JdbcTemplate jdbc;
     private LocalStorageService storage;
@@ -64,15 +68,16 @@ class OrganizationPurgeServiceTest {
         row.put("deletion_scheduled_for", scheduledFor == null ? null : Timestamp.valueOf(scheduledFor));
         row.put("subscription_tier", tier);
         row.put("stripe_customer_id", stripeCustomer);
-        when(jdbc.queryForList(contains("FOR UPDATE"), eq(ORG))).thenReturn(List.of(row));
-        when(jdbc.queryForList(contains("SELECT DISTINCT m.email"), eq(String.class), eq(ORG)))
+        row.put("legacy_id", LEGACY_ID);
+        when(jdbc.queryForList(contains("FOR UPDATE"), eq(ORG.toString()))).thenReturn(List.of(row));
+        when(jdbc.queryForList(contains("SELECT DISTINCT m.email"), eq(String.class), eq(ORG.toString())))
                 .thenReturn(List.of("admin@acme.test"));
-        when(jdbc.queryForObject(anyString(), eq(Integer.class), eq(ORG))).thenReturn(3);
+        when(jdbc.queryForObject(anyString(), eq(Integer.class), eq(ORG.toString()))).thenReturn(3);
     }
 
-    private void due(Long... ids) {
-        when(jdbc.queryForList(startsWith("SELECT id FROM organizations"), eq(Long.class), any(Timestamp.class)))
-                .thenReturn(List.of(ids));
+    private void due(UUID... ids) {
+        when(jdbc.queryForList(startsWith("SELECT id FROM organizations"), eq(String.class), any(Timestamp.class)))
+                .thenReturn(java.util.Arrays.stream(ids).map(UUID::toString).toList());
     }
 
     @Test
@@ -80,15 +85,15 @@ class OrganizationPurgeServiceTest {
     void deletesDueOrganization() {
         due(ORG);
         organization(LocalDateTime.now().minusDays(1), "FREE", null);
-        when(storage.deleteOrganizationFiles(ORG)).thenReturn(5);
+        when(storage.deleteOrganizationFiles(ORG, LEGACY_ID)).thenReturn(5);
 
         assertThat(service.purgeDueOrganizations()).isEqualTo(1);
 
         InOrder order = inOrder(jdbc, storage, emailService);
         for (String statement : OrganizationPurgeService.DELETE_STATEMENTS) {
-            order.verify(jdbc).update(statement, ORG);
+            order.verify(jdbc).update(statement, ORG.toString());
         }
-        order.verify(storage).deleteOrganizationFiles(ORG);
+        order.verify(storage).deleteOrganizationFiles(ORG, LEGACY_ID);
         order.verify(emailService).sendOrganizationDeleted("admin@acme.test", "Acme S.r.l.");
         verify(auditLogService).save("ORGANIZATION_DELETED", "Organization", ORG, "system", ORG,
                 "Organization deleted as scheduled: 3 contracts, 3 users");
@@ -111,13 +116,13 @@ class OrganizationPurgeServiceTest {
 
         assertThat(service.purgeDueOrganizations()).isZero();
 
-        verify(jdbc, never()).update(anyString(), anyLong());
+        verify(jdbc, never()).update(anyString(), any(UUID.class));
     }
 
     @Test
     @DisplayName("Skips an organization deleted or cancelled meanwhile, or not due any more")
     void skipsWhatChangedMeanwhile() {
-        when(jdbc.queryForList(contains("FOR UPDATE"), eq(ORG))).thenReturn(List.of());
+        when(jdbc.queryForList(contains("FOR UPDATE"), eq(ORG.toString()))).thenReturn(List.of());
         assertThat(service.purge(ORG)).isFalse();
 
         organization(null, "FREE", null);
@@ -126,8 +131,8 @@ class OrganizationPurgeServiceTest {
         organization(LocalDateTime.now().plusDays(1), "FREE", null);
         assertThat(service.purge(ORG)).isFalse();
 
-        verify(jdbc, never()).update(anyString(), anyLong());
-        verify(storage, never()).deleteOrganizationFiles(anyLong());
+        verify(jdbc, never()).update(anyString(), any(UUID.class));
+        verify(storage, never()).deleteOrganizationFiles(any(UUID.class), any());
     }
 
     @Test
@@ -135,7 +140,7 @@ class OrganizationPurgeServiceTest {
     void paidPlan() {
         organization(LocalDateTime.now().minusDays(1), "PRO", "cus_123");
         assertThat(service.purge(ORG)).isFalse();
-        verify(jdbc, never()).update(anyString(), anyLong());
+        verify(jdbc, never()).update(anyString(), any(UUID.class));
 
         organization(LocalDateTime.now().minusDays(1), "PRO", null);
         assertThat(service.purge(ORG)).isTrue();
@@ -144,21 +149,21 @@ class OrganizationPurgeServiceTest {
     @Test
     @DisplayName("A failed organization doesn't stop the next one")
     void failureDoesNotStopTheOthers() {
-        due(7L, ORG);
-        when(jdbc.queryForList(contains("FOR UPDATE"), eq(7L))).thenThrow(new IllegalStateException("db down"));
+        due(uid(7), ORG);
+        when(jdbc.queryForList(contains("FOR UPDATE"), eq(uid(7)))).thenThrow(new IllegalStateException("db down"));
         organization(LocalDateTime.now().minusDays(1), "FREE", null);
 
         assertThat(service.purgeDueOrganizations()).isEqualTo(1);
 
-        verify(storage).deleteOrganizationFiles(ORG);
-        verify(storage, never()).deleteOrganizationFiles(7L);
+        verify(storage).deleteOrganizationFiles(ORG, LEGACY_ID);
+        verify(storage, never()).deleteOrganizationFiles(eq(uid(7)), any());
     }
 
     @Test
     @DisplayName("Files or emails failing after the commit still count the organization as deleted")
     void afterCommitFailuresAreLogged() {
         organization(LocalDateTime.now().minusDays(1), "FREE", null);
-        when(storage.deleteOrganizationFiles(ORG)).thenThrow(new IllegalStateException("disk"));
+        when(storage.deleteOrganizationFiles(ORG, LEGACY_ID)).thenThrow(new IllegalStateException("disk"));
         doThrow(new IllegalStateException("smtp")).when(emailService).sendOrganizationDeleted(anyString(), anyString());
 
         assertThat(service.purge(ORG)).isTrue();
@@ -170,11 +175,11 @@ class OrganizationPurgeServiceTest {
     @DisplayName("Counts a skipped organization as not deleted, and a count the database returns empty as zero")
     void skippedAndEmptyCounts() {
         due(ORG);
-        when(jdbc.queryForList(contains("FOR UPDATE"), eq(ORG))).thenReturn(List.of());
+        when(jdbc.queryForList(contains("FOR UPDATE"), eq(ORG.toString()))).thenReturn(List.of());
         assertThat(service.purgeDueOrganizations()).isZero();
 
         organization(LocalDateTime.now().minusDays(1), "FREE", null);
-        when(jdbc.queryForObject(anyString(), eq(Integer.class), eq(ORG))).thenReturn(null);
+        when(jdbc.queryForObject(anyString(), eq(Integer.class), eq(ORG.toString()))).thenReturn(null);
         assertThat(service.purge(ORG)).isTrue();
         verify(auditLogService).save(anyString(), anyString(), eq(ORG), anyString(), eq(ORG),
                 contains("0 contracts, 0 users"));

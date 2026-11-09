@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import com.donatodev.bcm_backend.entity.WorkflowAction;
@@ -22,7 +23,7 @@ import com.donatodev.bcm_backend.entity.WorkflowStage;
  * @param createdAt when the transition happened
  */
 public record ContractWorkflowEventDTO(
-        Long id,
+        UUID id,
         WorkflowStage fromStage,
         WorkflowStage toStage,
         WorkflowAction action,

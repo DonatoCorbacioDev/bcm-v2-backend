@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.mockito.Mockito.verifyNoInteractions;
 import java.util.Arrays;
 import java.util.List;
@@ -63,7 +65,7 @@ import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 class CounterpartyServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void setup() {
@@ -110,10 +112,10 @@ class CounterpartyServiceTest {
         @Order(1)
         @DisplayName("Get all counterparties returns list of DTOs")
         void shouldGetAllCounterparties() {
-            Counterparty entity1 = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.CUSTOMER).build();
-            Counterparty entity2 = Counterparty.builder().id(2L).name("Beta Srl").type(CounterpartyType.SUPPLIER).build();
-            CounterpartyDTO dto1 = new CounterpartyDTO(1L, "Alfa Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
-            CounterpartyDTO dto2 = new CounterpartyDTO(2L, "Beta Srl", CounterpartyType.SUPPLIER, null, null, null, null, null, null, null, null, null);
+            Counterparty entity1 = Counterparty.builder().id(uid(1)).name("Alfa Srl").type(CounterpartyType.CUSTOMER).build();
+            Counterparty entity2 = Counterparty.builder().id(uid(2)).name("Beta Srl").type(CounterpartyType.SUPPLIER).build();
+            CounterpartyDTO dto1 = new CounterpartyDTO(uid(1), "Alfa Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
+            CounterpartyDTO dto2 = new CounterpartyDTO(uid(2), "Beta Srl", CounterpartyType.SUPPLIER, null, null, null, null, null, null, null, null, null);
 
             when(repository.findAllByOrganizationId(TENANT)).thenReturn(Arrays.asList(entity1, entity2));
             when(mapper.toDTO(entity1)).thenReturn(dto1);
@@ -130,13 +132,13 @@ class CounterpartyServiceTest {
         @Order(2)
         @DisplayName("Get counterparty by ID returns DTO")
         void shouldGetCounterpartyById() {
-            Counterparty entity = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.CUSTOMER).build();
-            CounterpartyDTO dto = new CounterpartyDTO(1L, "Alfa Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
+            Counterparty entity = Counterparty.builder().id(uid(1)).name("Alfa Srl").type(CounterpartyType.CUSTOMER).build();
+            CounterpartyDTO dto = new CounterpartyDTO(uid(1), "Alfa Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
 
-            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(entity));
             when(mapper.toDTO(entity)).thenReturn(dto);
 
-            CounterpartyDTO result = service.getCounterpartyById(1L);
+            CounterpartyDTO result = service.getCounterpartyById(uid(1));
 
             assertEquals("Alfa Srl", result.name());
             assertEquals(CounterpartyType.CUSTOMER, result.type());
@@ -146,11 +148,11 @@ class CounterpartyServiceTest {
         @Order(3)
         @DisplayName("Get counterparty by ID throws exception if not found")
         void shouldThrowExceptionWhenCounterpartyNotFound() {
-            when(repository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(repository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
             CounterpartyNotFoundException ex =
-                assertThrows(CounterpartyNotFoundException.class, () -> service.getCounterpartyById(999L));
-            assertEquals("ID controparte 999 non trovata", ex.getMessage());
+                assertThrows(CounterpartyNotFoundException.class, () -> service.getCounterpartyById(uid(999)));
+            assertEquals("ID controparte " + uid(999) + " non trovata", ex.getMessage());
         }
 
         @Test
@@ -159,8 +161,8 @@ class CounterpartyServiceTest {
         void shouldCreateCounterparty() {
             CounterpartyDTO dto = new CounterpartyDTO(null, "New Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
             Counterparty entity = Counterparty.builder().name("New Srl").type(CounterpartyType.CUSTOMER).build();
-            Counterparty savedEntity = Counterparty.builder().id(1L).name("New Srl").type(CounterpartyType.CUSTOMER).build();
-            CounterpartyDTO savedDTO = new CounterpartyDTO(1L, "New Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
+            Counterparty savedEntity = Counterparty.builder().id(uid(1)).name("New Srl").type(CounterpartyType.CUSTOMER).build();
+            CounterpartyDTO savedDTO = new CounterpartyDTO(uid(1), "New Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
 
             when(mapper.toEntity(dto)).thenReturn(entity);
             when(repository.save(entity)).thenReturn(savedEntity);
@@ -168,7 +170,7 @@ class CounterpartyServiceTest {
 
             CounterpartyDTO result = service.createCounterparty(dto);
 
-            assertEquals(1L, result.id());
+            assertEquals(uid(1), result.id());
             assertEquals("New Srl", result.name());
         }
 
@@ -176,15 +178,15 @@ class CounterpartyServiceTest {
         @Order(5)
         @DisplayName("Update counterparty returns updated DTO")
         void shouldUpdateCounterparty() {
-            Counterparty existing = Counterparty.builder().id(1L).name("Old").type(CounterpartyType.CUSTOMER).build();
-            CounterpartyDTO updatedDTO = new CounterpartyDTO(1L, "Updated", CounterpartyType.SUPPLIER,
+            Counterparty existing = Counterparty.builder().id(uid(1)).name("Old").type(CounterpartyType.CUSTOMER).build();
+            CounterpartyDTO updatedDTO = new CounterpartyDTO(uid(1), "Updated", CounterpartyType.SUPPLIER,
                     "IT12345678901", "RSSMRA80A01H501U", "Via Roma 1", "Mario Rossi", "mario@updated.com", "+39123456", "Note", null, null);
 
-            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(existing));
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(existing));
             when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
             when(mapper.toDTO(any())).thenReturn(updatedDTO);
 
-            CounterpartyDTO result = service.updateCounterparty(1L, updatedDTO);
+            CounterpartyDTO result = service.updateCounterparty(uid(1), updatedDTO);
 
             assertEquals("Updated", result.name());
             assertEquals(CounterpartyType.SUPPLIER, result.type());
@@ -196,15 +198,15 @@ class CounterpartyServiceTest {
         @Test
         @DisplayName("Update counterparty stores the address parts, codes upper case, blanks as not set")
         void shouldUpdateAddressParts() {
-            Counterparty existing = Counterparty.builder().id(1L).name("Old").type(CounterpartyType.SUPPLIER).build();
-            CounterpartyDTO updatedDTO = new CounterpartyDTO(1L, "Rossi Impianti", CounterpartyType.SUPPLIER,
+            Counterparty existing = Counterparty.builder().id(uid(1)).name("Old").type(CounterpartyType.SUPPLIER).build();
+            CounterpartyDTO updatedDTO = new CounterpartyDTO(uid(1), "Rossi Impianti", CounterpartyType.SUPPLIER,
                     null, null, "Via Verdi 3", null, null, null, null, null, null, "20121", "Milano", "mi", " ");
 
-            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(existing));
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(existing));
             when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
             when(mapper.toDTO(any())).thenReturn(updatedDTO);
 
-            service.updateCounterparty(1L, updatedDTO);
+            service.updateCounterparty(uid(1), updatedDTO);
 
             assertEquals("20121", existing.getPostalCode());
             assertEquals("Milano", existing.getCity());
@@ -216,19 +218,19 @@ class CounterpartyServiceTest {
         @Order(6)
         @DisplayName("Update counterparty throws exception if not found")
         void shouldThrowExceptionWhenUpdatingMissingCounterparty() {
-            CounterpartyDTO updatedDTO = new CounterpartyDTO(1L, "Updated", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
-            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.empty());
+            CounterpartyDTO updatedDTO = new CounterpartyDTO(uid(1), "Updated", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.empty());
 
             CounterpartyNotFoundException ex =
-                assertThrows(CounterpartyNotFoundException.class, () -> service.updateCounterparty(1L, updatedDTO));
-            assertEquals("ID controparte 1 non trovata", ex.getMessage());
+                assertThrows(CounterpartyNotFoundException.class, () -> service.updateCounterparty(uid(1), updatedDTO));
+            assertEquals("ID controparte " + uid(1) + " non trovata", ex.getMessage());
         }
 
         @Test
         @Order(7)
         @DisplayName("Delete counterparty calls repository")
         void shouldDeleteCounterparty() {
-            Long id = 1L;
+            UUID id = uid(1);
             Counterparty counterparty = Counterparty.builder().id(id).build();
             when(repository.findByIdAndOrganizationId(id, TENANT)).thenReturn(Optional.of(counterparty));
 
@@ -241,11 +243,11 @@ class CounterpartyServiceTest {
         @Order(8)
         @DisplayName("Delete counterparty throws if it doesn't exist")
         void shouldThrowWhenDeletingNonExistentCounterparty() {
-            when(repository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(repository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
             CounterpartyNotFoundException ex = assertThrows(CounterpartyNotFoundException.class,
-                    () -> service.deleteCounterparty(999L));
-            assertEquals("ID controparte 999 non trovata", ex.getMessage());
+                    () -> service.deleteCounterparty(uid(999)));
+            assertEquals("ID controparte " + uid(999) + " non trovata", ex.getMessage());
             verify(repository, never()).delete(any(Counterparty.class));
         }
 
@@ -253,18 +255,18 @@ class CounterpartyServiceTest {
         @Order(9)
         @DisplayName("getAllCounterparties with TenantContext uses org-filtered repository")
         void shouldGetAllCounterpartiesWithTenantContext() {
-            Counterparty counterparty = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.CUSTOMER).build();
-            CounterpartyDTO dto = new CounterpartyDTO(1L, "Alfa Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
+            Counterparty counterparty = Counterparty.builder().id(uid(1)).name("Alfa Srl").type(CounterpartyType.CUSTOMER).build();
+            CounterpartyDTO dto = new CounterpartyDTO(uid(1), "Alfa Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
 
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
             try {
-                when(repository.findAllByOrganizationId(1L)).thenReturn(List.of(counterparty));
+                when(repository.findAllByOrganizationId(uid(1))).thenReturn(List.of(counterparty));
                 when(mapper.toDTO(counterparty)).thenReturn(dto);
 
                 List<CounterpartyDTO> result = service.getAllCounterparties();
 
                 assertEquals(1, result.size());
-                verify(repository).findAllByOrganizationId(1L);
+                verify(repository).findAllByOrganizationId(uid(1));
             } finally {
                 TenantContext.clear();
             }
@@ -276,10 +278,10 @@ class CounterpartyServiceTest {
         void shouldCreateCounterpartyWithTenantContext() {
             CounterpartyDTO dto = new CounterpartyDTO(null, "Gamma Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
             Counterparty entity = Counterparty.builder().name("Gamma Srl").type(CounterpartyType.CUSTOMER).build();
-            Counterparty saved = Counterparty.builder().id(2L).name("Gamma Srl").type(CounterpartyType.CUSTOMER).build();
-            CounterpartyDTO savedDTO = new CounterpartyDTO(2L, "Gamma Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
+            Counterparty saved = Counterparty.builder().id(uid(2)).name("Gamma Srl").type(CounterpartyType.CUSTOMER).build();
+            CounterpartyDTO savedDTO = new CounterpartyDTO(uid(2), "Gamma Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
 
-            TenantContext.set(5L);
+            TenantContext.set(uid(5));
             try {
                 when(mapper.toEntity(dto)).thenReturn(entity);
                 when(repository.save(any())).thenReturn(saved);
@@ -287,9 +289,9 @@ class CounterpartyServiceTest {
 
                 CounterpartyDTO result = service.createCounterparty(dto);
 
-                assertEquals(2L, result.id());
+                assertEquals(uid(2), result.id());
                 assertNotNull(entity.getOrganization());
-                assertEquals(5L, entity.getOrganization().getId());
+                assertEquals(uid(5), entity.getOrganization().getId());
             } finally {
                 TenantContext.clear();
             }
@@ -299,18 +301,18 @@ class CounterpartyServiceTest {
         @Order(11)
         @DisplayName("getCounterpartyById with TenantContext uses org-scoped repository")
         void shouldGetCounterpartyByIdWithTenantContext() {
-            Counterparty entity = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.CUSTOMER).build();
-            CounterpartyDTO dto = new CounterpartyDTO(1L, "Alfa Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
+            Counterparty entity = Counterparty.builder().id(uid(1)).name("Alfa Srl").type(CounterpartyType.CUSTOMER).build();
+            CounterpartyDTO dto = new CounterpartyDTO(uid(1), "Alfa Srl", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
 
-            TenantContext.set(8L);
+            TenantContext.set(uid(8));
             try {
-                when(repository.findByIdAndOrganizationId(1L, 8L)).thenReturn(Optional.of(entity));
+                when(repository.findByIdAndOrganizationId(uid(1), uid(8))).thenReturn(Optional.of(entity));
                 when(mapper.toDTO(entity)).thenReturn(dto);
 
-                CounterpartyDTO result = service.getCounterpartyById(1L);
+                CounterpartyDTO result = service.getCounterpartyById(uid(1));
 
                 assertEquals("Alfa Srl", result.name());
-                verify(repository).findByIdAndOrganizationId(1L, 8L);
+                verify(repository).findByIdAndOrganizationId(uid(1), uid(8));
             } finally {
                 TenantContext.clear();
             }
@@ -320,22 +322,22 @@ class CounterpartyServiceTest {
         @Order(12)
         @DisplayName("getInvoicingSummary compares a supplier's expected costs and invoices over the same months")
         void shouldGetInvoicingSummary() {
-            Counterparty entity = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
+            Counterparty entity = Counterparty.builder().id(uid(1)).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
             LocalDate today = LocalDate.now();
             int year = today.getYear();
 
-            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
-            when(contractsRepository.countActiveContractsByCounterpartyId(1L)).thenReturn(3);
-            when(contractsRepository.sumActiveAnnualValueByCounterpartyId(1L)).thenReturn(12000.0);
-            when(financialValuesRepository.sumCostByCounterpartyUpToMonth(1L, year, today.getMonthValue())).thenReturn(10000.0);
-            when(invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(1L, year))
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(entity));
+            when(contractsRepository.countActiveContractsByCounterpartyId(uid(1))).thenReturn(3);
+            when(contractsRepository.sumActiveAnnualValueByCounterpartyId(uid(1))).thenReturn(12000.0);
+            when(financialValuesRepository.sumCostByCounterpartyUpToMonth(uid(1), year, today.getMonthValue())).thenReturn(10000.0);
+            when(invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(uid(1), year))
                     .thenReturn(new BigDecimal("8000.00"));
-            when(invoiceRepository.countByContractCounterpartyId(1L)).thenReturn(5L);
-            when(invoiceRepository.findLastInvoiceDateByCounterpartyId(1L)).thenReturn(LocalDate.of(2026, Month.MARCH, 1));
+            when(invoiceRepository.countByContractCounterpartyId(uid(1))).thenReturn(5L);
+            when(invoiceRepository.findLastInvoiceDateByCounterpartyId(uid(1))).thenReturn(LocalDate.of(2026, Month.MARCH, 1));
 
-            CounterpartyInvoicingSummaryDTO result = service.getInvoicingSummary(1L);
+            CounterpartyInvoicingSummaryDTO result = service.getInvoicingSummary(uid(1));
 
-            assertEquals(1L, result.counterpartyId());
+            assertEquals(uid(1), result.counterpartyId());
             assertEquals("Alfa Srl", result.counterpartyName());
             assertEquals(3, result.activeContracts());
             assertEquals(12000.0, result.contractedValue());
@@ -352,28 +354,28 @@ class CounterpartyServiceTest {
         @Order(12)
         @DisplayName("getInvoicingSummary compares a counterparty that is both customer and supplier")
         void shouldCompareBoth() {
-            Counterparty entity = Counterparty.builder().id(3L).name("Gamma Srl").type(CounterpartyType.BOTH).build();
-            when(repository.findByIdAndOrganizationId(3L, TENANT)).thenReturn(Optional.of(entity));
+            Counterparty entity = Counterparty.builder().id(uid(3)).name("Gamma Srl").type(CounterpartyType.BOTH).build();
+            when(repository.findByIdAndOrganizationId(uid(3), TENANT)).thenReturn(Optional.of(entity));
             // COALESCE(SUM(...), 0) in the query: never null from the database.
-            when(invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(eq(3L), anyInt()))
+            when(invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(eq(uid(3)), anyInt()))
                     .thenReturn(BigDecimal.ZERO);
 
-            assertEquals(true, service.getInvoicingSummary(3L).comparable());
+            assertEquals(true, service.getInvoicingSummary(uid(3)).comparable());
         }
 
         @Test
         @Order(13)
         @DisplayName("getInvoicingSummary doesn't compare a customer: its invoices aren't in BCM")
         void shouldNotCompareCustomer() {
-            Counterparty entity = Counterparty.builder().id(2L).name("Beta Srl").type(CounterpartyType.CUSTOMER).build();
+            Counterparty entity = Counterparty.builder().id(uid(2)).name("Beta Srl").type(CounterpartyType.CUSTOMER).build();
 
-            when(repository.findByIdAndOrganizationId(2L, TENANT)).thenReturn(Optional.of(entity));
-            when(contractsRepository.countActiveContractsByCounterpartyId(2L)).thenReturn(1);
-            when(contractsRepository.sumActiveAnnualValueByCounterpartyId(2L)).thenReturn(5000.0);
-            when(invoiceRepository.countByContractCounterpartyId(2L)).thenReturn(0L);
-            when(invoiceRepository.findLastInvoiceDateByCounterpartyId(2L)).thenReturn(null);
+            when(repository.findByIdAndOrganizationId(uid(2), TENANT)).thenReturn(Optional.of(entity));
+            when(contractsRepository.countActiveContractsByCounterpartyId(uid(2))).thenReturn(1);
+            when(contractsRepository.sumActiveAnnualValueByCounterpartyId(uid(2))).thenReturn(5000.0);
+            when(invoiceRepository.countByContractCounterpartyId(uid(2))).thenReturn(0L);
+            when(invoiceRepository.findLastInvoiceDateByCounterpartyId(uid(2))).thenReturn(null);
 
-            CounterpartyInvoicingSummaryDTO result = service.getInvoicingSummary(2L);
+            CounterpartyInvoicingSummaryDTO result = service.getInvoicingSummary(uid(2));
 
             assertEquals(false, result.comparable());
             assertEquals(5000.0, result.contractedValue());
@@ -386,24 +388,24 @@ class CounterpartyServiceTest {
         @Order(131)
         @DisplayName("getInvoicingSummary reports zero variance when nothing is expected yet")
         void shouldReportZeroVariancePercentWhenNothingExpected() {
-            Counterparty entity = Counterparty.builder().id(3L).name("Gamma Srl").type(CounterpartyType.SUPPLIER).build();
+            Counterparty entity = Counterparty.builder().id(uid(3)).name("Gamma Srl").type(CounterpartyType.SUPPLIER).build();
             LocalDate today = LocalDate.now();
 
-            when(repository.findByIdAndOrganizationId(3L, TENANT)).thenReturn(Optional.of(entity));
-            when(financialValuesRepository.sumCostByCounterpartyUpToMonth(3L, today.getYear(), today.getMonthValue())).thenReturn(0.0);
-            when(invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(3L, today.getYear()))
+            when(repository.findByIdAndOrganizationId(uid(3), TENANT)).thenReturn(Optional.of(entity));
+            when(financialValuesRepository.sumCostByCounterpartyUpToMonth(uid(3), today.getYear(), today.getMonthValue())).thenReturn(0.0);
+            when(invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(uid(3), today.getYear()))
                     .thenReturn(new BigDecimal("100.00"));
 
-            assertEquals(0.0, service.getInvoicingSummary(3L).variancePercent());
+            assertEquals(0.0, service.getInvoicingSummary(uid(3)).variancePercent());
         }
 
         @Test
         @Order(14)
         @DisplayName("getInvoicingSummary throws when the counterparty doesn't exist")
         void shouldThrowWhenGettingInvoicingSummaryForMissingCounterparty() {
-            when(repository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(repository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
-            assertThrows(CounterpartyNotFoundException.class, () -> service.getInvoicingSummary(999L));
+            assertThrows(CounterpartyNotFoundException.class, () -> service.getInvoicingSummary(uid(999)));
         }
     }
 
@@ -417,16 +419,16 @@ class CounterpartyServiceTest {
         @Order(1)
         @DisplayName("Returns the existing counterparty on a case-insensitive name match within the org")
         void shouldReturnExistingCounterpartyOnCaseInsensitiveMatch() {
-            Counterparty existing = Counterparty.builder().id(3L).name("Alfa Srl").type(CounterpartyType.CUSTOMER).build();
+            Counterparty existing = Counterparty.builder().id(uid(3)).name("Alfa Srl").type(CounterpartyType.CUSTOMER).build();
 
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
             try {
-                when(repository.findByNameIgnoreCaseAndOrganizationId("alfa srl", 1L))
+                when(repository.findByNameIgnoreCaseAndOrganizationId("alfa srl", uid(1)))
                         .thenReturn(Optional.of(existing));
 
                 Counterparty result = service.resolveOrCreateByName("alfa srl");
 
-                assertEquals(3L, result.getId());
+                assertEquals(uid(3), result.getId());
                 verify(repository, never()).save(any());
             } finally {
                 TenantContext.clear();
@@ -437,23 +439,23 @@ class CounterpartyServiceTest {
         @Order(2)
         @DisplayName("Creates a new CUSTOMER counterparty when no match exists in the org")
         void shouldCreateNewCounterpartyWhenNoMatch() {
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
             try {
-                when(repository.findByNameIgnoreCaseAndOrganizationId("Nuova Srl", 1L))
+                when(repository.findByNameIgnoreCaseAndOrganizationId("Nuova Srl", uid(1)))
                         .thenReturn(Optional.empty());
                 when(repository.save(any(Counterparty.class))).thenAnswer(inv -> {
                     Counterparty c = inv.getArgument(0);
-                    c.setId(42L);
+                    c.setId(uid(42));
                     return c;
                 });
 
                 Counterparty result = service.resolveOrCreateByName("Nuova Srl");
 
-                assertEquals(42L, result.getId());
+                assertEquals(uid(42), result.getId());
                 assertEquals("Nuova Srl", result.getName());
                 assertEquals(CounterpartyType.CUSTOMER, result.getType());
                 assertNotNull(result.getOrganization());
-                assertEquals(1L, result.getOrganization().getId());
+                assertEquals(uid(1), result.getOrganization().getId());
             } finally {
                 TenantContext.clear();
             }
@@ -483,15 +485,15 @@ class CounterpartyServiceTest {
         @Order(1)
         @DisplayName("First confirmation learns the IBAN and logs it as 'set'")
         void shouldSetVerifiedIbanForTheFirstTime() {
-            Counterparty counterparty = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
-            CounterpartyDTO dto = new CounterpartyDTO(1L, "Alfa Srl", CounterpartyType.SUPPLIER,
+            Counterparty counterparty = Counterparty.builder().id(uid(1)).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
+            CounterpartyDTO dto = new CounterpartyDTO(uid(1), "Alfa Srl", CounterpartyType.SUPPLIER,
                     null, null, null, null, null, null, null, VALID_IBAN, VALID_BIC);
 
-            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(counterparty));
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(counterparty));
             when(repository.save(any(Counterparty.class))).thenAnswer(inv -> inv.getArgument(0));
             when(mapper.toDTO(any(Counterparty.class))).thenReturn(dto);
 
-            CounterpartyDTO result = service.confirmVerifiedIban(1L, new VerifyCounterpartyIbanRequest(VALID_IBAN, VALID_BIC));
+            CounterpartyDTO result = service.confirmVerifiedIban(uid(1), new VerifyCounterpartyIbanRequest(VALID_IBAN, VALID_BIC));
 
             assertEquals(VALID_IBAN, result.verifiedIban());
             assertEquals(VALID_IBAN, counterparty.getVerifiedIban());
@@ -499,7 +501,7 @@ class CounterpartyServiceTest {
 
             ArgumentCaptor<String> details = ArgumentCaptor.forClass(String.class);
             verify(auditLogService).save(org.mockito.ArgumentMatchers.eq("VERIFIED_IBAN_CONFIRMED"),
-                    org.mockito.ArgumentMatchers.eq("Counterparty"), org.mockito.ArgumentMatchers.eq(1L),
+                    org.mockito.ArgumentMatchers.eq("Counterparty"), org.mockito.ArgumentMatchers.eq(uid(1)),
                     org.mockito.ArgumentMatchers.eq("admin"), any(), details.capture());
             assertTrue(details.getValue().contains(" set "));
             assertTrue(details.getValue().contains("IT..."));
@@ -509,16 +511,16 @@ class CounterpartyServiceTest {
         @Order(2)
         @DisplayName("Replacing an already-verified IBAN logs it as 'changed' with both masked values")
         void shouldReplaceVerifiedIbanAndLogChange() {
-            Counterparty counterparty = Counterparty.builder().id(2L).name("Beta Srl").type(CounterpartyType.SUPPLIER)
+            Counterparty counterparty = Counterparty.builder().id(uid(2)).name("Beta Srl").type(CounterpartyType.SUPPLIER)
                     .verifiedIban("DE89370400440532013000").build();
-            CounterpartyDTO dto = new CounterpartyDTO(2L, "Beta Srl", CounterpartyType.SUPPLIER,
+            CounterpartyDTO dto = new CounterpartyDTO(uid(2), "Beta Srl", CounterpartyType.SUPPLIER,
                     null, null, null, null, null, null, null, VALID_IBAN, null);
 
-            when(repository.findByIdAndOrganizationId(2L, TENANT)).thenReturn(Optional.of(counterparty));
+            when(repository.findByIdAndOrganizationId(uid(2), TENANT)).thenReturn(Optional.of(counterparty));
             when(repository.save(any(Counterparty.class))).thenAnswer(inv -> inv.getArgument(0));
             when(mapper.toDTO(any(Counterparty.class))).thenReturn(dto);
 
-            service.confirmVerifiedIban(2L, new VerifyCounterpartyIbanRequest(VALID_IBAN, null));
+            service.confirmVerifiedIban(uid(2), new VerifyCounterpartyIbanRequest(VALID_IBAN, null));
 
             assertEquals(VALID_IBAN, counterparty.getVerifiedIban());
             assertNull(counterparty.getVerifiedBic());
@@ -535,13 +537,13 @@ class CounterpartyServiceTest {
         @Order(3)
         @DisplayName("A blank (non-null) BIC is stored as null, same as no BIC at all")
         void shouldStoreBlankBicAsNull() {
-            Counterparty counterparty = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
-            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(counterparty));
+            Counterparty counterparty = Counterparty.builder().id(uid(1)).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(counterparty));
             when(repository.save(any(Counterparty.class))).thenAnswer(inv -> inv.getArgument(0));
             when(mapper.toDTO(any(Counterparty.class))).thenReturn(
-                    new CounterpartyDTO(1L, "Alfa Srl", CounterpartyType.SUPPLIER, null, null, null, null, null, null, null, VALID_IBAN, null));
+                    new CounterpartyDTO(uid(1), "Alfa Srl", CounterpartyType.SUPPLIER, null, null, null, null, null, null, null, VALID_IBAN, null));
 
-            service.confirmVerifiedIban(1L, new VerifyCounterpartyIbanRequest(VALID_IBAN, "   "));
+            service.confirmVerifiedIban(uid(1), new VerifyCounterpartyIbanRequest(VALID_IBAN, "   "));
 
             assertNull(counterparty.getVerifiedBic());
         }
@@ -550,13 +552,13 @@ class CounterpartyServiceTest {
         @Order(4)
         @DisplayName("Normalizes a lowercase IBAN with spaces before validating and saving")
         void shouldNormalizeIbanBeforeSaving() {
-            Counterparty counterparty = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
-            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(counterparty));
+            Counterparty counterparty = Counterparty.builder().id(uid(1)).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(counterparty));
             when(repository.save(any(Counterparty.class))).thenAnswer(inv -> inv.getArgument(0));
             when(mapper.toDTO(any(Counterparty.class))).thenReturn(
-                    new CounterpartyDTO(1L, "Alfa Srl", CounterpartyType.SUPPLIER, null, null, null, null, null, null, null, VALID_IBAN, null));
+                    new CounterpartyDTO(uid(1), "Alfa Srl", CounterpartyType.SUPPLIER, null, null, null, null, null, null, null, VALID_IBAN, null));
 
-            service.confirmVerifiedIban(1L, new VerifyCounterpartyIbanRequest("it60 x054 2811 1010 0000 0123 456", null));
+            service.confirmVerifiedIban(uid(1), new VerifyCounterpartyIbanRequest("it60 x054 2811 1010 0000 0123 456", null));
 
             assertEquals(VALID_IBAN, counterparty.getVerifiedIban());
         }
@@ -565,12 +567,12 @@ class CounterpartyServiceTest {
         @Order(5)
         @DisplayName("Rejects a structurally invalid IBAN and doesn't save or log anything")
         void shouldRejectInvalidIban() {
-            Counterparty counterparty = Counterparty.builder().id(1L).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
-            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(counterparty));
+            Counterparty counterparty = Counterparty.builder().id(uid(1)).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(counterparty));
             VerifyCounterpartyIbanRequest request = new VerifyCounterpartyIbanRequest("NOTANIBAN", null);
 
             assertThrows(IllegalArgumentException.class,
-                    () -> service.confirmVerifiedIban(1L, request));
+                    () -> service.confirmVerifiedIban(uid(1), request));
 
             verify(repository, never()).save(any());
             verify(auditLogService, never()).save(any(), any(), any(), any(), any(), any());
@@ -580,11 +582,11 @@ class CounterpartyServiceTest {
         @Order(6)
         @DisplayName("Throws when the counterparty doesn't exist")
         void shouldThrowWhenCounterpartyNotFound() {
-            when(repository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(repository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
             VerifyCounterpartyIbanRequest request = new VerifyCounterpartyIbanRequest(VALID_IBAN, null);
 
             assertThrows(CounterpartyNotFoundException.class,
-                    () -> service.confirmVerifiedIban(999L, request));
+                    () -> service.confirmVerifiedIban(uid(999), request));
             verify(auditLogService, never()).save(any(), any(), any(), any(), any(), any());
         }
     }

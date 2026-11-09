@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
+
 /**
  * DTO used for exposing manager data through REST APIs.
  * <p>
@@ -18,7 +20,7 @@ package com.donatodev.bcm_backend.dto;
  * @param department  the department where the manager operates
  */
 public record ManagerDTO(
-        Long id,
+        UUID id,
         String firstName,
         String lastName,
         String email,

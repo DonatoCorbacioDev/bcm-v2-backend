@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.http.ContentDisposition;
@@ -42,7 +43,7 @@ public class SepaPaymentController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<byte[]> createSepaPayment(
-            @PathVariable Long contractId,
+            @PathVariable UUID contractId,
             @Valid @RequestBody CreateSepaPaymentRequest request) {
         FileDownload download = sepaPaymentService.createSepaPayment(
                 contractId, request.invoiceIds(), request.executionDate());
@@ -55,15 +56,15 @@ public class SepaPaymentController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    public ResponseEntity<List<SepaPaymentBatchDTO>> getPayments(@PathVariable Long contractId) {
+    public ResponseEntity<List<SepaPaymentBatchDTO>> getPayments(@PathVariable UUID contractId) {
         return ResponseEntity.ok(sepaPaymentService.getPayments(contractId));
     }
 
     @GetMapping("/{batchId}/download")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<byte[]> downloadPayment(
-            @PathVariable Long contractId,
-            @PathVariable Long batchId) {
+            @PathVariable UUID contractId,
+            @PathVariable UUID batchId) {
         FileDownload download = sepaPaymentService.downloadPayment(contractId, batchId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentDisposition(ContentDisposition.attachment()

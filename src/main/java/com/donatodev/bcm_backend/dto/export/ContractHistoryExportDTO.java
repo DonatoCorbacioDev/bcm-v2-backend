@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import com.donatodev.bcm_backend.entity.ContractHistory;
@@ -13,9 +14,9 @@ import com.donatodev.bcm_backend.entity.Users;
 
 /** One element of {@code data/contract_history.json}. */
 public record ContractHistoryExportDTO(
-        Long id,
-        Long contractId,
-        Long modifiedByUserId,
+        UUID id,
+        UUID contractId,
+        UUID modifiedByUserId,
         LocalDateTime modificationDate,
         ContractStatus previousStatus,
         ContractStatus newStatus) {

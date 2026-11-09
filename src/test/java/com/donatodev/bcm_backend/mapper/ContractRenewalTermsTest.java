@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.mapper;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.time.LocalDate;
 import java.time.Month;
 import java.time.ZoneId;
@@ -39,7 +40,7 @@ class ContractRenewalTermsTest {
 
     private static Contracts contract(Boolean autoRenew, Integer noticeDays, Integer renewalMonths, LocalDate endDate) {
         return Contracts.builder()
-                .id(1L).contractNumber("MAN-1").status(ContractStatus.ACTIVE)
+                .id(uid(1)).contractNumber("MAN-1").status(ContractStatus.ACTIVE)
                 .startDate(endDate.minusYears(1)).endDate(endDate)
                 .autoRenew(autoRenew).noticeDays(noticeDays).renewalMonths(renewalMonths)
                 .build();
@@ -106,8 +107,8 @@ class ContractRenewalTermsTest {
     @DisplayName("Clears notice and renewal length when the contract doesn't renew tacitly")
     void clearsTermsThatDontApply() {
         Contracts c = contract(true, 90, 12, LocalDate.of(2026, Month.DECEMBER, 31));
-        ContractDTO update = new ContractDTO(1L, 1L, null, "MAN-1", null, null, ContractStatus.ACTIVE,
-                c.getStartDate(), c.getEndDate(), 1L, null, null, null, null, null, null, null, null, null,
+        ContractDTO update = new ContractDTO(uid(1), uid(1), null, "MAN-1", null, null, ContractStatus.ACTIVE,
+                c.getStartDate(), c.getEndDate(), uid(1), null, null, null, null, null, null, null, null, null,
                 false, 90, 12, null, null);
 
         mapper.applyRenewalTerms(c, update);
@@ -121,8 +122,8 @@ class ContractRenewalTermsTest {
     @DisplayName("Ignores the read-only deadline sent by a client: it is always recomputed")
     void deadlineFromClientIsIgnored() {
         Contracts c = contract(null, null, null, LocalDate.of(2026, Month.DECEMBER, 31));
-        ContractDTO update = new ContractDTO(1L, 1L, null, "MAN-1", null, null, ContractStatus.ACTIVE,
-                c.getStartDate(), c.getEndDate(), 1L, null, null, null, null, null, null, null, null, null,
+        ContractDTO update = new ContractDTO(uid(1), uid(1), null, "MAN-1", null, null, ContractStatus.ACTIVE,
+                c.getStartDate(), c.getEndDate(), uid(1), null, null, null, null, null, null, null, null, null,
                 true, 30, 12, LocalDate.of(2020, Month.JANUARY, 1), 999);
 
         mapper.applyRenewalTerms(c, update);

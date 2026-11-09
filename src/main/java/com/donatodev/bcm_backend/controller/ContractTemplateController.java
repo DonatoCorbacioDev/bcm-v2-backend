@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.util.List;
 
 import jakarta.validation.Valid;
@@ -43,7 +44,7 @@ public class ContractTemplateController {
 
     @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     @GetMapping("/{id}")
-    public ResponseEntity<ContractTemplateDTO> getTemplate(@PathVariable Long id) {
+    public ResponseEntity<ContractTemplateDTO> getTemplate(@PathVariable UUID id) {
         return ResponseEntity.ok(templateService.getTemplate(id));
     }
 
@@ -57,14 +58,14 @@ public class ContractTemplateController {
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<ContractTemplateDTO> updateTemplate(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @Valid @RequestBody ContractTemplateDTO dto) {
         return ResponseEntity.ok(templateService.updateTemplate(id, dto));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTemplate(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteTemplate(@PathVariable UUID id) {
         templateService.deleteTemplate(id);
         return ResponseEntity.noContent().build();
     }
@@ -73,7 +74,7 @@ public class ContractTemplateController {
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/instantiate")
     public ResponseEntity<ContractDTO> instantiateTemplate(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @Valid @RequestBody InstantiateTemplateDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(templateService.instantiateTemplate(id, dto));
     }

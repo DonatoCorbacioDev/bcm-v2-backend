@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import java.time.LocalDate;
 
 import com.donatodev.bcm_backend.entity.BillingFrequency;
@@ -47,8 +48,8 @@ import jakarta.validation.constraints.NotNull;
  * @param daysUntilNoticeDeadline read-only: days left until {@code noticeDeadline}, for ACTIVE contracts
  */
 public record ContractDTO(
-        Long id,
-        @NotNull(message = "Controparte obbligatoria") Long counterpartyId,
+        UUID id,
+        @NotNull(message = "Controparte obbligatoria") UUID counterpartyId,
         CounterpartyDTO counterparty,
         @NotBlank(message = "Numero contratto obbligatorio") String contractNumber,
         String wbsCode,
@@ -56,14 +57,14 @@ public record ContractDTO(
         ContractStatus status,
         @NotNull(message = "Data inizio obbligatoria") LocalDate startDate,
         @NotNull(message = "Data fine obbligatoria") LocalDate endDate,
-        @NotNull(message = "Area aziendale obbligatoria") Long areaId,
-        Long managerId,
+        @NotNull(message = "Area aziendale obbligatoria") UUID areaId,
+        UUID managerId,
         String managerName,
         ManagerDTO manager,
         BusinessAreaDTO area,
         Integer daysUntilExpiry,
         WorkflowStage workflowStage,
-        Long financialTypeId,
+        UUID financialTypeId,
         Double annualValue,
         BillingFrequency billingFrequency,
         Boolean autoRenew,
@@ -79,10 +80,10 @@ public record ContractDTO(
      * Compatibility constructor for call sites predating tacit renewal terms —
      * defaults them to {@code null} ("not stated").
      */
-    public ContractDTO(Long id, Long counterpartyId, CounterpartyDTO counterparty, String contractNumber, String wbsCode,
+    public ContractDTO(UUID id, UUID counterpartyId, CounterpartyDTO counterparty, String contractNumber, String wbsCode,
             String projectName, ContractStatus status, LocalDate startDate, LocalDate endDate,
-            Long areaId, Long managerId, String managerName, ManagerDTO manager, BusinessAreaDTO area,
-            Integer daysUntilExpiry, WorkflowStage workflowStage, Long financialTypeId, Double annualValue,
+            UUID areaId, UUID managerId, String managerName, ManagerDTO manager, BusinessAreaDTO area,
+            Integer daysUntilExpiry, WorkflowStage workflowStage, UUID financialTypeId, Double annualValue,
             BillingFrequency billingFrequency) {
         this(id, counterpartyId, counterparty, contractNumber, wbsCode, projectName, status, startDate, endDate,
                 areaId, managerId, managerName, manager, area, daysUntilExpiry, workflowStage, financialTypeId,
@@ -95,9 +96,9 @@ public record ContractDTO(
      * {@code billingFrequency} to {@code null} (contract not auto-generating
      * its financial values).
      */
-    public ContractDTO(Long id, Long counterpartyId, CounterpartyDTO counterparty, String contractNumber, String wbsCode,
+    public ContractDTO(UUID id, UUID counterpartyId, CounterpartyDTO counterparty, String contractNumber, String wbsCode,
             String projectName, ContractStatus status, LocalDate startDate, LocalDate endDate,
-            Long areaId, Long managerId, String managerName, ManagerDTO manager, BusinessAreaDTO area,
+            UUID areaId, UUID managerId, String managerName, ManagerDTO manager, BusinessAreaDTO area,
             Integer daysUntilExpiry, WorkflowStage workflowStage) {
         this(id, counterpartyId, counterparty, contractNumber, wbsCode, projectName, status, startDate, endDate,
                 areaId, managerId, managerName, manager, area, daysUntilExpiry, workflowStage, null, null, null);
@@ -108,9 +109,9 @@ public record ContractDTO(
      * workflow — defaults {@code workflowStage} (and the financial-terms
      * fields) to {@code null}.
      */
-    public ContractDTO(Long id, Long counterpartyId, CounterpartyDTO counterparty, String contractNumber, String wbsCode,
+    public ContractDTO(UUID id, UUID counterpartyId, CounterpartyDTO counterparty, String contractNumber, String wbsCode,
             String projectName, ContractStatus status, LocalDate startDate, LocalDate endDate,
-            Long areaId, Long managerId, String managerName, ManagerDTO manager, BusinessAreaDTO area,
+            UUID areaId, UUID managerId, String managerName, ManagerDTO manager, BusinessAreaDTO area,
             Integer daysUntilExpiry) {
         this(id, counterpartyId, counterparty, contractNumber, wbsCode, projectName, status, startDate, endDate,
                 areaId, managerId, managerName, manager, area, daysUntilExpiry, null);

@@ -5,11 +5,13 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
+
 public record SemanticSearchResultDTO(
-        Long contractId,
+        UUID contractId,
         String contractNumber,
         String customerName,
-        Long documentId,
+        UUID documentId,
         String fileName,
         double score
 ) {}

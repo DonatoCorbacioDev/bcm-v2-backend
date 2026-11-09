@@ -61,7 +61,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (username != null && !jwtUtils.isMfaPendingToken(token)
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
                 try {
-                    Long orgId = jwtUtils.getOrganizationIdFromToken(token);
+                    UUID orgId = jwtUtils.getOrganizationIdFromToken(token);
                     // Fails closed: every lookup is scoped by the token's
                     // organization, so a token without one authenticates nobody
                     // (OWASP API1, BOLA). Tokens always carry it since V8.

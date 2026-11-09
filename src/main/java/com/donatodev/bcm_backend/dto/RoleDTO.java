@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
+
 /**
  * DTO used to manage user roles in the REST API.
  * <p>
@@ -14,6 +16,6 @@ package com.donatodev.bcm_backend.dto;
  * @param role  the name of the role (e.g., "ADMIN", "MANAGER")
  */
 public record RoleDTO(
-        Long id,
+        UUID id,
         String role
 ) {}

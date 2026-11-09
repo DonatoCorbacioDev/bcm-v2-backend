@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
@@ -145,7 +146,7 @@ class PdfBoxServiceTest {
         @Order(1)
         @DisplayName("analyzeDocument: extracts all fields from structured PDF")
         void shouldExtractAllFields() {
-            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(1L, pdfWithFields);
+            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(uid(1), pdfWithFields);
 
             assertNotNull(result.rawText());
             assertEquals("Acme Corporation", result.detectedCustomerName());
@@ -158,7 +159,7 @@ class PdfBoxServiceTest {
         @Order(2)
         @DisplayName("analyzeDocument: returns null fields when keywords absent")
         void shouldReturnNullFieldsWhenNoKeywords() {
-            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(2L, pdfNoFields);
+            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(uid(2), pdfNoFields);
 
             assertNull(result.detectedCustomerName());
             assertNull(result.detectedContractNumber());
@@ -169,7 +170,7 @@ class PdfBoxServiceTest {
         @Order(3)
         @DisplayName("analyzeDocument: detects Italian keywords")
         void shouldDetectItalianKeywords() {
-            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(3L, pdfItalianFields);
+            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(uid(3), pdfItalianFields);
 
             assertEquals("Mario Rossi S.r.l.", result.detectedCustomerName());
             assertEquals("01/03/2025", result.detectedStartDate());
@@ -180,7 +181,7 @@ class PdfBoxServiceTest {
         @Order(4)
         @DisplayName("analyzeDocument: keyword found but no colon — field returns null")
         void shouldReturnNullWhenKeywordHasNoColon() {
-            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(4L, pdfKeywordNoColon);
+            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(uid(4), pdfKeywordNoColon);
 
             assertNull(result.detectedCustomerName());
         }
@@ -189,7 +190,7 @@ class PdfBoxServiceTest {
         @Order(5)
         @DisplayName("analyzeDocument: keyword found, colon present but empty value — field returns null")
         void shouldReturnNullWhenValueAfterColonIsEmpty() {
-            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(5L, pdfKeywordEmptyColon);
+            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(uid(5), pdfKeywordEmptyColon);
 
             assertNull(result.detectedCustomerName());
         }
@@ -198,7 +199,7 @@ class PdfBoxServiceTest {
         @Order(6)
         @DisplayName("analyzeDocument: detects amount with $ symbol")
         void shouldDetectAmount() {
-            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(6L, pdfWithAmount);
+            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(uid(6), pdfWithAmount);
 
             assertNotNull(result.detectedAmount());
             assertTrue(result.detectedAmount().startsWith("$"));
@@ -208,7 +209,7 @@ class PdfBoxServiceTest {
         @Order(7)
         @DisplayName("analyzeDocument: extracts field when keyword is on last line (no trailing newline)")
         void shouldExtractFieldOnLastLine() {
-            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(7L, pdfKeywordLastLine);
+            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(uid(7), pdfKeywordLastLine);
 
             assertEquals("Last Line Corp", result.detectedCustomerName());
         }
@@ -236,7 +237,7 @@ class PdfBoxServiceTest {
             byte[] invalid = "not a pdf".getBytes();
 
             assertThrows(java.io.UncheckedIOException.class,
-                    () -> pdfBoxService.analyzeDocument(6L, invalid));
+                    () -> pdfBoxService.analyzeDocument(uid(6), invalid));
         }
 
         @Test
@@ -256,7 +257,7 @@ class PdfBoxServiceTest {
         @Order(10)
         @DisplayName("analyzeDocument: detects amount with € symbol")
         void shouldDetectEuroAmount() {
-            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(8L, pdfWithEuroAmount);
+            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(uid(8), pdfWithEuroAmount);
 
             assertNotNull(result.detectedAmount());
             assertTrue(result.detectedAmount().startsWith("€"));
@@ -289,7 +290,7 @@ class PdfBoxServiceTest {
         void shouldExtractFieldsFromOcrText() {
             when(ocrService.extractText(any())).thenReturn("Cliente: Scansione Corp");
 
-            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(9L, scannedSinglePagePdf);
+            DocumentAnalysisDTO result = pdfBoxService.analyzeDocument(uid(9), scannedSinglePagePdf);
 
             assertEquals("Scansione Corp", result.detectedCustomerName());
         }

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,7 +17,7 @@ import com.donatodev.bcm_backend.entity.VerificationToken;
  * <p>
  * Provides method to find verification tokens by token string.
  */
-public interface VerificationTokenRepository extends JpaRepository<VerificationToken, Long> {
+public interface VerificationTokenRepository extends JpaRepository<VerificationToken, UUID> {
 
     /**
      * Finds a {@link VerificationToken} entity by its token string.

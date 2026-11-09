@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.mapper;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.api.Nested;
@@ -25,7 +26,7 @@ class FinancialTypeMapperTest {
         @Test
         void shouldMapEntityToDTO() {
             FinancialTypes type = FinancialTypes.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .name("SALES")
                     .description("Revenue-related transactions")
                     .category(FinancialCategory.REVENUE)
@@ -33,7 +34,7 @@ class FinancialTypeMapperTest {
 
             FinancialTypeDTO dto = financialTypeMapper.toDTO(type);
 
-            assertEquals(1L, dto.id());
+            assertEquals(uid(1), dto.id());
             assertEquals("SALES", dto.name());
             assertEquals("Revenue-related transactions", dto.description());
             assertEquals(FinancialCategory.REVENUE, dto.category());
@@ -42,7 +43,7 @@ class FinancialTypeMapperTest {
         @Test
         void shouldMapEntityToDTOWithNullDescription() {
             FinancialTypes type = FinancialTypes.builder()
-                    .id(2L)
+                    .id(uid(2))
                     .name("COSTS")
                     .description(null)
                     .category(FinancialCategory.COST)
@@ -50,7 +51,7 @@ class FinancialTypeMapperTest {
 
             FinancialTypeDTO dto = financialTypeMapper.toDTO(type);
 
-            assertEquals(2L, dto.id());
+            assertEquals(uid(2), dto.id());
             assertEquals("COSTS", dto.name());
             assertNull(dto.description());
             assertEquals(FinancialCategory.COST, dto.category());
@@ -78,11 +79,11 @@ class FinancialTypeMapperTest {
 
         @Test
         void shouldMapDTOToEntity() {
-            FinancialTypeDTO dto = new FinancialTypeDTO(10L, "SALES", "Revenue-related transactions", FinancialCategory.REVENUE);
+            FinancialTypeDTO dto = new FinancialTypeDTO(uid(10), "SALES", "Revenue-related transactions", FinancialCategory.REVENUE);
 
             FinancialTypes type = financialTypeMapper.toEntity(dto);
 
-            assertEquals(10L, type.getId());
+            assertEquals(uid(10), type.getId());
             assertEquals("SALES", type.getName());
             assertEquals("Revenue-related transactions", type.getDescription());
             assertEquals(FinancialCategory.REVENUE, type.getCategory());
@@ -90,11 +91,11 @@ class FinancialTypeMapperTest {
 
         @Test
         void shouldMapDTOToEntityWithNullDescription() {
-            FinancialTypeDTO dto = new FinancialTypeDTO(11L, "COSTS", null, FinancialCategory.COST);
+            FinancialTypeDTO dto = new FinancialTypeDTO(uid(11), "COSTS", null, FinancialCategory.COST);
 
             FinancialTypes type = financialTypeMapper.toEntity(dto);
 
-            assertEquals(11L, type.getId());
+            assertEquals(uid(11), type.getId());
             assertEquals("COSTS", type.getName());
             assertNull(type.getDescription());
             assertEquals(FinancialCategory.COST, type.getCategory());

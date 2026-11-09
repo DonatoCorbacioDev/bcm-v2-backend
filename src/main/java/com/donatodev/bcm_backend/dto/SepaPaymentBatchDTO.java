@@ -5,13 +5,14 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
 public record SepaPaymentBatchDTO(
-        Long id,
-        Long contractId,
+        UUID id,
+        UUID contractId,
         LocalDate executionDate,
         BigDecimal totalAmount,
         String currency,

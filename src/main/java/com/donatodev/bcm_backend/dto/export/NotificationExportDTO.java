@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import com.donatodev.bcm_backend.entity.Notification;
@@ -12,8 +13,8 @@ import com.donatodev.bcm_backend.entity.NotificationType;
 
 /** One element of {@code data/notifications.json}. */
 public record NotificationExportDTO(
-        Long id,
-        Long userId,
+        UUID id,
+        UUID userId,
         String title,
         String message,
         NotificationType type,

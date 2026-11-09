@@ -5,15 +5,16 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import com.donatodev.bcm_backend.entity.FinancialValueSource;
 import com.donatodev.bcm_backend.entity.FinancialValues;
 
 /** One element of {@code data/financial_values.json}. */
 public record FinancialValueExportDTO(
-        Long id,
-        Long contractId,
-        Long financialTypeId,
-        Long businessAreaId,
+        UUID id,
+        UUID contractId,
+        UUID financialTypeId,
+        UUID businessAreaId,
         int month,
         int year,
         double financialAmount,

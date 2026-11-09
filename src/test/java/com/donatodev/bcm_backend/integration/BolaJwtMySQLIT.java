@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.integration;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.time.LocalDate;
 import java.time.Month;
 import java.time.LocalDateTime;
@@ -39,8 +40,8 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
     @Autowired private JwtUtils jwt;
     @Autowired private PlatformTransactionManager transactions;
 
-    private record Target(Long contractId, Long valueId, Long historyId, Long budgetId, Long invoiceId) {}
-    private final List<Long> orgIds = new ArrayList<>();
+    private record Target(UUID contractId, UUID valueId, UUID historyId, UUID budgetId, UUID invoiceId) {}
+    private final List<UUID> orgIds = new ArrayList<>();
     private Target own;
     private Target colleague;
     private Target foreign;
@@ -68,14 +69,14 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
     @AfterEach
     void cleanOwnFixtures() {
         TenantContext.clear();
-        for (Long id : orgIds) {
-            jdbc.update("DELETE FROM contract_history WHERE contract_id IN (SELECT id FROM contracts WHERE organization_id = ?)", id);
+        for (UUID id : orgIds) {
+            jdbc.update("DELETE FROM contract_history WHERE contract_id IN (SELECT id FROM contracts WHERE organization_id = ?)", String.valueOf(id));
         }
-        for (Long id : orgIds) jdbc.update("DELETE FROM electronic_invoices WHERE org_id = ?", id);
+        for (UUID id : orgIds) jdbc.update("DELETE FROM electronic_invoices WHERE org_id = ?", String.valueOf(id));
         for (String table : List.of("audit_logs", "financial_values", "budgets", "contracts", "users", "managers",
                 "counterparties", "business_areas", "financial_types", "organizations")) {
             String column = table.equals("organizations") ? "id" : table.equals("audit_logs") ? "org_id" : "organization_id";
-            for (Long id : orgIds) jdbc.update("DELETE FROM " + table + " WHERE " + column + " = ?", id);
+            for (UUID id : orgIds) jdbc.update("DELETE FROM " + table + " WHERE " + column + " = ?", String.valueOf(id));
         }
         orgIds.clear();
     }
@@ -102,12 +103,12 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
             default -> "/contracts/" + target.contractId() + "/" + resource;
         };
         int expected = owner.equals("foreign") ? 404 : owner.equals("colleague") && !admin ? 403 : 200;
-        Map<String, Object> before = jdbc.queryForMap("SELECT * FROM contracts WHERE id = ?", target.contractId());
+        Map<String, Object> before = jdbc.queryForMap("SELECT * FROM contracts WHERE id = ?", String.valueOf(target.contractId()));
 
         mvc.perform(get(path).header("Authorization", "Bearer " + (admin ? adminToken : managerToken)))
                 .andExpect(status().is(expected));
 
-        assertThat(jdbc.queryForMap("SELECT * FROM contracts WHERE id = ?", target.contractId())).isEqualTo(before);
+        assertThat(jdbc.queryForMap("SELECT * FROM contracts WHERE id = ?", String.valueOf(target.contractId()))).isEqualTo(before);
         assertThat(TenantContext.get()).isNull();
     }
 
@@ -115,54 +116,54 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
     @org.junit.jupiter.params.provider.ValueSource(strings = {"contracts", "financial-values", "contract-history",
             "business-areas", "managers", "counterparties", "financial-types", "budgets", "users"})
     void createBodyIdCannotOverwriteForeignCommittedRow(String resource) throws Exception {
-        Map<String, Object> ownContract = jdbc.queryForMap("SELECT * FROM contracts WHERE id = ?", own.contractId());
-        Map<String, Object> foreignContract = jdbc.queryForMap("SELECT * FROM contracts WHERE id = ?", foreign.contractId());
-        Map<String, Object> ownValue = jdbc.queryForMap("SELECT * FROM financial_values WHERE id = ?", own.valueId());
-        Map<String, Object> foreignValue = jdbc.queryForMap("SELECT * FROM financial_values WHERE id = ?", foreign.valueId());
+        Map<String, Object> ownContract = jdbc.queryForMap("SELECT * FROM contracts WHERE id = ?", String.valueOf(own.contractId()));
+        Map<String, Object> foreignContract = jdbc.queryForMap("SELECT * FROM contracts WHERE id = ?", String.valueOf(foreign.contractId()));
+        Map<String, Object> ownValue = jdbc.queryForMap("SELECT * FROM financial_values WHERE id = ?", String.valueOf(own.valueId()));
+        Map<String, Object> foreignValue = jdbc.queryForMap("SELECT * FROM financial_values WHERE id = ?", String.valueOf(foreign.valueId()));
         Object victimId = switch (resource) {
             case "contracts" -> foreign.contractId(); case "financial-values" -> foreign.valueId();
             case "contract-history" -> foreign.historyId(); case "budgets" -> foreign.budgetId();
             case "business-areas" -> foreignContract.get("area_id"); case "managers" -> foreignContract.get("manager_id");
             case "counterparties" -> foreignContract.get("counterparty_id");
             case "financial-types" -> foreignValue.get("financial_type_id");
-            case "users" -> jdbc.queryForObject("SELECT modified_by FROM contract_history WHERE id = ?", Long.class, foreign.historyId());
+            case "users" -> UUID.fromString(jdbc.queryForObject("SELECT modified_by FROM contract_history WHERE id = ?", String.class, foreign.historyId().toString()));
             default -> throw new IllegalArgumentException(resource);
         };
         String table = resource.replace('-', '_');
         if (resource.equals("contract-history")) table = "contract_history";
-        Map<String, Object> before = jdbc.queryForMap("SELECT * FROM " + table + " WHERE id = ?", victimId);
+        Map<String, Object> before = jdbc.queryForMap("SELECT * FROM " + table + " WHERE id = ?", String.valueOf(victimId));
         String fields = switch (resource) {
-            case "contracts" -> "\"counterpartyId\":" + ownContract.get("counterparty_id")
-                    + ",\"areaId\":" + ownContract.get("area_id") + ",\"contractNumber\":\"NEW-CONTRACT\",\"status\":\"ACTIVE\",\"startDate\":\"2026-01-01\",\"endDate\":\"2027-01-01\"";
-            case "financial-values" -> "\"contractId\":" + own.contractId() + ",\"financialTypeId\":"
-                    + ownValue.get("financial_type_id") + ",\"businessAreaId\":" + ownContract.get("area_id")
+            case "contracts" -> "\"counterpartyId\":" + q(ownContract.get("counterparty_id"))
+                    + ",\"areaId\":" + q(ownContract.get("area_id")) + ",\"contractNumber\":\"NEW-CONTRACT\",\"status\":\"ACTIVE\",\"startDate\":\"2026-01-01\",\"endDate\":\"2027-01-01\"";
+            case "financial-values" -> "\"contractId\":" + q(own.contractId()) + ",\"financialTypeId\":"
+                    + q(ownValue.get("financial_type_id")) + ",\"businessAreaId\":" + q(ownContract.get("area_id"))
                     + ",\"month\":2,\"year\":2026,\"financialAmount\":100";
-            case "contract-history" -> "\"contractId\":" + own.contractId()
+            case "contract-history" -> "\"contractId\":" + q(own.contractId())
                     + ",\"modificationDate\":\"2026-01-01T00:00:00\",\"previousStatus\":\"DRAFT\",\"newStatus\":\"ACTIVE\"";
             case "business-areas" -> "\"name\":\"Created area\"";
             case "financial-types" -> "\"name\":\"Created type\",\"category\":\"REVENUE\"";
             case "managers" -> "\"firstName\":\"Created\",\"lastName\":\"Manager\",\"email\":\"" + UUID.randomUUID() + "@example.com\"";
             case "counterparties" -> "\"name\":\"Created counterparty\",\"type\":\"CUSTOMER\"";
-            case "budgets" -> "\"businessAreaId\":" + ownContract.get("area_id") + ",\"year\":2027,\"category\":\"REVENUE\",\"targetAmount\":100";
+            case "budgets" -> "\"businessAreaId\":" + q(ownContract.get("area_id")) + ",\"year\":2027,\"category\":\"REVENUE\",\"targetAmount\":100";
             case "users" -> {
-                Long managerId = new TransactionTemplate(transactions).execute(tx -> {
+                UUID managerId = new TransactionTemplate(transactions).execute(tx -> {
                     Organization owner = em.find(Organization.class, orgIds.getFirst());
                     Managers fresh = save(Managers.builder().organization(owner).firstName("New").lastName("Manager")
                             .email(UUID.randomUUID() + "@example.com").build());
                     return fresh.getId();
                 });
                 yield "\"username\":\"new-user-" + UUID.randomUUID().toString().substring(0, 12) + "\",\"password\":\"ValidPassword123!\",\"managerId\":"
-                        + managerId + ",\"roleId\":" + jdbc.queryForObject("SELECT id FROM roles WHERE role = 'MANAGER'", Long.class);
+                        + q(managerId) + ",\"roleId\":" + q(jdbc.queryForObject("SELECT id FROM roles WHERE role = 'MANAGER'", String.class));
             }
             default -> throw new IllegalArgumentException(resource);
         };
         var response = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/" + resource)
                 .header("Authorization", "Bearer " + adminToken).contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .content("{\"id\":" + victimId + "," + fields + "}"))
+                .content("{\"id\":" + q(victimId) + "," + fields + "}"))
                 .andExpect(status().isCreated()).andReturn().getResponse();
         tools.jackson.databind.JsonNode result = tools.jackson.databind.json.JsonMapper.builder().build().readTree(response.getContentAsString());
-        assertThat(result.get("id").asLong()).isNotEqualTo(((Number) victimId).longValue());
-        assertThat(jdbc.queryForMap("SELECT * FROM " + table + " WHERE id = ?", victimId)).isEqualTo(before);
+        assertThat(result.get("id").asText()).isNotEqualTo(String.valueOf(victimId));
+        assertThat(jdbc.queryForMap("SELECT * FROM " + table + " WHERE id = ?", String.valueOf(victimId))).isEqualTo(before);
     }
 
     /**
@@ -216,4 +217,9 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
     }
 
     private <T> T save(T value) { em.persist(value); return value; }
+
+    /** A value as JSON: ids are UUIDs now, so they go in quotes (ADR-0009). */
+    private static String q(Object value) {
+        return value == null ? "null" : "\"" + value + "\"";
+    }
 }

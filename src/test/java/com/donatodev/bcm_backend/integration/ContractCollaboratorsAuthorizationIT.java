@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.integration;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.ArrayList;
@@ -63,7 +64,7 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
     @Autowired private BusinessAreasRepository areas;
     @MockitoSpyBean private ContractManagerRepository collaborators;
 
-    private final List<Long> createdOrganizations = new ArrayList<>();
+    private final List<UUID> createdOrganizations = new ArrayList<>();
     private Organization org;
     private Managers original;
     private Managers replacement;
@@ -92,13 +93,13 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
     void cleanOnlyCreatedOrganizations() {
         TestTenant.clear();
         TenantContext.clear();
-        for (Long orgId : createdOrganizations) {
+        for (UUID orgId : createdOrganizations) {
             // Contract deletion cascades to contract_manager in the real schema.
-            jdbc.update("DELETE FROM contracts WHERE organization_id = ?", orgId);
-            jdbc.update("DELETE FROM counterparties WHERE organization_id = ?", orgId);
-            jdbc.update("DELETE FROM business_areas WHERE organization_id = ?", orgId);
-            jdbc.update("DELETE FROM managers WHERE organization_id = ?", orgId);
-            jdbc.update("DELETE FROM organizations WHERE id = ?", orgId);
+            jdbc.update("DELETE FROM contracts WHERE organization_id = ?", String.valueOf(orgId));
+            jdbc.update("DELETE FROM counterparties WHERE organization_id = ?", String.valueOf(orgId));
+            jdbc.update("DELETE FROM business_areas WHERE organization_id = ?", String.valueOf(orgId));
+            jdbc.update("DELETE FROM managers WHERE organization_id = ?", String.valueOf(orgId));
+            jdbc.update("DELETE FROM organizations WHERE id = ?", String.valueOf(orgId));
         }
         createdOrganizations.clear();
     }
@@ -106,9 +107,9 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
     @ParameterizedTest
     @ValueSource(strings = {"foreign", "missing", "mixedForeign", "mixedMissing"})
     void shouldRejectInaccessibleManagersWithoutChangingEitherTenant(String scenario) throws Exception {
-        long rejectedId = scenario.endsWith("Missing") || scenario.equals("missing")
-                ? Long.MAX_VALUE : foreignManager.getId();
-        String ids = scenario.startsWith("mixed") ? replacement.getId() + "," + rejectedId : "" + rejectedId;
+        UUID rejectedId = scenario.endsWith("Missing") || scenario.equals("missing")
+                ? uid(Long.MAX_VALUE) : foreignManager.getId();
+        String ids = scenario.startsWith("mixed") ? q(replacement.getId()) + "," + q(rejectedId) : q(rejectedId);
 
         patchAsAdmin(contract.getId(), "[" + ids + "]", 404);
 
@@ -117,7 +118,7 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
 
     @Test
     void shouldReplaceWithManagersFromSameTenant() throws Exception {
-        patchAsAdmin(contract.getId(), "[" + replacement.getId() + "," + secondReplacement.getId() + "]", 204);
+        patchAsAdmin(contract.getId(), "[" + q(replacement.getId()) + "," + q(secondReplacement.getId()) + "]", 204);
 
         assertThat(managerIds(contract)).containsExactlyInAnyOrder(replacement.getId(), secondReplacement.getId());
         assertForeignAssignments();
@@ -125,7 +126,7 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
 
     @Test
     void shouldTolerateDuplicateManagerIds() throws Exception {
-        patchAsAdmin(contract.getId(), "[" + replacement.getId() + "," + replacement.getId() + "]", 204);
+        patchAsAdmin(contract.getId(), "[" + q(replacement.getId()) + "," + q(replacement.getId()) + "]", 204);
 
         assertThat(managerIds(contract)).containsExactly(replacement.getId());
         assertForeignAssignments();
@@ -142,7 +143,7 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
 
     @Test
     void shouldRejectNullElementWithoutDeletingExistingAssignments() throws Exception {
-        patchAsAdmin(contract.getId(), "[" + replacement.getId() + ",null]", 400);
+        patchAsAdmin(contract.getId(), "[" + q(replacement.getId()) + ",null]", 400);
 
         assertOriginalAssignments();
     }
@@ -150,8 +151,8 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void shouldHideForeignAndMissingContracts(boolean foreign) throws Exception {
-        patchAsAdmin(foreign ? foreignContract.getId() : Long.MAX_VALUE,
-                "[" + replacement.getId() + "]", 404);
+        patchAsAdmin(foreign ? foreignContract.getId() : uid(Long.MAX_VALUE),
+                "[" + q(replacement.getId()) + "]", 404);
 
         assertOriginalAssignments();
     }
@@ -161,7 +162,7 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
         mockMvc.perform(patch("/contracts/{id}/collaborators", contract.getId())
                 .with(user("manager").roles("MANAGER"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"managerIds\":[" + replacement.getId() + "]}"))
+                .content("{\"managerIds\":[" + q(replacement.getId()) + "]}"))
                 .andExpect(status().isForbidden());
 
         assertOriginalAssignments();
@@ -172,7 +173,7 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
         TestTenant.clear();
         TenantContext.clear();
 
-        patchAsAdmin(contract.getId(), "[" + replacement.getId() + "]", 403);
+        patchAsAdmin(contract.getId(), "[" + q(replacement.getId()) + "]", 403);
 
         assertOriginalAssignments();
     }
@@ -186,8 +187,8 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
             throw new DataIntegrityViolationException("Simulated failure on second collaborator insert");
         }).when(collaborators).insertIgnore(contract.getId(), secondReplacement.getId());
 
-        Long contractId = contract.getId();
-        List<Long> replacementIds = List.of(replacement.getId(), secondReplacement.getId());
+        UUID contractId = contract.getId();
+        List<UUID> replacementIds = List.of(replacement.getId(), secondReplacement.getId());
         assertThatThrownBy(() -> contractService.setCollaborators(contractId, replacementIds))
                 .isInstanceOf(DataIntegrityViolationException.class);
 
@@ -195,16 +196,16 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
         assertOriginalAssignments();
     }
 
-    private void patchAsAdmin(Long contractId, String ids, int expectedStatus) throws Exception {
+    private void patchAsAdmin(UUID contractId, String ids, int expectedStatus) throws Exception {
         mockMvc.perform(patch("/contracts/{id}/collaborators", contractId)
                 .with(user("admin").roles("ADMIN"))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"managerIds\":" + ids + "}"))
                 .andExpect(status().is(expectedStatus));
     }
 
-    private List<Long> managerIds(Contracts target) {
+    private List<UUID> managerIds(Contracts target) {
         return jdbc.queryForList("SELECT manager_id FROM contract_manager WHERE contract_id = ? ORDER BY manager_id",
-                Long.class, target.getId());
+                String.class, target.getId().toString()).stream().map(UUID::fromString).toList();
     }
 
     private void assertOriginalAssignments() {
@@ -235,5 +236,10 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
         return contracts.save(Contracts.builder().organization(organization).manager(manager).businessArea(area)
                 .counterparty(counterparty).contractNumber(UUID.randomUUID().toString())
                 .startDate(LocalDate.of(2026, Month.JANUARY, 1)).status(ContractStatus.ACTIVE).build());
+    }
+
+    /** A value as JSON: ids are UUIDs now, so they go in quotes (ADR-0009). */
+    private static String q(Object value) {
+        return value == null ? "null" : "\"" + value + "\"";
     }
 }

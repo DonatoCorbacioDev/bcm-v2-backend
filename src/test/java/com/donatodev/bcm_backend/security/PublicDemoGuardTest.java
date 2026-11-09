@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.security;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -47,7 +49,7 @@ class PublicDemoGuardTest {
     private static final String PASSWORD_BODY =
             "{\"currentPassword\":\"OldPass#2026\",\"newPassword\":\"NewPass#2026\"}";
     private static final String VALUE_BODY =
-            "{\"month\":1,\"year\":2026,\"financialAmount\":100,\"financialTypeId\":1,\"businessAreaId\":1,\"contractId\":1}";
+            "{\"month\":1,\"year\":2026,\"financialAmount\":100,\"financialTypeId\":\"00000000-0000-0000-0000-000000000001\",\"businessAreaId\":\"00000000-0000-0000-0000-000000000001\",\"contractId\":\"00000000-0000-0000-0000-000000000001\"}";
 
     @Autowired private MockMvc mockMvc;
 
@@ -84,14 +86,14 @@ class PublicDemoGuardTest {
         @Test
         @DisplayName("can't pay invoices or change their bank details")
         void paymentsRefused() throws Exception {
-            mockMvc.perform(post("/contracts/1/sepa-payments").contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"invoiceIds\":[2],\"executionDate\":\"2026-12-01\"}"))
+            mockMvc.perform(post("/contracts/" + uid(1) + "/sepa-payments").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"invoiceIds\":[\"00000000-0000-0000-0000-000000000002\"],\"executionDate\":\"2026-12-01\"}"))
                     .andExpect(status().isForbidden());
-            mockMvc.perform(patch("/contracts/1/invoices/2/payment-details").contentType(MediaType.APPLICATION_JSON)
+            mockMvc.perform(patch("/contracts/" + uid(1) + "/invoices/" + uid(2) + "/payment-details").contentType(MediaType.APPLICATION_JSON)
                             .content("{\"supplierIban\":\"IT60X0542811101000000123456\"}"))
                     .andExpect(status().isForbidden());
-            verify(sepaPaymentService, never()).createSepaPayment(anyLong(), any(), any());
-            verify(electronicInvoiceService, never()).updatePaymentDetails(anyLong(), anyLong(), any());
+            verify(sepaPaymentService, never()).createSepaPayment(any(UUID.class), any(), any());
+            verify(electronicInvoiceService, never()).updatePaymentDetails(any(UUID.class), any(UUID.class), any());
         }
 
         @Test
@@ -99,10 +101,10 @@ class PublicDemoGuardTest {
         void financialValuesRefused() throws Exception {
             mockMvc.perform(post("/financial-values").contentType(MediaType.APPLICATION_JSON).content(VALUE_BODY))
                     .andExpect(status().isForbidden());
-            mockMvc.perform(put("/financial-values/1").contentType(MediaType.APPLICATION_JSON).content(VALUE_BODY))
+            mockMvc.perform(put("/financial-values/" + uid(1)).contentType(MediaType.APPLICATION_JSON).content(VALUE_BODY))
                     .andExpect(status().isForbidden());
             verify(financialValueService, never()).createValue(any());
-            verify(financialValueService, never()).updateValue(anyLong(), any());
+            verify(financialValueService, never()).updateValue(any(UUID.class), any());
         }
     }
 
@@ -116,11 +118,11 @@ class PublicDemoGuardTest {
         void allowed() throws Exception {
             mockMvc.perform(post("/users/me/password").contentType(MediaType.APPLICATION_JSON).content(PASSWORD_BODY))
                     .andExpect(status().isNoContent());
-            mockMvc.perform(patch("/contracts/1/invoices/2/payment-details").contentType(MediaType.APPLICATION_JSON)
+            mockMvc.perform(patch("/contracts/" + uid(1) + "/invoices/" + uid(2) + "/payment-details").contentType(MediaType.APPLICATION_JSON)
                             .content("{\"supplierIban\":\"IT60X0542811101000000123456\"}"))
                     .andExpect(status().isOk());
             verify(userService).changeOwnPassword("OldPass#2026", "NewPass#2026");
-            verify(electronicInvoiceService).updatePaymentDetails(eq(1L), eq(2L), any());
+            verify(electronicInvoiceService).updatePaymentDetails(eq(uid(1)), eq(uid(2)), any());
         }
     }
 

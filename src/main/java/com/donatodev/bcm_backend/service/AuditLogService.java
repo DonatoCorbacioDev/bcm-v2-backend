@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.time.Instant;
 
 import org.springframework.data.domain.Page;
@@ -27,7 +28,7 @@ public class AuditLogService {
     }
 
     @Transactional
-    public void save(String action, String entityType, Long entityId, String username, Long orgId, String details) {
+    public void save(String action, String entityType, UUID entityId, String username, UUID orgId, String details) {
         AuditLog log = AuditLog.builder()
                 .action(action)
                 .entityType(entityType)
@@ -41,7 +42,7 @@ public class AuditLogService {
     }
 
     public Page<AuditLogDTO> findAll(Pageable pageable) {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         Page<AuditLog> logs = auditLogRepository.findAllByOrgIdOrderByTimestampDesc(orgId, pageable);
         return logs
                 .map(log -> new AuditLogDTO(

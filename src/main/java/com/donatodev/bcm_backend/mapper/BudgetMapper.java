@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.mapper;
 
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 import com.donatodev.bcm_backend.config.TenantContext;
@@ -43,7 +44,7 @@ public class BudgetMapper {
      * @param orgId  the organization the budget belongs to, used to scope the actual-amount lookup
      * @return the corresponding DTO
      */
-    public BudgetDTO toDTO(Budget budget, Long orgId) {
+    public BudgetDTO toDTO(Budget budget, UUID orgId) {
         if (budget == null) {
             return null;
         }
@@ -107,8 +108,8 @@ public class BudgetMapper {
     }
 
     /** Tenant-scoped like ContractMapper: a budget must not target another organization's area. */
-    private BusinessAreas resolveBusinessArea(Long areaId) {
-        Long orgId = TenantContext.require();
+    private BusinessAreas resolveBusinessArea(UUID areaId) {
+        UUID orgId = TenantContext.require();
         return businessAreasRepository.findByIdAndOrganizationId(areaId, orgId)
                 .orElseThrow(() -> new BusinessAreaNotFoundException("Business area ID " + areaId + " not found"));
     }

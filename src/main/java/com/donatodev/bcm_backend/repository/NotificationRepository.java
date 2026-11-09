@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,13 +15,13 @@ import org.springframework.stereotype.Repository;
 import com.donatodev.bcm_backend.entity.Notification;
 
 @Repository
-public interface NotificationRepository extends JpaRepository<Notification, Long> {
+public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
-    Optional<Notification> findByIdAndUserIdAndOrgId(Long id, Long userId, Long orgId);
+    Optional<Notification> findByIdAndUserIdAndOrgId(UUID id, UUID userId, UUID orgId);
 
-    List<Notification> findByUserIdAndOrgIdOrderByCreatedAtDesc(Long userId, Long orgId);
+    List<Notification> findByUserIdAndOrgIdOrderByCreatedAtDesc(UUID userId, UUID orgId);
 
-    long countByUserIdAndOrgIdAndReadFalse(Long userId, Long orgId);
+    long countByUserIdAndOrgIdAndReadFalse(UUID userId, UUID orgId);
 
-    List<Notification> findAllByOrgId(Long orgId);
+    List<Notification> findAllByOrgId(UUID orgId);
 }

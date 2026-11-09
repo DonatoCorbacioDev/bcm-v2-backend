@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import java.time.LocalDate;
 
 /**
@@ -14,7 +15,7 @@ import java.time.LocalDate;
  * doesn't count, consistent with the matching feature never auto-confirming.
  */
 public record CounterpartyInvoicingSummaryDTO(
-        Long counterpartyId,
+        UUID counterpartyId,
         String counterpartyName,
         long activeContracts,
         double contractedValue,

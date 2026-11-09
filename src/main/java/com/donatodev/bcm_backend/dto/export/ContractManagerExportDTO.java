@@ -5,12 +5,13 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import com.donatodev.bcm_backend.entity.ContractManager;
 
 /** One element of {@code data/contract_managers.json}: the managers assigned to a contract besides its owner. */
 public record ContractManagerExportDTO(
-        Long contractId,
-        Long managerId) {
+        UUID contractId,
+        UUID managerId) {
 
     public static ContractManagerExportDTO from(ContractManager assignment) {
         return new ContractManagerExportDTO(

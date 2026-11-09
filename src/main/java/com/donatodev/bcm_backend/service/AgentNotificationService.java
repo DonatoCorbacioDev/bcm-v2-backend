@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -135,7 +136,7 @@ public class AgentNotificationService {
      */
     public void notifySubmittedForReview(Contracts contract) {
         if (contract.getOrganization() == null) return;
-        Long orgId = contract.getOrganization().getId();
+        UUID orgId = contract.getOrganization().getId();
 
         for (Users approver : approversForOrg(orgId)) {
             notificationService.createForUser(
@@ -174,8 +175,8 @@ public class AgentNotificationService {
         });
     }
 
-    private List<Users> approversForOrg(Long orgId) {
-        Map<Long, Users> byId = new LinkedHashMap<>();
+    private List<Users> approversForOrg(UUID orgId) {
+        Map<UUID, Users> byId = new LinkedHashMap<>();
         for (Users u : usersRepository.findByOrganizationIdAndRoleRole(orgId, "ADMIN")) {
             byId.put(u.getId(), u);
         }

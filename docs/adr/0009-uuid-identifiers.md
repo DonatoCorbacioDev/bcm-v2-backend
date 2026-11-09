@@ -44,8 +44,11 @@ unpredictable values as GUIDs for records' IDs", is:
    rehearsal on a restored production backup before it ships.
 5. **One release** for backend, frontend and ML, in a short maintenance window, after a backup.
    Rollback is "restore the backup and the previous images"; there is no down-migration.
-6. **The public demo organization gets a fixed, documented UUID** used by the seed, the nightly
-   reset and the docs, instead of `3`.
+6. **The public demo organization is found by its slug** (`nortiva-solutions`, set by the seed
+   every night), falling back to `legacy_id = 3` on a database the seed has not run on since V55,
+   instead of by the number `3`. A fixed UUID was the first idea, but giving an existing row a
+   chosen primary key would mean rewriting every foreign key that points at it; the slug needs
+   nothing. The seed refuses to run (a NOT NULL guard) if neither finds the organization.
 7. A path variable that is not a valid UUID answers **400**; a valid UUID that is missing or
    belongs to someone else keeps answering **404**.
 
@@ -80,6 +83,10 @@ unpredictable values as GUIDs for records' IDs", is:
   controller and repository signature, the frontend types and routes, the ML models, the demo
   seed and a large share of the tests. A planned maintenance window is needed. Links users
   bookmarked with old numeric IDs (for example `/contracts/123`) stop working.
+- **Found while converting:** manager-scoped ML cache keys (`…_MGR` + manager id) reach 57
+  characters with UUIDs, past `ml_result_cache.cache_key VARCHAR(50)`: V56 widens it to 100. And
+  every `String.format` that rendered an id with `%d` (download URLs, file paths, not-found
+  messages) had to become `%s`, which only shows at run time.
 - **Neutral:** files already uploaded keep their stored paths (the full path is saved in
   `storage_path`); new files are stored under the organization's UUID, so deleting an
   organization must clean both its old numeric folder and its new one. The ML result cache is

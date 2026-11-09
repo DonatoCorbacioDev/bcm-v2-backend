@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,19 +18,19 @@ import com.donatodev.bcm_backend.entity.FinancialCategory;
 import com.donatodev.bcm_backend.entity.FinancialValues;
 
 @Repository
-public interface FinancialValuesRepository extends JpaRepository<FinancialValues, Long> {
+public interface FinancialValuesRepository extends JpaRepository<FinancialValues, UUID> {
 
-    List<FinancialValues> findByContractId(Long contractId);
+    List<FinancialValues> findByContractId(UUID contractId);
 
-    List<FinancialValues> findByContract_Manager_Id(Long managerId);
+    List<FinancialValues> findByContract_Manager_Id(UUID managerId);
 
-    List<FinancialValues> findAllByOrganizationId(Long organizationId);
+    List<FinancialValues> findAllByOrganizationId(UUID organizationId);
 
-    List<FinancialValues> findByContractIdAndOrganizationId(Long contractId, Long organizationId);
+    List<FinancialValues> findByContractIdAndOrganizationId(UUID contractId, UUID organizationId);
 
-    Optional<FinancialValues> findByIdAndOrganizationId(Long id, Long organizationId);
+    Optional<FinancialValues> findByIdAndOrganizationId(UUID id, UUID organizationId);
 
-    List<FinancialValues> findByContract_IdAndFinancialType_Id(Long contractId, Long financialTypeId);
+    List<FinancialValues> findByContract_IdAndFinancialType_Id(UUID contractId, UUID financialTypeId);
 
     @Query("""
             SELECT COALESCE(SUM(fv.financialAmount), 0.0)
@@ -39,7 +40,7 @@ public interface FinancialValuesRepository extends JpaRepository<FinancialValues
               AND fv.month = :month
             """)
     double sumFinancialAmountByOrgAndYearMonth(
-            @Param("orgId") Long orgId,
+            @Param("orgId") UUID orgId,
             @Param("year") int year,
             @Param("month") int month);
 
@@ -52,8 +53,8 @@ public interface FinancialValuesRepository extends JpaRepository<FinancialValues
               AND fv.year = :year
             """)
     double sumAmountByOrgAreaCategoryYear(
-            @Param("orgId") Long orgId,
-            @Param("areaId") Long areaId,
+            @Param("orgId") UUID orgId,
+            @Param("areaId") UUID areaId,
             @Param("category") FinancialCategory category,
             @Param("year") int year);
 
@@ -68,7 +69,7 @@ public interface FinancialValuesRepository extends JpaRepository<FinancialValues
               AND fv.financialType.category = com.donatodev.bcm_backend.entity.FinancialCategory.COST
               AND fv.year = :year AND fv.month <= :month
             """)
-    double sumCostByOrgUpToMonth(@Param("orgId") Long orgId, @Param("year") int year, @Param("month") int month);
+    double sumCostByOrgUpToMonth(@Param("orgId") UUID orgId, @Param("year") int year, @Param("month") int month);
 
     @Query("""
             SELECT COALESCE(SUM(fv.financialAmount), 0.0)
@@ -85,7 +86,7 @@ public interface FinancialValuesRepository extends JpaRepository<FinancialValues
               AND fv.financialType.category = com.donatodev.bcm_backend.entity.FinancialCategory.COST
               AND fv.year = :year AND fv.month <= :month
             """)
-    double sumCostByManagerUpToMonth(@Param("managerId") Long managerId, @Param("year") int year, @Param("month") int month);
+    double sumCostByManagerUpToMonth(@Param("managerId") UUID managerId, @Param("year") int year, @Param("month") int month);
 
     @Query("""
             SELECT COALESCE(SUM(fv.financialAmount), 0.0)
@@ -95,5 +96,5 @@ public interface FinancialValuesRepository extends JpaRepository<FinancialValues
               AND fv.year = :year AND fv.month <= :month
             """)
     double sumCostByCounterpartyUpToMonth(
-            @Param("counterpartyId") Long counterpartyId, @Param("year") int year, @Param("month") int month);
+            @Param("counterpartyId") UUID counterpartyId, @Param("year") int year, @Param("month") int month);
 }

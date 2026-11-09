@@ -5,8 +5,10 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
+
 public record DocumentAnalysisDTO(
-        Long documentId,
+        UUID documentId,
         String rawText,
         String detectedCustomerName,
         String detectedContractNumber,

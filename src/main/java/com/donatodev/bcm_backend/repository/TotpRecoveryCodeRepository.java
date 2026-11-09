@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,9 +14,9 @@ import org.springframework.stereotype.Repository;
 import com.donatodev.bcm_backend.entity.TotpRecoveryCode;
 
 @Repository
-public interface TotpRecoveryCodeRepository extends JpaRepository<TotpRecoveryCode, Long> {
+public interface TotpRecoveryCodeRepository extends JpaRepository<TotpRecoveryCode, UUID> {
 
-    List<TotpRecoveryCode> findByUserIdAndUsedAtIsNull(Long userId);
+    List<TotpRecoveryCode> findByUserIdAndUsedAtIsNull(UUID userId);
 
-    void deleteByUserId(Long userId);
+    void deleteByUserId(UUID userId);
 }

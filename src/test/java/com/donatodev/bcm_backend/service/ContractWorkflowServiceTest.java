@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -44,7 +46,7 @@ class ContractWorkflowServiceTest {
     @InjectMocks
     private ContractWorkflowService workflowService;
 
-    private static final long CONTRACT_ID = 1L;
+    private static final UUID CONTRACT_ID = uid(1);
 
     private Contracts contractWithStage(WorkflowStage stage) {
         Contracts c = new Contracts();
@@ -56,7 +58,7 @@ class ContractWorkflowServiceTest {
 
     private Users userWithRole(String roleName, boolean canApprove) {
         Users u = new Users();
-        u.setId(2L);
+        u.setId(uid(2));
         u.setUsername("actor");
         u.setRole(Roles.builder().role(roleName).build());
         u.setCanApproveContracts(canApprove);
@@ -214,7 +216,7 @@ class ContractWorkflowServiceTest {
             Users actor = userWithRole("MANAGER", false);
             actor.setUsername("mario.rossi");
             ContractWorkflowEvent event = ContractWorkflowEvent.builder()
-                    .id(5L).contract(contract).fromStage(WorkflowStage.DRAFT).toStage(WorkflowStage.IN_REVIEW)
+                    .id(uid(5)).contract(contract).fromStage(WorkflowStage.DRAFT).toStage(WorkflowStage.IN_REVIEW)
                     .action(WorkflowAction.SUBMIT).actor(actor).build();
             when(eventRepository.findByContractIdOrderByCreatedAtAsc(CONTRACT_ID)).thenReturn(java.util.List.of(event));
 
@@ -222,7 +224,7 @@ class ContractWorkflowServiceTest {
 
             assertEquals(1, result.size());
             ContractWorkflowEventDTO dto = result.get(0);
-            assertEquals(5L, dto.id());
+            assertEquals(uid(5), dto.id());
             assertEquals("mario.rossi", dto.actorUsername());
             assertEquals(WorkflowAction.SUBMIT, dto.action());
         }

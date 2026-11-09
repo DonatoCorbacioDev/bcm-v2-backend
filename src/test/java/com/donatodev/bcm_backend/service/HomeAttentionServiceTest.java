@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -53,7 +55,7 @@ class HomeAttentionServiceTest {
         TenantContext.clear();
     }
 
-    private static final Long ORG = 3L;
+    private static final UUID ORG = uid(3);
     private static final String VERIFIED_IBAN = "IT17M0503411701000062194812";
 
     @Mock private ContractsRepository contractsRepository;
@@ -63,10 +65,10 @@ class HomeAttentionServiceTest {
 
     private final LocalDate today = LocalDate.now(ZoneId.systemDefault());
     private final Organization org = Organization.builder().id(ORG).name("Nortiva").build();
-    private final Managers marco = manager(4L, "Marco", "Bellini");
-    private final Managers anna = manager(5L, "Anna", "Verdi");
+    private final Managers marco = manager(uid(4), "Marco", "Bellini");
+    private final Managers anna = manager(uid(5), "Anna", "Verdi");
 
-    private static Managers manager(Long id, String first, String last) {
+    private static Managers manager(UUID id, String first, String last) {
         Managers m = new Managers();
         m.setId(id);
         m.setFirstName(first);
@@ -75,12 +77,12 @@ class HomeAttentionServiceTest {
     }
 
     private void loggedInAs(String role, Managers manager) {
-        when(currentUserResolver.resolve()).thenReturn(Users.builder().id(1L).username("u")
+        when(currentUserResolver.resolve()).thenReturn(Users.builder().id(uid(1)).username("u")
                 .role(Roles.builder().role(role).build()).manager(manager).organization(org).build());
     }
 
     private Contracts contract(String number, LocalDate endDate, Managers manager) {
-        return Contracts.builder().id((long) number.hashCode()).contractNumber(number)
+        return Contracts.builder().id(uid(number.hashCode())).contractNumber(number)
                 .counterparty(Counterparty.builder().name("Fornitore " + number).type(CounterpartyType.SUPPLIER)
                         .verifiedIban(VERIFIED_IBAN).build())
                 .status(ContractStatus.ACTIVE).startDate(endDate.minusYears(1)).endDate(endDate)
@@ -89,7 +91,7 @@ class HomeAttentionServiceTest {
 
     private ElectronicInvoice invoice(Contracts contract, InvoiceMatchStatus status, String iban) {
         ElectronicInvoice i = new ElectronicInvoice();
-        i.setId(77L);
+        i.setId(uid(77));
         i.setContract(contract);
         i.setInvoiceNumber("2026/118");
         i.setInvoiceDate(today.minusDays(3));
@@ -211,7 +213,7 @@ class HomeAttentionServiceTest {
         loggedInAs("MANAGER", marco);
         Contracts mine = contract("MINE", today.plusDays(10), marco);
         Contracts colleague = contract("THEIRS", today.plusDays(10), anna);
-        when(contractsRepository.findByManagerIdAndStatus(4L, ContractStatus.ACTIVE)).thenReturn(List.of(mine));
+        when(contractsRepository.findByManagerIdAndStatus(uid(4), ContractStatus.ACTIVE)).thenReturn(List.of(mine));
         when(invoiceRepository.findByOrgIdAndSepaBatchIsNull(ORG)).thenReturn(List.of(
                 invoice(colleague, InvoiceMatchStatus.UNMATCHED, "IT60X0542811101000000123456")));
 
@@ -301,12 +303,12 @@ class HomeAttentionServiceTest {
         loggedInAs("MANAGER", marco);
         Contracts mine = contract("MINE-1", today.plusDays(5), marco);
         Contracts otherOrg = contract("OTHER-1", today.plusDays(5), marco);
-        otherOrg.setOrganization(Organization.builder().id(99L).build());
+        otherOrg.setOrganization(Organization.builder().id(uid(99)).build());
         Contracts noOrg = contract("NOORG-1", today.plusDays(5), marco);
         noOrg.setOrganization(null);
         Contracts annas = contract("ANNA-1", today.plusDays(5), anna);
         Contracts unassigned = contract("NOBODY-1", today.plusDays(5), null);
-        when(contractsRepository.findByManagerIdAndStatus(4L, ContractStatus.ACTIVE))
+        when(contractsRepository.findByManagerIdAndStatus(uid(4), ContractStatus.ACTIVE))
                 .thenReturn(List.of(mine, otherOrg, noOrg));
         ElectronicInvoice orphan = invoice(mine, InvoiceMatchStatus.SUGGESTED, null);
         orphan.setContract(null);

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -17,14 +18,14 @@ import com.donatodev.bcm_backend.entity.WorkflowStage;
 
 /** One element of {@code data/contracts.json}. */
 public record ContractExportDTO(
-        Long id,
+        UUID id,
         String contractNumber,
         String wbsCode,
         String projectName,
-        Long counterpartyId,
-        Long businessAreaId,
-        Long managerId,
-        Long financialTypeId,
+        UUID counterpartyId,
+        UUID businessAreaId,
+        UUID managerId,
+        UUID financialTypeId,
         LocalDate startDate,
         LocalDate endDate,
         ContractStatus status,

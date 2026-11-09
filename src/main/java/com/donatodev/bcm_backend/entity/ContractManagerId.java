@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.entity;
 
+import java.util.UUID;
 import lombok.*;
 
 import java.io.Serializable;
@@ -26,12 +27,12 @@ public class ContractManagerId implements Serializable {
     /**
      * ID of the associated contract.
      */
-    private Long contract;
+    private UUID contract;
 
     /**
      * ID of the associated manager.
      */
-    private Long manager;
+    private UUID manager;
 
     @Override
     public boolean equals(Object o) {

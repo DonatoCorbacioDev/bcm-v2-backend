@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,7 +19,7 @@ import com.donatodev.bcm_backend.entity.Roles;
  * Extends {@link JpaRepository} to provide CRUD operations and custom queries.
  */
 @Repository
-public interface RolesRepository extends JpaRepository<Roles, Long> {
+public interface RolesRepository extends JpaRepository<Roles, UUID> {
 
     /**
      * Finds a {@link Roles} entity by its role name.

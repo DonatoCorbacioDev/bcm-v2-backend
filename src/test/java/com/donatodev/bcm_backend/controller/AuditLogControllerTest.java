@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import com.donatodev.bcm_backend.support.TestTenant;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
@@ -70,7 +72,7 @@ class AuditLogControllerTest {
         @DisplayName("Admin can retrieve paginated audit logs")
         void shouldReturnAuditLogsForAdmin() throws Exception {
             auditLogRepository.save(AuditLog.builder()
-                    .action("CREATE").entityType("Contract").entityId(1L)
+                    .action("CREATE").entityType("Contract").entityId(uid(1))
                     .username("admin").orgId(testOrg.getId()).timestamp(Instant.parse("2027-01-15T12:00:00Z"))
                     .details("ContractService.createContract").build());
 
@@ -116,7 +118,7 @@ class AuditLogControllerTest {
         void shouldRespectPaginationParameters() throws Exception {
             for (int i = 1; i <= 5; i++) {
                 auditLogRepository.save(AuditLog.builder()
-                        .action("DELETE").entityType("Manager").entityId((long) i)
+                        .action("DELETE").entityType("Manager").entityId(uid(i))
                         .username("admin").orgId(testOrg.getId()).timestamp(Instant.parse("2027-01-15T12:00:00Z"))
                         .details("ManagerService.deleteManager").build());
             }

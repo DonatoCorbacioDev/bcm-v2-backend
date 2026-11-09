@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,7 +17,7 @@ import com.donatodev.bcm_backend.entity.RiskFeedback;
  * Repository interface for accessing {@link RiskFeedback} entities.
  */
 @Repository
-public interface RiskFeedbackRepository extends JpaRepository<RiskFeedback, Long> {
+public interface RiskFeedbackRepository extends JpaRepository<RiskFeedback, UUID> {
 
     /**
      * Retrieves all feedback entries for the given organization, most recent first.
@@ -26,7 +27,7 @@ public interface RiskFeedbackRepository extends JpaRepository<RiskFeedback, Long
      * @param organizationId the organization ID
      * @return a list of {@link RiskFeedback} records
      */
-    List<RiskFeedback> findByOrganizationIdOrderByCreatedAtDescIdDesc(Long organizationId);
+    List<RiskFeedback> findByOrganizationIdOrderByCreatedAtDescIdDesc(UUID organizationId);
 
     /**
      * Retrieves all feedback entries for contracts assigned to the given manager,
@@ -36,5 +37,5 @@ public interface RiskFeedbackRepository extends JpaRepository<RiskFeedback, Long
      * @param managerId the manager ID
      * @return a list of {@link RiskFeedback} records
      */
-    List<RiskFeedback> findByContractManagerIdOrderByCreatedAtDescIdDesc(Long managerId);
+    List<RiskFeedback> findByContractManagerIdOrderByCreatedAtDescIdDesc(UUID managerId);
 }

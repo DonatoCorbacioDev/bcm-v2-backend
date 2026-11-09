@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
@@ -52,7 +53,7 @@ public class RoleController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{id}")
-    public ResponseEntity<RoleDTO> getRoleById(@PathVariable Long id) {
+    public ResponseEntity<RoleDTO> getRoleById(@PathVariable UUID id) {
         RoleDTO role = roleService.getRoleById(id);
         return ResponseEntity.ok(role);
     }

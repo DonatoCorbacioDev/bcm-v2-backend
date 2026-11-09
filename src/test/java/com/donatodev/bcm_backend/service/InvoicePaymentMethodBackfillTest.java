@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -29,7 +31,7 @@ class InvoicePaymentMethodBackfillTest {
     @Mock private FatturaPaXmlParserService parser;
     @InjectMocks private InvoicePaymentMethodBackfill backfill;
 
-    private static ElectronicInvoice stored(long id, String path) {
+    private static ElectronicInvoice stored(UUID id, String path) {
         ElectronicInvoice invoice = new ElectronicInvoice();
         invoice.setId(id);
         invoice.setStoragePath(path);
@@ -44,8 +46,8 @@ class InvoicePaymentMethodBackfillTest {
     @Test
     @DisplayName("Re-reads each stored XML; an invoice stating no method gets an empty code, so it isn't read again")
     void fillsFromStoredXml() {
-        ElectronicInvoice riba = stored(1L, "a.xml");
-        ElectronicInvoice none = stored(2L, "b.xml");
+        ElectronicInvoice riba = stored(uid(1), "a.xml");
+        ElectronicInvoice none = stored(uid(2), "b.xml");
         byte[] a = "a".getBytes();
         byte[] b = "b".getBytes();
         when(invoiceRepository.findByPaymentMethodIsNull()).thenReturn(List.of(riba, none));
@@ -65,7 +67,7 @@ class InvoicePaymentMethodBackfillTest {
     @Test
     @DisplayName("Leaves an unreadable invoice null, to try again on the next start")
     void skipsUnreadableFile() {
-        ElectronicInvoice broken = stored(1L, "missing.xml");
+        ElectronicInvoice broken = stored(uid(1), "missing.xml");
         when(invoiceRepository.findByPaymentMethodIsNull()).thenReturn(List.of(broken));
         when(localStorageService.readDocument("missing.xml")).thenThrow(new IllegalStateException("gone"));
 

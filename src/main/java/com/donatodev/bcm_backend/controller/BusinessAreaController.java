@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -51,7 +52,7 @@ public class BusinessAreaController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/{id}")
-    public ResponseEntity<BusinessAreaDTO> getAreaById(@PathVariable Long id) {
+    public ResponseEntity<BusinessAreaDTO> getAreaById(@PathVariable UUID id) {
         BusinessAreaDTO area = businessAreaService.getAreaById(id);
         return ResponseEntity.ok(area);
     }
@@ -78,7 +79,7 @@ public class BusinessAreaController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<BusinessAreaDTO> updateArea(@PathVariable Long id, @RequestBody BusinessAreaDTO dto) {
+    public ResponseEntity<BusinessAreaDTO> updateArea(@PathVariable UUID id, @RequestBody BusinessAreaDTO dto) {
         BusinessAreaDTO updatedArea = businessAreaService.updateArea(id, dto);
         return ResponseEntity.ok(updatedArea);
     }
@@ -91,7 +92,7 @@ public class BusinessAreaController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteArea(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteArea(@PathVariable UUID id) {
         businessAreaService.deleteArea(id);
         return ResponseEntity.noContent().build();
     }

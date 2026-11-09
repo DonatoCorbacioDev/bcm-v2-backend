@@ -1,5 +1,5 @@
 -- ============================================================
--- BCM PUBLIC DEMO SEED — org id 3 ("BCM Demo", renamed here to Nortiva
+-- BCM PUBLIC DEMO SEED — the demo organization (numeric id 3 before V55) ("BCM Demo", renamed here to Nortiva
 -- Solutions S.r.l.), run nightly on production by demo-reset.sh.
 --
 -- Replaces the previous approach (bcm-v2-ml's seed_synthetic_data.py
@@ -30,36 +30,50 @@
 -- ============================================================
 USE bcm;
 
+-- Ids are UUIDs (ADR-0009): the demo organization is found by its slug (set
+-- below every night), or by its numeric id from before V55 on a database that
+-- has not run this script since. If neither exists the guard insert fails
+-- (NULL into NOT NULL) and nothing below runs.
+SET @org := COALESCE((SELECT id FROM organizations WHERE slug = 'nortiva-solutions'),
+                     (SELECT id FROM organizations WHERE legacy_id = 3));
+SET @demo_manager := (SELECT manager_id FROM users WHERE username = 'demo' AND organization_id = @org);
+CREATE TEMPORARY TABLE seed_demo_guard (demo_org CHAR(36) NOT NULL, demo_manager CHAR(36) NOT NULL);
+INSERT INTO seed_demo_guard VALUES (@org, @demo_manager);
+DROP TEMPORARY TABLE seed_demo_guard;
+
 -- ── Organization ──────────────────────────────────────────────
 -- PRO, not FREE: since tier gating (TierLimitService.requireMlAccess) FREE
 -- orgs get 403 on every ML feature, which would hide the forecast/AI
 -- widgets the public demo exists to show. Re-applied every night so a
 -- stray manual change can't leave the demo locked.
 UPDATE organizations SET name = 'Nortiva Solutions S.r.l.', slug = 'nortiva-solutions',
-    subscription_tier = 'PRO' WHERE id = 3;
+    subscription_tier = 'PRO' WHERE id = @org;
 
 -- Nortiva's own (synthetic, checksum-valid) bank account: the debtor of every
 -- SEPA transfer, which can't be generated without it. Re-applied nightly.
-UPDATE organizations SET iban = 'IT05X0760101600000045821936', bic = 'NRTVITM1XXX' WHERE id = 3;
+UPDATE organizations SET iban = 'IT05X0760101600000045821936', bic = 'NRTVITM1XXX' WHERE id = @org;
 
 -- ── Manager display name (cosmetic only — the login itself stays "demo")
 UPDATE managers SET first_name = 'Marco', last_name = 'Bellini', department = 'Direzione'
-WHERE id = 4 AND organization_id = 3;
+WHERE id = @demo_manager;
 
 -- ── Business areas: align org 3's original placeholder set to the same
 -- clean, coherent set used for the Nortiva brand elsewhere. Renamed in
 -- place (never deleted) so existing budgets/history keep their FK intact.
 -- Drops "Facility" (no hero scenario needs it) in favor of "Legale", and
 -- adds "Finanza" (needed for the expired-contract and workflow heroes).
-UPDATE business_areas SET name = 'Servizi IT', description = 'Sviluppo software e infrastruttura IT'
-WHERE id = 4 AND organization_id = 3;
-UPDATE business_areas SET name = 'Operazioni', description = 'Operazioni aziendali e logistica'
-WHERE id = 5 AND organization_id = 3;
-UPDATE business_areas SET name = 'Legale', description = 'Affari legali e conformità normativa'
-WHERE id = 6 AND organization_id = 3;
-INSERT INTO business_areas (name, description, organization_id)
-SELECT 'Finanza', 'Amministrazione, finanza e controllo', 3
-WHERE NOT EXISTS (SELECT 1 FROM business_areas WHERE name = 'Finanza' AND organization_id = 3);
+INSERT INTO business_areas (id, name, description, organization_id)
+SELECT UUID(), 'Servizi IT', 'Sviluppo software e infrastruttura IT', @org
+WHERE NOT EXISTS (SELECT 1 FROM business_areas WHERE name = 'Servizi IT' AND organization_id = @org);
+INSERT INTO business_areas (id, name, description, organization_id)
+SELECT UUID(), 'Operazioni', 'Operazioni aziendali e logistica', @org
+WHERE NOT EXISTS (SELECT 1 FROM business_areas WHERE name = 'Operazioni' AND organization_id = @org);
+INSERT INTO business_areas (id, name, description, organization_id)
+SELECT UUID(), 'Legale', 'Affari legali e conformità normativa', @org
+WHERE NOT EXISTS (SELECT 1 FROM business_areas WHERE name = 'Legale' AND organization_id = @org);
+INSERT INTO business_areas (id, name, description, organization_id)
+SELECT UUID(), 'Finanza', 'Amministrazione, finanza e controllo', @org
+WHERE NOT EXISTS (SELECT 1 FROM business_areas WHERE name = 'Finanza' AND organization_id = @org);
 
 -- financial_types (Ricavi/Costi) already exist for org 3 and are already
 -- correctly categorized (V30) — nothing to do here.
@@ -68,55 +82,55 @@ WHERE NOT EXISTS (SELECT 1 FROM business_areas WHERE name = 'Finanza' AND organi
 -- (contract_documents, electronic_invoices, risk_feedback,
 --  sepa_payment_batches, contract_workflow_events all cascade
 --  automatically via ON DELETE CASCADE.)
-DELETE fv FROM financial_values fv JOIN contracts c ON fv.contract_id = c.id WHERE c.organization_id = 3;
-DELETE cm FROM contract_manager cm JOIN contracts c ON cm.contract_id = c.id WHERE c.organization_id = 3;
-DELETE ch FROM contract_history ch JOIN contracts c ON ch.contract_id = c.id WHERE c.organization_id = 3;
-DELETE FROM budgets WHERE organization_id = 3;
-DELETE FROM contracts WHERE organization_id = 3;
+DELETE fv FROM financial_values fv JOIN contracts c ON fv.contract_id = c.id WHERE c.organization_id = @org;
+DELETE cm FROM contract_manager cm JOIN contracts c ON cm.contract_id = c.id WHERE c.organization_id = @org;
+DELETE ch FROM contract_history ch JOIN contracts c ON ch.contract_id = c.id WHERE c.organization_id = @org;
+DELETE FROM budgets WHERE organization_id = @org;
+DELETE FROM contracts WHERE organization_id = @org;
 -- Notifications point at contracts by number in their text, not by FK, so
 -- they outlive the contracts above: without this the bell kept showing
 -- alerts about contracts long gone (e.g. "SYN-03-0028", a Faker leftover).
-DELETE FROM notifications WHERE org_id = 3;
+DELETE FROM notifications WHERE org_id = @org;
 
 -- ── Counterparties ───────────────────────────────────────────
 -- All invented company names in a consistent Italian register (no real
 -- company). Same set as the local Nortiva hero dataset minus the
 -- construction-industry one, since "Costruzioni" isn't part of org 3's
 -- (deliberately smaller) business-area set.
-INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Solaris Informatica S.p.A.', 'CUSTOMER', 3
-WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Solaris Informatica S.p.A.' AND organization_id = 3);
+INSERT INTO counterparties (id, name, type, organization_id)
+SELECT UUID(), 'Solaris Informatica S.p.A.', 'CUSTOMER', @org
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Solaris Informatica S.p.A.' AND organization_id = @org);
 
-INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Fintera Consulting S.r.l.', 'CUSTOMER', 3
-WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Fintera Consulting S.r.l.' AND organization_id = 3);
+INSERT INTO counterparties (id, name, type, organization_id)
+SELECT UUID(), 'Fintera Consulting S.r.l.', 'CUSTOMER', @org
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Fintera Consulting S.r.l.' AND organization_id = @org);
 
-INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Vertice Legal S.r.l.', 'CUSTOMER', 3
-WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Vertice Legal S.r.l.' AND organization_id = 3);
+INSERT INTO counterparties (id, name, type, organization_id)
+SELECT UUID(), 'Vertice Legal S.r.l.', 'CUSTOMER', @org
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Vertice Legal S.r.l.' AND organization_id = @org);
 
-INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Trasporti Meridiana S.r.l.', 'CUSTOMER', 3
-WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Trasporti Meridiana S.r.l.' AND organization_id = 3);
+INSERT INTO counterparties (id, name, type, organization_id)
+SELECT UUID(), 'Trasporti Meridiana S.r.l.', 'CUSTOMER', @org
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Trasporti Meridiana S.r.l.' AND organization_id = @org);
 
-INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Cyberdue Security S.r.l.', 'SUPPLIER', 3
-WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Cyberdue Security S.r.l.' AND organization_id = 3);
+INSERT INTO counterparties (id, name, type, organization_id)
+SELECT UUID(), 'Cyberdue Security S.r.l.', 'SUPPLIER', @org
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Cyberdue Security S.r.l.' AND organization_id = @org);
 -- A supplier: Nortiva bought the security upgrade from it. Set on every run,
 -- since the row predates this and was created as a customer.
-UPDATE counterparties SET type = 'SUPPLIER' WHERE name = 'Cyberdue Security S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET type = 'SUPPLIER' WHERE name = 'Cyberdue Security S.r.l.' AND organization_id = @org;
 
-INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Manifattura Orion S.p.A.', 'CUSTOMER', 3
-WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Manifattura Orion S.p.A.' AND organization_id = 3);
+INSERT INTO counterparties (id, name, type, organization_id)
+SELECT UUID(), 'Manifattura Orion S.p.A.', 'CUSTOMER', @org
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Manifattura Orion S.p.A.' AND organization_id = @org);
 
-INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Nexora Technologies S.r.l.', 'CUSTOMER', 3
-WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Nexora Technologies S.r.l.' AND organization_id = 3);
+INSERT INTO counterparties (id, name, type, organization_id)
+SELECT UUID(), 'Nexora Technologies S.r.l.', 'CUSTOMER', @org
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Nexora Technologies S.r.l.' AND organization_id = @org);
 
-INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Ferramenta Bassano S.r.l.', 'CUSTOMER', 3
-WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Ferramenta Bassano S.r.l.' AND organization_id = 3);
+INSERT INTO counterparties (id, name, type, organization_id)
+SELECT UUID(), 'Ferramenta Bassano S.r.l.', 'CUSTOMER', @org
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Ferramenta Bassano S.r.l.' AND organization_id = @org);
 
 -- Two SUPPLIERS: Nortiva buys from them, receives their FatturaPA invoices
 -- and pays them by SEPA transfer. Every counterparty above is a customer, so
@@ -128,78 +142,78 @@ WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Ferramenta Bassano 
 -- VAT to match, and the same IBAN to pass the SEPA anti-fraud check).
 -- verified_iban is the account BCM already trusts for that supplier; it is
 -- re-applied every night so a visitor's actions can't change the story.
-INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Nuvola Cloud Services S.r.l.', 'SUPPLIER', 3
-WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Nuvola Cloud Services S.r.l.' AND organization_id = 3);
+INSERT INTO counterparties (id, name, type, organization_id)
+SELECT UUID(), 'Nuvola Cloud Services S.r.l.', 'SUPPLIER', @org
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Nuvola Cloud Services S.r.l.' AND organization_id = @org);
 UPDATE counterparties SET type = 'SUPPLIER', vat_number = 'IT07824150960',
     verified_iban = 'IT70K0306909400000071528400', verified_bic = 'NUVLITM1XXX',
     contact_email = 'amministrazione@nuvolacloud.example'
-WHERE name = 'Nuvola Cloud Services S.r.l.' AND organization_id = 3;
+WHERE name = 'Nuvola Cloud Services S.r.l.' AND organization_id = @org;
 
-INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Ferri & Associati S.r.l.', 'SUPPLIER', 3
-WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Ferri & Associati S.r.l.' AND organization_id = 3);
+INSERT INTO counterparties (id, name, type, organization_id)
+SELECT UUID(), 'Ferri & Associati S.r.l.', 'SUPPLIER', @org
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Ferri & Associati S.r.l.' AND organization_id = @org);
 UPDATE counterparties SET type = 'SUPPLIER', vat_number = 'IT05391280772',
     verified_iban = 'IT17M0503411701000062194812', verified_bic = 'FERRITM1XXX',
     contact_email = 'studio@ferriassociati.example'
-WHERE name = 'Ferri & Associati S.r.l.' AND organization_id = 3;
+WHERE name = 'Ferri & Associati S.r.l.' AND organization_id = @org;
 
 -- Third SUPPLIER: plant maintenance with a tacit renewal, the most common
 -- way an SME ends up paying a year it didn't want. No VAT or IBAN: it has no
 -- invoices in the demo, its story is the notice deadline.
-INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Rossi Impianti S.r.l.', 'SUPPLIER', 3
-WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = 3);
+INSERT INTO counterparties (id, name, type, organization_id)
+SELECT UUID(), 'Rossi Impianti S.r.l.', 'SUPPLIER', @org
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = @org);
 UPDATE counterparties SET type = 'SUPPLIER', contact_email = 'commerciale@rossiimpianti.example'
-WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = 3;
+WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = @org;
 
 -- Two more tacitly renewing suppliers, the contracts an SME most often
 -- forgets: a software licence (notice due within the week) and office
 -- cleaning (notice due in a month and a half, not urgent yet).
-INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Gestio Software S.r.l.', 'SUPPLIER', 3
-WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Gestio Software S.r.l.' AND organization_id = 3);
+INSERT INTO counterparties (id, name, type, organization_id)
+SELECT UUID(), 'Gestio Software S.r.l.', 'SUPPLIER', @org
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Gestio Software S.r.l.' AND organization_id = @org);
 UPDATE counterparties SET type = 'SUPPLIER', contact_email = 'rinnovi@gestiosoftware.example'
-WHERE name = 'Gestio Software S.r.l.' AND organization_id = 3;
+WHERE name = 'Gestio Software S.r.l.' AND organization_id = @org;
 
-INSERT INTO counterparties (name, type, organization_id)
-SELECT 'Aurora Servizi S.r.l.', 'SUPPLIER', 3
-WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = 3);
+INSERT INTO counterparties (id, name, type, organization_id)
+SELECT UUID(), 'Aurora Servizi S.r.l.', 'SUPPLIER', @org
+WHERE NOT EXISTS (SELECT 1 FROM counterparties WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = @org);
 UPDATE counterparties SET type = 'SUPPLIER', contact_email = 'clienti@auroraservizi.example'
-WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = 3;
+WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = @org;
 
 -- A contact person for every counterparty (invented names, .example email
 -- domains), so the Controparti list isn't a column of "N/D". No VAT numbers
 -- for the customers on purpose: an invented one could belong to a real company.
-UPDATE counterparties SET contact_name = 'Giulia Ferraro', contact_email = 'g.ferraro@solaris.example' WHERE name = 'Solaris Informatica S.p.A.' AND organization_id = 3;
-UPDATE counterparties SET contact_name = 'Andrea Conti', contact_email = 'a.conti@fintera.example' WHERE name = 'Fintera Consulting S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET contact_name = 'Elena Marino', contact_email = 'e.marino@verticelegal.example' WHERE name = 'Vertice Legal S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET contact_name = 'Paolo Greco', contact_email = 'p.greco@meridiana.example' WHERE name = 'Trasporti Meridiana S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET contact_name = 'Sara Lombardi', contact_email = 's.lombardi@cyberdue.example' WHERE name = 'Cyberdue Security S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET contact_name = 'Luca Bianchi', contact_email = 'l.bianchi@orion.example' WHERE name = 'Manifattura Orion S.p.A.' AND organization_id = 3;
-UPDATE counterparties SET contact_name = 'Chiara Romano', contact_email = 'c.romano@nexora.example' WHERE name = 'Nexora Technologies S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET contact_name = 'Marco Gallo', contact_email = 'm.gallo@ferramentabassano.example' WHERE name = 'Ferramenta Bassano S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET contact_name = 'Davide Costa' WHERE name = 'Nuvola Cloud Services S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET contact_name = 'Roberta Ferri' WHERE name = 'Ferri & Associati S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET contact_name = 'Giorgio Rossi' WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET contact_name = 'Valentina Neri' WHERE name = 'Gestio Software S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET contact_name = 'Francesca Moretti' WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET contact_name = 'Giulia Ferraro', contact_email = 'g.ferraro@solaris.example' WHERE name = 'Solaris Informatica S.p.A.' AND organization_id = @org;
+UPDATE counterparties SET contact_name = 'Andrea Conti', contact_email = 'a.conti@fintera.example' WHERE name = 'Fintera Consulting S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET contact_name = 'Elena Marino', contact_email = 'e.marino@verticelegal.example' WHERE name = 'Vertice Legal S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET contact_name = 'Paolo Greco', contact_email = 'p.greco@meridiana.example' WHERE name = 'Trasporti Meridiana S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET contact_name = 'Sara Lombardi', contact_email = 's.lombardi@cyberdue.example' WHERE name = 'Cyberdue Security S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET contact_name = 'Luca Bianchi', contact_email = 'l.bianchi@orion.example' WHERE name = 'Manifattura Orion S.p.A.' AND organization_id = @org;
+UPDATE counterparties SET contact_name = 'Chiara Romano', contact_email = 'c.romano@nexora.example' WHERE name = 'Nexora Technologies S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET contact_name = 'Marco Gallo', contact_email = 'm.gallo@ferramentabassano.example' WHERE name = 'Ferramenta Bassano S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET contact_name = 'Davide Costa' WHERE name = 'Nuvola Cloud Services S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET contact_name = 'Roberta Ferri' WHERE name = 'Ferri & Associati S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET contact_name = 'Giorgio Rossi' WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET contact_name = 'Valentina Neri' WHERE name = 'Gestio Software S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET contact_name = 'Francesca Moretti' WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = @org;
 
 -- Where each company is (city and province only: no street address, nothing
 -- that could point at a real business), so the "Comune" column isn't empty.
 -- Not for Nuvola and Ferri: their addresses come from their own invoices,
 -- which is what seed_demo_purchase_invoices.py checks every night.
-UPDATE counterparties SET city = 'Milano',   province = 'MI', country = 'IT' WHERE name = 'Solaris Informatica S.p.A.' AND organization_id = 3;
-UPDATE counterparties SET city = 'Roma',     province = 'RM', country = 'IT' WHERE name = 'Fintera Consulting S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET city = 'Bologna',  province = 'BO', country = 'IT' WHERE name = 'Vertice Legal S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET city = 'Napoli',   province = 'NA', country = 'IT' WHERE name = 'Trasporti Meridiana S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET city = 'Padova',   province = 'PD', country = 'IT' WHERE name = 'Cyberdue Security S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET city = 'Brescia',  province = 'BS', country = 'IT' WHERE name = 'Manifattura Orion S.p.A.' AND organization_id = 3;
-UPDATE counterparties SET city = 'Firenze',  province = 'FI', country = 'IT' WHERE name = 'Nexora Technologies S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET city = 'Bassano del Grappa', province = 'VI', country = 'IT' WHERE name = 'Ferramenta Bassano S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET city = 'Lecce',    province = 'LE', country = 'IT' WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET city = 'Verona',   province = 'VR', country = 'IT' WHERE name = 'Gestio Software S.r.l.' AND organization_id = 3;
-UPDATE counterparties SET city = 'Taranto',  province = 'TA', country = 'IT' WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = 3;
+UPDATE counterparties SET city = 'Milano',   province = 'MI', country = 'IT' WHERE name = 'Solaris Informatica S.p.A.' AND organization_id = @org;
+UPDATE counterparties SET city = 'Roma',     province = 'RM', country = 'IT' WHERE name = 'Fintera Consulting S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET city = 'Bologna',  province = 'BO', country = 'IT' WHERE name = 'Vertice Legal S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET city = 'Napoli',   province = 'NA', country = 'IT' WHERE name = 'Trasporti Meridiana S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET city = 'Padova',   province = 'PD', country = 'IT' WHERE name = 'Cyberdue Security S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET city = 'Brescia',  province = 'BS', country = 'IT' WHERE name = 'Manifattura Orion S.p.A.' AND organization_id = @org;
+UPDATE counterparties SET city = 'Firenze',  province = 'FI', country = 'IT' WHERE name = 'Nexora Technologies S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET city = 'Bassano del Grappa', province = 'VI', country = 'IT' WHERE name = 'Ferramenta Bassano S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET city = 'Lecce',    province = 'LE', country = 'IT' WHERE name = 'Rossi Impianti S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET city = 'Verona',   province = 'VR', country = 'IT' WHERE name = 'Gestio Software S.r.l.' AND organization_id = @org;
+UPDATE counterparties SET city = 'Taranto',  province = 'TA', country = 'IT' WHERE name = 'Aurora Servizi S.r.l.' AND organization_id = @org;
 
 -- ── Contracts ─────────────────────────────────────────────────
 -- All assigned to manager id 4 (the public "demo" login) — role-based
@@ -215,144 +229,144 @@ UPDATE counterparties SET city = 'Taranto',  province = 'TA', country = 'IT' WHE
 -- 60000/QUARTERLY = 15000 every 3 months from start_date — and tagged
 -- source=GENERATED, so the Financials tab still shows the feature's real
 -- output (with its "Generato" badge) even without a live trigger.
-INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, financial_type_id, annual_value, billing_frequency)
-SELECT (SELECT id FROM counterparties WHERE name='Vertice Legal S.r.l.' AND organization_id=3),
+INSERT INTO contracts (id, counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, financial_type_id, annual_value, billing_frequency)
+SELECT UUID(), (SELECT id FROM counterparties WHERE name='Vertice Legal S.r.l.' AND organization_id = @org),
        'NRT-104', 'WBS-LEG-001', 'Audit di Conformità',
-       (SELECT id FROM business_areas WHERE name='Legale' AND organization_id=3),
-       4, DATE_SUB(CURDATE(), INTERVAL 8 MONTH), DATE_ADD(CURDATE(), INTERVAL 12 DAY), 'ACTIVE', 3,
-       (SELECT id FROM financial_types WHERE name='Ricavi' AND organization_id=3), 60000, 'QUARTERLY';
+       (SELECT id FROM business_areas WHERE name='Legale' AND organization_id = @org),
+       @demo_manager, DATE_SUB(CURDATE(), INTERVAL 8 MONTH), DATE_ADD(CURDATE(), INTERVAL 12 DAY), 'ACTIVE', @org,
+       (SELECT id FROM financial_types WHERE name='Ricavi' AND organization_id = @org), 60000, 'QUARTERLY';
 
 -- 2) Expired, with 12 months of financial history ending at its own
 -- end_date (4 months ago), none after — matches its status.
-INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
-SELECT (SELECT id FROM counterparties WHERE name='Fintera Consulting S.r.l.' AND organization_id=3),
+INSERT INTO contracts (id, counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
+SELECT UUID(), (SELECT id FROM counterparties WHERE name='Fintera Consulting S.r.l.' AND organization_id = @org),
        'NRT-102', 'WBS-FIN-001', 'Automazione Reporting Finanziario',
-       (SELECT id FROM business_areas WHERE name='Finanza' AND organization_id=3),
-       4, DATE_SUB(CURDATE(), INTERVAL 16 MONTH), DATE_SUB(CURDATE(), INTERVAL 4 MONTH), 'EXPIRED', 3;
+       (SELECT id FROM business_areas WHERE name='Finanza' AND organization_id = @org),
+       @demo_manager, DATE_SUB(CURDATE(), INTERVAL 16 MONTH), DATE_SUB(CURDATE(), INTERVAL 4 MONTH), 'EXPIRED', @org;
 
 -- 3) Cancelled.
-INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
-SELECT (SELECT id FROM counterparties WHERE name='Cyberdue Security S.r.l.' AND organization_id=3),
+INSERT INTO contracts (id, counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
+SELECT UUID(), (SELECT id FROM counterparties WHERE name='Cyberdue Security S.r.l.' AND organization_id = @org),
        'NRT-106', 'WBS-IT-002', 'Aggiornamento Sicurezza Informatica',
-       (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id=3),
-       4, DATE_SUB(CURDATE(), INTERVAL 16 MONTH), DATE_SUB(CURDATE(), INTERVAL 10 MONTH), 'CANCELLED', 3;
+       (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id = @org),
+       @demo_manager, DATE_SUB(CURDATE(), INTERVAL 16 MONTH), DATE_SUB(CURDATE(), INTERVAL 10 MONTH), 'CANCELLED', @org;
 
 -- 4) Second near-expiry (25 days), so the "scadenze imminenti" widget has
 -- more than one row during the demo.
-INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
-SELECT (SELECT id FROM counterparties WHERE name='Manifattura Orion S.p.A.' AND organization_id=3),
+INSERT INTO contracts (id, counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
+SELECT UUID(), (SELECT id FROM counterparties WHERE name='Manifattura Orion S.p.A.' AND organization_id = @org),
        'NRT-112', 'WBS-OPS-002', 'Trasformazione Digitale',
-       (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id=3),
-       4, DATE_SUB(CURDATE(), INTERVAL 9 MONTH), DATE_ADD(CURDATE(), INTERVAL 25 DAY), 'ACTIVE', 3;
+       (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id = @org),
+       @demo_manager, DATE_SUB(CURDATE(), INTERVAL 9 MONTH), DATE_ADD(CURDATE(), INTERVAL 25 DAY), 'ACTIVE', @org;
 
 -- 5) Long-running IT contract (about 10-13k a month), 18 months of steady-growth financial
 -- history for a chart with real shape on its detail page.
-INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
-SELECT (SELECT id FROM counterparties WHERE name='Solaris Informatica S.p.A.' AND organization_id=3),
+INSERT INTO contracts (id, counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
+SELECT UUID(), (SELECT id FROM counterparties WHERE name='Solaris Informatica S.p.A.' AND organization_id = @org),
        'NRT-101', 'WBS-IT-001', 'Migrazione Cloud Fase 1',
-       (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id=3),
-       4, DATE_SUB(CURDATE(), INTERVAL 30 MONTH), DATE_ADD(CURDATE(), INTERVAL 5 MONTH), 'ACTIVE', 3;
+       (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id = @org),
+       @demo_manager, DATE_SUB(CURDATE(), INTERVAL 30 MONTH), DATE_ADD(CURDATE(), INTERVAL 5 MONTH), 'ACTIVE', @org;
 
 -- 6) Active operations contract, 10 months of steady financial history.
-INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
-SELECT (SELECT id FROM counterparties WHERE name='Trasporti Meridiana S.r.l.' AND organization_id=3),
+INSERT INTO contracts (id, counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
+SELECT UUID(), (SELECT id FROM counterparties WHERE name='Trasporti Meridiana S.r.l.' AND organization_id = @org),
        'NRT-105', 'WBS-OPS-001', 'Ottimizzazione Supply Chain',
-       (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id=3),
-       4, DATE_SUB(CURDATE(), INTERVAL 10 MONTH), DATE_ADD(CURDATE(), INTERVAL 60 DAY), 'ACTIVE', 3;
+       (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id = @org),
+       @demo_manager, DATE_SUB(CURDATE(), INTERVAL 10 MONTH), DATE_ADD(CURDATE(), INTERVAL 60 DAY), 'ACTIVE', @org;
 
 -- 7) Recently started, long horizon.
-INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
-SELECT (SELECT id FROM counterparties WHERE name='Nexora Technologies S.r.l.' AND organization_id=3),
+INSERT INTO contracts (id, counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id)
+SELECT UUID(), (SELECT id FROM counterparties WHERE name='Nexora Technologies S.r.l.' AND organization_id = @org),
        'NRT-121', 'WBS-IT-003', 'Sviluppo Piattaforma AI',
-       (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id=3),
-       4, DATE_SUB(CURDATE(), INTERVAL 1 MONTH), DATE_ADD(CURDATE(), INTERVAL 24 MONTH), 'ACTIVE', 3;
+       (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id = @org),
+       @demo_manager, DATE_SUB(CURDATE(), INTERVAL 1 MONTH), DATE_ADD(CURDATE(), INTERVAL 24 MONTH), 'ACTIVE', @org;
 
 -- 8) Workflow demo: DRAFT, sitting in IN_REVIEW, submitted by the "demo"
 -- user. No public login can approve it (the public demo is deliberately
 -- MANAGER-only — see header), so this shows the workflow UI/history
 -- exists without exposing an admin/approver account publicly.
-INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, workflow_stage, organization_id)
-SELECT (SELECT id FROM counterparties WHERE name='Ferramenta Bassano S.r.l.' AND organization_id=3),
+INSERT INTO contracts (id, counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, workflow_stage, organization_id)
+SELECT UUID(), (SELECT id FROM counterparties WHERE name='Ferramenta Bassano S.r.l.' AND organization_id = @org),
        'NRT-122', 'WBS-FIN-002', 'Fornitura Software Gestionale',
-       (SELECT id FROM business_areas WHERE name='Finanza' AND organization_id=3),
-       4, DATE_ADD(CURDATE(), INTERVAL 15 DAY), NULL, 'DRAFT', 'IN_REVIEW', 3;
+       (SELECT id FROM business_areas WHERE name='Finanza' AND organization_id = @org),
+       @demo_manager, DATE_ADD(CURDATE(), INTERVAL 15 DAY), NULL, 'DRAFT', 'IN_REVIEW', @org;
 
 -- 9) Purchase: monthly cloud hosting, the invoice -> match -> SEPA demo.
 -- Its invoices are attached nightly by seed_demo_purchase_invoices.py: last
 -- month's is matched and already paid, this month's is waiting to be matched.
-INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, financial_type_id, annual_value, billing_frequency)
-SELECT (SELECT id FROM counterparties WHERE name='Nuvola Cloud Services S.r.l.' AND organization_id=3),
+INSERT INTO contracts (id, counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, financial_type_id, annual_value, billing_frequency)
+SELECT UUID(), (SELECT id FROM counterparties WHERE name='Nuvola Cloud Services S.r.l.' AND organization_id = @org),
        'NRT-117', 'WBS-IT-004', 'Hosting e servizi cloud',
-       (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id=3),
-       4, DATE_SUB(CURDATE(), INTERVAL 12 MONTH), DATE_ADD(CURDATE(), INTERVAL 12 MONTH), 'ACTIVE', 3,
-       (SELECT id FROM financial_types WHERE name='Costi' AND organization_id=3), 57600, 'MONTHLY';
+       (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id = @org),
+       @demo_manager, DATE_SUB(CURDATE(), INTERVAL 12 MONTH), DATE_ADD(CURDATE(), INTERVAL 12 MONTH), 'ACTIVE', @org,
+       (SELECT id FROM financial_types WHERE name='Costi' AND organization_id = @org), 57600, 'MONTHLY';
 
 -- 10) Purchase: quarterly tax advisory. Its latest invoice asks to be paid
 -- on a different IBAN than the trusted one, so the SEPA anti-fraud check
 -- blocks the transfer — the classic "supplier changed bank details" scam.
-INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, financial_type_id, annual_value, billing_frequency)
-SELECT (SELECT id FROM counterparties WHERE name='Ferri & Associati S.r.l.' AND organization_id=3),
+INSERT INTO contracts (id, counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, financial_type_id, annual_value, billing_frequency)
+SELECT UUID(), (SELECT id FROM counterparties WHERE name='Ferri & Associati S.r.l.' AND organization_id = @org),
        'NRT-118', 'WBS-FIN-003', 'Consulenza fiscale e societaria',
-       (SELECT id FROM business_areas WHERE name='Finanza' AND organization_id=3),
-       4, DATE_SUB(CURDATE(), INTERVAL 10 MONTH), DATE_ADD(CURDATE(), INTERVAL 14 MONTH), 'ACTIVE', 3,
-       (SELECT id FROM financial_types WHERE name='Costi' AND organization_id=3), 26000, 'QUARTERLY';
+       (SELECT id FROM business_areas WHERE name='Finanza' AND organization_id = @org),
+       @demo_manager, DATE_SUB(CURDATE(), INTERVAL 10 MONTH), DATE_ADD(CURDATE(), INTERVAL 14 MONTH), 'ACTIVE', @org,
+       (SELECT id FROM financial_types WHERE name='Costi' AND organization_id = @org), 26000, 'QUARTERLY';
 
 -- 11) Purchase with a tacit renewal: 6,000/year plant maintenance, renews
 -- for 12 months unless cancelled 90 days before the end. The end date is 110
 -- days away, so the last day to give notice is in 20 days: the home page
 -- lists it, and the 30/14/7/1-day reminders target that day, not the end.
-INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, auto_renew, notice_days, renewal_months)
-SELECT (SELECT id FROM counterparties WHERE name='Rossi Impianti S.r.l.' AND organization_id=3),
+INSERT INTO contracts (id, counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, auto_renew, notice_days, renewal_months)
+SELECT UUID(), (SELECT id FROM counterparties WHERE name='Rossi Impianti S.r.l.' AND organization_id = @org),
        'NRT-119', 'WBS-OPS-003', 'Manutenzione impianti',
-       (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id=3),
-       4, DATE_SUB(DATE_ADD(CURDATE(), INTERVAL 110 DAY), INTERVAL 12 MONTH), DATE_ADD(CURDATE(), INTERVAL 110 DAY),
-       'ACTIVE', 3, TRUE, 90, 12;
+       (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id = @org),
+       @demo_manager, DATE_SUB(DATE_ADD(CURDATE(), INTERVAL 110 DAY), INTERVAL 12 MONTH), DATE_ADD(CURDATE(), INTERVAL 110 DAY),
+       'ACTIVE', @org, TRUE, 90, 12;
 
 -- 12) Software licence, renews yearly unless cancelled 30 days before the
 -- end; the end is 36 days away, so the last day to give notice is in 6 days:
 -- the most urgent item on the home page.
-INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, auto_renew, notice_days, renewal_months)
-SELECT (SELECT id FROM counterparties WHERE name='Gestio Software S.r.l.' AND organization_id=3),
+INSERT INTO contracts (id, counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, auto_renew, notice_days, renewal_months)
+SELECT UUID(), (SELECT id FROM counterparties WHERE name='Gestio Software S.r.l.' AND organization_id = @org),
        'NRT-123', NULL, 'Licenza software gestionale',
-       (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id=3),
-       4, DATE_SUB(DATE_ADD(CURDATE(), INTERVAL 36 DAY), INTERVAL 12 MONTH), DATE_ADD(CURDATE(), INTERVAL 36 DAY),
-       'ACTIVE', 3, TRUE, 30, 12;
+       (SELECT id FROM business_areas WHERE name='Servizi IT' AND organization_id = @org),
+       @demo_manager, DATE_SUB(DATE_ADD(CURDATE(), INTERVAL 36 DAY), INTERVAL 12 MONTH), DATE_ADD(CURDATE(), INTERVAL 36 DAY),
+       'ACTIVE', @org, TRUE, 30, 12;
 
 -- 13) Office cleaning, a two-year contract renewing for 12 months unless
 -- cancelled 60 days before the end; notice due in 45 days, outside the home
 -- page's 30-day window: listed with its deadline, not yet urgent. No WBS
 -- code, like most real contracts: the field is optional.
-INSERT INTO contracts (counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, auto_renew, notice_days, renewal_months)
-SELECT (SELECT id FROM counterparties WHERE name='Aurora Servizi S.r.l.' AND organization_id=3),
+INSERT INTO contracts (id, counterparty_id, contract_number, wbs_code, project_name, area_id, manager_id, start_date, end_date, status, organization_id, auto_renew, notice_days, renewal_months)
+SELECT UUID(), (SELECT id FROM counterparties WHERE name='Aurora Servizi S.r.l.' AND organization_id = @org),
        'NRT-124', NULL, 'Pulizia uffici',
-       (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id=3),
-       4, DATE_SUB(DATE_ADD(CURDATE(), INTERVAL 105 DAY), INTERVAL 24 MONTH), DATE_ADD(CURDATE(), INTERVAL 105 DAY),
-       'ACTIVE', 3, TRUE, 60, 12;
+       (SELECT id FROM business_areas WHERE name='Operazioni' AND organization_id = @org),
+       @demo_manager, DATE_SUB(DATE_ADD(CURDATE(), INTERVAL 105 DAY), INTERVAL 24 MONTH), DATE_ADD(CURDATE(), INTERVAL 105 DAY),
+       'ACTIVE', @org, TRUE, 60, 12;
 
 -- Yearly value of the three tacitly renewing purchases, so each supplier's
 -- page shows what the contract is worth instead of "0 €". No monthly cost
 -- rows for them: their story is the notice deadline, not the invoices.
-UPDATE contracts SET financial_type_id = (SELECT id FROM financial_types WHERE name = 'Costi' AND organization_id = 3),
+UPDATE contracts SET financial_type_id = (SELECT id FROM financial_types WHERE name = 'Costi' AND organization_id = @org),
        annual_value = 6000, billing_frequency = 'QUARTERLY'
-WHERE contract_number = 'NRT-119' AND organization_id = 3;
-UPDATE contracts SET financial_type_id = (SELECT id FROM financial_types WHERE name = 'Costi' AND organization_id = 3),
+WHERE contract_number = 'NRT-119' AND organization_id = @org;
+UPDATE contracts SET financial_type_id = (SELECT id FROM financial_types WHERE name = 'Costi' AND organization_id = @org),
        annual_value = 2400, billing_frequency = 'ANNUAL'
-WHERE contract_number = 'NRT-123' AND organization_id = 3;
-UPDATE contracts SET financial_type_id = (SELECT id FROM financial_types WHERE name = 'Costi' AND organization_id = 3),
+WHERE contract_number = 'NRT-123' AND organization_id = @org;
+UPDATE contracts SET financial_type_id = (SELECT id FROM financial_types WHERE name = 'Costi' AND organization_id = @org),
        annual_value = 9600, billing_frequency = 'MONTHLY'
-WHERE contract_number = 'NRT-124' AND organization_id = 3;
+WHERE contract_number = 'NRT-124' AND organization_id = @org;
 
-INSERT INTO contract_workflow_events (contract_id, from_stage, to_stage, action, actor_user_id, comment, created_at)
-SELECT (SELECT id FROM contracts WHERE contract_number = 'NRT-122' AND organization_id = 3),
+INSERT INTO contract_workflow_events (id, contract_id, from_stage, to_stage, action, actor_user_id, comment, created_at)
+SELECT UUID(), (SELECT id FROM contracts WHERE contract_number = 'NRT-122' AND organization_id = @org),
        'DRAFT', 'IN_REVIEW', 'SUBMIT',
-       (SELECT id FROM users WHERE username = 'demo' AND organization_id = 3),
+       (SELECT id FROM users WHERE username = 'demo' AND organization_id = @org),
        'Inviato per revisione al reparto Finanza',
        NOW() - INTERVAL 2 DAY;
 
 -- ── contract_manager (primary manager assignments) ────────────
 INSERT INTO contract_manager (contract_id, manager_id)
 SELECT c.id, c.manager_id FROM contracts c
-WHERE c.organization_id = 3 AND c.contract_number LIKE 'NRT-%';
+WHERE c.organization_id = @org AND c.contract_number LIKE 'NRT-%';
 
 -- ── Orphaned counterparties cleanup ─────────────────────────────
 -- Previous nights' Faker-generated counterparties (seed_synthetic_data.py)
@@ -364,8 +378,8 @@ WHERE c.organization_id = 3 AND c.contract_number LIKE 'NRT-%';
 -- Controparti page. Safe to delete: counterparties has no other inbound FK
 -- besides contracts.counterparty_id (checked against the schema).
 DELETE FROM counterparties
-WHERE organization_id = 3
-  AND id NOT IN (SELECT DISTINCT counterparty_id FROM contracts WHERE organization_id = 3 AND counterparty_id IS NOT NULL);
+WHERE organization_id = @org
+  AND id NOT IN (SELECT DISTINCT counterparty_id FROM contracts WHERE organization_id = @org AND counterparty_id IS NOT NULL);
 
 -- ── Financial values ─────────────────────────────────────────
 -- Just enough hand-curated history so each populated hero's own detail
@@ -373,102 +387,102 @@ WHERE organization_id = 3
 -- (Cyberdue, Manifattura, Nexora, Ferramenta deliberately have none —
 -- not every contract needs history for a clean demo.)
 
-SET @ricavi := (SELECT id FROM financial_types WHERE name = 'Ricavi' AND organization_id = 3);
-SET @costi := (SELECT id FROM financial_types WHERE name = 'Costi' AND organization_id = 3);
-SET @area_it := (SELECT id FROM business_areas WHERE name = 'Servizi IT' AND organization_id = 3);
-SET @area_finanza := (SELECT id FROM business_areas WHERE name = 'Finanza' AND organization_id = 3);
-SET @area_legale := (SELECT id FROM business_areas WHERE name = 'Legale' AND organization_id = 3);
-SET @area_operazioni := (SELECT id FROM business_areas WHERE name = 'Operazioni' AND organization_id = 3);
-SET @solaris_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-101' AND organization_id = 3);
-SET @fintera_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-102' AND organization_id = 3);
-SET @trasporti_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-105' AND organization_id = 3);
-SET @vertice_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-104' AND organization_id = 3);
-SET @vertice_start := (SELECT start_date FROM contracts WHERE contract_number = 'NRT-104' AND organization_id = 3);
-SET @nuvola_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-117' AND organization_id = 3);
-SET @ferri_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-118' AND organization_id = 3);
+SET @ricavi := (SELECT id FROM financial_types WHERE name = 'Ricavi' AND organization_id = @org);
+SET @costi := (SELECT id FROM financial_types WHERE name = 'Costi' AND organization_id = @org);
+SET @area_it := (SELECT id FROM business_areas WHERE name = 'Servizi IT' AND organization_id = @org);
+SET @area_finanza := (SELECT id FROM business_areas WHERE name = 'Finanza' AND organization_id = @org);
+SET @area_legale := (SELECT id FROM business_areas WHERE name = 'Legale' AND organization_id = @org);
+SET @area_operazioni := (SELECT id FROM business_areas WHERE name = 'Operazioni' AND organization_id = @org);
+SET @solaris_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-101' AND organization_id = @org);
+SET @fintera_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-102' AND organization_id = @org);
+SET @trasporti_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-105' AND organization_id = @org);
+SET @vertice_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-104' AND organization_id = @org);
+SET @vertice_start := (SELECT start_date FROM contracts WHERE contract_number = 'NRT-104' AND organization_id = @org);
+SET @nuvola_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-117' AND organization_id = @org);
+SET @ferri_contract := (SELECT id FROM contracts WHERE contract_number = 'NRT-118' AND organization_id = @org);
 
 -- Vertice Legal · Audit di Conformità — 3 quarterly rows generated from
 -- the contract's own financial terms (see comment on the INSERT above).
-INSERT INTO financial_values (month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id, source) VALUES
-(MONTH(@vertice_start), YEAR(@vertice_start), 15000, @ricavi, @area_legale, @vertice_contract, 3, 'GENERATED'),
-(MONTH(DATE_ADD(@vertice_start, INTERVAL 3 MONTH)), YEAR(DATE_ADD(@vertice_start, INTERVAL 3 MONTH)), 15000, @ricavi, @area_legale, @vertice_contract, 3, 'GENERATED'),
-(MONTH(DATE_ADD(@vertice_start, INTERVAL 6 MONTH)), YEAR(DATE_ADD(@vertice_start, INTERVAL 6 MONTH)), 15000, @ricavi, @area_legale, @vertice_contract, 3, 'GENERATED');
+INSERT INTO financial_values (id, month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id, source) VALUES
+(UUID(), MONTH(@vertice_start), YEAR(@vertice_start), 15000, @ricavi, @area_legale, @vertice_contract, @org, 'GENERATED'),
+(UUID(), MONTH(DATE_ADD(@vertice_start, INTERVAL 3 MONTH)), YEAR(DATE_ADD(@vertice_start, INTERVAL 3 MONTH)), 15000, @ricavi, @area_legale, @vertice_contract, @org, 'GENERATED'),
+(UUID(), MONTH(DATE_ADD(@vertice_start, INTERVAL 6 MONTH)), YEAR(DATE_ADD(@vertice_start, INTERVAL 6 MONTH)), 15000, @ricavi, @area_legale, @vertice_contract, @org, 'GENERATED');
 
 -- Solaris Informatica · Migrazione Cloud — 18 months, steady growth.
-INSERT INTO financial_values (month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 17 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 17 MONTH)), 8400, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 16 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 16 MONTH)), 8700, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), 8600, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), 9000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), 9300, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), 9100, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), 9600, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), 9900, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  9700, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  10200, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  10600, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  10400, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  11000, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  11400, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  11100, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  11800, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  12300, @ricavi, @area_it, @solaris_contract, 3),
-(MONTH(CURDATE()), YEAR(CURDATE()), 12900, @ricavi, @area_it, @solaris_contract, 3);
+INSERT INTO financial_values (id, month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 17 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 17 MONTH)), 8400, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 16 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 16 MONTH)), 8700, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), 8600, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), 9000, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), 9300, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), 9100, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), 9600, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), 9900, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  9700, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  10200, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  10600, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  10400, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  11000, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  11400, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  11100, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  11800, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  12300, @ricavi, @area_it, @solaris_contract, @org),
+(UUID(), MONTH(CURDATE()), YEAR(CURDATE()), 12900, @ricavi, @area_it, @solaris_contract, @org);
 
 -- Fintera Consulting · Reporting Finanziario — EXPIRED, 12 months ending
 -- at its own end_date (4 months ago), none after — matches its status.
-INSERT INTO financial_values (month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), 3000, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), 3200, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), 3500, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), 3300, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), 3600, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), 3800, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  4000, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  3800, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  4200, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  4500, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  4800, @ricavi, @area_finanza, @fintera_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  4600, @ricavi, @area_finanza, @fintera_contract, 3);
+INSERT INTO financial_values (id, month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 15 MONTH)), 3000, @ricavi, @area_finanza, @fintera_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 14 MONTH)), 3200, @ricavi, @area_finanza, @fintera_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 13 MONTH)), 3500, @ricavi, @area_finanza, @fintera_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 12 MONTH)), 3300, @ricavi, @area_finanza, @fintera_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), 3600, @ricavi, @area_finanza, @fintera_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), 3800, @ricavi, @area_finanza, @fintera_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  4000, @ricavi, @area_finanza, @fintera_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  3800, @ricavi, @area_finanza, @fintera_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  4200, @ricavi, @area_finanza, @fintera_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  4500, @ricavi, @area_finanza, @fintera_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  4800, @ricavi, @area_finanza, @fintera_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  4600, @ricavi, @area_finanza, @fintera_contract, @org);
 
 -- Trasporti Meridiana · Supply Chain — active, 10 months of modest,
 -- steady history (keeps the Operazioni area represented in the dashboard
 -- totals too, not just IT/Finanza).
-INSERT INTO financial_values (month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), 2200, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)), 2350, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)), 2100, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), 2450, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)), 2500, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)), 2380, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), 2620, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)), 2700, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)), 2580, @ricavi, @area_operazioni, @trasporti_contract, 3),
-(MONTH(CURDATE()), YEAR(CURDATE()), 2800, @ricavi, @area_operazioni, @trasporti_contract, 3);
+INSERT INTO financial_values (id, month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), 2200, @ricavi, @area_operazioni, @trasporti_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)), 2350, @ricavi, @area_operazioni, @trasporti_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)), 2100, @ricavi, @area_operazioni, @trasporti_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), 2450, @ricavi, @area_operazioni, @trasporti_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)), 2500, @ricavi, @area_operazioni, @trasporti_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)), 2380, @ricavi, @area_operazioni, @trasporti_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), 2620, @ricavi, @area_operazioni, @trasporti_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)), 2700, @ricavi, @area_operazioni, @trasporti_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)), 2580, @ricavi, @area_operazioni, @trasporti_contract, @org),
+(UUID(), MONTH(CURDATE()), YEAR(CURDATE()), 2800, @ricavi, @area_operazioni, @trasporti_contract, @org);
 
 -- Nuvola Cloud · Hosting — 12 monthly costs of 4,800 (taxable amount, VAT excluded:
 -- BCM compares contract amounts with an invoice's taxable amount). The
 -- purchase invoices match these by amount and month.
-INSERT INTO financial_values (month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), 4800, @costi, @area_it, @nuvola_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), 4800, @costi, @area_it, @nuvola_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  4800, @costi, @area_it, @nuvola_contract, 3),
-(MONTH(CURDATE()), YEAR(CURDATE()), 4800, @costi, @area_it, @nuvola_contract, 3);
+INSERT INTO financial_values (id, month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 11 MONTH)), 4800, @costi, @area_it, @nuvola_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 10 MONTH)), 4800, @costi, @area_it, @nuvola_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)),  4800, @costi, @area_it, @nuvola_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 8 MONTH)),  4800, @costi, @area_it, @nuvola_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 7 MONTH)),  4800, @costi, @area_it, @nuvola_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),  4800, @costi, @area_it, @nuvola_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 5 MONTH)),  4800, @costi, @area_it, @nuvola_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 4 MONTH)),  4800, @costi, @area_it, @nuvola_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)),  4800, @costi, @area_it, @nuvola_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)),  4800, @costi, @area_it, @nuvola_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)),  4800, @costi, @area_it, @nuvola_contract, @org),
+(UUID(), MONTH(CURDATE()), YEAR(CURDATE()), 4800, @costi, @area_it, @nuvola_contract, @org);
 
 -- Ferri & Associati · Consulenza — quarterly costs of 6,500 (taxable amount, VAT excluded).
-INSERT INTO financial_values (month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), 6500, @costi, @area_finanza, @ferri_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), 6500, @costi, @area_finanza, @ferri_contract, 3),
-(MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), 6500, @costi, @area_finanza, @ferri_contract, 3),
-(MONTH(CURDATE()), YEAR(CURDATE()), 6500, @costi, @area_finanza, @ferri_contract, 3);
+INSERT INTO financial_values (id, month_value, year_value, financial_amount, financial_type_id, area_id, contract_id, organization_id) VALUES
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 9 MONTH)), 6500, @costi, @area_finanza, @ferri_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 6 MONTH)), 6500, @costi, @area_finanza, @ferri_contract, @org),
+(UUID(), MONTH(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), YEAR(DATE_SUB(CURDATE(), INTERVAL 3 MONTH)), 6500, @costi, @area_finanza, @ferri_contract, @org),
+(UUID(), MONTH(CURDATE()), YEAR(CURDATE()), 6500, @costi, @area_finanza, @ferri_contract, @org);
 
 -- ── Budgets ──────────────────────────────────────────────────
 -- One target per area and category for the current year, derived from the
@@ -487,25 +501,25 @@ INSERT INTO financial_values (month_value, year_value, financial_amount, financi
 -- costs at all for Operazioni/Legale) rather than a target with no data.
 SET @months_elapsed_share := MONTH(CURDATE()) / 12;
 
-INSERT INTO budgets (business_area_id, category, year_value, target_amount, organization_id)
-SELECT ytd.area_id, ytd.category, YEAR(CURDATE()),
+INSERT INTO budgets (id, business_area_id, category, year_value, target_amount, organization_id)
+SELECT UUID(), ytd.area_id, ytd.category, YEAR(CURDATE()),
        ROUND(ytd.total / @months_elapsed_share * CASE CONCAT(ytd.category, ':', ba.name)
            WHEN 'REVENUE:Servizi IT' THEN 0.92 WHEN 'REVENUE:Finanza' THEN 1.00
            WHEN 'REVENUE:Operazioni' THEN 1.12 WHEN 'REVENUE:Legale' THEN 1.50
            WHEN 'COST:Servizi IT' THEN 1.20 WHEN 'COST:Finanza' THEN 1.25
            ELSE 1.00 END, -3),
-       3
+       @org
 FROM (
     SELECT fv.area_id, ft.category, SUM(fv.financial_amount) AS total
     FROM financial_values fv
     JOIN financial_types ft ON ft.id = fv.financial_type_id
-    WHERE fv.organization_id = 3 AND fv.year_value = YEAR(CURDATE())
+    WHERE fv.organization_id = @org AND fv.year_value = YEAR(CURDATE())
     GROUP BY fv.area_id, ft.category
 ) ytd
-JOIN business_areas ba ON ba.id = ytd.area_id AND ba.organization_id = 3
+JOIN business_areas ba ON ba.id = ytd.area_id AND ba.organization_id = @org
 WHERE ytd.total > 0;
 
 SELECT 'Demo org reseeded' AS result;
-SELECT COUNT(*) AS total_contracts FROM contracts WHERE organization_id = 3;
-SELECT COUNT(*) AS total_financial_values FROM financial_values WHERE organization_id = 3;
-SELECT COUNT(*) AS total_counterparties FROM counterparties WHERE organization_id = 3;
+SELECT COUNT(*) AS total_contracts FROM contracts WHERE organization_id = @org;
+SELECT COUNT(*) AS total_financial_values FROM financial_values WHERE organization_id = @org;
+SELECT COUNT(*) AS total_counterparties FROM counterparties WHERE organization_id = @org;

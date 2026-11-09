@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -133,14 +134,14 @@ public class ContractService {
     // The update path doesn't go through ContractMapper, so these mirror its
     // tenant-scoped resolvers: another organization's counterparty, type or
     // area would otherwise show up (name, VAT number) on this tenant's contract.
-    private Counterparty resolveCounterpartyForUpdate(Long counterpartyId) {
-        Long orgId = TenantContext.require();
+    private Counterparty resolveCounterpartyForUpdate(UUID counterpartyId) {
+        UUID orgId = TenantContext.require();
         return counterpartiesRepository.findByIdAndOrganizationId(counterpartyId, orgId)
                 .orElseThrow(() -> new CounterpartyNotFoundException("Controparte non trovata: " + counterpartyId));
     }
 
-    private FinancialTypes resolveFinancialTypeForUpdate(Long financialTypeId) {
-        Long orgId = TenantContext.require();
+    private FinancialTypes resolveFinancialTypeForUpdate(UUID financialTypeId) {
+        UUID orgId = TenantContext.require();
         return financialTypesRepository.findByIdAndOrganizationId(financialTypeId, orgId)
                 .orElseThrow(() -> new FinancialTypeNotFoundException("Tipo finanziario non trovato: " + financialTypeId));
     }
@@ -173,7 +174,7 @@ public class ContractService {
         logger.info("Authenticated user role: {}", safeRole);
 
         if (ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
-            Long orgId = TenantContext.require();
+            UUID orgId = TenantContext.require();
             List<Contracts> contracts = contractsRepository.findByOrganization_Id(orgId);
             return contracts.stream()
                     .map(contractMapper::toDTO)
@@ -189,13 +190,13 @@ public class ContractService {
     /**
      * Retrieves a contract by its ID. MANAGERs can only access contracts assigned to them.
      */
-    public ContractDTO getContractById(Long id) {
+    public ContractDTO getContractById(UUID id) {
         Contracts contract = findContractInScope(id)
                 .orElseThrow(() -> new ContractNotFoundException("Contratto ID " + id + " non trovato"));
 
         AuthCtx auth = getAuthCtx();
         if (!ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
-            Long contractManagerId = contract.getManager() != null ? contract.getManager().getId() : null;
+            UUID contractManagerId = contract.getManager() != null ? contract.getManager().getId() : null;
             if (auth.managerId() == null || !auth.managerId().equals(contractManagerId)) {
                 throw new AccessDeniedException("non autorizzato ad accedere al contratto: " + id);
             }
@@ -208,8 +209,8 @@ public class ContractService {
      * Finds a contract by ID, scoped to the current tenant when
      * {@link TenantContext} carries an organization ID.
      */
-    private Optional<Contracts> findContractInScope(Long id) {
-        Long orgId = TenantContext.require();
+    private Optional<Contracts> findContractInScope(UUID id) {
+        UUID orgId = TenantContext.require();
         return contractsRepository.findByIdAndOrganization_Id(id, orgId);
     }
 
@@ -220,7 +221,7 @@ public class ContractService {
     public List<ContractDTO> getContractsByStatus(ContractStatus status) {
         AuthCtx auth = getAuthCtx();
         if (ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
-            Long orgId = TenantContext.require();
+            UUID orgId = TenantContext.require();
             List<Contracts> contracts = contractsRepository.findByStatusAndOrganization_Id(status, orgId);
             return contracts.stream()
                     .map(contractMapper::toDTO)
@@ -241,7 +242,7 @@ public class ContractService {
         if (contract == null) {
             throw new IllegalArgumentException("Dati contratto obbligatori");
         }
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         tierLimitService.enforceContractCreationLimit(orgId);
         // Creation must never merge an existing row selected by a client-supplied ID.
         contract.setId(null);
@@ -257,7 +258,7 @@ public class ContractService {
      * Updates an existing contract. If the status changes, a history record is
      * automatically created.
      */
-    public ContractDTO updateContract(Long id, ContractDTO contractDTO) {
+    public ContractDTO updateContract(UUID id, ContractDTO contractDTO) {
         Contracts contract = findContractInScope(id)
                 .orElseThrow(() -> new ContractNotFoundException("Contratto non trovato"));
 
@@ -273,10 +274,10 @@ public class ContractService {
         // any of it is overwritten below, so we can tell afterwards whether
         // regeneration is actually warranted (see generateFinancialValuesIfApplicable
         // call below) instead of re-running it on every unrelated edit.
-        Long previousFinancialTypeId = contract.getFinancialType() != null ? contract.getFinancialType().getId() : null;
+        UUID previousFinancialTypeId = contract.getFinancialType() != null ? contract.getFinancialType().getId() : null;
         Double previousAnnualValue = contract.getAnnualValue();
         BillingFrequency previousBillingFrequency = contract.getBillingFrequency();
-        Long previousAreaId = contract.getBusinessArea() != null ? contract.getBusinessArea().getId() : null;
+        UUID previousAreaId = contract.getBusinessArea() != null ? contract.getBusinessArea().getId() : null;
         LocalDate previousStartDate = contract.getStartDate();
         LocalDate previousEndDate = contract.getEndDate();
 
@@ -290,7 +291,7 @@ public class ContractService {
         contractMapper.applyRenewalTerms(contract, contractDTO);
 
         if (contractDTO.areaId() != null) {
-            Long orgId = TenantContext.require();
+            UUID orgId = TenantContext.require();
             BusinessAreas area = businessAreasRepository.findByIdAndOrganizationId(contractDTO.areaId(), orgId)
                     .orElseThrow(() -> new BusinessAreaNotFoundException("Area aziendale non trovata: " + contractDTO.areaId()));
             contract.setBusinessArea(area);
@@ -357,7 +358,7 @@ public class ContractService {
      *
      * @throws IllegalArgumentException if the contract has no financial terms set
      */
-    public FinancialGenerationResultDTO regenerateFinancialValues(Long contractId) {
+    public FinancialGenerationResultDTO regenerateFinancialValues(UUID contractId) {
         Contracts contract = findContractInScope(contractId)
                 .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
         if (!contractFinancialGenerationService.hasFinancialTerms(contract)) {
@@ -369,7 +370,7 @@ public class ContractService {
     /**
      * Deletes a contract by its ID.
      */
-    public void deleteContract(Long id) {
+    public void deleteContract(UUID id) {
         Contracts contract = findContractInScope(id)
                 .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + id));
         contractsRepository.delete(contract);
@@ -398,7 +399,7 @@ public class ContractService {
             draft    = contractsRepository.countDraftContractsByManager(auth.managerId());
             return new ContractStatsResponse(total, active, expiring, expired, draft);
         }
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         total    = contractsRepository.countAllContractsByOrg(orgId);
         active   = contractsRepository.countActiveContractsByOrg(orgId);
         expiring = contractsRepository.countExpiringContractsByOrg(thirtyDaysFromNow, orgId);
@@ -428,7 +429,7 @@ public class ContractService {
             expectedYtd = financialValuesRepository.sumCostByManagerUpToMonth(auth.managerId(), year, month);
             invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByManagerIdAndYear(auth.managerId(), year).doubleValue();
         } else {
-            Long orgId = TenantContext.require();
+            UUID orgId = TenantContext.require();
             expectedYtd = financialValuesRepository.sumCostByOrgUpToMonth(orgId, year, month);
             invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByOrgIdAndYear(orgId, year).doubleValue();
         }
@@ -459,7 +460,7 @@ public class ContractService {
                     ? List.of()
                     : contractsRepository.findExpiringContractsByManager(today, futureDate, auth.managerId());
         } else {
-            Long orgId = TenantContext.require();
+            UUID orgId = TenantContext.require();
             expiring = contractsRepository.findExpiringContractsByOrg(today, futureDate, orgId);
         }
 
@@ -484,7 +485,7 @@ public class ContractService {
         return pageResult.map(contractMapper::toDTO);
     }
 
-    private Page<Contracts> searchPagedAdminForOrg(Long orgId, ContractStatus status, boolean hasTerm, String term, Pageable pageable) {
+    private Page<Contracts> searchPagedAdminForOrg(UUID orgId, ContractStatus status, boolean hasTerm, String term, Pageable pageable) {
         if (status != null && hasTerm) {
             return contractsRepository.findByOrgAndStatusAndTerm(orgId, status, term, pageable);
         } else if (status != null) {
@@ -496,7 +497,7 @@ public class ContractService {
         }
     }
 
-    private Page<Contracts> searchPagedManager(Long managerId, ContractStatus status, boolean hasTerm, String term, Pageable pageable) {
+    private Page<Contracts> searchPagedManager(UUID managerId, ContractStatus status, boolean hasTerm, String term, Pageable pageable) {
         if (managerId == null) {
             return Page.empty(pageable);
         } else if (status != null && hasTerm) {
@@ -517,7 +518,7 @@ public class ContractService {
     /**
      * Assigns a manager to a contract.
      */
-    public void assignManager(Long contractId, Long managerId) {
+    public void assignManager(UUID contractId, UUID managerId) {
         Contracts c = findContractInScope(contractId)
                 .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
 
@@ -534,7 +535,7 @@ public class ContractService {
      * Gets collaborator manager IDs for a contract in the current tenant.
      * Managers must be the contract's primary manager.
      */
-    public List<Long> getCollaboratorIds(Long contractId) {
+    public List<UUID> getCollaboratorIds(UUID contractId) {
         contractAccessGuard.checkManagerCanAccess(contractAccessGuard.getContractInScope(contractId));
         return contractManagerRepository.findManagerIdsByContractId(contractId);
     }
@@ -544,12 +545,12 @@ public class ContractService {
      * current tenant. A rejected ID must not remove existing assignments.
      */
     @Transactional
-    public void setCollaborators(Long contractId, List<Long> managerIds) {
+    public void setCollaborators(UUID contractId, List<UUID> managerIds) {
         findContractInScope(contractId)
                 .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
 
         if (managerIds != null) {
-            for (Long managerId : managerIds) {
+            for (UUID managerId : managerIds) {
                 if (managerId == null) {
                     throw new IllegalArgumentException("L'ID del responsabile non può essere nullo");
                 }
@@ -560,7 +561,7 @@ public class ContractService {
         contractManagerRepository.deleteAllByContractId(contractId);
 
         if (managerIds != null) {
-            for (Long mid : managerIds) {
+            for (UUID mid : managerIds) {
                 contractManagerRepository.insertIgnore(contractId, mid);
             }
         }
@@ -579,7 +580,7 @@ public class ContractService {
                     ? List.of()
                     : contractsRepository.countContractsByAreaAndManager(auth.managerId());
         }
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         return contractsRepository.countContractsByAreaAndOrg(orgId);
     }
 
@@ -605,7 +606,7 @@ public class ContractService {
                     ? List.of()
                     : contractsRepository.countContractsByMonthAndManager(windowStart, auth.managerId());
         } else {
-            Long orgId = TenantContext.require();
+            UUID orgId = TenantContext.require();
             results = contractsRepository.countContractsByMonthAndOrg(windowStart, orgId);
         }
 
@@ -640,7 +641,7 @@ public class ContractService {
                     : contractsRepository.findTopManagerForManager(auth.managerId());
         }
         Pageable topFive = PageRequest.of(0, 5);
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         return contractsRepository.findTopManagersByOrg(topFive, orgId);
     }
 
@@ -672,7 +673,7 @@ public class ContractService {
                 .orElseThrow(() -> new UserNotFoundException(MSG_USER_NOT_FOUND));
         String role = user.getRole().getRole();
 
-        Long managerId = null;
+        UUID managerId = null;
         if (!ROLE_ADMIN.equals(role) && user.getManager() != null) {
             managerId = user.getManager().getId();
         }
@@ -688,7 +689,7 @@ public class ContractService {
         }
     }
 
-    private record AuthCtx(String role, Long managerId) {
+    private record AuthCtx(String role, UUID managerId) {
 
     }
 }

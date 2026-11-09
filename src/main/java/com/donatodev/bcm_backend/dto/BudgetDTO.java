@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import com.donatodev.bcm_backend.entity.FinancialCategory;
 
 /**
@@ -25,8 +26,8 @@ import com.donatodev.bcm_backend.entity.FinancialCategory;
  * @param percentUsed   actualAmount as a percentage of targetAmount (0 if targetAmount is 0)
  */
 public record BudgetDTO(
-        Long id,
-        Long businessAreaId,
+        UUID id,
+        UUID businessAreaId,
         String areaName,
         FinancialCategory category,
         int year,

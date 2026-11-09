@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,11 +15,11 @@ import org.springframework.stereotype.Repository;
 import com.donatodev.bcm_backend.entity.FinancialTypes;
 
 @Repository
-public interface FinancialTypesRepository extends JpaRepository<FinancialTypes, Long> {
+public interface FinancialTypesRepository extends JpaRepository<FinancialTypes, UUID> {
 
     FinancialTypes findByName(String name);
 
-    List<FinancialTypes> findAllByOrganizationId(Long organizationId);
+    List<FinancialTypes> findAllByOrganizationId(UUID organizationId);
 
     /**
      * Finds a financial type by ID, scoped to the given organization. Used to
@@ -29,5 +30,5 @@ public interface FinancialTypesRepository extends JpaRepository<FinancialTypes, 
      * @return an {@link Optional} containing the financial type if it exists and
      * belongs to the given organization
      */
-    Optional<FinancialTypes> findByIdAndOrganizationId(Long id, Long organizationId);
+    Optional<FinancialTypes> findByIdAndOrganizationId(UUID id, UUID organizationId);
 }

@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.exception;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,7 @@ class GlobalExceptionHandlerTest {
     // Every request carries an organization (its token's); ids below exist in none.
     @org.junit.jupiter.api.BeforeEach
     void enterTenant() {
-        com.donatodev.bcm_backend.support.TestTenant.use(1L);
+        com.donatodev.bcm_backend.support.TestTenant.use(uid(1));
     }
 
     @org.junit.jupiter.api.AfterEach
@@ -74,7 +75,7 @@ class GlobalExceptionHandlerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Should return 404 for unknown contract")
         void shouldReturn404ForUnknownContract() throws Exception {
-            mockMvc.perform(get("/contracts/999999"))
+            mockMvc.perform(get("/contracts/" + uid(999999)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404))
                     .andExpect(jsonPath("$.message").exists())
@@ -86,7 +87,7 @@ class GlobalExceptionHandlerTest {
         @DisplayName("Fails closed: a request without an organization is refused (403), not widened to every organization")
         void shouldRefuseRequestWithoutOrganization() throws Exception {
             com.donatodev.bcm_backend.support.TestTenant.clear();
-            mockMvc.perform(get("/contracts/999999"))
+            mockMvc.perform(get("/contracts/" + uid(999999)))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.message").value("Accesso negato: organizzazione non definita"));
         }
@@ -95,7 +96,7 @@ class GlobalExceptionHandlerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Should return 404 for unknown manager")
         void shouldReturn404ForUnknownManager() throws Exception {
-            mockMvc.perform(get("/managers/999999"))
+            mockMvc.perform(get("/managers/" + uid(999999)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404));
         }
@@ -104,7 +105,7 @@ class GlobalExceptionHandlerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Should return 404 for unknown user")
         void shouldReturn404ForUnknownUser() throws Exception {
-            mockMvc.perform(get("/users/999999"))
+            mockMvc.perform(get("/users/" + uid(999999)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404));
         }
@@ -113,7 +114,7 @@ class GlobalExceptionHandlerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Should return 404 for unknown business area")
         void shouldReturn404ForUnknownBusinessArea() throws Exception {
-            mockMvc.perform(get("/business-areas/999999"))
+            mockMvc.perform(get("/business-areas/" + uid(999999)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404));
         }
@@ -122,7 +123,7 @@ class GlobalExceptionHandlerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Should return 404 for unknown financial type")
         void shouldReturn404ForUnknownFinancialType() throws Exception {
-            mockMvc.perform(get("/financial-types/999999"))
+            mockMvc.perform(get("/financial-types/" + uid(999999)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404));
         }
@@ -131,7 +132,7 @@ class GlobalExceptionHandlerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Should return 404 for unknown financial value")
         void shouldReturn404ForUnknownFinancialValue() throws Exception {
-            mockMvc.perform(get("/financial-values/999999"))
+            mockMvc.perform(get("/financial-values/" + uid(999999)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404));
         }
@@ -140,7 +141,7 @@ class GlobalExceptionHandlerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Should return 404 for unknown role")
         void shouldReturn404ForUnknownRole() throws Exception {
-            mockMvc.perform(get("/roles/999999"))
+            mockMvc.perform(get("/roles/" + uid(999999)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404));
         }
@@ -149,7 +150,7 @@ class GlobalExceptionHandlerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Should return 404 for unknown budget")
         void shouldReturn404ForUnknownBudget() throws Exception {
-            mockMvc.perform(get("/budgets/999999"))
+            mockMvc.perform(get("/budgets/" + uid(999999)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404));
         }
@@ -196,7 +197,7 @@ class GlobalExceptionHandlerTest {
         @WithMockUser(roles = "MANAGER")
         @DisplayName("Should return 403 when role is insufficient")
         void shouldReturn403WhenInsufficientRole() throws Exception {
-            mockMvc.perform(delete("/users/1"))
+            mockMvc.perform(delete("/users/" + uid(1)))
                     .andExpect(status().isForbidden());
         }
     }

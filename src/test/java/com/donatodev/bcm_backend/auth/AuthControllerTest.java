@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.auth;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.Collections;
@@ -103,8 +104,8 @@ class AuthControllerTest {
     @Autowired
     private com.donatodev.bcm_backend.service.TotpEncryptionService totpEncryptionService;
 
-    private Long roleId;
-    private Long managerId;
+    private UUID roleId;
+    private UUID managerId;
 
     /**
      * Setup method executed before each test. Cleans all relevant repositories

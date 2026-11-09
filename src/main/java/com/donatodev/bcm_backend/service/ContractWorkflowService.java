@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -54,7 +55,7 @@ public class ContractWorkflowService {
      * Submits a DRAFT contract for review. Allowed for the contract's own
      * manager or an ADMIN (same ownership check used for editing).
      */
-    public void submitForReview(Long contractId) {
+    public void submitForReview(UUID contractId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         requireStage(contract, WorkflowStage.DRAFT, "Il contratto deve essere in bozza per essere inviato in revisione");
@@ -68,7 +69,7 @@ public class ContractWorkflowService {
      * Approves a contract IN_REVIEW: moves the workflow stage to APPROVED
      * and the contract status from DRAFT to ACTIVE in the same update.
      */
-    public void approve(Long contractId) {
+    public void approve(UUID contractId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         Users actor = requireApprover();
         requireStage(contract, WorkflowStage.IN_REVIEW, "Il contratto deve essere in revisione per poter essere approvato");
@@ -82,7 +83,7 @@ public class ContractWorkflowService {
      * Rejects a contract IN_REVIEW, sending it back to DRAFT with a
      * mandatory comment explaining why.
      */
-    public void reject(Long contractId, String comment) {
+    public void reject(UUID contractId, String comment) {
         if (comment == null || comment.isBlank()) {
             throw new IllegalArgumentException("Un commento è obbligatorio per respingere un contratto");
         }
@@ -97,7 +98,7 @@ public class ContractWorkflowService {
     /**
      * Returns the full workflow history for a contract, oldest first.
      */
-    public List<ContractWorkflowEventDTO> getEvents(Long contractId) {
+    public List<ContractWorkflowEventDTO> getEvents(UUID contractId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         // Approvers legitimately review contracts they don't own, so the
         // ordinary manager-ownership check only applies to plain managers.

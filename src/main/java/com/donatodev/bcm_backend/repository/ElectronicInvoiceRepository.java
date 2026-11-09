@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -23,9 +24,9 @@ import com.donatodev.bcm_backend.entity.ElectronicInvoice;
 import com.donatodev.bcm_backend.entity.InvoiceMatchStatus;
 
 @Repository
-public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInvoice, Long> {
+public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInvoice, UUID> {
 
-    List<ElectronicInvoice> findByContractIdOrderByUploadedAtDesc(Long contractId);
+    List<ElectronicInvoice> findByContractIdOrderByUploadedAtDesc(UUID contractId);
 
     /** Invoices parsed before the taxable amount was stored (see InvoiceTaxableAmountBackfill). */
     List<ElectronicInvoice> findByTaxableAmountIsNull();
@@ -34,23 +35,23 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
     List<ElectronicInvoice> findByPaymentMethodIsNull();
 
     /** The organization's invoices not paid by a SEPA batch yet: candidates for the home page's to-do list. */
-    List<ElectronicInvoice> findByOrgIdAndSepaBatchIsNull(Long orgId);
+    List<ElectronicInvoice> findByOrgIdAndSepaBatchIsNull(UUID orgId);
 
-    Optional<ElectronicInvoice> findByIdAndContractId(Long id, Long contractId);
+    Optional<ElectronicInvoice> findByIdAndContractId(UUID id, UUID contractId);
 
-    List<ElectronicInvoice> findByContractIdAndIdIn(Long contractId, List<Long> ids);
+    List<ElectronicInvoice> findByContractIdAndIdIn(UUID contractId, List<UUID> ids);
 
-    List<ElectronicInvoice> findByContractIdAndMatchStatusIn(Long contractId, List<InvoiceMatchStatus> statuses);
+    List<ElectronicInvoice> findByContractIdAndMatchStatusIn(UUID contractId, List<InvoiceMatchStatus> statuses);
 
-    Optional<ElectronicInvoice> findByMatchedFinancialValue_IdAndMatchStatus(Long financialValueId, InvoiceMatchStatus status);
+    Optional<ElectronicInvoice> findByMatchedFinancialValue_IdAndMatchStatus(UUID financialValueId, InvoiceMatchStatus status);
 
     boolean existsByOrgIdAndSupplierVatNumberAndInvoiceNumberAndDocumentType(
-            Long orgId, String supplierVatNumber, String invoiceNumber, String documentType);
+            UUID orgId, String supplierVatNumber, String invoiceNumber, String documentType);
 
-    long countByContractCounterpartyId(Long counterpartyId);
+    long countByContractCounterpartyId(UUID counterpartyId);
 
     @Query("SELECT MAX(ei.invoiceDate) FROM ElectronicInvoice ei WHERE ei.contract.counterparty.id = :counterpartyId")
-    LocalDate findLastInvoiceDateByCounterpartyId(@Param("counterpartyId") Long counterpartyId);
+    LocalDate findLastInvoiceDateByCounterpartyId(@Param("counterpartyId") UUID counterpartyId);
 
     @Query("""
             SELECT COALESCE(SUM(CASE WHEN ei.documentType = 'TD04'
@@ -62,7 +63,7 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
               AND YEAR(ei.invoiceDate) = :year
             """)
     BigDecimal sumConfirmedInvoicedAmountByCounterpartyIdAndYear(
-            @Param("counterpartyId") Long counterpartyId, @Param("year") int year);
+            @Param("counterpartyId") UUID counterpartyId, @Param("year") int year);
 
     @Query("""
             SELECT COALESCE(SUM(CASE WHEN ei.documentType = 'TD04'
@@ -73,7 +74,7 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
               AND ei.matchStatus = com.donatodev.bcm_backend.entity.InvoiceMatchStatus.CONFIRMED
               AND YEAR(ei.invoiceDate) = :year
             """)
-    BigDecimal sumConfirmedInvoicedAmountByOrgIdAndYear(@Param("orgId") Long orgId, @Param("year") int year);
+    BigDecimal sumConfirmedInvoicedAmountByOrgIdAndYear(@Param("orgId") UUID orgId, @Param("year") int year);
 
     @Query("""
             SELECT COALESCE(SUM(CASE WHEN ei.documentType = 'TD04'
@@ -94,9 +95,9 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
               AND ei.matchStatus = com.donatodev.bcm_backend.entity.InvoiceMatchStatus.CONFIRMED
               AND YEAR(ei.invoiceDate) = :year
             """)
-    BigDecimal sumConfirmedInvoicedAmountByManagerIdAndYear(@Param("managerId") Long managerId, @Param("year") int year);
+    BigDecimal sumConfirmedInvoicedAmountByManagerIdAndYear(@Param("managerId") UUID managerId, @Param("year") int year);
 
     // Scoped through the contract rather than the row's own org_id column,
     // which older rows may lack: the contract is always set and always knows its org.
-    List<ElectronicInvoice> findAllByContract_Organization_Id(Long organizationId);
+    List<ElectronicInvoice> findAllByContract_Organization_Id(UUID organizationId);
 }

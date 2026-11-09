@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.entity;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -23,8 +24,8 @@ class ContractManagerIdTest {
     @Test
     @DisplayName("Equals and hashCode: same values → true")
     void equalsAndHashCode_sameValues_shouldBeEqual() {
-        ContractManagerId id1 = new ContractManagerId(1L, 2L);
-        ContractManagerId id2 = new ContractManagerId(1L, 2L);
+        ContractManagerId id1 = new ContractManagerId(uid(1), uid(2));
+        ContractManagerId id2 = new ContractManagerId(uid(1), uid(2));
 
         assertEquals(id1, id2);
         assertEquals(id1.hashCode(), id2.hashCode());
@@ -36,7 +37,7 @@ class ContractManagerIdTest {
     @Test
     @DisplayName("Equals: compare with null → false")
     void equals_null_shouldReturnFalse() {
-        ContractManagerId id = new ContractManagerId(1L, 2L);
+        ContractManagerId id = new ContractManagerId(uid(1), uid(2));
         assertNotEquals(null, id);
     }
 
@@ -46,7 +47,7 @@ class ContractManagerIdTest {
     @Test
     @DisplayName("Equals: comparison with object of different type → false")
     void equals_differentType_shouldReturnFalse() {
-        ContractManagerId id = new ContractManagerId(1L, 2L);
+        ContractManagerId id = new ContractManagerId(uid(1), uid(2));
         assertNotEquals("stringa", id);
     }
 
@@ -56,7 +57,7 @@ class ContractManagerIdTest {
     @Test
     @DisplayName("Equals: same references → true")
     void equals_sameReference_shouldReturnTrue() {
-        ContractManagerId id = new ContractManagerId(1L, 2L);
+        ContractManagerId id = new ContractManagerId(uid(1), uid(2));
         assertEquals(id, id);
     }
 
@@ -67,8 +68,8 @@ class ContractManagerIdTest {
     @Test
     @DisplayName("Equals and hashCode: different values → false")
     void equalsAndHashCode_differentValues_shouldNotBeEqual() {
-        ContractManagerId id1 = new ContractManagerId(1L, 2L);
-        ContractManagerId id2 = new ContractManagerId(1L, 3L);
+        ContractManagerId id1 = new ContractManagerId(uid(1), uid(2));
+        ContractManagerId id2 = new ContractManagerId(uid(1), uid(3));
 
         assertNotEquals(id1, id2);
         assertNotEquals(id1.hashCode(), id2.hashCode());
@@ -80,7 +81,7 @@ class ContractManagerIdTest {
     @Test
     @DisplayName("Equals: comparison with raw Object instance → false")
     void equals_genericObject_shouldReturnFalse() {
-    	ContractManagerId id = new ContractManagerId(1L, 2L);
+    	ContractManagerId id = new ContractManagerId(uid(1), uid(2));
         assertNotEquals(id, new Object());
     }
 
@@ -91,8 +92,8 @@ class ContractManagerIdTest {
     @Test
     @DisplayName("Equals: instanceof true, no early return → continue with deeper check")
     void equals_instanceofTrue_shouldContinueCheck() {
-    	ContractManagerId id1 = new ContractManagerId(10L, 20L);
-        Object id2 = new ContractManagerId(10L, 20L); // instanceof == true
+    	ContractManagerId id1 = new ContractManagerId(uid(10), uid(20));
+        Object id2 = new ContractManagerId(uid(10), uid(20)); // instanceof == true
 
         assertEquals(id1, id2);
     }
@@ -102,8 +103,8 @@ class ContractManagerIdTest {
      */
     @Test
     void equals_contractNullInOne_shouldReturnFalse() {
-        ContractManagerId id1 = new ContractManagerId(null, 2L);
-        ContractManagerId id2 = new ContractManagerId(1L, 2L);
+        ContractManagerId id1 = new ContractManagerId(null, uid(2));
+        ContractManagerId id2 = new ContractManagerId(uid(1), uid(2));
         assertNotEquals(id1, id2);
     }
 
@@ -112,8 +113,8 @@ class ContractManagerIdTest {
      */
     @Test
     void equals_contractNullInBoth_shouldReturnTrue() {
-        ContractManagerId id1 = new ContractManagerId(null, 2L);
-        ContractManagerId id2 = new ContractManagerId(null, 2L);
+        ContractManagerId id1 = new ContractManagerId(null, uid(2));
+        ContractManagerId id2 = new ContractManagerId(null, uid(2));
         assertEquals(id1, id2);
     }
 }

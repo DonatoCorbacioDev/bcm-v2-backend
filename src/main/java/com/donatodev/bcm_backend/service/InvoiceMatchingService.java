@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -134,16 +135,16 @@ public class InvoiceMatchingService {
      * reloaded in the current tenant before any business validation or write.
      */
     @Transactional
-    public ElectronicInvoice confirmMatch(ElectronicInvoice invoice, Long financialValueIdOrNull, String username) {
-        Long orgId = TenantContext.require();
-        Long targetId = financialValueIdOrNull;
+    public ElectronicInvoice confirmMatch(ElectronicInvoice invoice, UUID financialValueIdOrNull, String username) {
+        UUID orgId = TenantContext.require();
+        UUID targetId = financialValueIdOrNull;
         if (targetId == null && invoice.getMatchedFinancialValue() != null) {
             targetId = invoice.getMatchedFinancialValue().getId();
         }
         if (targetId == null) {
             throw new IllegalArgumentException("Nessun abbinamento da confermare per la fattura " + invoice.getId());
         }
-        Long financialValueId = targetId;
+        UUID financialValueId = targetId;
         FinancialValues target = financialValuesRepository.findByIdAndOrganizationId(financialValueId, orgId)
                 .orElseThrow(() -> new FinancialValueNotFoundException(
                         "Valore finanziario non trovato: " + financialValueId));
@@ -181,7 +182,7 @@ public class InvoiceMatchingService {
 
     /** Re-runs {@link #computeSuggestion} on every invoice of the contract not already CONFIRMED/REJECTED. */
     @Transactional
-    public List<ElectronicInvoice> recomputeForContract(Long contractId) {
+    public List<ElectronicInvoice> recomputeForContract(UUID contractId) {
         List<ElectronicInvoice> toRecompute = invoiceRepository.findByContractIdAndMatchStatusIn(
                 contractId,
                 List.of(InvoiceMatchStatus.UNMATCHED, InvoiceMatchStatus.SUGGESTED, InvoiceMatchStatus.COUNTERPARTY_MISMATCH));

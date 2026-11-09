@@ -5,19 +5,20 @@
 
 package com.donatodev.bcm_backend.config;
 
+import java.util.UUID;
 import com.donatodev.bcm_backend.exception.MissingTenantException;
 
 public final class TenantContext {
 
-    private static final ThreadLocal<Long> CURRENT_ORG = new ThreadLocal<>();
+    private static final ThreadLocal<UUID> CURRENT_ORG = new ThreadLocal<>();
 
     private TenantContext() {}
 
-    public static void set(Long organizationId) {
+    public static void set(UUID organizationId) {
         CURRENT_ORG.set(organizationId);
     }
 
-    public static Long get() {
+    public static UUID get() {
         return CURRENT_ORG.get();
     }
 
@@ -29,8 +30,8 @@ public final class TenantContext {
      *
      * @throws MissingTenantException when no organization is set
      */
-    public static Long require() {
-        Long orgId = CURRENT_ORG.get();
+    public static UUID require() {
+        UUID orgId = CURRENT_ORG.get();
         if (orgId == null) {
             throw new MissingTenantException();
         }

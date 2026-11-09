@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -75,8 +76,8 @@ class InvoiceMatchAndNotificationAuthorizationTest {
     @Autowired private FinancialValuesRepository values;
     @Autowired private ElectronicInvoiceRepository invoices;
 
-    private record InvoiceState(InvoiceMatchStatus status, Long valueId, Double confidence,
-                                Instant matchedAt, Long matchedBy) {}
+    private record InvoiceState(InvoiceMatchStatus status, UUID valueId, Double confidence,
+                                Instant matchedAt, UUID matchedBy) {}
 
     @AfterEach
     void clearTenant() {
@@ -111,11 +112,11 @@ class InvoiceMatchAndNotificationAuthorizationTest {
         if (scenario.equals("alreadyRead")) {
             own.setRead(true);
         }
-        Long targetId = switch (scenario) {
+        UUID targetId = switch (scenario) {
             case "colleague" -> anotherUsers.getId();
             case "foreignTenant" -> foreign.getId();
             case "ownForeignOrg" -> wrongOrg.getId();
-            case "missing" -> Long.MAX_VALUE;
+            case "missing" -> uid(Long.MAX_VALUE);
             default -> own.getId();
         };
         flushAndClear();
@@ -151,7 +152,7 @@ class InvoiceMatchAndNotificationAuthorizationTest {
         FinancialValues otherContract = value(org, contract(org));
         ElectronicInvoice invoice = invoice(local, own);
         ElectronicInvoice foreignInvoice = invoice(foreign.getContract(), foreign);
-        Long overrideId = own.getId();
+        UUID overrideId = own.getId();
         switch (scenario) {
             case "suggested" -> overrideId = null;
             case "foreignManual" -> overrideId = foreign.getId();
@@ -164,7 +165,7 @@ class InvoiceMatchAndNotificationAuthorizationTest {
                 invoice.setMatchedFinancialValue(otherContract);
                 overrideId = null;
             }
-            case "missing" -> overrideId = Long.MAX_VALUE;
+            case "missing" -> overrideId = uid(Long.MAX_VALUE);
             case "noCandidate" -> {
                 invoice.setMatchedFinancialValue(null);
                 invoice.setMatchStatus(InvoiceMatchStatus.UNMATCHED);
@@ -183,14 +184,14 @@ class InvoiceMatchAndNotificationAuthorizationTest {
         if (scenario.equals("missingTenant")) {
             clearTenant();
         }
-        String body = overrideId == null ? "" : "{\"financialValueId\":" + overrideId + "}";
+        String body = overrideId == null ? "" : "{\"financialValueId\":" + q(overrideId) + "}";
         var response = mockMvc.perform(post("/contracts/{contractId}/invoices/{invoiceId}/match/confirm",
                         local.getId(), invoice.getId())
                 .with(user(caller.getUsername()).roles(scenario.equals("managerRole") ? "MANAGER" : "ADMIN"))
                 .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().is(expectedStatus));
         if (expectedStatus == 404) {
-            Long rejectedId = overrideId != null ? overrideId : foreign.getId();
+            UUID rejectedId = overrideId != null ? overrideId : foreign.getId();
             response.andExpect(jsonPath("$.message").value("Valore finanziario non trovato: " + rejectedId));
         }
 
@@ -212,7 +213,7 @@ class InvoiceMatchAndNotificationAuthorizationTest {
         entityManager.clear();
     }
 
-    private InvoiceState invoiceState(Long invoiceId) {
+    private InvoiceState invoiceState(UUID invoiceId) {
         ElectronicInvoice invoice = invoices.findById(invoiceId).orElseThrow();
         return new InvoiceState(invoice.getMatchStatus(),
                 invoice.getMatchedFinancialValue() == null ? null : invoice.getMatchedFinancialValue().getId(),
@@ -258,5 +259,10 @@ class InvoiceMatchAndNotificationAuthorizationTest {
                 .storagePath(UUID.randomUUID().toString()).fileName("invoice.xml").fileSize(100L)
                 .contentType("application/xml").totalAmount(BigDecimal.valueOf(100))
                 .matchedFinancialValue(candidate).matchStatus(InvoiceMatchStatus.SUGGESTED).matchConfidence(0.8).build());
+    }
+
+    /** A value as JSON: ids are UUIDs now, so they go in quotes (ADR-0009). */
+    private static String q(Object value) {
+        return value == null ? "null" : "\"" + value + "\"";
     }
 }

@@ -5,11 +5,12 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 public record RiskFeedbackDTO(
-        Long id,
-        Long contractId,
+        UUID id,
+        UUID contractId,
         double riskScore,
         String riskLevel,
         Double mlScore,

@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -51,10 +52,10 @@ class OrganizationExportServiceTest {
     @Test
     @DisplayName("An organization deleted in the meantime fails before anything is written")
     void failsWhenOrganizationIsGone() {
-        when(organizationRepository.findById(7L)).thenReturn(Optional.empty());
+        when(organizationRepository.findById(uid(7))).thenReturn(Optional.empty());
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        assertThatThrownBy(() -> service.writeExport(7L, out))
+        assertThatThrownBy(() -> service.writeExport(uid(7), out))
                 .isInstanceOf(OrganizationNotFoundException.class);
         // Nothing reached the client: not even a ZIP header.
         assertThat(out.size()).isZero();
@@ -63,13 +64,13 @@ class OrganizationExportServiceTest {
     @Test
     @DisplayName("A record that can't be serialized fails the export with the file named")
     void reportsSerializationFailure() throws Exception {
-        when(organizationRepository.findById(7L)).thenReturn(Optional.of(
-                Organization.builder().id(7L).name("Acme").slug("acme").build()));
+        when(organizationRepository.findById(uid(7))).thenReturn(Optional.of(
+                Organization.builder().id(uid(7)).name("Acme").slug("acme").build()));
         when(jsonWriter.writeValueAsBytes(any())).thenThrow(mock(JacksonException.class));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        assertThatThrownBy(() -> service.writeExport(7L, out))
+        assertThatThrownBy(() -> service.writeExport(uid(7), out))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("data/organization.json");
     }

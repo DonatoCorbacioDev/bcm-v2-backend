@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -36,7 +37,7 @@ public class MlCacheService {
         this.meterRegistry = meterRegistry;
     }
 
-    public Optional<String> get(Long orgId, String cacheKey) {
+    public Optional<String> get(UUID orgId, String cacheKey) {
         if (orgId == null) return Optional.empty();
         Optional<String> cached = repository.findByOrgIdAndCacheKey(orgId, cacheKey)
                 .filter(e -> e.getComputedAt().isAfter(LocalDateTime.now(ZoneId.systemDefault()).minus(CACHE_TTL)))
@@ -56,7 +57,7 @@ public class MlCacheService {
      * already-successful computation into a failed request for the caller.
      */
     @Transactional
-    public void put(Long orgId, String cacheKey, String jsonResult) {
+    public void put(UUID orgId, String cacheKey, String jsonResult) {
         if (orgId == null || jsonResult == null) return;
         MlResultCache entry = repository.findByOrgIdAndCacheKey(orgId, cacheKey)
                 .orElse(MlResultCache.builder().orgId(orgId).cacheKey(cacheKey).build());
@@ -81,7 +82,7 @@ public class MlCacheService {
      * {@code FinancialValueService}) open one themselves.
      */
     @Transactional
-    public void evictAllForOrg(Long orgId) {
+    public void evictAllForOrg(UUID orgId) {
         if (orgId == null) return;
         repository.deleteByOrgId(orgId);
     }

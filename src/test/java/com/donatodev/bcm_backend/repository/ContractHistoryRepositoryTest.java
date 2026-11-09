@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.repository;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.List;
@@ -129,7 +130,7 @@ class ContractHistoryRepositoryTest {
         @Test
         @DisplayName("Should return empty list when no history for the given contract ID")
         void shouldReturnEmptyWhenNoHistoryForContract() {
-            List<ContractHistory> result = contractHistoryRepository.findByContractId(9999L);
+            List<ContractHistory> result = contractHistoryRepository.findByContractId(uid(9999));
 
             assertTrue(result.isEmpty());
         }
@@ -179,7 +180,7 @@ class ContractHistoryRepositoryTest {
         @Test
         @DisplayName("Should return empty list when manager has no associated contract history")
         void shouldReturnEmptyWhenNoHistoryForManager() {
-            List<ContractHistory> result = contractHistoryRepository.findByContractManagerId(9999L);
+            List<ContractHistory> result = contractHistoryRepository.findByContractManagerId(uid(9999));
 
             assertTrue(result.isEmpty());
         }

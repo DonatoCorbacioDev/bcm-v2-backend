@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,11 +15,11 @@ import org.springframework.stereotype.Repository;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 
 @Repository
-public interface BusinessAreasRepository extends JpaRepository<BusinessAreas, Long> {
+public interface BusinessAreasRepository extends JpaRepository<BusinessAreas, UUID> {
 
     BusinessAreas findByName(String name);
 
-    List<BusinessAreas> findAllByOrganizationId(Long organizationId);
+    List<BusinessAreas> findAllByOrganizationId(UUID organizationId);
 
     /**
      * Finds a business area by ID, scoped to the given organization. Used to
@@ -29,5 +30,5 @@ public interface BusinessAreasRepository extends JpaRepository<BusinessAreas, Lo
      * @return an {@link Optional} containing the business area if it exists and
      * belongs to the given organization
      */
-    Optional<BusinessAreas> findByIdAndOrganizationId(Long id, Long organizationId);
+    Optional<BusinessAreas> findByIdAndOrganizationId(UUID id, UUID organizationId);
 }

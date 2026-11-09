@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import java.util.List;
 import java.util.Optional;
@@ -47,7 +49,7 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 class ContractAccessGuardTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void enterTenant() {
@@ -66,7 +68,7 @@ class ContractAccessGuardTest {
     @InjectMocks
     private ContractAccessGuard contractAccessGuard;
 
-    private static final long CONTRACT_ID = 1L;
+    private static final UUID CONTRACT_ID = uid(1);
 
     private Contracts fakeContract() {
         Contracts c = new Contracts();
@@ -85,14 +87,14 @@ class ContractAccessGuardTest {
         @DisplayName("uses org-scoped lookup when TenantContext carries an organization ID")
         void usesOrgScopedLookupWithTenantContext() {
             Contracts contract = fakeContract();
-            TenantContext.set(12L);
+            TenantContext.set(uid(12));
 
-            when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, 12L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, uid(12))).thenReturn(Optional.of(contract));
 
             Contracts result = contractAccessGuard.getContractInScope(CONTRACT_ID);
 
             assertEquals(contract, result);
-            verify(contractsRepository).findByIdAndOrganization_Id(CONTRACT_ID, 12L);
+            verify(contractsRepository).findByIdAndOrganization_Id(CONTRACT_ID, uid(12));
         }
 
         @Test
@@ -102,8 +104,8 @@ class ContractAccessGuardTest {
             TenantContext.clear();
 
             assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class,
-                    () -> contractAccessGuard.getContractInScope(1L));
-            verify(contractsRepository, never()).findById(1L);
+                    () -> contractAccessGuard.getContractInScope(uid(1)));
+            verify(contractsRepository, never()).findById(uid(1));
         }
 
         @Test
@@ -174,7 +176,7 @@ class ContractAccessGuardTest {
         @Order(5)
         @DisplayName("allows a MANAGER assigned to the contract")
         void allowsManagerAssignedToContract() {
-            Managers manager = Managers.builder().id(7L).build();
+            Managers manager = Managers.builder().id(uid(7)).build();
             Contracts contract = fakeContract();
             contract.setManager(manager);
 
@@ -186,9 +188,9 @@ class ContractAccessGuardTest {
             User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
 
-            when(usersRepository.findByUsernameAndOrganizationId("mgr", 1L)).thenReturn(Optional.of(managerUser));
+            when(usersRepository.findByUsernameAndOrganizationId("mgr", uid(1))).thenReturn(Optional.of(managerUser));
 
             assertDoesNotThrow(() -> contractAccessGuard.checkManagerCanAccess(contract));
         }
@@ -197,8 +199,8 @@ class ContractAccessGuardTest {
         @Order(6)
         @DisplayName("denies a MANAGER not assigned to the contract")
         void deniesManagerNotAssignedToContract() {
-            Managers contractManager = Managers.builder().id(99L).build();
-            Managers userManager = Managers.builder().id(7L).build();
+            Managers contractManager = Managers.builder().id(uid(99)).build();
+            Managers userManager = Managers.builder().id(uid(7)).build();
             Contracts contract = fakeContract();
             contract.setManager(contractManager);
 
@@ -210,9 +212,9 @@ class ContractAccessGuardTest {
             User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
 
-            when(usersRepository.findByUsernameAndOrganizationId("mgr", 1L)).thenReturn(Optional.of(managerUser));
+            when(usersRepository.findByUsernameAndOrganizationId("mgr", uid(1))).thenReturn(Optional.of(managerUser));
 
             assertThrows(AccessDeniedException.class,
                     () -> contractAccessGuard.checkManagerCanAccess(contract));
@@ -223,7 +225,7 @@ class ContractAccessGuardTest {
         @DisplayName("allows ADMIN users regardless of contract assignment")
         void allowsAdminRegardlessOfAssignment() {
             Contracts contract = fakeContract();
-            contract.setManager(Managers.builder().id(99L).build());
+            contract.setManager(Managers.builder().id(uid(99)).build());
 
             Users adminUser = Users.builder()
                     .username("admin")
@@ -232,9 +234,9 @@ class ContractAccessGuardTest {
             User principal = new User("admin", "x", List.of(() -> "ROLE_ADMIN"));
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
 
-            when(usersRepository.findByUsernameAndOrganizationId("admin", 1L)).thenReturn(Optional.of(adminUser));
+            when(usersRepository.findByUsernameAndOrganizationId("admin", uid(1))).thenReturn(Optional.of(adminUser));
 
             assertDoesNotThrow(() -> contractAccessGuard.checkManagerCanAccess(contract));
         }
@@ -246,9 +248,9 @@ class ContractAccessGuardTest {
             User principal = new User("ghost", "x", List.of(() -> "ROLE_MANAGER"));
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
 
-            when(usersRepository.findByUsernameAndOrganizationId("ghost", 1L)).thenReturn(Optional.empty());
+            when(usersRepository.findByUsernameAndOrganizationId("ghost", uid(1))).thenReturn(Optional.empty());
 
             Contracts contract = fakeContract();
             assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(contract));
@@ -259,7 +261,7 @@ class ContractAccessGuardTest {
         @DisplayName("denies a MANAGER with no manager profile linked to their user")
         void deniesManagerWithoutLinkedProfile() {
             Contracts contract = fakeContract();
-            contract.setManager(Managers.builder().id(99L).build());
+            contract.setManager(Managers.builder().id(uid(99)).build());
 
             Users managerUser = Users.builder()
                     .username("mgr")
@@ -268,9 +270,9 @@ class ContractAccessGuardTest {
             User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
 
-            when(usersRepository.findByUsernameAndOrganizationId("mgr", 1L)).thenReturn(Optional.of(managerUser));
+            when(usersRepository.findByUsernameAndOrganizationId("mgr", uid(1))).thenReturn(Optional.of(managerUser));
 
             assertThrows(AccessDeniedException.class,
                     () -> contractAccessGuard.checkManagerCanAccess(contract));
@@ -280,7 +282,7 @@ class ContractAccessGuardTest {
         @Order(10)
         @DisplayName("denies a MANAGER when the contract has no manager assigned at all")
         void deniesManagerWhenContractHasNoManager() {
-            Managers userManager = Managers.builder().id(7L).build();
+            Managers userManager = Managers.builder().id(uid(7)).build();
             Contracts contract = fakeContract();
 
             Users managerUser = Users.builder()
@@ -291,9 +293,9 @@ class ContractAccessGuardTest {
             User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
 
-            when(usersRepository.findByUsernameAndOrganizationId("mgr", 1L)).thenReturn(Optional.of(managerUser));
+            when(usersRepository.findByUsernameAndOrganizationId("mgr", uid(1))).thenReturn(Optional.of(managerUser));
 
             assertThrows(AccessDeniedException.class,
                     () -> contractAccessGuard.checkManagerCanAccess(contract));

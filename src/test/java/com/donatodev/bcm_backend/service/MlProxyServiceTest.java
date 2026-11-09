@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -48,7 +50,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 class MlProxyServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     @SuppressWarnings("unused")
@@ -85,7 +87,7 @@ class MlProxyServiceTest {
     private static final String FASTAPI_URL = "http://localhost:8000";
 
     /** Authenticates as a MANAGER assigned to the given managerId, so resolveManagerId() picks it up. */
-    private void authenticateAsManager(Long managerId) {
+    private void authenticateAsManager(UUID managerId) {
         Managers manager = Managers.builder().id(managerId).build();
         Roles managerRole = new Roles();
         managerRole.setRole("MANAGER");
@@ -116,8 +118,8 @@ class MlProxyServiceTest {
         @DisplayName("Forwards months and org_id to FastAPI on cache miss")
         void shouldForwardForecastWithOrgId() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
-            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            TenantContext.set(uid(5));
+            when(mlCacheService.get(uid(5), "FORECAST_6")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
 
@@ -125,7 +127,7 @@ class MlProxyServiceTest {
 
             assertEquals(HttpStatus.OK, result.getStatusCode());
             verify(restTemplate).exchange(contains("months=6"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
-            verify(restTemplate).exchange(contains("org_id=5"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(contains("org_id=" + uid(5)), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
             assertEquals(1, meterRegistry.get("bcm.ml.call").tag("endpoint", "forecast").tag("outcome", "success")
                     .timer().count());
         }
@@ -135,8 +137,8 @@ class MlProxyServiceTest {
         @DisplayName("Returns cached value without calling FastAPI on cache hit")
         void shouldReturnCachedValueOnHit() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(1L);
-            when(mlCacheService.get(1L, "FORECAST_3")).thenReturn(Optional.of("{\"historical\":[{\"month\":\"2025-01\"}]}"));
+            TenantContext.set(uid(1));
+            when(mlCacheService.get(uid(1), "FORECAST_3")).thenReturn(Optional.of("{\"historical\":[{\"month\":\"2025-01\"}]}"));
 
             ResponseEntity<String> result = mlProxyService.getForecast(3);
 
@@ -149,8 +151,8 @@ class MlProxyServiceTest {
         @DisplayName("Does not cache a non-2xx response from FastAPI")
         void shouldNotCacheOnNon2xxResponse() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
-            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            TenantContext.set(uid(5));
+            when(mlCacheService.get(uid(5), "FORECAST_6")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenThrow(new org.springframework.web.client.ResourceAccessException("Connection refused"));
 
@@ -167,8 +169,8 @@ class MlProxyServiceTest {
         @DisplayName("Does not cache a 2xx response with a null body")
         void shouldNotCacheOnNullBody() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
-            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            TenantContext.set(uid(5));
+            when(mlCacheService.get(uid(5), "FORECAST_6")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.status(HttpStatus.OK).body(null));
 
@@ -183,17 +185,17 @@ class MlProxyServiceTest {
         @DisplayName("A MANAGER's request adds manager_id and uses a manager-specific cache key")
         void shouldForwardManagerIdAndUseManagerScopedCacheKey() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
-            authenticateAsManager(42L);
-            when(mlCacheService.get(5L, "FORECAST_6_MGR42")).thenReturn(Optional.empty());
+            TenantContext.set(uid(5));
+            authenticateAsManager(uid(42));
+            when(mlCacheService.get(uid(5), "FORECAST_6_MGR" + uid(42))).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
 
             ResponseEntity<String> result = mlProxyService.getForecast(6);
 
             assertEquals(HttpStatus.OK, result.getStatusCode());
-            verify(restTemplate).exchange(contains("manager_id=42"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
-            verify(mlCacheService).put(5L, "FORECAST_6_MGR42", "{\"historical\":[]}");
+            verify(restTemplate).exchange(contains("manager_id=" + uid(42)), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(mlCacheService).put(uid(5), "FORECAST_6_MGR" + uid(42), "{\"historical\":[]}");
         }
 
         @Test
@@ -201,16 +203,16 @@ class MlProxyServiceTest {
         @DisplayName("An ADMIN's request never adds manager_id, uses the plain org cache key")
         void shouldNotForwardManagerIdForAdmin() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
+            TenantContext.set(uid(5));
             authenticateAsAdmin();
-            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            when(mlCacheService.get(uid(5), "FORECAST_6")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
 
             mlProxyService.getForecast(6);
 
             verify(restTemplate, never()).exchange(contains("manager_id"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
-            verify(mlCacheService).put(5L, "FORECAST_6", "{\"historical\":[]}");
+            verify(mlCacheService).put(uid(5), "FORECAST_6", "{\"historical\":[]}");
         }
 
         @Test
@@ -218,9 +220,9 @@ class MlProxyServiceTest {
         @DisplayName("Attaches X-Internal-Claims when claims signing is configured")
         void shouldAttachSignedClaimsWhenConfigured() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
-            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
-            when(mlClaimsSigner.sign(5L, null)).thenReturn("signed-token");
+            TenantContext.set(uid(5));
+            when(mlCacheService.get(uid(5), "FORECAST_6")).thenReturn(Optional.empty());
+            when(mlClaimsSigner.sign(uid(5), null)).thenReturn("signed-token");
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
 
@@ -238,8 +240,8 @@ class MlProxyServiceTest {
         @DisplayName("Omits X-Internal-Claims when claims signing is not configured")
         void shouldOmitClaimsHeaderWhenNotConfigured() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
-            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            TenantContext.set(uid(5));
+            when(mlCacheService.get(uid(5), "FORECAST_6")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
 
@@ -264,8 +266,8 @@ class MlProxyServiceTest {
         @DisplayName("Forwards months and org_id to FastAPI on cache miss")
         void shouldForwardAgentInsightsWithOrgId() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
-            when(mlCacheService.get(5L, "AGENT_INSIGHTS_6")).thenReturn(Optional.empty());
+            TenantContext.set(uid(5));
+            when(mlCacheService.get(uid(5), "AGENT_INSIGHTS_6")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"report\":\"...\"}"));
 
@@ -274,8 +276,8 @@ class MlProxyServiceTest {
             assertEquals(HttpStatus.OK, result.getStatusCode());
             verify(restTemplate).exchange(contains("/agent/insights"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
             verify(restTemplate).exchange(contains("months=6"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
-            verify(restTemplate).exchange(contains("org_id=5"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
-            verify(mlCacheService).put(5L, "AGENT_INSIGHTS_6", "{\"report\":\"...\"}");
+            verify(restTemplate).exchange(contains("org_id=" + uid(5)), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(mlCacheService).put(uid(5), "AGENT_INSIGHTS_6", "{\"report\":\"...\"}");
         }
 
         @Test
@@ -283,8 +285,8 @@ class MlProxyServiceTest {
         @DisplayName("Returns cached value without calling FastAPI on cache hit")
         void shouldReturnCachedValueOnHit() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(1L);
-            when(mlCacheService.get(1L, "AGENT_INSIGHTS_3")).thenReturn(Optional.of("{\"report\":\"cached\"}"));
+            TenantContext.set(uid(1));
+            when(mlCacheService.get(uid(1), "AGENT_INSIGHTS_3")).thenReturn(Optional.of("{\"report\":\"cached\"}"));
 
             ResponseEntity<String> result = mlProxyService.getAgentInsights(3);
 
@@ -298,8 +300,8 @@ class MlProxyServiceTest {
         @DisplayName("Does not cache a non-2xx response from FastAPI")
         void shouldNotCacheOnNon2xxResponse() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
-            when(mlCacheService.get(5L, "AGENT_INSIGHTS_3")).thenReturn(Optional.empty());
+            TenantContext.set(uid(5));
+            when(mlCacheService.get(uid(5), "AGENT_INSIGHTS_3")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenThrow(new ResourceAccessException("Connection refused"));
 
@@ -314,8 +316,8 @@ class MlProxyServiceTest {
         @DisplayName("Does not cache a 2xx response with a null body")
         void shouldNotCacheOnNullBody() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
-            when(mlCacheService.get(5L, "AGENT_INSIGHTS_3")).thenReturn(Optional.empty());
+            TenantContext.set(uid(5));
+            when(mlCacheService.get(uid(5), "AGENT_INSIGHTS_3")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.status(HttpStatus.OK).body(null));
 
@@ -330,17 +332,17 @@ class MlProxyServiceTest {
         @DisplayName("A MANAGER's request adds manager_id and uses a manager-specific cache key")
         void shouldForwardManagerIdAndUseManagerScopedCacheKey() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
-            authenticateAsManager(42L);
-            when(mlCacheService.get(5L, "AGENT_INSIGHTS_3_MGR42")).thenReturn(Optional.empty());
+            TenantContext.set(uid(5));
+            authenticateAsManager(uid(42));
+            when(mlCacheService.get(uid(5), "AGENT_INSIGHTS_3_MGR" + uid(42))).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"report\":\"...\"}"));
 
             ResponseEntity<String> result = mlProxyService.getAgentInsights(3);
 
             assertEquals(HttpStatus.OK, result.getStatusCode());
-            verify(restTemplate).exchange(contains("manager_id=42"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
-            verify(mlCacheService).put(5L, "AGENT_INSIGHTS_3_MGR42", "{\"report\":\"...\"}");
+            verify(restTemplate).exchange(contains("manager_id=" + uid(42)), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(mlCacheService).put(uid(5), "AGENT_INSIGHTS_3_MGR" + uid(42), "{\"report\":\"...\"}");
         }
     }
 
@@ -355,8 +357,8 @@ class MlProxyServiceTest {
         @DisplayName("Calls FastAPI /anomalies with org_id on cache miss")
         void shouldCallFastApiOnCacheMiss() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(2L);
-            when(mlCacheService.get(2L, "ANOMALIES")).thenReturn(Optional.empty());
+            TenantContext.set(uid(2));
+            when(mlCacheService.get(uid(2), "ANOMALIES")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("[]"));
 
@@ -364,7 +366,7 @@ class MlProxyServiceTest {
 
             assertEquals(HttpStatus.OK, result.getStatusCode());
             verify(restTemplate).exchange(contains("/anomalies"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
-            verify(restTemplate).exchange(contains("org_id=2"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(contains("org_id=" + uid(2)), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
         }
 
         @Test
@@ -372,8 +374,8 @@ class MlProxyServiceTest {
         @DisplayName("Returns cached anomalies without calling FastAPI")
         void shouldReturnCachedAnomalies() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(3L);
-            when(mlCacheService.get(3L, "ANOMALIES")).thenReturn(Optional.of("[{\"severity\":\"HIGH\"}]"));
+            TenantContext.set(uid(3));
+            when(mlCacheService.get(uid(3), "ANOMALIES")).thenReturn(Optional.of("[{\"severity\":\"HIGH\"}]"));
 
             ResponseEntity<String> result = mlProxyService.getAnomalies();
 
@@ -386,8 +388,8 @@ class MlProxyServiceTest {
         @DisplayName("Does not cache a non-2xx response from FastAPI")
         void shouldNotCacheOnNon2xxResponse() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(2L);
-            when(mlCacheService.get(2L, "ANOMALIES")).thenReturn(Optional.empty());
+            TenantContext.set(uid(2));
+            when(mlCacheService.get(uid(2), "ANOMALIES")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenThrow(new org.springframework.web.client.ResourceAccessException("Connection refused"));
 
@@ -402,8 +404,8 @@ class MlProxyServiceTest {
         @DisplayName("Does not cache a 2xx response with a null body")
         void shouldNotCacheOnNullBody() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(2L);
-            when(mlCacheService.get(2L, "ANOMALIES")).thenReturn(Optional.empty());
+            TenantContext.set(uid(2));
+            when(mlCacheService.get(uid(2), "ANOMALIES")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.status(HttpStatus.OK).body(null));
 
@@ -418,17 +420,17 @@ class MlProxyServiceTest {
         @DisplayName("A MANAGER's request adds manager_id and uses a manager-specific cache key")
         void shouldForwardManagerIdAndUseManagerScopedCacheKey() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(2L);
-            authenticateAsManager(42L);
-            when(mlCacheService.get(2L, "ANOMALIES_MGR42")).thenReturn(Optional.empty());
+            TenantContext.set(uid(2));
+            authenticateAsManager(uid(42));
+            when(mlCacheService.get(uid(2), "ANOMALIES_MGR" + uid(42))).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("[]"));
 
             ResponseEntity<String> result = mlProxyService.getAnomalies();
 
             assertEquals(HttpStatus.OK, result.getStatusCode());
-            verify(restTemplate).exchange(contains("manager_id=42"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
-            verify(mlCacheService).put(2L, "ANOMALIES_MGR42", "[]");
+            verify(restTemplate).exchange(contains("manager_id=" + uid(42)), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(mlCacheService).put(uid(2), "ANOMALIES_MGR" + uid(42), "[]");
         }
     }
 
@@ -453,14 +455,14 @@ class MlProxyServiceTest {
         @DisplayName("A MANAGER's request adds manager_id")
         void shouldForwardManagerId() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
-            authenticateAsManager(42L);
+            TenantContext.set(uid(5));
+            authenticateAsManager(uid(42));
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("[]"));
 
             mlProxyService.getRiskScores();
 
-            verify(restTemplate).exchange(contains("manager_id=42"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(contains("manager_id=" + uid(42)), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
         }
     }
 
@@ -478,11 +480,11 @@ class MlProxyServiceTest {
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{}"));
 
-            mlProxyService.fetchForecastRaw(3, 10L);
+            mlProxyService.fetchForecastRaw(3, uid(10));
 
             verify(mlCacheService, never()).get(any(), anyString());
             verify(restTemplate).exchange(contains("months=3"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
-            verify(restTemplate).exchange(contains("org_id=10"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(contains("org_id=" + uid(10)), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
         }
 
         @Test
@@ -493,11 +495,11 @@ class MlProxyServiceTest {
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("[]"));
 
-            mlProxyService.fetchAnomaliesRaw(7L);
+            mlProxyService.fetchAnomaliesRaw(uid(7));
 
             verify(mlCacheService, never()).get(any(), anyString());
             verify(restTemplate).exchange(contains("/anomalies"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
-            verify(restTemplate).exchange(contains("org_id=7"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(contains("org_id=" + uid(7)), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
         }
 
         @Test
@@ -509,11 +511,11 @@ class MlProxyServiceTest {
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("[]"));
 
-            mlProxyService.fetchRiskScoresRaw(7L);
+            mlProxyService.fetchRiskScoresRaw(uid(7));
 
             verify(mlCacheService, never()).get(any(), anyString());
             verify(restTemplate).exchange(contains("/risk-scores"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
-            verify(restTemplate).exchange(contains("org_id=7"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(contains("org_id=" + uid(7)), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
             verify(restTemplate).exchange(
                     anyString(), eq(HttpMethod.GET),
                     org.mockito.ArgumentMatchers.argThat((HttpEntity<?> e) ->
@@ -608,14 +610,14 @@ class MlProxyServiceTest {
         @DisplayName("Posts the question and org_id to /agent/ask and returns the response body")
         void shouldPostQuestionWithOrgId() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(4L);
+            TenantContext.set(uid(4));
             when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"answer\":\"...\"}"));
 
             ResponseEntity<String> result = mlProxyService.askAgent("Which contracts expire soon?");
 
             assertEquals(HttpStatus.OK, result.getStatusCode());
-            verify(restTemplate).exchange(contains("org_id=4"), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(contains("org_id=" + uid(4)), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
             verify(restTemplate).exchange(
                     anyString(), eq(HttpMethod.POST),
                     org.mockito.ArgumentMatchers.argThat((HttpEntity<?> e) ->
@@ -651,14 +653,14 @@ class MlProxyServiceTest {
         @DisplayName("A MANAGER's request adds manager_id alongside org_id")
         void shouldForwardManagerId() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(4L);
-            authenticateAsManager(42L);
+            TenantContext.set(uid(4));
+            authenticateAsManager(uid(42));
             when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"answer\":\"...\"}"));
 
             mlProxyService.askAgent("Which contracts expire soon?");
 
-            verify(restTemplate).exchange(contains("manager_id=42"), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(contains("manager_id=" + uid(42)), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
         }
 
         @Test
@@ -666,8 +668,8 @@ class MlProxyServiceTest {
         @DisplayName("Attaches X-Internal-Claims when claims signing is configured")
         void shouldAttachSignedClaims() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(4L);
-            when(mlClaimsSigner.sign(4L, null)).thenReturn("signed-token");
+            TenantContext.set(uid(4));
+            when(mlClaimsSigner.sign(uid(4), null)).thenReturn("signed-token");
             when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"answer\":\"...\"}"));
 
@@ -748,13 +750,13 @@ class MlProxyServiceTest {
         @DisplayName("A present-but-unauthenticated principal is treated as no scope, same as no authentication at all")
         void unauthenticatedPrincipalYieldsNoManagerScope() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
+            TenantContext.set(uid(5));
             // The 2-arg UsernamePasswordAuthenticationToken constructor leaves
             // authenticated=false, unlike the 3-arg one used elsewhere in this
             // file (which Spring Security treats as pre-authenticated).
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("someone", "creds"));
-            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            when(mlCacheService.get(uid(5), "FORECAST_6")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
 
@@ -769,22 +771,22 @@ class MlProxyServiceTest {
         @DisplayName("Resolves the manager scope from a UserDetails principal, not just a raw username string")
         void resolvesManagerIdFromUserDetailsPrincipal() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
+            TenantContext.set(uid(5));
             Roles managerRole = new Roles();
             managerRole.setRole("MANAGER");
-            Users user = Users.builder().username("manager1").role(managerRole).manager(Managers.builder().id(42L).build()).build();
+            Users user = Users.builder().username("manager1").role(managerRole).manager(Managers.builder().id(uid(42)).build()).build();
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(user));
             org.springframework.security.core.userdetails.UserDetails principal = org.springframework.security.core.userdetails.User
                     .withUsername("manager1").password("pwd").roles("MANAGER").build();
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-            when(mlCacheService.get(5L, "FORECAST_6_MGR42")).thenReturn(Optional.empty());
+            when(mlCacheService.get(uid(5), "FORECAST_6_MGR" + uid(42))).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
 
             mlProxyService.getForecast(6);
 
-            verify(restTemplate).exchange(contains("manager_id=42"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            verify(restTemplate).exchange(contains("manager_id=" + uid(42)), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
         }
 
         @Test
@@ -792,14 +794,14 @@ class MlProxyServiceTest {
         @DisplayName("A MANAGER-role user with no manager assigned yields no manager scope")
         void managerRoleWithNoManagerAssignedYieldsNoScope() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
+            TenantContext.set(uid(5));
             Roles managerRole = new Roles();
             managerRole.setRole("MANAGER");
             Users user = Users.builder().username("manager1").role(managerRole).manager(null).build();
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(user));
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("manager1", null, java.util.List.of()));
-            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            when(mlCacheService.get(uid(5), "FORECAST_6")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
 
@@ -820,9 +822,9 @@ class MlProxyServiceTest {
         @DisplayName("getForecast propagates AccessDeniedException and never calls FastAPI")
         void getForecastBlockedWhenTierDenies() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
+            TenantContext.set(uid(5));
             doThrow(new AccessDeniedException("Funzionalità ML non disponibile nel piano FREE"))
-                    .when(tierLimitService).requireMlAccess(5L);
+                    .when(tierLimitService).requireMlAccess(uid(5));
 
             assertThrows(AccessDeniedException.class, () -> mlProxyService.getForecast(6));
             verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
@@ -833,9 +835,9 @@ class MlProxyServiceTest {
         @DisplayName("getAgentInsights propagates AccessDeniedException and never calls FastAPI")
         void getAgentInsightsBlockedWhenTierDenies() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
+            TenantContext.set(uid(5));
             doThrow(new AccessDeniedException("Funzionalità ML non disponibile nel piano FREE"))
-                    .when(tierLimitService).requireMlAccess(5L);
+                    .when(tierLimitService).requireMlAccess(uid(5));
 
             assertThrows(AccessDeniedException.class, () -> mlProxyService.getAgentInsights(3));
             verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
@@ -846,9 +848,9 @@ class MlProxyServiceTest {
         @DisplayName("getAnomalies propagates AccessDeniedException and never calls FastAPI")
         void getAnomaliesBlockedWhenTierDenies() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
+            TenantContext.set(uid(5));
             doThrow(new AccessDeniedException("Funzionalità ML non disponibile nel piano FREE"))
-                    .when(tierLimitService).requireMlAccess(5L);
+                    .when(tierLimitService).requireMlAccess(uid(5));
 
             assertThrows(AccessDeniedException.class, () -> mlProxyService.getAnomalies());
             verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
@@ -859,9 +861,9 @@ class MlProxyServiceTest {
         @DisplayName("getRiskScores propagates AccessDeniedException and never calls FastAPI")
         void getRiskScoresBlockedWhenTierDenies() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
+            TenantContext.set(uid(5));
             doThrow(new AccessDeniedException("Funzionalità ML non disponibile nel piano FREE"))
-                    .when(tierLimitService).requireMlAccess(5L);
+                    .when(tierLimitService).requireMlAccess(uid(5));
 
             assertThrows(AccessDeniedException.class, () -> mlProxyService.getRiskScores());
             verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
@@ -872,9 +874,9 @@ class MlProxyServiceTest {
         @DisplayName("askAgent propagates AccessDeniedException and never calls FastAPI")
         void askAgentBlockedWhenTierDenies() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
+            TenantContext.set(uid(5));
             doThrow(new AccessDeniedException("Funzionalità ML non disponibile nel piano FREE"))
-                    .when(tierLimitService).requireMlAccess(5L);
+                    .when(tierLimitService).requireMlAccess(uid(5));
 
             assertThrows(AccessDeniedException.class, () -> mlProxyService.askAgent("Any question"));
             verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
@@ -885,15 +887,15 @@ class MlProxyServiceTest {
         @DisplayName("getForecast calls FastAPI normally when the tier check passes")
         void getForecastAllowedWhenTierPasses() {
             ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            TenantContext.set(5L);
-            when(mlCacheService.get(5L, "FORECAST_6")).thenReturn(Optional.empty());
+            TenantContext.set(uid(5));
+            when(mlCacheService.get(uid(5), "FORECAST_6")).thenReturn(Optional.empty());
             when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
                     .thenReturn(ResponseEntity.ok("{\"historical\":[]}"));
 
             ResponseEntity<String> result = mlProxyService.getForecast(6);
 
             assertEquals(HttpStatus.OK, result.getStatusCode());
-            verify(tierLimitService).requireMlAccess(5L);
+            verify(tierLimitService).requireMlAccess(uid(5));
         }
     }
 }

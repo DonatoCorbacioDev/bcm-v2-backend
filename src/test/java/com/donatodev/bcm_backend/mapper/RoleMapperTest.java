@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.mapper;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.api.Nested;
@@ -24,26 +25,26 @@ class RoleMapperTest {
         @Test
         void shouldMapAdminEntityToDTO() {
             Roles role = Roles.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .role("ADMIN")
                     .build();
 
             RoleDTO dto = roleMapper.toDTO(role);
 
-            assertEquals(1L, dto.id());
+            assertEquals(uid(1), dto.id());
             assertEquals("ADMIN", dto.role());
         }
 
         @Test
         void shouldMapManagerEntityToDTO() {
             Roles role = Roles.builder()
-                    .id(2L)
+                    .id(uid(2))
                     .role("MANAGER")
                     .build();
 
             RoleDTO dto = roleMapper.toDTO(role);
 
-            assertEquals(2L, dto.id());
+            assertEquals(uid(2), dto.id());
             assertEquals("MANAGER", dto.role());
         }
 
@@ -66,11 +67,11 @@ class RoleMapperTest {
 
         @Test
         void shouldMapDTOToEntity() {
-            RoleDTO dto = new RoleDTO(10L, "ADMIN");
+            RoleDTO dto = new RoleDTO(uid(10), "ADMIN");
 
             Roles role = roleMapper.toEntity(dto);
 
-            assertEquals(10L, role.getId());
+            assertEquals(uid(10), role.getId());
             assertEquals("ADMIN", role.getRole());
         }
 
@@ -86,7 +87,7 @@ class RoleMapperTest {
 
         @Test
         void shouldMapDTOToEntityRoundTrip() {
-            Roles original = Roles.builder().id(5L).role("ADMIN").build();
+            Roles original = Roles.builder().id(uid(5)).role("ADMIN").build();
 
             RoleDTO dto = roleMapper.toDTO(original);
             Roles restored = roleMapper.toEntity(dto);

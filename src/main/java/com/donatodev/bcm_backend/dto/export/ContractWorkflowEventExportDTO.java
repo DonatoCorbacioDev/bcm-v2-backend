@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import com.donatodev.bcm_backend.entity.ContractWorkflowEvent;
@@ -13,12 +14,12 @@ import com.donatodev.bcm_backend.entity.WorkflowStage;
 
 /** One element of {@code data/contract_workflow_events.json}. */
 public record ContractWorkflowEventExportDTO(
-        Long id,
-        Long contractId,
+        UUID id,
+        UUID contractId,
         WorkflowStage fromStage,
         WorkflowStage toStage,
         WorkflowAction action,
-        Long actorUserId,
+        UUID actorUserId,
         String comment,
         LocalDateTime createdAt) {
 

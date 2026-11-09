@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -59,7 +60,7 @@ public record HomeAttentionDTO(
      */
     public record Item(
             Type type,
-            Long contractId,
+            UUID contractId,
             String contractNumber,
             String counterpartyName,
             String projectName,
@@ -67,7 +68,7 @@ public record HomeAttentionDTO(
             Integer daysLeft,
             String managerName,
             Integer renewalMonths,
-            Long invoiceId,
+            UUID invoiceId,
             String invoiceNumber,
             BigDecimal invoiceAmount) {
     }

@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import com.donatodev.bcm_backend.support.TestTenant;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
@@ -152,7 +154,7 @@ class ManagerControllerTest {
 
             mockMvc.perform(get("/managers/{id}", m.getId()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(m.getId()))
+                    .andExpect(jsonPath("$.id").value(m.getId().toString()))
                     .andExpect(jsonPath("$.firstName").value("Lucio"));
         }
 
@@ -208,7 +210,7 @@ class ManagerControllerTest {
         @DisplayName("Manager not found when searching by invalid ID")
         @WithMockUser(roles = "ADMIN")
         void shouldReturnNotFoundForInvalidId() throws Exception {
-            mockMvc.perform(get("/managers/{id}", 9999L))
+            mockMvc.perform(get("/managers/{id}", uid(9999)))
                     .andExpect(status().isNotFound());
         }
 

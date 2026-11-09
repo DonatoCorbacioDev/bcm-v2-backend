@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,9 +15,9 @@ import org.springframework.stereotype.Repository;
 import com.donatodev.bcm_backend.entity.Budget;
 
 @Repository
-public interface BudgetRepository extends JpaRepository<Budget, Long> {
+public interface BudgetRepository extends JpaRepository<Budget, UUID> {
 
-    List<Budget> findAllByOrganizationId(Long organizationId);
+    List<Budget> findAllByOrganizationId(UUID organizationId);
 
-    Optional<Budget> findByIdAndOrganizationId(Long id, Long organizationId);
+    Optional<Budget> findByIdAndOrganizationId(UUID id, UUID organizationId);
 }

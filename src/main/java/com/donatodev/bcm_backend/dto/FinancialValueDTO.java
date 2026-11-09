@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import com.donatodev.bcm_backend.entity.FinancialCategory;
 import com.donatodev.bcm_backend.entity.FinancialValueSource;
 
@@ -28,13 +29,13 @@ import com.donatodev.bcm_backend.entity.FinancialValueSource;
  * @param source whether this row was entered manually or produced by contract-terms generation (read-only — manual writes always force MANUAL server-side, see FinancialValueService)
  */
 public record FinancialValueDTO(
-        Long id,
+        UUID id,
         int month,
         int year,
         double financialAmount,
-        Long financialTypeId,
-        Long businessAreaId,
-        Long contractId,
+        UUID financialTypeId,
+        UUID businessAreaId,
+        UUID contractId,
         String typeName,
         String areaName,
         String customerName,
@@ -46,8 +47,8 @@ public record FinancialValueDTO(
      * Compatibility constructor for call sites predating the manual/generated
      * distinction — defaults {@code source} to {@code MANUAL}.
      */
-    public FinancialValueDTO(Long id, int month, int year, double financialAmount, Long financialTypeId,
-            Long businessAreaId, Long contractId, String typeName, String areaName, String customerName,
+    public FinancialValueDTO(UUID id, int month, int year, double financialAmount, UUID financialTypeId,
+            UUID businessAreaId, UUID contractId, String typeName, String areaName, String customerName,
             FinancialCategory category) {
         this(id, month, year, financialAmount, financialTypeId, businessAreaId, contractId, typeName, areaName,
                 customerName, category, FinancialValueSource.MANUAL);

@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import com.donatodev.bcm_backend.support.TestTenant;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
@@ -358,7 +360,7 @@ class ContractControllerTest {
         @DisplayName("Contract not found when searching by invalid ID")
         @WithMockUser(roles = "ADMIN")
         void shouldReturnNotFoundForInvalidId() throws Exception {
-            mockMvc.perform(get("/contracts/{id}", 99999L))
+            mockMvc.perform(get("/contracts/{id}", uid(99999)))
                     .andExpect(status().isNotFound());
         }
 
@@ -543,7 +545,7 @@ class ContractControllerTest {
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
 
-            String requestBody = String.format("{\"managerId\": %d}", manager2.getId());
+            String requestBody = String.format("{\"managerId\": \"%s\"}", manager2.getId());
 
             mockMvc.perform(patch("/contracts/{id}/assign-manager", contract.getId())
                     .with(csrf())
@@ -604,7 +606,7 @@ class ContractControllerTest {
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
 
-            String requestBody = String.format("{\"managerIds\": [%d, %d]}",
+            String requestBody = String.format("{\"managerIds\": [\"%s\", \"%s\"]}",
                     manager1.getId(), manager2.getId());
 
             mockMvc.perform(patch("/contracts/{id}/collaborators", contract.getId())
@@ -622,8 +624,8 @@ class ContractControllerTest {
         @DisplayName("MANAGER should be forbidden from creating contracts")
         @WithMockUser(roles = "MANAGER")
         void shouldForbidCreateForManager() throws Exception {
-            ContractDTO dto = new ContractDTO(null, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Test", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "TEST", "WBS", "Test",
-                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), 1L, 1L, null, null, null, null);
+            ContractDTO dto = new ContractDTO(null, uid(1), new com.donatodev.bcm_backend.dto.CounterpartyDTO(uid(1), "Test", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "TEST", "WBS", "Test",
+                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), uid(1), uid(1), null, null, null, null);
 
             mockMvc.perform(post("/contracts")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -1140,9 +1142,9 @@ class ContractControllerTest {
         @DisplayName("Should return 404 when assigning manager to non-existent contract")
         @WithMockUser(roles = "ADMIN")
         void shouldReturn404WhenAssigningManagerToNonExistentContract() throws Exception {
-            mockMvc.perform(patch("/contracts/99999/assign-manager")
+            mockMvc.perform(patch("/contracts/" + uid(99999) + "/assign-manager")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"managerId\": 1}")
+                    .content("{\"managerId\": \"00000000-0000-0000-0000-000000000001\"}")
                     .with(csrf()))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404));
@@ -1201,7 +1203,7 @@ class ContractControllerTest {
         @DisplayName("Should return 404 when regenerating financial values for a non-existent contract")
         @WithMockUser(roles = "ADMIN")
         void shouldReturn404WhenRegeneratingNonExistentContract() throws Exception {
-            mockMvc.perform(post("/contracts/{id}/generate-financial-values", 999999L).with(csrf()))
+            mockMvc.perform(post("/contracts/{id}/generate-financial-values", uid(999999)).with(csrf()))
                     .andExpect(status().isNotFound());
         }
 
@@ -1210,7 +1212,7 @@ class ContractControllerTest {
         @DisplayName("Should return 403 when a MANAGER tries to regenerate financial values")
         @WithMockUser(roles = "MANAGER")
         void shouldReturn403WhenManagerRegeneratesFinancialValues() throws Exception {
-            mockMvc.perform(post("/contracts/{id}/generate-financial-values", 1L).with(csrf()))
+            mockMvc.perform(post("/contracts/{id}/generate-financial-values", uid(1)).with(csrf()))
                     .andExpect(status().isForbidden());
         }
     }

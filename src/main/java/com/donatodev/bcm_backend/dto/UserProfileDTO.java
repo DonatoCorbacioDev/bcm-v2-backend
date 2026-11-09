@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
+
 /**
  * DTO used for returning public profile information of a user.
  * <p>
@@ -19,7 +21,7 @@ package com.donatodev.bcm_backend.dto;
  * @param organizationName the name of the organization the user belongs to
  */
 public record UserProfileDTO(
-    Long id,
+    UUID id,
     String username,
     String role,
     boolean verified,

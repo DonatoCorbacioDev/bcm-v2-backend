@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -49,7 +50,7 @@ public class RoleService {
      * @return the corresponding {@link RoleDTO}
      * @throws RoleNotFoundException if role not found
      */
-    public RoleDTO getRoleById(Long id) {
+    public RoleDTO getRoleById(UUID id) {
         return rolesRepository.findById(id)
                 .map(roleMapper::toDTO)
                 .orElseThrow(() -> new RoleNotFoundException("Ruolo ID " + id + " non trovato"));

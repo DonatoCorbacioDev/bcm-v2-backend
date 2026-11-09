@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.dto;
 
-public record AssignManagerRequest(Long managerId) {
+import java.util.UUID;
+
+public record AssignManagerRequest(UUID managerId) {
 	
 }

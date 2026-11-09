@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -42,7 +43,7 @@ public class PdfBoxService {
         this.ocrService = ocrService;
     }
 
-    public DocumentAnalysisDTO analyzeDocument(Long documentId, byte[] pdfBytes) {
+    public DocumentAnalysisDTO analyzeDocument(UUID documentId, byte[] pdfBytes) {
         String rawText = extractRawText(pdfBytes);
 
         return new DocumentAnalysisDTO(

@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.Optional;
@@ -63,8 +64,8 @@ class PasswordResetTokenServiceTest {
         @Order(1)
         @DisplayName("Should create a new token and delete old one if present")
         void shouldCreateTokenAndDeleteOld() {
-            Users user = Users.builder().id(1L).build();
-            PasswordResetToken oldToken = PasswordResetToken.builder().id(1L).user(user).build();
+            Users user = Users.builder().id(uid(1)).build();
+            PasswordResetToken oldToken = PasswordResetToken.builder().id(uid(1)).user(user).build();
 
             when(repository.findByUser(user)).thenReturn(Optional.of(oldToken));
             doNothing().when(repository).delete(oldToken);

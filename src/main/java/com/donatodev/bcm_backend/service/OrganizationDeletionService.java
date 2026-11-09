@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -237,7 +238,7 @@ public class OrganizationDeletionService {
     }
 
     /** Prefixed so a deletion code can never collide with a registration code hash. */
-    static String hash(Long orgId, String code) {
+    static String hash(UUID orgId, String code) {
         return DigestUtils.sha256Hex("delete:" + orgId + ":" + code);
     }
 }

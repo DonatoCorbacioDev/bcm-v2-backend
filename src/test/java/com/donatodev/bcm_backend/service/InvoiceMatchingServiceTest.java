@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Month;
@@ -53,8 +55,8 @@ class InvoiceMatchingServiceTest {
 
     private InvoiceMatchingService invoiceMatchingService;
 
-    private static final long CONTRACT_ID = 1L;
-    private static final long TENANT = 1L;
+    private static final UUID CONTRACT_ID = uid(1);
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void setup() {
@@ -71,13 +73,13 @@ class InvoiceMatchingServiceTest {
 
     private void lenientNoOtherConfirmedMatch() {
         lenient()
-                .when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(anyLong(), any()))
+                .when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(any(UUID.class), any()))
                 .thenReturn(Optional.empty());
     }
 
     private Counterparty counterparty() {
         Counterparty c = new Counterparty();
-        c.setId(50L);
+        c.setId(uid(50));
         c.setName("Vertice Legal S.r.l.");
         c.setType(CounterpartyType.CUSTOMER);
         c.setVatNumber("IT12345678901");
@@ -94,7 +96,7 @@ class InvoiceMatchingServiceTest {
     private ElectronicInvoice invoice(Contracts contract, String supplierName, String supplierVat,
                                        BigDecimal totalAmount, LocalDate invoiceDate) {
         ElectronicInvoice invoice = new ElectronicInvoice();
-        invoice.setId(10L);
+        invoice.setId(uid(10));
         invoice.setContract(contract);
         invoice.setSupplierName(supplierName);
         invoice.setSupplierVatNumber(supplierVat);
@@ -104,7 +106,7 @@ class InvoiceMatchingServiceTest {
         return invoice;
     }
 
-    private FinancialValues financialValue(long id, Contracts contract, int month, int year, double amount) {
+    private FinancialValues financialValue(UUID id, Contracts contract, int month, int year, double amount) {
         FinancialValues fv = new FinancialValues();
         fv.setId(id);
         fv.setContract(contract);
@@ -144,7 +146,7 @@ class InvoiceMatchingServiceTest {
             Contracts contract = contract(cp);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
 
             when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
 
@@ -163,7 +165,7 @@ class InvoiceMatchingServiceTest {
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("610.00"), LocalDate.of(2026, Month.JANUARY, 10));
             invoice.setTaxableAmount(new BigDecimal("500.00"));
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 500.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 500.0);
             when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
 
             invoiceMatchingService.computeSuggestion(invoice);
@@ -180,7 +182,7 @@ class InvoiceMatchingServiceTest {
             Contracts contract = contract(cp);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.FEBRUARY, 5));
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
 
             when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
 
@@ -198,7 +200,7 @@ class InvoiceMatchingServiceTest {
             Contracts contract = contract(cp);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("500.00"), LocalDate.of(2026, Month.JULY, 5));
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
 
             when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
 
@@ -236,7 +238,7 @@ class InvoiceMatchingServiceTest {
             Contracts contract = contract(cp);
             ElectronicInvoice invoice = invoice(contract, invoiceSupplierName, invoiceSupplierVat,
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
 
             when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
 
@@ -253,17 +255,17 @@ class InvoiceMatchingServiceTest {
             Contracts contract = contract(cp);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
-            FinancialValues takenCandidate = financialValue(100L, contract, 1, 2026, 15000.0);
-            FinancialValues freeCandidate = financialValue(101L, contract, 2, 2026, 15000.0);
+            FinancialValues takenCandidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
+            FinancialValues freeCandidate = financialValue(uid(101), contract, 2, 2026, 15000.0);
 
             when(financialValuesRepository.findByContractId(CONTRACT_ID))
                     .thenReturn(List.of(takenCandidate, freeCandidate));
 
             ElectronicInvoice otherInvoice = new ElectronicInvoice();
-            otherInvoice.setId(999L);
-            when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(100L, InvoiceMatchStatus.CONFIRMED))
+            otherInvoice.setId(uid(999));
+            when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(uid(100), InvoiceMatchStatus.CONFIRMED))
                     .thenReturn(Optional.of(otherInvoice));
-            when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(101L, InvoiceMatchStatus.CONFIRMED))
+            when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(uid(101), InvoiceMatchStatus.CONFIRMED))
                     .thenReturn(Optional.empty());
 
             invoiceMatchingService.computeSuggestion(invoice);
@@ -325,8 +327,8 @@ class InvoiceMatchingServiceTest {
             Contracts contract = contract(cp);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
-            FinancialValues bestCandidate = financialValue(100L, contract, 1, 2026, 15000.0);
-            FinancialValues worseCandidate = financialValue(101L, contract, 3, 2026, 5000.0);
+            FinancialValues bestCandidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
+            FinancialValues worseCandidate = financialValue(uid(101), contract, 3, 2026, 5000.0);
 
             when(financialValuesRepository.findByContractId(CONTRACT_ID))
                     .thenReturn(List.of(bestCandidate, worseCandidate));
@@ -361,11 +363,11 @@ class InvoiceMatchingServiceTest {
             Contracts contract = contract(cp);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
-            invoice.setId(10L);
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            invoice.setId(uid(10));
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
 
             when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
-            when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(100L, InvoiceMatchStatus.CONFIRMED))
+            when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(uid(100), InvoiceMatchStatus.CONFIRMED))
                     .thenReturn(Optional.of(invoice));
 
             invoiceMatchingService.computeSuggestion(invoice);
@@ -429,7 +431,7 @@ class InvoiceMatchingServiceTest {
             Contracts contract = contract(cp);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     null, LocalDate.of(2026, Month.JANUARY, 10));
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
 
             when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
 
@@ -447,7 +449,7 @@ class InvoiceMatchingServiceTest {
             Contracts contract = contract(cp);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("1000.00"), LocalDate.of(2026, Month.JANUARY, 10));
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 0.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 0.0);
 
             when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
 
@@ -465,7 +467,7 @@ class InvoiceMatchingServiceTest {
             Contracts contract = contract(cp);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), null);
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
 
             when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
 
@@ -483,7 +485,7 @@ class InvoiceMatchingServiceTest {
             Contracts contract = contract(cp);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.MARCH, 10));
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
 
             when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
 
@@ -505,13 +507,13 @@ class InvoiceMatchingServiceTest {
         @DisplayName("confirms the already-suggested candidate when no override is given")
         void confirmsSuggested() {
             Contracts contract = contract(counterparty());
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
             invoice.setMatchStatus(InvoiceMatchStatus.SUGGESTED);
             invoice.setMatchedFinancialValue(candidate);
             invoice.setMatchConfidence(1.0);
-            when(financialValuesRepository.findByIdAndOrganizationId(100L, TENANT)).thenReturn(Optional.of(candidate));
+            when(financialValuesRepository.findByIdAndOrganizationId(uid(100), TENANT)).thenReturn(Optional.of(candidate));
 
             Users user = new Users();
             user.setUsername("admin");
@@ -530,18 +532,18 @@ class InvoiceMatchingServiceTest {
         @DisplayName("manual override picks a different financial value than the one suggested")
         void confirmsManualOverride() {
             Contracts contract = contract(counterparty());
-            FinancialValues suggested = financialValue(100L, contract, 1, 2026, 15000.0);
-            FinancialValues override = financialValue(101L, contract, 2, 2026, 15000.0);
+            FinancialValues suggested = financialValue(uid(100), contract, 1, 2026, 15000.0);
+            FinancialValues override = financialValue(uid(101), contract, 2, 2026, 15000.0);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
             invoice.setMatchStatus(InvoiceMatchStatus.SUGGESTED);
             invoice.setMatchedFinancialValue(suggested);
 
-            when(financialValuesRepository.findByIdAndOrganizationId(101L, TENANT)).thenReturn(Optional.of(override));
+            when(financialValuesRepository.findByIdAndOrganizationId(uid(101), TENANT)).thenReturn(Optional.of(override));
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(new Users()));
             when(invoiceRepository.save(any(ElectronicInvoice.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            ElectronicInvoice result = invoiceMatchingService.confirmMatch(invoice, 101L, "admin");
+            ElectronicInvoice result = invoiceMatchingService.confirmMatch(invoice, uid(101), "admin");
 
             assertEquals(override, result.getMatchedFinancialValue());
         }
@@ -564,15 +566,15 @@ class InvoiceMatchingServiceTest {
         void throwsWhenOverrideBelongsToDifferentContract() {
             Contracts contract = contract(counterparty());
             Contracts otherContract = new Contracts();
-            otherContract.setId(999L);
-            FinancialValues foreign = financialValue(200L, otherContract, 1, 2026, 15000.0);
+            otherContract.setId(uid(999));
+            FinancialValues foreign = financialValue(uid(200), otherContract, 1, 2026, 15000.0);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
 
-            when(financialValuesRepository.findByIdAndOrganizationId(200L, TENANT)).thenReturn(Optional.of(foreign));
+            when(financialValuesRepository.findByIdAndOrganizationId(uid(200), TENANT)).thenReturn(Optional.of(foreign));
 
             assertThrows(IllegalArgumentException.class,
-                    () -> invoiceMatchingService.confirmMatch(invoice, 200L, "admin"));
+                    () -> invoiceMatchingService.confirmMatch(invoice, uid(200), "admin"));
         }
 
         @Test
@@ -580,16 +582,16 @@ class InvoiceMatchingServiceTest {
         @DisplayName("throws when another invoice is already CONFIRMED against the same row")
         void throwsOnDoubleConfirmation() {
             Contracts contract = contract(counterparty());
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
-            invoice.setId(10L);
+            invoice.setId(uid(10));
             invoice.setMatchedFinancialValue(candidate);
-            when(financialValuesRepository.findByIdAndOrganizationId(100L, TENANT)).thenReturn(Optional.of(candidate));
+            when(financialValuesRepository.findByIdAndOrganizationId(uid(100), TENANT)).thenReturn(Optional.of(candidate));
 
             ElectronicInvoice otherInvoice = new ElectronicInvoice();
-            otherInvoice.setId(20L);
-            when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(100L, InvoiceMatchStatus.CONFIRMED))
+            otherInvoice.setId(uid(20));
+            when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(uid(100), InvoiceMatchStatus.CONFIRMED))
                     .thenReturn(Optional.of(otherInvoice));
 
             assertThrows(IllegalArgumentException.class,
@@ -601,14 +603,14 @@ class InvoiceMatchingServiceTest {
         @DisplayName("allows re-confirming the same invoice against the row it already owns")
         void allowsReconfirmingOwnRow() {
             Contracts contract = contract(counterparty());
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
-            invoice.setId(10L);
+            invoice.setId(uid(10));
             invoice.setMatchedFinancialValue(candidate);
-            when(financialValuesRepository.findByIdAndOrganizationId(100L, TENANT)).thenReturn(Optional.of(candidate));
+            when(financialValuesRepository.findByIdAndOrganizationId(uid(100), TENANT)).thenReturn(Optional.of(candidate));
 
-            when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(100L, InvoiceMatchStatus.CONFIRMED))
+            when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(uid(100), InvoiceMatchStatus.CONFIRMED))
                     .thenReturn(Optional.of(invoice));
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(new Users()));
             when(invoiceRepository.save(any(ElectronicInvoice.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -626,10 +628,10 @@ class InvoiceMatchingServiceTest {
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
 
-            when(financialValuesRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(financialValuesRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
             assertThrows(FinancialValueNotFoundException.class,
-                    () -> invoiceMatchingService.confirmMatch(invoice, 999L, "admin"));
+                    () -> invoiceMatchingService.confirmMatch(invoice, uid(999), "admin"));
             verifyNoInteractions(invoiceRepository, usersRepository);
         }
 
@@ -638,14 +640,14 @@ class InvoiceMatchingServiceTest {
             Contracts contract = contract(counterparty());
             ElectronicInvoice invoice = invoice(contract, "Supplier", "IT12345678901",
                     BigDecimal.TEN, LocalDate.of(2026, Month.JANUARY, 10));
-            FinancialValues candidate = financialValue(999L, contract, 1, 2026, 10);
+            FinancialValues candidate = financialValue(uid(999), contract, 1, 2026, 10);
             invoice.setMatchedFinancialValue(candidate);
             invoice.setMatchStatus(InvoiceMatchStatus.SUGGESTED);
 
             assertThrows(FinancialValueNotFoundException.class,
                     () -> invoiceMatchingService.confirmMatch(invoice, null, "admin"));
 
-            verify(financialValuesRepository).findByIdAndOrganizationId(999L, TENANT);
+            verify(financialValuesRepository).findByIdAndOrganizationId(uid(999), TENANT);
             verifyNoInteractions(invoiceRepository, usersRepository);
             assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
             assertEquals(candidate, invoice.getMatchedFinancialValue());
@@ -658,7 +660,7 @@ class InvoiceMatchingServiceTest {
             ElectronicInvoice invoice = new ElectronicInvoice();
 
             assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class,
-                    () -> invoiceMatchingService.confirmMatch(invoice, 999L, "admin"));
+                    () -> invoiceMatchingService.confirmMatch(invoice, uid(999), "admin"));
 
             verifyNoInteractions(financialValuesRepository, invoiceRepository, usersRepository);
         }
@@ -675,7 +677,7 @@ class InvoiceMatchingServiceTest {
         @DisplayName("clears the candidate and marks the invoice REJECTED")
         void rejectsAndClears() {
             Contracts contract = contract(counterparty());
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
             invoice.setMatchStatus(InvoiceMatchStatus.SUGGESTED);
@@ -702,7 +704,7 @@ class InvoiceMatchingServiceTest {
         @Order(1)
         @DisplayName("only queries invoices in UNMATCHED/SUGGESTED/COUNTERPARTY_MISMATCH — never CONFIRMED/REJECTED")
         void queriesOnlyReconsiderableStatuses() {
-            when(invoiceRepository.findByContractIdAndMatchStatusIn(anyLong(), any())).thenReturn(List.of());
+            when(invoiceRepository.findByContractIdAndMatchStatusIn(any(UUID.class), any())).thenReturn(List.of());
             when(invoiceRepository.saveAll(any())).thenReturn(List.of());
 
             invoiceMatchingService.recomputeForContract(CONTRACT_ID);
@@ -717,11 +719,11 @@ class InvoiceMatchingServiceTest {
         @DisplayName("recomputes each returned invoice and saves the batch")
         void recomputesAndSaves() {
             Contracts contract = contract(counterparty());
-            FinancialValues candidate = financialValue(100L, contract, 1, 2026, 15000.0);
+            FinancialValues candidate = financialValue(uid(100), contract, 1, 2026, 15000.0);
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
 
-            when(invoiceRepository.findByContractIdAndMatchStatusIn(anyLong(), any())).thenReturn(List.of(invoice));
+            when(invoiceRepository.findByContractIdAndMatchStatusIn(any(UUID.class), any())).thenReturn(List.of(invoice));
             when(financialValuesRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of(candidate));
             when(invoiceRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 

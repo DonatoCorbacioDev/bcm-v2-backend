@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -23,8 +24,8 @@ import com.donatodev.bcm_backend.entity.InvoiceMatchStatus;
  * @param supplierBic   same masking as {@code supplierIban}
  */
 public record ElectronicInvoiceDTO(
-        Long id,
-        Long contractId,
+        UUID id,
+        UUID contractId,
         String fileName,
         Long fileSize,
         Instant uploadedAt,
@@ -40,9 +41,9 @@ public record ElectronicInvoiceDTO(
         String supplierIban,
         String supplierBic,
         LocalDate paymentDueDate,
-        Long sepaBatchId,
+        UUID sepaBatchId,
         InvoiceMatchStatus matchStatus,
-        Long matchedFinancialValueId,
+        UUID matchedFinancialValueId,
         Double matchConfidence,
         Instant matchedAt,
         String matchedByUsername,
@@ -59,11 +60,11 @@ public record ElectronicInvoiceDTO(
 ) {
 
     /** Without the payment method: call sites predating it. */
-    public ElectronicInvoiceDTO(Long id, Long contractId, String fileName, Long fileSize, Instant uploadedAt,
+    public ElectronicInvoiceDTO(UUID id, UUID contractId, String fileName, Long fileSize, Instant uploadedAt,
             String downloadUrl, String supplierName, String supplierVatNumber, String documentType,
             String invoiceNumber, LocalDate invoiceDate, BigDecimal totalAmount, String currency,
             List<InvoiceLineItemDTO> lineItems, String supplierIban, String supplierBic, LocalDate paymentDueDate,
-            Long sepaBatchId, InvoiceMatchStatus matchStatus, Long matchedFinancialValueId, Double matchConfidence,
+            UUID sepaBatchId, InvoiceMatchStatus matchStatus, UUID matchedFinancialValueId, Double matchConfidence,
             Instant matchedAt, String matchedByUsername, BigDecimal taxableAmount, BigDecimal vatAmount,
             BigDecimal expectedAmount, BigDecimal amountDifference, boolean ibanChanged) {
         this(id, contractId, fileName, fileSize, uploadedAt, downloadUrl, supplierName, supplierVatNumber,
@@ -74,11 +75,11 @@ public record ElectronicInvoiceDTO(
     }
 
     /** Without the IBAN check: call sites predating it. */
-    public ElectronicInvoiceDTO(Long id, Long contractId, String fileName, Long fileSize, Instant uploadedAt,
+    public ElectronicInvoiceDTO(UUID id, UUID contractId, String fileName, Long fileSize, Instant uploadedAt,
             String downloadUrl, String supplierName, String supplierVatNumber, String documentType,
             String invoiceNumber, LocalDate invoiceDate, BigDecimal totalAmount, String currency,
             List<InvoiceLineItemDTO> lineItems, String supplierIban, String supplierBic, LocalDate paymentDueDate,
-            Long sepaBatchId, InvoiceMatchStatus matchStatus, Long matchedFinancialValueId, Double matchConfidence,
+            UUID sepaBatchId, InvoiceMatchStatus matchStatus, UUID matchedFinancialValueId, Double matchConfidence,
             Instant matchedAt, String matchedByUsername, BigDecimal taxableAmount, BigDecimal vatAmount,
             BigDecimal expectedAmount, BigDecimal amountDifference) {
         this(id, contractId, fileName, fileSize, uploadedAt, downloadUrl, supplierName, supplierVatNumber,
@@ -88,11 +89,11 @@ public record ElectronicInvoiceDTO(
     }
 
     /** Compatibility constructor for call sites predating the taxable amount comparison. */
-    public ElectronicInvoiceDTO(Long id, Long contractId, String fileName, Long fileSize, Instant uploadedAt,
+    public ElectronicInvoiceDTO(UUID id, UUID contractId, String fileName, Long fileSize, Instant uploadedAt,
             String downloadUrl, String supplierName, String supplierVatNumber, String documentType,
             String invoiceNumber, LocalDate invoiceDate, BigDecimal totalAmount, String currency,
             List<InvoiceLineItemDTO> lineItems, String supplierIban, String supplierBic, LocalDate paymentDueDate,
-            Long sepaBatchId, InvoiceMatchStatus matchStatus, Long matchedFinancialValueId, Double matchConfidence,
+            UUID sepaBatchId, InvoiceMatchStatus matchStatus, UUID matchedFinancialValueId, Double matchConfidence,
             Instant matchedAt, String matchedByUsername) {
         this(id, contractId, fileName, fileSize, uploadedAt, downloadUrl, supplierName, supplierVatNumber,
                 documentType, invoiceNumber, invoiceDate, totalAmount, currency, lineItems, supplierIban,

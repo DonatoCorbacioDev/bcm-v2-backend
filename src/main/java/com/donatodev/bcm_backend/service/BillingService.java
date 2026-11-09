@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -127,7 +128,7 @@ public class BillingService {
         if (secretKey.isBlank()) {
             throw notConfigured();
         }
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         Organization org = organizationRepository.findById(orgId).orElse(null);
         if (org == null) {
             throw new OrganizationNotFoundException("Organizzazione non trovata");
@@ -139,7 +140,7 @@ public class BillingService {
         return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Pagamenti non configurati");
     }
 
-    private static ResponseStatusException stripeUnavailable(String operation, Long orgId, StripeException ex) {
+    private static ResponseStatusException stripeUnavailable(String operation, UUID orgId, StripeException ex) {
         log.warn("Stripe {} session creation failed for org {}: {}", operation, orgId, ex.getClass().getSimpleName());
         return new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Servizio di pagamento non disponibile");
     }
@@ -201,7 +202,7 @@ public class BillingService {
     }
 
     /** @param stripeCustomerId linked to the org first when present (completed checkouts only) */
-    private void applyTier(Long orgId, SubscriptionTier tier, String stripeCustomerId) {
+    private void applyTier(UUID orgId, SubscriptionTier tier, String stripeCustomerId) {
         if (orgId == null) {
             log.warn("Stripe webhook without a usable org id, ignored (target tier {})", tier);
             return;
@@ -216,14 +217,14 @@ public class BillingService {
         }
     }
 
-    private static Long readOrgId(JsonNode source, String key) {
+    private static UUID readOrgId(JsonNode source, String key) {
         String value = stringOrNull(source, key);
         if (value == null) {
             return null;
         }
         try {
-            return Long.valueOf(value);
-        } catch (NumberFormatException ex) {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException ex) {
             return null;
         }
     }

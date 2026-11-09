@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import com.donatodev.bcm_backend.support.TestTenant;
 import java.time.LocalDate;
@@ -208,7 +210,7 @@ class BudgetControllerTest {
 
             mockMvc.perform(get("/budgets/{id}", saved.getId()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(saved.getId()))
+                    .andExpect(jsonPath("$.id").value(saved.getId().toString()))
                     .andExpect(jsonPath("$.year").value(2026));
         }
 
@@ -299,7 +301,7 @@ class BudgetControllerTest {
         @DisplayName("Budget not found when searching by invalid ID")
         @WithMockUser(roles = "ADMIN")
         void shouldReturnNotFoundForInvalidId() throws Exception {
-            mockMvc.perform(get("/budgets/{id}", 9999L))
+            mockMvc.perform(get("/budgets/{id}", uid(9999)))
                     .andExpect(status().isNotFound());
         }
 

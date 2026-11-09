@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.mockito.Mockito.verifyNoInteractions;
 import org.junit.jupiter.api.BeforeEach;
 import java.time.LocalDateTime;
@@ -51,7 +53,7 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 class RiskFeedbackServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void enterTenant() {
@@ -92,12 +94,12 @@ class RiskFeedbackServiceTest {
         @DisplayName("create as ADMIN persists feedback for any contract")
         void shouldCreateAsAdmin() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
-            Contracts contract = Contracts.builder().id(1L)
-                    .organization(Organization.builder().id(9L).build())
+            Contracts contract = Contracts.builder().id(uid(1))
+                    .organization(Organization.builder().id(uid(9)).build())
                     .build();
             RiskFeedbackRequest request = new RiskFeedbackRequest(0.8, "HIGH", 0.75, "HIGH", true);
-            RiskFeedback saved = RiskFeedback.builder().id(1L).contract(contract).build();
-            RiskFeedbackDTO dto = new RiskFeedbackDTO(1L, 1L, 0.8, "HIGH", 0.75, "HIGH", true, LocalDateTime.of(2027, Month.JUNE, 1, 0, 0));
+            RiskFeedback saved = RiskFeedback.builder().id(uid(1)).contract(contract).build();
+            RiskFeedbackDTO dto = new RiskFeedbackDTO(uid(1), uid(1), 0.8, "HIGH", 0.75, "HIGH", true, LocalDateTime.of(2027, Month.JUNE, 1, 0, 0));
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(
@@ -106,13 +108,13 @@ class RiskFeedbackServiceTest {
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
             when(riskFeedbackRepository.save(org.mockito.ArgumentMatchers.any(RiskFeedback.class))).thenReturn(saved);
             when(riskFeedbackMapper.toDTO(saved)).thenReturn(dto);
 
-            RiskFeedbackDTO result = riskFeedbackService.create(1L, request);
+            RiskFeedbackDTO result = riskFeedbackService.create(uid(1), request);
 
-            assertEquals(1L, result.id());
+            assertEquals(uid(1), result.id());
             assertEquals("HIGH", result.riskLevel());
         }
 
@@ -120,25 +122,25 @@ class RiskFeedbackServiceTest {
         @Order(2)
         @DisplayName("create as MANAGER on owned contract succeeds")
         void shouldCreateAsManagerOwner() {
-            Managers manager = Managers.builder().id(5L).build();
+            Managers manager = Managers.builder().id(uid(5)).build();
             Users managerUser = Users.builder().username("manager").role(Roles.builder().role("MANAGER").build()).manager(manager).build();
-            Contracts contract = Contracts.builder().id(1L).manager(manager).build();
+            Contracts contract = Contracts.builder().id(uid(1)).manager(manager).build();
             RiskFeedbackRequest request = new RiskFeedbackRequest(0.4, "MEDIUM", null, null, false);
-            RiskFeedback saved = RiskFeedback.builder().id(2L).contract(contract).build();
-            RiskFeedbackDTO dto = new RiskFeedbackDTO(2L, 1L, 0.4, "MEDIUM", null, null, false, LocalDateTime.of(2027, Month.JUNE, 1, 0, 0));
+            RiskFeedback saved = RiskFeedback.builder().id(uid(2)).contract(contract).build();
+            RiskFeedbackDTO dto = new RiskFeedbackDTO(uid(2), uid(1), 0.4, "MEDIUM", null, null, false, LocalDateTime.of(2027, Month.JUNE, 1, 0, 0));
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("manager", null, List.of(() -> "ROLE_MANAGER"))
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
             when(riskFeedbackRepository.save(org.mockito.ArgumentMatchers.any(RiskFeedback.class))).thenReturn(saved);
             when(riskFeedbackMapper.toDTO(saved)).thenReturn(dto);
 
-            RiskFeedbackDTO result = riskFeedbackService.create(1L, request);
+            RiskFeedbackDTO result = riskFeedbackService.create(uid(1), request);
 
-            assertEquals(2L, result.id());
+            assertEquals(uid(2), result.id());
             assertEquals(false, result.agree());
         }
 
@@ -146,10 +148,10 @@ class RiskFeedbackServiceTest {
         @Order(3)
         @DisplayName("create as MANAGER on a contract they don't own throws AccessDeniedException")
         void shouldThrowWhenManagerNotOwner() {
-            Managers otherManager = Managers.builder().id(99L).build();
-            Managers managerEntity = Managers.builder().id(5L).build();
+            Managers otherManager = Managers.builder().id(uid(99)).build();
+            Managers managerEntity = Managers.builder().id(uid(5)).build();
             Users managerUser = Users.builder().username("manager").role(Roles.builder().role("MANAGER").build()).manager(managerEntity).build();
-            Contracts contract = Contracts.builder().id(1L).manager(otherManager).build();
+            Contracts contract = Contracts.builder().id(uid(1)).manager(otherManager).build();
             RiskFeedbackRequest request = new RiskFeedbackRequest(0.4, "MEDIUM", null, null, false);
 
             SecurityContextHolder.getContext().setAuthentication(
@@ -157,18 +159,18 @@ class RiskFeedbackServiceTest {
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
 
-            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(1L, request));
+            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(uid(1), request));
         }
 
         @Test
         @Order(4)
         @DisplayName("create as MANAGER on a contract with no manager assigned throws AccessDeniedException")
         void shouldThrowWhenContractHasNoManager() {
-            Managers managerEntity = Managers.builder().id(5L).build();
+            Managers managerEntity = Managers.builder().id(uid(5)).build();
             Users managerUser = Users.builder().username("manager").role(Roles.builder().role("MANAGER").build()).manager(managerEntity).build();
-            Contracts contract = Contracts.builder().id(1L).build();
+            Contracts contract = Contracts.builder().id(uid(1)).build();
             RiskFeedbackRequest request = new RiskFeedbackRequest(0.4, "MEDIUM", null, null, false);
 
             SecurityContextHolder.getContext().setAuthentication(
@@ -176,18 +178,18 @@ class RiskFeedbackServiceTest {
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
 
-            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(1L, request));
+            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(uid(1), request));
         }
 
         @Test
         @Order(5)
         @DisplayName("create as MANAGER with no manager profile throws AccessDeniedException")
         void shouldThrowWhenManagerHasNoProfile() {
-            Managers otherManager = Managers.builder().id(99L).build();
+            Managers otherManager = Managers.builder().id(uid(99)).build();
             Users managerUser = Users.builder().username("manager").role(Roles.builder().role("MANAGER").build()).build();
-            Contracts contract = Contracts.builder().id(1L).manager(otherManager).build();
+            Contracts contract = Contracts.builder().id(uid(1)).manager(otherManager).build();
             RiskFeedbackRequest request = new RiskFeedbackRequest(0.4, "MEDIUM", null, null, false);
 
             SecurityContextHolder.getContext().setAuthentication(
@@ -195,9 +197,9 @@ class RiskFeedbackServiceTest {
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
 
-            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(1L, request));
+            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(uid(1), request));
         }
 
         @Test
@@ -212,9 +214,9 @@ class RiskFeedbackServiceTest {
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findByIdAndOrganization_Id(999L, TENANT)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(uid(999), TENANT)).thenReturn(Optional.empty());
 
-            assertThrows(ContractNotFoundException.class, () -> riskFeedbackService.create(999L, request));
+            assertThrows(ContractNotFoundException.class, () -> riskFeedbackService.create(uid(999), request));
         }
 
         @Test
@@ -222,25 +224,25 @@ class RiskFeedbackServiceTest {
         @DisplayName("create with TenantContext scopes contract lookup to the organization")
         void shouldCreateWithTenantContext() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
-            Contracts contract = Contracts.builder().id(1L).organization(Organization.builder().id(2L).build()).build();
+            Contracts contract = Contracts.builder().id(uid(1)).organization(Organization.builder().id(uid(2)).build()).build();
             RiskFeedbackRequest request = new RiskFeedbackRequest(0.4, "MEDIUM", null, null, true);
-            RiskFeedback saved = RiskFeedback.builder().id(3L).contract(contract).build();
-            RiskFeedbackDTO dto = new RiskFeedbackDTO(3L, 1L, 0.4, "MEDIUM", null, null, true, LocalDateTime.of(2027, Month.JUNE, 1, 0, 0));
+            RiskFeedback saved = RiskFeedback.builder().id(uid(3)).contract(contract).build();
+            RiskFeedbackDTO dto = new RiskFeedbackDTO(uid(3), uid(1), 0.4, "MEDIUM", null, null, true, LocalDateTime.of(2027, Month.JUNE, 1, 0, 0));
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("admin", null, List.of(() -> "ROLE_ADMIN"))
             );
 
-            TenantContext.set(2L);
+            TenantContext.set(uid(2));
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findByIdAndOrganization_Id(1L, 2L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(1), uid(2))).thenReturn(Optional.of(contract));
             when(riskFeedbackRepository.save(org.mockito.ArgumentMatchers.any(RiskFeedback.class))).thenReturn(saved);
             when(riskFeedbackMapper.toDTO(saved)).thenReturn(dto);
 
-            RiskFeedbackDTO result = riskFeedbackService.create(1L, request);
+            RiskFeedbackDTO result = riskFeedbackService.create(uid(1), request);
 
-            assertEquals(3L, result.id());
-            verify(contractsRepository).findByIdAndOrganization_Id(1L, 2L);
+            assertEquals(uid(3), result.id());
+            verify(contractsRepository).findByIdAndOrganization_Id(uid(1), uid(2));
         }
 
         @Test
@@ -248,25 +250,25 @@ class RiskFeedbackServiceTest {
         @DisplayName("create stores the organization id resolved from TenantContext when the contract has none")
         void shouldFallBackToTenantContextOrgId() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
-            Contracts contract = Contracts.builder().id(1L).build();
+            Contracts contract = Contracts.builder().id(uid(1)).build();
             RiskFeedbackRequest request = new RiskFeedbackRequest(0.4, "MEDIUM", null, null, true);
-            RiskFeedback saved = RiskFeedback.builder().id(4L).contract(contract).build();
-            RiskFeedbackDTO dto = new RiskFeedbackDTO(4L, 1L, 0.4, "MEDIUM", null, null, true, LocalDateTime.of(2027, Month.JUNE, 1, 0, 0));
+            RiskFeedback saved = RiskFeedback.builder().id(uid(4)).contract(contract).build();
+            RiskFeedbackDTO dto = new RiskFeedbackDTO(uid(4), uid(1), 0.4, "MEDIUM", null, null, true, LocalDateTime.of(2027, Month.JUNE, 1, 0, 0));
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("admin", null, List.of(() -> "ROLE_ADMIN"))
             );
 
-            TenantContext.set(7L);
+            TenantContext.set(uid(7));
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findByIdAndOrganization_Id(1L, 7L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(1), uid(7))).thenReturn(Optional.of(contract));
             ArgumentCaptor<RiskFeedback> captor = ArgumentCaptor.forClass(RiskFeedback.class);
             when(riskFeedbackRepository.save(captor.capture())).thenReturn(saved);
             when(riskFeedbackMapper.toDTO(saved)).thenReturn(dto);
 
-            riskFeedbackService.create(1L, request);
+            riskFeedbackService.create(uid(1), request);
 
-            assertEquals(7L, captor.getValue().getOrganizationId());
+            assertEquals(uid(7), captor.getValue().getOrganizationId());
         }
 
         @Test
@@ -274,22 +276,22 @@ class RiskFeedbackServiceTest {
         @DisplayName("getFeedbackForCurrentUser as ADMIN with TenantContext uses org-scoped repository")
         void shouldGetFeedbackAsAdminWithTenant() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
-            RiskFeedback entity = RiskFeedback.builder().id(1L).contract(Contracts.builder().id(1L).build()).build();
-            RiskFeedbackDTO dto = new RiskFeedbackDTO(1L, 1L, 0.8, "HIGH", null, null, true, LocalDateTime.of(2027, Month.JUNE, 1, 0, 0));
+            RiskFeedback entity = RiskFeedback.builder().id(uid(1)).contract(Contracts.builder().id(uid(1)).build()).build();
+            RiskFeedbackDTO dto = new RiskFeedbackDTO(uid(1), uid(1), 0.8, "HIGH", null, null, true, LocalDateTime.of(2027, Month.JUNE, 1, 0, 0));
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("admin", null, List.of(() -> "ROLE_ADMIN"))
             );
 
-            TenantContext.set(2L);
+            TenantContext.set(uid(2));
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(riskFeedbackRepository.findByOrganizationIdOrderByCreatedAtDescIdDesc(2L)).thenReturn(List.of(entity));
+            when(riskFeedbackRepository.findByOrganizationIdOrderByCreatedAtDescIdDesc(uid(2))).thenReturn(List.of(entity));
             when(riskFeedbackMapper.toDTO(entity)).thenReturn(dto);
 
             List<RiskFeedbackDTO> result = riskFeedbackService.getFeedbackForCurrentUser();
 
             assertEquals(1, result.size());
-            verify(riskFeedbackRepository).findByOrganizationIdOrderByCreatedAtDescIdDesc(2L);
+            verify(riskFeedbackRepository).findByOrganizationIdOrderByCreatedAtDescIdDesc(uid(2));
         }
 
         @Test
@@ -310,23 +312,23 @@ class RiskFeedbackServiceTest {
         @Order(11)
         @DisplayName("getFeedbackForCurrentUser as MANAGER scopes by manager id")
         void shouldGetFeedbackAsManager() {
-            Managers manager = Managers.builder().id(5L).build();
+            Managers manager = Managers.builder().id(uid(5)).build();
             Users managerUser = Users.builder().username("manager").role(Roles.builder().role("MANAGER").build()).manager(manager).build();
-            RiskFeedback entity = RiskFeedback.builder().id(1L).contract(Contracts.builder().id(1L).manager(manager).build()).build();
-            RiskFeedbackDTO dto = new RiskFeedbackDTO(1L, 1L, 0.8, "HIGH", null, null, true, LocalDateTime.of(2027, Month.JUNE, 1, 0, 0));
+            RiskFeedback entity = RiskFeedback.builder().id(uid(1)).contract(Contracts.builder().id(uid(1)).manager(manager).build()).build();
+            RiskFeedbackDTO dto = new RiskFeedbackDTO(uid(1), uid(1), 0.8, "HIGH", null, null, true, LocalDateTime.of(2027, Month.JUNE, 1, 0, 0));
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("manager", null, List.of(() -> "ROLE_MANAGER"))
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(riskFeedbackRepository.findByContractManagerIdOrderByCreatedAtDescIdDesc(5L)).thenReturn(List.of(entity));
+            when(riskFeedbackRepository.findByContractManagerIdOrderByCreatedAtDescIdDesc(uid(5))).thenReturn(List.of(entity));
             when(riskFeedbackMapper.toDTO(entity)).thenReturn(dto);
 
             List<RiskFeedbackDTO> result = riskFeedbackService.getFeedbackForCurrentUser();
 
             assertEquals(1, result.size());
-            verify(riskFeedbackRepository).findByContractManagerIdOrderByCreatedAtDescIdDesc(5L);
+            verify(riskFeedbackRepository).findByContractManagerIdOrderByCreatedAtDescIdDesc(uid(5));
         }
 
         @Test
@@ -334,12 +336,12 @@ class RiskFeedbackServiceTest {
         @DisplayName("getFeedbackForCurrentUser keeps only the most recent entry per contract")
         void shouldDedupeToLatestPerContract() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
-            Contracts contract = Contracts.builder().id(1L).build();
-            RiskFeedback newer = RiskFeedback.builder().id(2L).contract(contract).agree(true)
+            Contracts contract = Contracts.builder().id(uid(1)).build();
+            RiskFeedback newer = RiskFeedback.builder().id(uid(2)).contract(contract).agree(true)
                     .createdAt(LocalDateTime.of(2027, Month.JUNE, 2, 0, 0)).build();
-            RiskFeedback older = RiskFeedback.builder().id(1L).contract(contract).agree(false)
+            RiskFeedback older = RiskFeedback.builder().id(uid(1)).contract(contract).agree(false)
                     .createdAt(LocalDateTime.of(2027, Month.JUNE, 1, 0, 0)).build();
-            RiskFeedbackDTO newerDto = new RiskFeedbackDTO(2L, 1L, 0.8, "HIGH", null, null, true, LocalDateTime.of(2027, Month.JUNE, 2, 0, 0));
+            RiskFeedbackDTO newerDto = new RiskFeedbackDTO(uid(2), uid(1), 0.8, "HIGH", null, null, true, LocalDateTime.of(2027, Month.JUNE, 2, 0, 0));
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("admin", null, List.of(() -> "ROLE_ADMIN"))
@@ -355,7 +357,7 @@ class RiskFeedbackServiceTest {
             List<RiskFeedbackDTO> result = riskFeedbackService.getFeedbackForCurrentUser();
 
             assertEquals(1, result.size());
-            assertEquals(2L, result.get(0).id());
+            assertEquals(uid(2), result.get(0).id());
         }
 
         @Test
@@ -370,7 +372,7 @@ class RiskFeedbackServiceTest {
 
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
-            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> riskFeedbackService.create(1L, request));
+            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> riskFeedbackService.create(uid(1), request));
             assertNotNull(ex);
         }
 

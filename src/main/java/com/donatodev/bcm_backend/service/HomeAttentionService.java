@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -62,10 +63,10 @@ public class HomeAttentionService {
 
     @Transactional(readOnly = true)
     public HomeAttentionDTO getAttention() {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         Users user = currentUserResolver.resolve();
         boolean admin = "ADMIN".equals(user.getRole().getRole());
-        Long managerId = user.getManager() != null ? user.getManager().getId() : null;
+        UUID managerId = user.getManager() != null ? user.getManager().getId() : null;
         if (!admin && managerId == null) {
             return new HomeAttentionDTO(0, 0, 0, WINDOW_DAYS, List.of());
         }
@@ -102,7 +103,7 @@ public class HomeAttentionService {
                 WINDOW_DAYS, List.copyOf(items));
     }
 
-    private void collectInvoiceItems(Long orgId, boolean admin, Long managerId, LocalDate today,
+    private void collectInvoiceItems(UUID orgId, boolean admin, UUID managerId, LocalDate today,
                                      List<Item> invoicesToMatch, List<Item> ibanAlerts) {
         for (ElectronicInvoice invoice : invoiceRepository.findByOrgIdAndSepaBatchIsNull(orgId)) {
             Contracts contract = invoice.getContract();
@@ -178,7 +179,7 @@ public class HomeAttentionService {
         return iban.replace(" ", "").toUpperCase(Locale.ROOT);
     }
 
-    private static boolean isManagedBy(Contracts contract, Long managerId) {
+    private static boolean isManagedBy(Contracts contract, UUID managerId) {
         return contract.getManager() != null && Objects.equals(contract.getManager().getId(), managerId);
     }
 

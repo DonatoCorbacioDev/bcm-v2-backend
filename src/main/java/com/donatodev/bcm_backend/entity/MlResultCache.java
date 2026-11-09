@@ -5,12 +5,12 @@
 
 package com.donatodev.bcm_backend.entity;
 
+import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -31,13 +31,13 @@ import lombok.Setter;
 public class MlResultCache {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
+    private UUID id;
 
     @Column(name = "org_id", nullable = false)
-    private Long orgId;
+    private UUID orgId;
 
-    @Column(name = "cache_key", nullable = false, length = 50)
+    @Column(name = "cache_key", nullable = false, length = 100)
     private String cacheKey;
 
     @Column(name = "json_result", nullable = false, columnDefinition = "LONGTEXT")

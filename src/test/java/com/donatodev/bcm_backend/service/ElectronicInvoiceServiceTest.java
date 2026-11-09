@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import com.donatodev.bcm_backend.config.TenantContext;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -62,7 +64,7 @@ import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 class ElectronicInvoiceServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void setup() {
@@ -92,8 +94,8 @@ class ElectronicInvoiceServiceTest {
     private ElectronicInvoiceService electronicInvoiceService;
 
     private static final byte[] VALID_XML = "<?xml version=\"1.0\"?><FatturaElettronica></FatturaElettronica>".getBytes();
-    private static final long CONTRACT_ID = 1L;
-    private static final long INVOICE_ID = 10L;
+    private static final UUID CONTRACT_ID = uid(1);
+    private static final UUID INVOICE_ID = uid(10);
     private static final String BACKEND_URL = "http://localhost:8090/api/v1";
 
     private Contracts fakeContract() {
@@ -360,7 +362,7 @@ class ElectronicInvoiceServiceTest {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
             com.donatodev.bcm_backend.entity.SepaPaymentBatch batch =
-                    com.donatodev.bcm_backend.entity.SepaPaymentBatch.builder().id(77L).build();
+                    com.donatodev.bcm_backend.entity.SepaPaymentBatch.builder().id(uid(77)).build();
             invoice.setSepaBatch(batch);
 
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
@@ -369,7 +371,7 @@ class ElectronicInvoiceServiceTest {
 
             ElectronicInvoiceDTO result = electronicInvoiceService.getInvoice(CONTRACT_ID, INVOICE_ID);
 
-            assertEquals(77L, result.sepaBatchId());
+            assertEquals(uid(77), result.sepaBatchId());
         }
 
         @Test
@@ -733,7 +735,7 @@ class ElectronicInvoiceServiceTest {
             Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
             FinancialValues matched = new FinancialValues();
-            matched.setId(55L);
+            matched.setId(uid(55));
             Users user = new Users();
             user.setUsername("admin");
             invoice.setMatchStatus(InvoiceMatchStatus.CONFIRMED);
@@ -743,13 +745,13 @@ class ElectronicInvoiceServiceTest {
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
                     .thenReturn(Optional.of(invoice));
-            when(invoiceMatchingService.confirmMatch(invoice, 55L, "admin")).thenReturn(invoice);
+            when(invoiceMatchingService.confirmMatch(invoice, uid(55), "admin")).thenReturn(invoice);
 
             ElectronicInvoiceDTO result = electronicInvoiceService.confirmMatch(
-                    CONTRACT_ID, INVOICE_ID, new ConfirmInvoiceMatchRequest(55L));
+                    CONTRACT_ID, INVOICE_ID, new ConfirmInvoiceMatchRequest(uid(55)));
 
             assertEquals(InvoiceMatchStatus.CONFIRMED, result.matchStatus());
-            assertEquals(55L, result.matchedFinancialValueId());
+            assertEquals(uid(55), result.matchedFinancialValueId());
             assertEquals("admin", result.matchedByUsername());
             verify(contractAccessGuard).checkManagerCanAccess(contract);
         }

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.mapper;
 
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 import com.donatodev.bcm_backend.config.TenantContext;
@@ -83,7 +84,7 @@ public class ContractHistoryMapper {
     public ContractHistory toEntity(ContractHistoryDTO dto) {
         // Tenant-scoped: an admin must not write history onto another
         // organization's contract, nor sign it with another tenant's user.
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         Contracts contract = contractsRepository.findByIdAndOrganization_Id(dto.contractId(), orgId)
                 .orElseThrow(() -> new ContractNotFoundException("Contract not found"));
         Users modifiedBy = null;

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,7 +21,7 @@ import com.donatodev.bcm_backend.entity.Users;
  * Provides CRUD operations and methods for checking existence and retrieving users by username or manager.
  */
 @Repository
-public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecificationExecutor<Users> {
+public interface UsersRepository extends JpaRepository<Users, UUID>, JpaSpecificationExecutor<Users> {
 
     /**
      * Finds a {@link Users} entity by its username.
@@ -36,7 +37,7 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
      * @param managerId the manager ID to check
      * @return {@code true} if at least one user exists with the given manager ID, {@code false} otherwise
      */
-    boolean existsByManagerId(Long managerId);
+    boolean existsByManagerId(UUID managerId);
 
     /**
      * Checks if a user exists with the given username.
@@ -58,7 +59,7 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
      * Users of one organization with the given role. Always scoped: there is
      * deliberately no cross-organization "first user with role" lookup.
      */
-    List<Users> findByOrganizationIdAndRoleRole(Long orgId, String roleName);
+    List<Users> findByOrganizationIdAndRoleRole(UUID orgId, String roleName);
 
     /**
      * Finds all users in an organization who are allowed to approve/reject
@@ -68,7 +69,7 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
      * @param orgId the organization ID
      * @return users with the approval permission enabled
      */
-    List<Users> findByOrganizationIdAndCanApproveContractsTrue(Long orgId);
+    List<Users> findByOrganizationIdAndCanApproveContractsTrue(UUID orgId);
 
     /**
      * Finds a user by ID, scoped to the given organization. Used to prevent
@@ -79,7 +80,7 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
      * @return an {@link Optional} containing the user if it exists and
      * belongs to the given organization
      */
-    Optional<Users> findByIdAndOrganizationId(Long id, Long orgId);
+    Optional<Users> findByIdAndOrganizationId(UUID id, UUID orgId);
 
     /**
      * Finds all users belonging to the given organization.
@@ -87,7 +88,7 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
      * @param orgId the organization ID
      * @return a list of users belonging to the given organization
      */
-    List<Users> findAllByOrganizationId(Long orgId);
+    List<Users> findAllByOrganizationId(UUID orgId);
 
     /**
      * Finds all users with the given username, across all organizations.
@@ -122,7 +123,7 @@ public interface UsersRepository extends JpaRepository<Users, Long>, JpaSpecific
      * @param organizationId the ID of the organization the user belongs to
      * @return an {@link Optional} containing the matching user, or empty if none found
      */
-    Optional<Users> findByUsernameAndOrganizationId(String username, Long organizationId);
+    Optional<Users> findByUsernameAndOrganizationId(String username, UUID organizationId);
 
     /**
      * Finds a user by their public calendar feed token. Used to authenticate

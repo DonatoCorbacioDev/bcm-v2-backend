@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.entity;
 
+import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
@@ -13,8 +15,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -33,8 +33,16 @@ import lombok.Setter;
 public class Organization {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
+    private UUID id;
+
+    /**
+     * The numeric id this organization had before V55 (ADR-0009), null for
+     * organizations created afterwards. Files uploaded before the migration
+     * are stored under it, so deleting the organization must clean that folder too.
+     */
+    @Column(name = "legacy_id", updatable = false)
+    private Long legacyId;
 
     @Column(name = "name", nullable = false)
     private String name;

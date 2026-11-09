@@ -1,5 +1,8 @@
 package com.donatodev.bcm_backend.service;
 
+import static org.mockito.ArgumentMatchers.any;
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -42,7 +45,7 @@ class WeeklyDigestServiceTest {
 
     @InjectMocks WeeklyDigestService weeklyDigestService;
 
-    private Organization org(long id) {
+    private Organization org(UUID id) {
         Organization o = new Organization();
         o.setId(id);
         o.setName("Acme S.r.l.");
@@ -81,12 +84,12 @@ class WeeklyDigestServiceTest {
         @Test
         @DisplayName("Sends one email per admin when expiring contracts exist")
         void sendsEmailPerAdmin() {
-            Organization o = org(1L);
+            Organization o = org(uid(1));
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
-                    today, today.plusDays(30), 1L))
+                    today, today.plusDays(30), uid(1)))
                     .thenReturn(List.of(contract("C-001", "Rossi S.r.l.", today.plusDays(5))));
-            when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN"))
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(1), "ADMIN"))
                     .thenReturn(List.of(admin("admin1@example.com"), admin("admin2@example.com")));
 
             int sent = weeklyDigestService.sendDigestForOrg(o);
@@ -98,12 +101,12 @@ class WeeklyDigestServiceTest {
         @Test
         @DisplayName("Sends no emails when there are no admin users")
         void sendsNothingWhenNoAdmins() {
-            Organization o = org(2L);
+            Organization o = org(uid(2));
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
-                    today, today.plusDays(30), 2L))
+                    today, today.plusDays(30), uid(2)))
                     .thenReturn(List.of(contract("C-002", "Rossi S.r.l.", today.plusDays(5))));
-            when(usersRepository.findByOrganizationIdAndRoleRole(2L, "ADMIN"))
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(2), "ADMIN"))
                     .thenReturn(List.of());
 
             int sent = weeklyDigestService.sendDigestForOrg(o);
@@ -115,12 +118,12 @@ class WeeklyDigestServiceTest {
         @Test
         @DisplayName("Skips admin users with no linked manager")
         void skipsUserWithNoManager() {
-            Organization o = org(3L);
+            Organization o = org(uid(3));
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
-                    today, today.plusDays(30), 3L))
+                    today, today.plusDays(30), uid(3)))
                     .thenReturn(List.of(contract("C-003", "Rossi S.r.l.", today.plusDays(5))));
-            when(usersRepository.findByOrganizationIdAndRoleRole(3L, "ADMIN"))
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(3), "ADMIN"))
                     .thenReturn(List.of(adminNoManager()));
 
             int sent = weeklyDigestService.sendDigestForOrg(o);
@@ -131,12 +134,12 @@ class WeeklyDigestServiceTest {
         @Test
         @DisplayName("Skips admin whose manager has a null email")
         void skipsAdminWithNullManagerEmail() {
-            Organization o = org(6L);
+            Organization o = org(uid(6));
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
-                    today, today.plusDays(30), 6L))
+                    today, today.plusDays(30), uid(6)))
                     .thenReturn(List.of(contract("C-006", "Rossi S.r.l.", today.plusDays(5))));
-            when(usersRepository.findByOrganizationIdAndRoleRole(6L, "ADMIN"))
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(6), "ADMIN"))
                     .thenReturn(List.of(admin(null)));
 
             int sent = weeklyDigestService.sendDigestForOrg(o);
@@ -148,12 +151,12 @@ class WeeklyDigestServiceTest {
         @Test
         @DisplayName("Skips admin whose manager has a blank email")
         void skipsAdminWithBlankManagerEmail() {
-            Organization o = org(7L);
+            Organization o = org(uid(7));
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
-                    today, today.plusDays(30), 7L))
+                    today, today.plusDays(30), uid(7)))
                     .thenReturn(List.of(contract("C-007", "Rossi S.r.l.", today.plusDays(5))));
-            when(usersRepository.findByOrganizationIdAndRoleRole(7L, "ADMIN"))
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(7), "ADMIN"))
                     .thenReturn(List.of(admin("   ")));
 
             int sent = weeklyDigestService.sendDigestForOrg(o);
@@ -165,14 +168,14 @@ class WeeklyDigestServiceTest {
         @Test
         @DisplayName("Subject mentions expiring count")
         void subjectMentionsCount() {
-            Organization o = org(4L);
+            Organization o = org(uid(4));
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
-                    today, today.plusDays(30), 4L))
+                    today, today.plusDays(30), uid(4)))
                     .thenReturn(List.of(
                             contract("C-001", "ClienteA", today.plusDays(3)),
                             contract("C-002", "ClienteB", today.plusDays(10))));
-            when(usersRepository.findByOrganizationIdAndRoleRole(4L, "ADMIN"))
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(4), "ADMIN"))
                     .thenReturn(List.of(admin("admin@test.com")));
 
             weeklyDigestService.sendDigestForOrg(o);
@@ -186,16 +189,16 @@ class WeeklyDigestServiceTest {
         @Test
         @DisplayName("Sends nothing when there are no expiring contracts, even with admins present")
         void sendsNothingWhenNoExpiring() {
-            Organization o = org(5L);
+            Organization o = org(uid(5));
             LocalDate today = LocalDate.now();
             when(contractsRepository.findExpiringContractsByOrg(
-                    today, today.plusDays(30), 5L))
+                    today, today.plusDays(30), uid(5)))
                     .thenReturn(List.of());
 
             int sent = weeklyDigestService.sendDigestForOrg(o);
 
             assertThat(sent).isZero();
-            verify(usersRepository, never()).findByOrganizationIdAndRoleRole(anyLong(), anyString());
+            verify(usersRepository, never()).findByOrganizationIdAndRoleRole(any(UUID.class), anyString());
             verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
         }
     }
@@ -317,22 +320,22 @@ class WeeklyDigestServiceTest {
         @Test
         @DisplayName("Processes all organizations and continues on failure")
         void processesAllOrgsAndContinuesOnFailure() {
-            Organization o1 = org(1L);
-            Organization o2 = org(2L);
+            Organization o1 = org(uid(1));
+            Organization o2 = org(uid(2));
             when(organizationRepository.findAll()).thenReturn(List.of(o1, o2));
 
             LocalDate today = LocalDate.now();
 
             // org 1: throws
             when(contractsRepository.findExpiringContractsByOrg(
-                    today, today.plusDays(30), 1L))
+                    today, today.plusDays(30), uid(1)))
                     .thenThrow(new RuntimeException("DB error"));
 
             // org 2: succeeds
             when(contractsRepository.findExpiringContractsByOrg(
-                    today, today.plusDays(30), 2L))
+                    today, today.plusDays(30), uid(2)))
                     .thenReturn(List.of(contract("C-002", "Rossi S.r.l.", today.plusDays(5))));
-            when(usersRepository.findByOrganizationIdAndRoleRole(2L, "ADMIN"))
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(2), "ADMIN"))
                     .thenReturn(List.of(admin("admin2@test.com")));
 
             weeklyDigestService.sendWeeklyDigests();

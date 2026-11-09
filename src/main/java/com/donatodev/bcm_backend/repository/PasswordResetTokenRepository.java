@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,7 +18,7 @@ import com.donatodev.bcm_backend.entity.Users;
  * <p>
  * Provides methods to find password reset tokens by token string or associated user.
  */
-public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Long> {
+public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, UUID> {
 
     /**
      * Finds a {@link PasswordResetToken} entity by its token string.

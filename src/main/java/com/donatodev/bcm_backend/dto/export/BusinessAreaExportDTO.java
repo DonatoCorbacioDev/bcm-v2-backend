@@ -5,11 +5,12 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import com.donatodev.bcm_backend.entity.BusinessAreas;
 
 /** One element of {@code data/business_areas.json}. */
 public record BusinessAreaExportDTO(
-        Long id,
+        UUID id,
         String name,
         String description) {
 

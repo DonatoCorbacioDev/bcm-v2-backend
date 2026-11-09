@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -92,7 +93,7 @@ public class SemanticSearchService {
         if (query == null || query.isBlank()) {
             return List.of();
         }
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         List<ContractDocument> candidates = visibleToCurrentUser(
                 documentRepository.findByOrgIdAndEmbeddingIsNotNull(orgId));
         if (candidates.isEmpty()) {
@@ -140,7 +141,7 @@ public class SemanticSearchService {
         if (ROLE_ADMIN.equals(user.getRole().getRole())) {
             return documents;
         }
-        Long managerId = user.getManager() != null ? user.getManager().getId() : null;
+        UUID managerId = user.getManager() != null ? user.getManager().getId() : null;
         if (managerId == null) {
             return List.of();
         }

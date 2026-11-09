@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import java.util.List;
 
 /**
@@ -16,7 +17,7 @@ import java.util.List;
  * @param terms      the terms found; a term the text doesn't state, or
  *                   states in contradictory ways, is simply absent
  */
-public record ContractTermsDTO(Long documentId, List<Term> terms) {
+public record ContractTermsDTO(UUID documentId, List<Term> terms) {
 
     /** Which contract field a term fills. */
     public enum Field { AUTO_RENEW, NOTICE_DAYS, RENEWAL_MONTHS, START_DATE, END_DATE }

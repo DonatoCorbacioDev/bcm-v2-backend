@@ -5,12 +5,12 @@
 
 package com.donatodev.bcm_backend.entity;
 
+import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
 import java.time.Instant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -29,8 +29,8 @@ import lombok.Setter;
 public class AuditLog {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
+    private UUID id;
 
     @Column(nullable = false, length = 40)
     private String action;
@@ -39,13 +39,13 @@ public class AuditLog {
     private String entityType;
 
     @Column(name = "entity_id")
-    private Long entityId;
+    private UUID entityId;
 
     @Column(length = 150)
     private String username;
 
     @Column(name = "org_id")
-    private Long orgId;
+    private UUID orgId;
 
     @Builder.Default
     @Column(nullable = false)

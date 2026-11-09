@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDate;
@@ -53,45 +54,45 @@ class ExportServiceTest {
         List<ContractDTO> contracts = new ArrayList<>();
 
         ManagerDTO manager1 = new ManagerDTO(
-                1L, "Mario", "Rossi", "mario.rossi@example.com",
+                uid(1), "Mario", "Rossi", "mario.rossi@example.com",
                 "+39123456789", "IT Department"
         );
 
         ManagerDTO manager2 = new ManagerDTO(
-                2L, "Luigi", "Bianchi", "luigi.bianchi@example.com",
+                uid(2), "Luigi", "Bianchi", "luigi.bianchi@example.com",
                 "+39987654321", "Sales"
         );
 
-        BusinessAreaDTO area1 = new BusinessAreaDTO(1L, "IT Services", "Technology services");
-        BusinessAreaDTO area2 = new BusinessAreaDTO(2L, "Consulting", "Business consulting");
+        BusinessAreaDTO area1 = new BusinessAreaDTO(uid(1), "IT Services", "Technology services");
+        BusinessAreaDTO area2 = new BusinessAreaDTO(uid(2), "Consulting", "Business consulting");
 
         contracts.add(new ContractDTO(
-                1L, // id
-                1L, // counterpartyId
-                new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "ACME Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), // counterparty
+                uid(1), // id
+                uid(1), // counterpartyId
+                new com.donatodev.bcm_backend.dto.CounterpartyDTO(uid(1), "ACME Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), // counterparty
                 "CNT-2025-001", // contractNumber
                 "WBS-001", // wbsCode
                 "Project Alpha", // projectName
                 ContractStatus.ACTIVE, // status
                 LocalDate.of(2025, Month.JANUARY, 1), // startDate
                 LocalDate.of(2025, Month.DECEMBER, 31), // endDate
-                1L, // areaId
-                1L, // managerId
+                uid(1), // areaId
+                uid(1), // managerId
                 "Mario Rossi", // managerName
                 manager1, // manager
                 area1, // area
                 null // daysUntilExpiry
         ));
 
-        contracts.add(new ContractDTO(2L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "TechStart Inc", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
+        contracts.add(new ContractDTO(uid(2), uid(1), new com.donatodev.bcm_backend.dto.CounterpartyDTO(uid(1), "TechStart Inc", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
                 "CNT-2025-002",
                 "WBS-002",
                 "Project Beta",
                 ContractStatus.ACTIVE,
                 LocalDate.of(2025, Month.FEBRUARY, 1),
                 LocalDate.of(2025, Month.NOVEMBER, 30),
-                2L,
-                2L,
+                uid(2),
+                uid(2),
                 "Luigi Bianchi", // managerName
                 manager2,
                 area2,
@@ -105,7 +106,7 @@ class ExportServiceTest {
      * Creates a contract with null manager and area for edge case testing.
      */
     private ContractDTO createContractWithNulls() {
-        return new ContractDTO(3L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Beta Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
+        return new ContractDTO(uid(3), uid(1), new com.donatodev.bcm_backend.dto.CounterpartyDTO(uid(1), "Beta Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
                 "CNT-2025-003",
                 "WBS-003",
                 "Project Gamma",
@@ -127,18 +128,18 @@ class ExportServiceTest {
      * not-null, so no equivalent helper is needed there).
      */
     private ContractDTO createContractWithNullEndDate() {
-        return new ContractDTO(4L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Gamma Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
+        return new ContractDTO(uid(4), uid(1), new com.donatodev.bcm_backend.dto.CounterpartyDTO(uid(1), "Gamma Corp", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
                 "CNT-2025-004",
                 "WBS-004",
                 "Project Delta",
                 ContractStatus.ACTIVE,
                 LocalDate.of(2025, Month.APRIL, 1),
                 null, // endDate
-                1L,
-                1L,
+                uid(1),
+                uid(1),
                 "Mario Rossi",
-                new ManagerDTO(1L, "Mario", "Rossi", "mario.rossi@example.com", "+39123456789", "IT Department"),
-                new BusinessAreaDTO(1L, "IT Services", "Technology services"),
+                new ManagerDTO(uid(1), "Mario", "Rossi", "mario.rossi@example.com", "+39123456789", "IT Department"),
+                new BusinessAreaDTO(uid(1), "IT Services", "Technology services"),
                 null
         );
     }
@@ -266,23 +267,23 @@ class ExportServiceTest {
             List<ContractDTO> largeList = new ArrayList<>();
             for (int i = 1; i <= 100; i++) {
                 ManagerDTO manager = new ManagerDTO(
-                        (long) i, "Manager" + i, "Test" + i,
+                        uid(i), "Manager" + i, "Test" + i,
                         "manager" + i + "@test.com", "+39123" + i, "Dept" + i
                 );
-                BusinessAreaDTO area = new BusinessAreaDTO((long) i, "Area" + i, "Desc" + i);
+                BusinessAreaDTO area = new BusinessAreaDTO(uid(i), "Area" + i, "Desc" + i);
 
                 largeList.add(new ContractDTO(
-                        (long) i,
-                        (long) i,
-                        new com.donatodev.bcm_backend.dto.CounterpartyDTO((long) i, "Customer" + i, com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
+                        uid(i),
+                        uid(i),
+                        new com.donatodev.bcm_backend.dto.CounterpartyDTO(uid(i), "Customer" + i, com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
                         "CNT-2025-" + String.format("%03d", i),
                         "WBS-" + i,
                         "Project" + i,
                         ContractStatus.ACTIVE,
                         LocalDate.of(2025, Month.JANUARY, 1),
                         LocalDate.of(2025, Month.DECEMBER, 31),
-                        (long) i,
-                        (long) i,
+                        uid(i),
+                        uid(i),
                         "Manager" + i + " Test" + i,
                         manager,
                         area,
@@ -425,23 +426,23 @@ class ExportServiceTest {
             List<ContractDTO> largeList = new ArrayList<>();
             for (int i = 1; i <= 50; i++) {
                 ManagerDTO manager = new ManagerDTO(
-                        (long) i, "Manager" + i, "Test" + i,
+                        uid(i), "Manager" + i, "Test" + i,
                         "manager" + i + "@test.com", "+39123" + i, "Dept" + i
                 );
-                BusinessAreaDTO area = new BusinessAreaDTO((long) i, "Area" + i, "Desc" + i);
+                BusinessAreaDTO area = new BusinessAreaDTO(uid(i), "Area" + i, "Desc" + i);
 
                 largeList.add(new ContractDTO(
-                        (long) i,
-                        (long) i,
-                        new com.donatodev.bcm_backend.dto.CounterpartyDTO((long) i, "Customer" + i, com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
+                        uid(i),
+                        uid(i),
+                        new com.donatodev.bcm_backend.dto.CounterpartyDTO(uid(i), "Customer" + i, com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null),
                         "CNT-2025-" + String.format("%03d", i),
                         "WBS-" + i,
                         "Project" + i,
                         ContractStatus.ACTIVE,
                         LocalDate.of(2025, Month.JANUARY, 1),
                         LocalDate.of(2025, Month.DECEMBER, 31),
-                        (long) i,
-                        (long) i,
+                        uid(i),
+                        uid(i),
                         "Manager" + i + " Test" + i,
                         manager,
                         area,

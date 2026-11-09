@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.jwt;
 
+import java.util.UUID;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.function.Function;
@@ -92,13 +93,13 @@ public class JwtUtils {
     public String generateTokenFromUser(Users user) {
         Instant now = clock.instant();
         Instant expiration = now.plusMillis(jwtExpirationMs);
-        Long orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
+        UUID orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
 
         return Jwts.builder()
                 .subject(user.getUsername())
                 .issuedAt(toLegacyDate(now))
                 .expiration(toLegacyDate(expiration))
-                .claim(CLAIM_ORG_ID, orgId)
+                .claim(CLAIM_ORG_ID, orgId != null ? orgId.toString() : null)
                 .signWith(getSigningKey())
                 .compact();
     }
@@ -123,13 +124,13 @@ public class JwtUtils {
     public String generateMfaPendingToken(Users user) {
         Instant now = clock.instant();
         Instant expiration = now.plusMillis(MFA_PENDING_TOKEN_TTL_MS);
-        Long orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
+        UUID orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
 
         return Jwts.builder()
                 .subject(user.getUsername())
                 .issuedAt(toLegacyDate(now))
                 .expiration(toLegacyDate(expiration))
-                .claim(CLAIM_ORG_ID, orgId)
+                .claim(CLAIM_ORG_ID, orgId != null ? orgId.toString() : null)
                 .claim(CLAIM_MFA_PENDING, true)
                 .signWith(getSigningKey())
                 .compact();
@@ -162,17 +163,22 @@ public class JwtUtils {
     }
 
     /**
-     * Extracts the orgId custom claim, or null if the token doesn't carry one
-     * (e.g. tokens issued before multi-tenancy was introduced).
+     * Extracts the orgId custom claim, or null if the token doesn't carry a
+     * valid one: tokens issued before multi-tenancy, or before ids became
+     * UUIDs (a numeric orgId, ADR-0009). Null means the token authenticates
+     * nobody (fail closed, see JwtAuthenticationFilter).
      */
-    public Long getOrganizationIdFromToken(String token) {
+    public UUID getOrganizationIdFromToken(String token) {
         Object orgId = getClaimFromToken(token, claims -> claims.get(CLAIM_ORG_ID));
 
-        if (orgId == null) {
+        if (!(orgId instanceof String text)) {
             return null;
         }
-
-        return ((Number) orgId).longValue();
+        try {
+            return UUID.fromString(text);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /**

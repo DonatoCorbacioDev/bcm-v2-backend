@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -52,7 +53,7 @@ public class FinancialValueController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/{id}")
-    public ResponseEntity<FinancialValueDTO> getValueById(@PathVariable Long id) {
+    public ResponseEntity<FinancialValueDTO> getValueById(@PathVariable UUID id) {
         FinancialValueDTO value = financialValueService.getValueById(id);
         return ResponseEntity.ok(value);
     }
@@ -81,7 +82,7 @@ public class FinancialValueController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @DisabledInPublicDemo
     @PutMapping("/{id}")
-    public ResponseEntity<FinancialValueDTO> updateValue(@PathVariable Long id, @RequestBody FinancialValueDTO dto) {
+    public ResponseEntity<FinancialValueDTO> updateValue(@PathVariable UUID id, @RequestBody FinancialValueDTO dto) {
         FinancialValueDTO updated = financialValueService.updateValue(id, dto);
         return ResponseEntity.ok(updated);
     }
@@ -95,7 +96,7 @@ public class FinancialValueController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteValue(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteValue(@PathVariable UUID id) {
         financialValueService.deleteValue(id);
         return ResponseEntity.noContent().build();
     }
@@ -109,7 +110,7 @@ public class FinancialValueController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/by-contract/{contractId}")
     public ResponseEntity<List<FinancialValueDTO>> getValuesByContract(
-            @PathVariable Long contractId
+            @PathVariable UUID contractId
     ) {
         List<FinancialValueDTO> values = financialValueService.getValuesByContractId(contractId);
         return ResponseEntity.ok(values);

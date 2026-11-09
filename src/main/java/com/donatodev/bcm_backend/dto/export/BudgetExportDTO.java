@@ -5,13 +5,14 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import com.donatodev.bcm_backend.entity.Budget;
 import com.donatodev.bcm_backend.entity.FinancialCategory;
 
 /** One element of {@code data/budgets.json}. */
 public record BudgetExportDTO(
-        Long id,
-        Long businessAreaId,
+        UUID id,
+        UUID businessAreaId,
         FinancialCategory category,
         int year,
         double targetAmount) {

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,7 +44,7 @@ public class BusinessAreaService {
      * @return a list of all {@link BusinessAreaDTO}
      */
     public List<BusinessAreaDTO> getAllAreas() {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         List<BusinessAreas> areas = businessAreasRepository.findAllByOrganizationId(orgId);
         return areas.stream().map(businessAreaMapper::toDTO).toList();
     }
@@ -55,7 +56,7 @@ public class BusinessAreaService {
      * @return the corresponding {@link BusinessAreaDTO}
      * @throws BusinessAreaNotFoundException if the area is not found
      */
-    public BusinessAreaDTO getAreaById(Long id) {
+    public BusinessAreaDTO getAreaById(UUID id) {
         return findAreaInScope(id)
                 .map(businessAreaMapper::toDTO)
                 .orElseThrow(() -> new BusinessAreaNotFoundException(BUSINESS_AREA_ID_PREFIX + id + NOT_FOUND_SUFFIX));
@@ -65,8 +66,8 @@ public class BusinessAreaService {
      * Finds a business area by ID, scoped to the current tenant when
      * {@link TenantContext} carries an organization ID.
      */
-    private Optional<BusinessAreas> findAreaInScope(Long id) {
-        Long orgId = TenantContext.require();
+    private Optional<BusinessAreas> findAreaInScope(UUID id) {
+        UUID orgId = TenantContext.require();
         return businessAreasRepository.findByIdAndOrganizationId(id, orgId);
     }
 
@@ -80,7 +81,7 @@ public class BusinessAreaService {
         BusinessAreas area = businessAreaMapper.toEntity(dto);
         // Creation must never merge an existing row selected by a client-supplied ID.
         area.setId(null);
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         Organization org = new Organization();
         org.setId(orgId);
         area.setOrganization(org);
@@ -96,7 +97,7 @@ public class BusinessAreaService {
      * @return the updated {@link BusinessAreaDTO}
      * @throws BusinessAreaNotFoundException if the area is not found
      */
-    public BusinessAreaDTO updateArea(Long id, BusinessAreaDTO dto) {
+    public BusinessAreaDTO updateArea(UUID id, BusinessAreaDTO dto) {
         BusinessAreas area = findAreaInScope(id)
                 .orElseThrow(() -> new BusinessAreaNotFoundException(BUSINESS_AREA_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
@@ -113,7 +114,7 @@ public class BusinessAreaService {
      * @param id the ID of the business area to delete
      * @throws BusinessAreaNotFoundException if the area is not found
      */
-    public void deleteArea(Long id) {
+    public void deleteArea(UUID id) {
         BusinessAreas area = findAreaInScope(id)
                 .orElseThrow(() -> new BusinessAreaNotFoundException(BUSINESS_AREA_ID_PREFIX + id + NOT_FOUND_SUFFIX));
         businessAreasRepository.delete(area);

@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Month;
@@ -304,8 +305,8 @@ class BolaAuthorizationMatrixTest {
     }
 
     private String financialBody(Data contract, Data type, Data area) {
-        return "{\"month\":1,\"year\":2026,\"financialAmount\":100,\"contractId\":" + contract.contract().getId()
-                + ",\"financialTypeId\":" + type.type().getId() + ",\"businessAreaId\":" + area.area().getId() + "}";
+        return "{\"month\":1,\"year\":2026,\"financialAmount\":100,\"contractId\":" + q(contract.contract().getId())
+                + ",\"financialTypeId\":" + q(type.type().getId()) + ",\"businessAreaId\":" + q(area.area().getId()) + "}";
     }
 
     @org.junit.jupiter.api.Test
@@ -394,7 +395,7 @@ class BolaAuthorizationMatrixTest {
     @org.junit.jupiter.params.provider.ValueSource(strings = {"business-areas", "financial-types", "counterparties",
             "managers", "users", "budgets", "contract-templates", "financial-values", "contracts", "contract-history"})
     void creationCannotOverwriteExistingResourceThroughBodyId(String resource) throws Exception {
-        Long victimId = Long.valueOf(resolve("/" + resource + "/{id}", foreign, false).split("/")[2]);
+        UUID victimId = UUID.fromString(resolve("/" + resource + "/{id}", foreign, false).split("/")[2]);
         String table = switch (resource) {
             case "business-areas" -> "business_areas"; case "financial-types" -> "financial_types";
             case "contract-templates" -> "contract_templates"; case "financial-values" -> "financial_values";
@@ -409,20 +410,20 @@ class BolaAuthorizationMatrixTest {
                 Managers fresh = persist(Managers.builder().organization(own.org()).firstName("New").lastName("Manager")
                         .email(UUID.randomUUID() + "@example.com").build());
                 yield "{\"username\":\"created-user\",\"password\":\"ValidPassword123!\",\"managerId\":"
-                        + fresh.getId() + ",\"roleId\":" + admin.getRole().getId() + "}";
+                        + q(fresh.getId()) + ",\"roleId\":" + q(admin.getRole().getId()) + "}";
             }
-            case "budgets" -> "{\"businessAreaId\":" + own.area().getId() + ",\"year\":2027,\"category\":\"REVENUE\",\"targetAmount\":100}";
+            case "budgets" -> "{\"businessAreaId\":" + q(own.area().getId()) + ",\"year\":2027,\"category\":\"REVENUE\",\"targetAmount\":100}";
             case "financial-values" -> financialBody(own, own, own).replace("\"month\":1", "\"month\":2");
-            case "contract-history" -> "{\"contractId\":" + own.contract().getId() + ",\"modifiedById\":"
-                    + own.user().getId() + ",\"modificationDate\":\"2026-01-01T00:00:00\",\"previousStatus\":\"DRAFT\",\"newStatus\":\"ACTIVE\"}";
+            case "contract-history" -> "{\"contractId\":" + q(own.contract().getId()) + ",\"modifiedById\":"
+                    + q(own.user().getId()) + ",\"modificationDate\":\"2026-01-01T00:00:00\",\"previousStatus\":\"DRAFT\",\"newStatus\":\"ACTIVE\"}";
             default -> payload(resource);
         };
-        body = "{\"id\":" + victimId + "," + body.substring(1);
+        body = "{\"id\":" + q(victimId) + "," + body.substring(1);
         var response = mvc.perform(post("/" + resource).header("Authorization", "Bearer " + adminToken)
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andReturn().getResponse();
         assertThat(response.getStatus()).as(response.getContentAsString()).isEqualTo(201);
         if (response.getStatus() == 201) {
-            assertThat(json.readTree(response.getContentAsString()).get("id").asLong()).isNotEqualTo(victimId);
+            assertThat(json.readTree(response.getContentAsString()).get("id").asText()).isNotEqualTo(victimId);
         }
         flushAndClear();
         assertThat(jdbc.queryForMap("SELECT * FROM " + table + " WHERE id = ?", victimId)).isEqualTo(before);
@@ -567,15 +568,15 @@ class BolaAuthorizationMatrixTest {
     void writesCannotReferenceAnotherOrganization(String scenario) throws Exception {
         Map<String, List<Map<String, Object>>> before = snapshot();
         String foreignCounterparty = payload("contracts").replace(
-                "\"counterpartyId\":" + own.counterparty().getId(), "\"counterpartyId\":" + foreign.counterparty().getId());
+                "\"counterpartyId\":" + q(own.counterparty().getId()), "\"counterpartyId\":" + q(foreign.counterparty().getId()));
         var builder = switch (scenario) {
             case "create contract with foreign counterparty" -> post("/contracts").content(foreignCounterparty);
             case "update contract with foreign counterparty" -> put("/contracts/" + own.contract().getId()).content(foreignCounterparty);
             case "assign foreign manager" -> patch("/contracts/" + own.contract().getId() + "/assign-manager")
-                    .content("{\"managerId\":" + foreign.manager().getId() + "}");
+                    .content("{\"managerId\":" + q(foreign.manager().getId()) + "}");
             case "create user with foreign manager" -> post("/users").content("{\"username\":\"" + UUID.randomUUID()
-                    + "\",\"password\":\"ValidPassword123!\",\"managerId\":" + foreign.manager().getId()
-                    + ",\"roleId\":" + admin.getRole().getId() + "}");
+                    + "\",\"password\":\"ValidPassword123!\",\"managerId\":" + q(foreign.manager().getId())
+                    + ",\"roleId\":" + q(admin.getRole().getId()) + "}");
             default -> post("/contract-templates/" + own.template().getId() + "/instantiate").content(foreignCounterparty);
         };
         int code = mvc.perform(builder.contentType(MediaType.APPLICATION_JSON).header("Authorization", "Bearer " + adminToken))
@@ -599,12 +600,12 @@ class BolaAuthorizationMatrixTest {
     }
 
     private String resolve(String path, Data d, boolean missing) {
-        Map<String, Long> ids = Map.of("contract", d.contract().getId(), "document", d.document().getId(),
+        Map<String, UUID> ids = Map.of("contract", d.contract().getId(), "document", d.document().getId(),
                 "invoice", d.invoice().getId(), "batch", d.batch().getId());
-        for (var entry : ids.entrySet()) path = path.replace("{" + entry.getKey() + "}", "" + (missing ? Long.MAX_VALUE : entry.getValue()));
+        for (var entry : ids.entrySet()) path = path.replace("{" + entry.getKey() + "}", "" + (missing ? uid(Long.MAX_VALUE) : entry.getValue()));
         if (path.contains("{id}")) {
             String resource = path.split("/")[1];
-            Long id = switch (resource) {
+            UUID id = switch (resource) {
                 case "business-areas" -> d.area().getId(); case "financial-types" -> d.type().getId();
                 case "counterparties" -> d.counterparty().getId(); case "managers" -> d.manager().getId();
                 case "users" -> d.user().getId(); case "budgets" -> d.budget().getId();
@@ -612,21 +613,21 @@ class BolaAuthorizationMatrixTest {
                 case "contract-history" -> d.history().getId(); case "contracts" -> d.contract().getId();
                 default -> throw new IllegalArgumentException(resource);
             };
-            path = path.replace("{id}", "" + (missing ? Long.MAX_VALUE : id));
+            path = path.replace("{id}", "" + (missing ? uid(Long.MAX_VALUE) : id));
         }
         return path;
     }
 
     private String payload(String kind) {
         return switch (kind) {
-            case "contracts", "instantiate" -> "{\"counterpartyId\":" + own.counterparty().getId()
-                    + ",\"contractNumber\":\"NEW-CONTRACT\",\"status\":\"ACTIVE\",\"startDate\":\"2026-01-01\",\"endDate\":\"2027-01-01\",\"areaId\":" + own.area().getId() + "}";
+            case "contracts", "instantiate" -> "{\"counterpartyId\":" + q(own.counterparty().getId())
+                    + ",\"contractNumber\":\"NEW-CONTRACT\",\"status\":\"ACTIVE\",\"startDate\":\"2026-01-01\",\"endDate\":\"2027-01-01\",\"areaId\":" + q(own.area().getId()) + "}";
             case "counterparties" -> "{\"name\":\"Updated\",\"type\":\"CUSTOMER\",\"iban\":\"IT60X0542811101000000123456\"}";
             case "users" -> "{\"username\":\"updated-user\"}";
             case "contract-templates" -> "{\"name\":\"Updated\"}";
-            case "assign" -> "{\"managerId\":" + own.manager().getId() + "}";
-            case "collaborators" -> "{\"managerIds\":[" + own.manager().getId() + "]}";
-            case "sepa" -> "{\"invoiceIds\":[" + own.invoice().getId() + "],\"executionDate\":\"2027-01-01\"}";
+            case "assign" -> "{\"managerId\":" + q(own.manager().getId()) + "}";
+            case "collaborators" -> "{\"managerIds\":[" + q(own.manager().getId()) + "]}";
+            case "sepa" -> "{\"invoiceIds\":[" + q(own.invoice().getId()) + "],\"executionDate\":\"2027-01-01\"}";
             case "reject" -> "{\"comment\":\"Rejected for testing\"}";
             case "risk" -> "{\"riskScore\":0.5,\"level\":\"LOW\",\"agree\":true}";
             case "payment" -> "{\"supplierIban\":null,\"supplierBic\":null,\"paymentDueDate\":null}";
@@ -675,5 +676,10 @@ class BolaAuthorizationMatrixTest {
                 .executionDate(LocalDate.of(2027, Month.JANUARY,1)).totalAmount(BigDecimal.valueOf(100)).currency("EUR").numberOfTransactions(1)
                 .storagePath(name + "-sepa.xml").fileName("sepa.xml").build());
         return new Data(org,area,manager,user,cp,type,contract,value,history,template,budget,document,invoice,batch);
+    }
+
+    /** A value as JSON: ids are UUIDs now, so they go in quotes (ADR-0009). */
+    private static String q(Object value) {
+        return value == null ? "null" : "\"" + value + "\"";
     }
 }

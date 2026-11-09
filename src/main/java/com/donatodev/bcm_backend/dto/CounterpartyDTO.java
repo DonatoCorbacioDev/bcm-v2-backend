@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import com.donatodev.bcm_backend.entity.CounterpartyType;
 
 import jakarta.validation.constraints.Email;
@@ -37,7 +38,7 @@ import jakarta.validation.constraints.Size;
  *                     rule and masking
  */
 public record CounterpartyDTO(
-        Long id,
+        UUID id,
         @NotBlank(message = "Nome obbligatorio") String name,
         @NotNull(message = "Tipo obbligatorio") CounterpartyType type,
         String vatNumber,
@@ -57,7 +58,7 @@ public record CounterpartyDTO(
 ) {
 
     /** Without the address parts: call sites predating them. */
-    public CounterpartyDTO(Long id, String name, CounterpartyType type, String vatNumber, String taxCode,
+    public CounterpartyDTO(UUID id, String name, CounterpartyType type, String vatNumber, String taxCode,
             String address, String contactName, String contactEmail, String contactPhone, String notes,
             String verifiedIban, String verifiedBic) {
         this(id, name, type, vatNumber, taxCode, address, contactName, contactEmail, contactPhone, notes,

@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -48,10 +49,10 @@ class LocalStorageServiceTest {
         @Order(1)
         @DisplayName("storeDocument: creates file and returns relative path ending in .pdf")
         void shouldStoreDocumentAndReturnPath() {
-            String path = localStorageService.storeDocument(1L, 42L, CONTENT);
+            String path = localStorageService.storeDocument(uid(1), uid(42), CONTENT);
 
             assertNotNull(path);
-            assertTrue(path.startsWith("contracts/1/42/"));
+            assertTrue(path.startsWith("contracts/" + uid(1) + "/" + uid(42) + "/"));
             assertTrue(path.endsWith(".pdf"));
             assertTrue(Files.exists(tempDir.resolve(path)));
         }
@@ -60,25 +61,25 @@ class LocalStorageServiceTest {
         @Order(2)
         @DisplayName("storeDocument: null orgId defaults to 0 in path")
         void shouldUseZeroOrgIdWhenNull() {
-            String path = localStorageService.storeDocument(null, 42L, CONTENT);
+            String path = localStorageService.storeDocument(null, uid(42), CONTENT);
 
-            assertTrue(path.startsWith("contracts/0/42/"));
+            assertTrue(path.startsWith("contracts/0/" + uid(42) + "/"));
         }
 
         @Test
         @Order(3)
         @DisplayName("storeDocument: creates nested directories automatically")
         void shouldCreateDirectories() {
-            localStorageService.storeDocument(5L, 99L, CONTENT);
+            localStorageService.storeDocument(uid(5), uid(99), CONTENT);
 
-            assertTrue(Files.isDirectory(tempDir.resolve("contracts/5/99")));
+            assertTrue(Files.isDirectory(tempDir.resolve("contracts/" + uid(5) + "/" + uid(99))));
         }
 
         @Test
         @Order(4)
         @DisplayName("readDocument: returns stored file bytes")
         void shouldReadStoredDocument() {
-            String path = localStorageService.storeDocument(1L, 1L, CONTENT);
+            String path = localStorageService.storeDocument(uid(1), uid(1), CONTENT);
 
             byte[] result = localStorageService.readDocument(path);
 
@@ -97,7 +98,7 @@ class LocalStorageServiceTest {
         @Order(6)
         @DisplayName("deleteDocument: removes file from disk")
         void shouldDeleteDocument() {
-            String path = localStorageService.storeDocument(1L, 1L, CONTENT);
+            String path = localStorageService.storeDocument(uid(1), uid(1), CONTENT);
             assertTrue(Files.exists(tempDir.resolve(path)));
 
             localStorageService.deleteDocument(path);
@@ -120,7 +121,7 @@ class LocalStorageServiceTest {
             java.nio.file.Files.write(tempDir.resolve("contracts"), new byte[0]);
 
             assertThrows(java.io.UncheckedIOException.class,
-                    () -> localStorageService.storeDocument(1L, 42L, CONTENT));
+                    () -> localStorageService.storeDocument(uid(1), uid(42), CONTENT));
         }
 
         @Test
@@ -140,10 +141,10 @@ class LocalStorageServiceTest {
         @Order(10)
         @DisplayName("storeInvoice: creates file and returns relative path ending in .xml")
         void shouldStoreInvoiceAndReturnPath() {
-            String path = localStorageService.storeInvoice(1L, 42L, CONTENT);
+            String path = localStorageService.storeInvoice(uid(1), uid(42), CONTENT);
 
             assertNotNull(path);
-            assertTrue(path.startsWith("invoices/1/42/"));
+            assertTrue(path.startsWith("invoices/" + uid(1) + "/" + uid(42) + "/"));
             assertTrue(path.endsWith(".xml"));
             assertTrue(Files.exists(tempDir.resolve(path)));
         }
@@ -152,19 +153,19 @@ class LocalStorageServiceTest {
         @Order(11)
         @DisplayName("storeInvoice: null orgId defaults to 0 in path")
         void shouldUseZeroOrgIdWhenNullForInvoice() {
-            String path = localStorageService.storeInvoice(null, 42L, CONTENT);
+            String path = localStorageService.storeInvoice(null, uid(42), CONTENT);
 
-            assertTrue(path.startsWith("invoices/0/42/"));
+            assertTrue(path.startsWith("invoices/0/" + uid(42) + "/"));
         }
 
         @Test
         @Order(12)
         @DisplayName("storeSepaPayment: creates file and returns relative path ending in .xml")
         void shouldStoreSepaPaymentAndReturnPath() {
-            String path = localStorageService.storeSepaPayment(1L, 42L, CONTENT);
+            String path = localStorageService.storeSepaPayment(uid(1), uid(42), CONTENT);
 
             assertNotNull(path);
-            assertTrue(path.startsWith("sepa/1/42/"));
+            assertTrue(path.startsWith("sepa/" + uid(1) + "/" + uid(42) + "/"));
             assertTrue(path.endsWith(".xml"));
             assertTrue(Files.exists(tempDir.resolve(path)));
         }
@@ -173,9 +174,9 @@ class LocalStorageServiceTest {
         @Order(13)
         @DisplayName("storeSepaPayment: null orgId defaults to 0 in path")
         void shouldUseZeroOrgIdWhenNullForSepaPayment() {
-            String path = localStorageService.storeSepaPayment(null, 42L, CONTENT);
+            String path = localStorageService.storeSepaPayment(null, uid(42), CONTENT);
 
-            assertTrue(path.startsWith("sepa/0/42/"));
+            assertTrue(path.startsWith("sepa/0/" + uid(42) + "/"));
         }
 
         @Test
@@ -188,19 +189,23 @@ class LocalStorageServiceTest {
             @Test
         @DisplayName("deleteOrganizationFiles: removes the organization's documents, invoices and SEPA files only")
         void shouldDeleteOnlyThatOrganizationsFiles() {
-            String doc = localStorageService.storeDocument(7L, 1L, CONTENT);
-            String invoice = localStorageService.storeInvoice(7L, 2L, CONTENT);
-            String sepa = localStorageService.storeSepaPayment(7L, 1L, CONTENT);
-            String otherOrg = localStorageService.storeDocument(8L, 1L, CONTENT);
-            // A file no row points to any more goes too.
-            assertDoesNotThrow(() -> Files.writeString(tempDir.resolve("contracts/7/orphan.pdf"), "x"));
+            String doc = localStorageService.storeDocument(uid(7), uid(1), CONTENT);
+            String invoice = localStorageService.storeInvoice(uid(7), uid(2), CONTENT);
+            String sepa = localStorageService.storeSepaPayment(uid(7), uid(1), CONTENT);
+            String otherOrg = localStorageService.storeDocument(uid(8), uid(1), CONTENT);
+            // A file no row points to any more goes too, and so does the folder
+            // named after the organization's numeric id from before V55 (ADR-0009).
+            assertDoesNotThrow(() -> Files.writeString(tempDir.resolve("contracts/" + uid(7) + "/orphan.pdf"), "x"));
+            assertDoesNotThrow(() -> Files.createDirectories(tempDir.resolve("contracts/7")));
+            assertDoesNotThrow(() -> Files.writeString(tempDir.resolve("contracts/7/before-v55.pdf"), "x"));
 
-            int deleted = localStorageService.deleteOrganizationFiles(7L);
+            int deleted = localStorageService.deleteOrganizationFiles(uid(7), 7L);
 
-            assertEquals(4, deleted);
+            assertEquals(5, deleted);
             for (String path : new String[] {doc, invoice, sepa}) {
                 assertFalse(Files.exists(tempDir.resolve(path)), path);
             }
+            assertFalse(Files.exists(tempDir.resolve("contracts/" + uid(7))));
             assertFalse(Files.exists(tempDir.resolve("contracts/7")));
             assertTrue(Files.exists(tempDir.resolve(otherOrg)));
         }
@@ -208,7 +213,7 @@ class LocalStorageServiceTest {
         @Test
         @DisplayName("deleteOrganizationFiles: a file that can't be removed is reported, not silently left")
         void shouldReportFileThatCannotBeDeleted() throws Exception {
-            String doc = localStorageService.storeDocument(6L, 1L, CONTENT);
+            String doc = localStorageService.storeDocument(uid(6), uid(1), CONTENT);
             java.nio.file.Path file = tempDir.resolve(doc);
             java.nio.file.Path parent = file.getParent();
             boolean posix = java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix");
@@ -220,7 +225,7 @@ class LocalStorageServiceTest {
                 Files.setAttribute(file, "dos:readonly", true);
             }
             try {
-                assertThrows(java.io.UncheckedIOException.class, () -> localStorageService.deleteOrganizationFiles(6L));
+                assertThrows(java.io.UncheckedIOException.class, () -> localStorageService.deleteOrganizationFiles(uid(6), null));
             } finally {
                 if (posix) {
                     Files.setPosixFilePermissions(parent, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
@@ -233,13 +238,22 @@ class LocalStorageServiceTest {
         @Test
         @DisplayName("deleteOrganizationFiles: nothing stored yet deletes nothing")
         void shouldDeleteNothingWhenNoFiles() {
-            assertEquals(0, localStorageService.deleteOrganizationFiles(9L));
+            assertEquals(0, localStorageService.deleteOrganizationFiles(uid(9), null));
         }
 
         @Test
-        @DisplayName("deleteOrganizationFiles: refuses the shared fallback directory 0")
-        void shouldRefuseFallbackDirectory() {
-            assertThrows(IllegalArgumentException.class, () -> localStorageService.deleteOrganizationFiles(0L));
+        @DisplayName("deleteOrganizationFiles: refuses a missing organization")
+        void shouldRefuseMissingOrganization() {
+            assertThrows(IllegalArgumentException.class, () -> localStorageService.deleteOrganizationFiles(null, null));
+        }
+
+        @Test
+        @DisplayName("deleteOrganizationFiles: never touches the shared fallback directory 0, even as an old id")
+        void shouldNeverDeleteFallbackDirectory() {
+            String shared = localStorageService.storeDocument(null, uid(1), CONTENT);
+
+            assertEquals(0, localStorageService.deleteOrganizationFiles(uid(9), 0L));
+            assertTrue(Files.exists(tempDir.resolve(shared)));
         }
     }
 }

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -62,18 +63,18 @@ public class RiskScoreRefresher {
             logger.info("High-risk notifications are off (ml.risk-notifications.enabled=false): risk refresh skipped.");
             return;
         }
-        List<Long> orgIds = organizationRepository.findAll().stream().map(org -> org.getId()).toList();
+        List<UUID> orgIds = organizationRepository.findAll().stream().map(org -> org.getId()).toList();
         logger.info("Starting risk score refresh for {} organization(s)...", orgIds.size());
 
         int notified = 0;
-        for (Long orgId : orgIds) {
+        for (UUID orgId : orgIds) {
             notified += refreshForOrg(orgId);
         }
 
         logger.info("Risk score refresh completed. {} high-risk notifications created.", notified);
     }
 
-    private int refreshForOrg(Long orgId) {
+    private int refreshForOrg(UUID orgId) {
         try {
             ResponseEntity<String> response = mlProxyService.fetchRiskScoresRaw(orgId);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
@@ -94,7 +95,7 @@ public class RiskScoreRefresher {
         }
     }
 
-    private boolean processHighRiskEntry(RiskScoreEntry entry, Long orgId) {
+    private boolean processHighRiskEntry(RiskScoreEntry entry, UUID orgId) {
         try {
             contractsRepository.findByIdAndOrganization_Id(entry.contractId(), orgId).ifPresent(contract ->
                     agentNotificationService.notifyHighRisk(contract, entry.riskScore()));
@@ -110,5 +111,5 @@ public class RiskScoreRefresher {
         return message == null ? null : message.replaceAll(CRLF_REGEX, "_");
     }
 
-    record RiskScoreEntry(Long contractId, double riskScore) {}
+    record RiskScoreEntry(UUID contractId, double riskScore) {}
 }

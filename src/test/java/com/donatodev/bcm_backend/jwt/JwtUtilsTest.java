@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.jwt;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -53,13 +55,13 @@ class JwtUtilsTest {
     void setUp() {
         // Create test role
         testRole = Roles.builder()
-                .id(1L)
+                .id(uid(1))
                 .role("ADMIN")
                 .build();
 
         // Create test user
         testUser = Users.builder()
-                .id(1L)
+                .id(uid(1))
                 .username("john")
                 .passwordHash("hashedPassword")
                 .role(testRole)
@@ -370,18 +372,18 @@ class JwtUtilsTest {
     @DisplayName("generateTokenFromUser with organization embeds orgId claim")
     void shouldGenerateTokenWithOrgIdAndExtractIt() {
         Organization org = Organization.builder()
-                .id(7L).name("Acme").slug("acme")
+                .id(uid(7)).name("Acme").slug("acme")
                 .subscriptionTier(SubscriptionTier.FREE).build();
 
         Users userWithOrg = Users.builder()
-                .id(2L).username("orguser").passwordHash("hash")
+                .id(uid(2)).username("orguser").passwordHash("hash")
                 .role(testRole).verified(true).organization(org).build();
 
         String token = jwtUtils.generateTokenFromUser(userWithOrg);
 
         assertNotNull(token);
-        Long orgId = jwtUtils.getOrganizationIdFromToken(token);
-        assertEquals(7L, orgId);
+        UUID orgId = jwtUtils.getOrganizationIdFromToken(token);
+        assertEquals(uid(7), orgId);
     }
 
     @Test
@@ -391,7 +393,7 @@ class JwtUtilsTest {
         // testUser has no organization → orgId claim is null
         String token = jwtUtils.generateTokenFromUser(testUser);
 
-        Long orgId = jwtUtils.getOrganizationIdFromToken(token);
+        UUID orgId = jwtUtils.getOrganizationIdFromToken(token);
 
         org.junit.jupiter.api.Assertions.assertNull(orgId);
     }
@@ -413,15 +415,15 @@ class JwtUtilsTest {
     @DisplayName("generateMfaPendingToken with organization embeds the orgId claim")
     void shouldGenerateMfaPendingTokenWithOrganization() {
         Organization org = Organization.builder()
-                .id(9L).name("Acme").slug("acme")
+                .id(uid(9)).name("Acme").slug("acme")
                 .subscriptionTier(SubscriptionTier.FREE).build();
         Users userWithOrg = Users.builder()
-                .id(3L).username("mfauser").passwordHash("hash")
+                .id(uid(3)).username("mfauser").passwordHash("hash")
                 .role(testRole).verified(true).organization(org).build();
 
         String token = jwtUtils.generateMfaPendingToken(userWithOrg);
 
-        assertEquals(9L, jwtUtils.getOrganizationIdFromToken(token));
+        assertEquals(uid(9), jwtUtils.getOrganizationIdFromToken(token));
     }
 
     @Test

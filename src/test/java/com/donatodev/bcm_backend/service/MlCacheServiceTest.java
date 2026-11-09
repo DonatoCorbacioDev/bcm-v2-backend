@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -45,7 +47,7 @@ class MlCacheServiceTest {
         mlCacheService = new MlCacheService(repository, meterRegistry);
     }
 
-    private static final Long ORG = 1L;
+    private static final UUID ORG = uid(1);
     private static final String KEY = "FORECAST_3";
 
     private MlResultCache entry(LocalDateTime computedAt) {
@@ -198,7 +200,7 @@ class MlCacheServiceTest {
         @Order(10)
         @DisplayName("Only targets the requested organization, not any other")
         void doesNotTouchOtherOrganizations() {
-            Long otherOrg = 999L;
+            UUID otherOrg = uid(999);
             doNothing().when(repository).deleteByOrgId(ORG);
 
             mlCacheService.evictAllForOrg(ORG);

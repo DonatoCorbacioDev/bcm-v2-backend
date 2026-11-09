@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -65,7 +66,7 @@ public class ContractHistoryService {
 				.orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG));
 
 		if (user.getRole().getRole().equals(ADMIN_ROLE)) {
-			Long orgId = TenantContext.require();
+			UUID orgId = TenantContext.require();
 			List<ContractHistory> all = historyRepository.findByContract_Organization_Id(orgId);
 			return all.stream()
 					.map(historyMapper::toDTO)
@@ -74,7 +75,7 @@ public class ContractHistoryService {
 			if (user.getManager() == null) {
 				return List.of();
 			}
-			Long managerId = user.getManager().getId();
+			UUID managerId = user.getManager().getId();
 			return historyRepository.findByContractManagerId(managerId).stream()
 					.map(historyMapper::toDTO)
 					.toList();
@@ -91,7 +92,7 @@ public class ContractHistoryService {
 	 * @throws UserNotFoundException if the authenticated user cannot be found
 	 * @throws RuntimeException if access is denied
 	 */
-	public ContractHistoryDTO getById(Long id) {
+	public ContractHistoryDTO getById(UUID id) {
 		ContractHistory history = findHistoryInScope(id)
 				.orElseThrow(() -> new ContractHistoryNotFoundException("Voce storico ID " + id + " non trovata"));
 
@@ -113,14 +114,14 @@ public class ContractHistoryService {
 	 * @throws UserNotFoundException if the authenticated user cannot be found
 	 * @throws RuntimeException if access is denied
 	 */
-	public List<ContractHistoryDTO> getByContractId(Long contractId) {
+	public List<ContractHistoryDTO> getByContractId(UUID contractId) {
 		String username = AuthenticatedUserUtils.getUsernameOrNull();
 		Users user = usersRepository.findByUsername(username)
 				.orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG));
 
 		Contracts contract = contractAccessGuard.getContractInScope(contractId);
 		checkManagerAccess(contract, user);
-		Long orgId = TenantContext.require();
+		UUID orgId = TenantContext.require();
 		return historyRepository.findByContractIdAndContract_Organization_Id(contractId, orgId)
 				.stream().map(historyMapper::toDTO).toList();
 	}
@@ -154,7 +155,7 @@ public class ContractHistoryService {
 	 * @param id the ID of the contract history entry to delete
 	 * @throws ContractHistoryNotFoundException if the entry does not exist
 	 */
-	public void delete(Long id) {
+	public void delete(UUID id) {
 		ContractHistory history = findHistoryInScope(id)
 				.orElseThrow(() -> new ContractHistoryNotFoundException("Voce storico ID " + id + " non trovata"));
 		historyRepository.delete(history);
@@ -164,8 +165,8 @@ public class ContractHistoryService {
 	 * Finds a contract history entry by ID, scoped to the current tenant when
 	 * {@link TenantContext} carries an organization ID.
 	 */
-	private Optional<ContractHistory> findHistoryInScope(Long id) {
-		Long orgId = TenantContext.require();
+	private Optional<ContractHistory> findHistoryInScope(UUID id) {
+		UUID orgId = TenantContext.require();
 		return historyRepository.findByIdAndContract_Organization_Id(id, orgId);
 	}
 }

@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -83,9 +84,9 @@ class DevDataSeederTest {
         @Test
         @DisplayName("creates a verified admin user (with its required manager row) in the default organization")
         void seedsDemoAccount() {
-            Organization defaultOrg = Organization.builder().id(1L).name("Default Organization").slug("default").build();
-            Roles adminRole = Roles.builder().id(1L).role("ADMIN").build();
-            Managers savedManager = Managers.builder().id(1L).firstName("Demo").lastName("Admin").build();
+            Organization defaultOrg = Organization.builder().id(uid(1)).name("Default Organization").slug("default").build();
+            Roles adminRole = Roles.builder().id(uid(1)).role("ADMIN").build();
+            Managers savedManager = Managers.builder().id(uid(1)).firstName("Demo").lastName("Admin").build();
 
             when(usersRepository.findByUsername(DevDataSeeder.DEMO_USERNAME)).thenReturn(Optional.empty());
             when(organizationRepository.findFirstByOrderByCreatedAtAsc()).thenReturn(Optional.of(defaultOrg));

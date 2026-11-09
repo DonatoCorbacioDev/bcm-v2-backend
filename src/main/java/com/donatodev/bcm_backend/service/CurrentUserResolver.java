@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 import com.donatodev.bcm_backend.config.TenantContext;
@@ -28,7 +29,7 @@ public class CurrentUserResolver {
 
     public Users resolve() {
         String username = AuthenticatedUserUtils.getUsernameOrThrow();
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         return usersRepository.findByUsernameAndOrganizationId(username, orgId)
                 .orElseThrow(() -> new UserNotFoundException("Utente non trovato"));
     }

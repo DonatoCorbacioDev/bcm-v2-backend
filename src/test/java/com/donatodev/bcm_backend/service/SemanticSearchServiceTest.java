@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,7 +48,7 @@ class SemanticSearchServiceTest {
     private SimpleMeterRegistry meterRegistry;
     private SemanticSearchService semanticSearchService;
 
-    private static final long ORG_ID = 1L;
+    private static final UUID ORG_ID = uid(1);
 
     @BeforeEach
     @SuppressWarnings("unused")
@@ -63,7 +65,7 @@ class SemanticSearchServiceTest {
 
     private Contracts fakeContract() {
         Contracts c = new Contracts();
-        c.setId(5L);
+        c.setId(uid(5));
         c.setContractNumber("CTR-001");
         c.setCounterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build());
         return c;
@@ -74,7 +76,7 @@ class SemanticSearchServiceTest {
                 .role(Roles.builder().role("ADMIN").build()).build());
     }
 
-    private void asManager(Long managerId) {
+    private void asManager(UUID managerId) {
         when(currentUserResolver.resolve()).thenReturn(Users.builder()
                 .role(Roles.builder().role("MANAGER").build())
                 .manager(managerId == null ? null : Managers.builder().id(managerId).build())
@@ -83,7 +85,7 @@ class SemanticSearchServiceTest {
 
     private ContractDocument fakeDoc(String embeddingJson) {
         ContractDocument doc = new ContractDocument();
-        doc.setId(10L);
+        doc.setId(uid(10));
         doc.setFileName("contract.pdf");
         doc.setOrgId(ORG_ID);
         doc.setContract(fakeContract());
@@ -256,7 +258,7 @@ class SemanticSearchServiceTest {
             asAdmin();
             ContractDocument close = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
             ContractDocument far = fakeDoc(objectMapper.writeValueAsString(new float[]{0f, 1f}));
-            far.setId(11L);
+            far.setId(uid(11));
 
             when(documentRepository.findByOrgIdAndEmbeddingIsNotNull(ORG_ID)).thenReturn(List.of(far, close));
             when(embeddingModel.embed("query")).thenReturn(new float[]{1f, 0f});
@@ -264,7 +266,7 @@ class SemanticSearchServiceTest {
             List<SemanticSearchResultDTO> results = semanticSearchService.search("query", 10);
 
             assertEquals(2, results.size());
-            assertEquals(10L, results.get(0).documentId());
+            assertEquals(uid(10), results.get(0).documentId());
             assertEquals(1.0, results.get(0).score(), 1e-9);
         }
 
@@ -275,7 +277,7 @@ class SemanticSearchServiceTest {
             asAdmin();
             ContractDocument a = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
             ContractDocument b = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
-            b.setId(11L);
+            b.setId(uid(11));
 
             when(documentRepository.findByOrgIdAndEmbeddingIsNotNull(ORG_ID)).thenReturn(List.of(a, b));
             when(embeddingModel.embed("query")).thenReturn(new float[]{1f, 0f});
@@ -300,21 +302,21 @@ class SemanticSearchServiceTest {
         @DisplayName("a MANAGER only finds documents of contracts assigned to them")
         void managerSeesOnlyOwnContracts() throws Exception {
             TenantContext.set(ORG_ID);
-            asManager(7L);
+            asManager(uid(7));
             ContractDocument own = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
-            own.getContract().setManager(Managers.builder().id(7L).build());
+            own.getContract().setManager(Managers.builder().id(uid(7)).build());
             ContractDocument others = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
-            others.setId(11L);
-            others.getContract().setManager(Managers.builder().id(8L).build());
+            others.setId(uid(11));
+            others.getContract().setManager(Managers.builder().id(uid(8)).build());
             ContractDocument unassigned = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
-            unassigned.setId(12L);
+            unassigned.setId(uid(12));
 
             when(documentRepository.findByOrgIdAndEmbeddingIsNotNull(ORG_ID)).thenReturn(List.of(own, others, unassigned));
             when(embeddingModel.embed("query")).thenReturn(new float[]{1f, 0f});
 
             List<SemanticSearchResultDTO> results = semanticSearchService.search("query", 10);
 
-            assertEquals(List.of(10L), results.stream().map(SemanticSearchResultDTO::documentId).toList());
+            assertEquals(List.of(uid(10)), results.stream().map(SemanticSearchResultDTO::documentId).toList());
         }
 
         @Test

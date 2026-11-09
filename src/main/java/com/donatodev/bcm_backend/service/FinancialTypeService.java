@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,7 +45,7 @@ public class FinancialTypeService {
      * @return list of {@link FinancialTypeDTO}
      */
     public List<FinancialTypeDTO> getAllTypes() {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         List<FinancialTypes> types = financialTypesRepository.findAllByOrganizationId(orgId);
         return types.stream().map(financialTypeMapper::toDTO).toList();
     }
@@ -56,7 +57,7 @@ public class FinancialTypeService {
      * @return the corresponding {@link FinancialTypeDTO}
      * @throws FinancialTypeNotFoundException if the financial type is not found
      */
-    public FinancialTypeDTO getTypeById(Long id) {
+    public FinancialTypeDTO getTypeById(UUID id) {
         return findTypeInScope(id)
                 .map(financialTypeMapper::toDTO)
                 .orElseThrow(() -> new FinancialTypeNotFoundException(FINANCIAL_TYPE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
@@ -66,8 +67,8 @@ public class FinancialTypeService {
      * Finds a financial type by ID, scoped to the current tenant when
      * {@link TenantContext} carries an organization ID.
      */
-    private Optional<FinancialTypes> findTypeInScope(Long id) {
-        Long orgId = TenantContext.require();
+    private Optional<FinancialTypes> findTypeInScope(UUID id) {
+        UUID orgId = TenantContext.require();
         return financialTypesRepository.findByIdAndOrganizationId(id, orgId);
     }
 
@@ -81,7 +82,7 @@ public class FinancialTypeService {
         FinancialTypes type = financialTypeMapper.toEntity(dto);
         // Creation must never merge an existing row selected by a client-supplied ID.
         type.setId(null);
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         Organization org = new Organization();
         org.setId(orgId);
         type.setOrganization(org);
@@ -97,7 +98,7 @@ public class FinancialTypeService {
      * @return the updated {@link FinancialTypeDTO}
      * @throws FinancialTypeNotFoundException if the financial type is not found
      */
-    public FinancialTypeDTO updateType(Long id, FinancialTypeDTO dto) {
+    public FinancialTypeDTO updateType(UUID id, FinancialTypeDTO dto) {
         FinancialTypes type = findTypeInScope(id)
                 .orElseThrow(() -> new FinancialTypeNotFoundException(FINANCIAL_TYPE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
@@ -115,7 +116,7 @@ public class FinancialTypeService {
      * @param id the ID of the financial type to delete
      * @throws FinancialTypeNotFoundException if the financial type is not found
      */
-    public void deleteType(Long id) {
+    public void deleteType(UUID id) {
         FinancialTypes type = findTypeInScope(id)
                 .orElseThrow(() -> new FinancialTypeNotFoundException(FINANCIAL_TYPE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
         financialTypesRepository.delete(type);

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.ArrayList;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -54,25 +55,25 @@ public class LocalStorageService {
 
     // fileName is intentionally excluded from the path to prevent path traversal attacks.
     // The original filename is stored separately in the ContractDocument entity.
-    public String storeDocument(Long orgId, Long contractId, byte[] content) {
-        String relativePath = String.format("contracts/%d/%d/%s.pdf",
-                orgId != null ? orgId : 0L, contractId, UUID.randomUUID());
+    public String storeDocument(UUID orgId, UUID contractId, byte[] content) {
+        String relativePath = String.format("contracts/%s/%s/%s.pdf",
+                orgId != null ? orgId : "0", contractId, UUID.randomUUID());
         return store(relativePath, content);
     }
 
     // fileName is intentionally excluded from the path to prevent path traversal attacks.
     // The original filename is stored separately in the ElectronicInvoice entity.
-    public String storeInvoice(Long orgId, Long contractId, byte[] content) {
-        String relativePath = String.format("invoices/%d/%d/%s.xml",
-                orgId != null ? orgId : 0L, contractId, UUID.randomUUID());
+    public String storeInvoice(UUID orgId, UUID contractId, byte[] content) {
+        String relativePath = String.format("invoices/%s/%s/%s.xml",
+                orgId != null ? orgId : "0", contractId, UUID.randomUUID());
         return store(relativePath, content);
     }
 
     // fileName is intentionally excluded from the path to prevent path traversal attacks.
     // The original filename is stored separately in the SepaPaymentBatch entity.
-    public String storeSepaPayment(Long orgId, Long contractId, byte[] content) {
-        String relativePath = String.format("sepa/%d/%d/%s.xml",
-                orgId != null ? orgId : 0L, contractId, UUID.randomUUID());
+    public String storeSepaPayment(UUID orgId, UUID contractId, byte[] content) {
+        String relativePath = String.format("sepa/%s/%s/%s.xml",
+                orgId != null ? orgId : "0", contractId, UUID.randomUUID());
         return store(relativePath, content);
     }
 
@@ -100,33 +101,47 @@ public class LocalStorageService {
      * Deletes every stored file of an organization (contract documents,
      * invoices, SEPA files) by removing its directory under each root, so
      * files no row points to any more go too. Used when the organization
-     * itself is deleted.
+     * itself is deleted. Files uploaded before ids became UUIDs (ADR-0009)
+     * live under the organization's old numeric id, so both directories go.
      *
+     * @param orgId    the organization
+     * @param legacyId its numeric id before V55, or null if created afterwards
      * @return how many files were deleted
      */
-    public int deleteOrganizationFiles(long orgId) {
-        // 0 is the shared fallback directory of files stored without an org.
-        if (orgId <= 0) {
-            throw new IllegalArgumentException("Invalid organization id: " + orgId);
+    public int deleteOrganizationFiles(UUID orgId, Long legacyId) {
+        if (orgId == null) {
+            throw new IllegalArgumentException("Invalid organization id: null");
+        }
+        List<String> names = new ArrayList<>(List.of(orgId.toString()));
+        // 0 is the shared fallback directory of files stored without an org: never deleted.
+        if (legacyId != null && legacyId > 0) {
+            names.add(legacyId.toString());
         }
         int deleted = 0;
         for (String prefix : ORGANIZATION_ROOTS) {
-            Path dir = resolveWithinRoot(prefix + "/" + orgId);
-            if (!Files.isDirectory(dir)) {
-                continue;
+            for (String name : names) {
+                deleted += deleteDirectory(resolveWithinRoot(prefix + "/" + name), orgId);
             }
-            // Deepest first, so each directory is empty when its turn comes.
-            // Files.walk doesn't follow symbolic links: a link is deleted, never its target.
-            try (Stream<Path> walk = Files.walk(dir)) {
-                for (Path path : walk.sorted(Comparator.reverseOrder()).toList()) {
-                    if (Files.isRegularFile(path)) {
-                        deleted++;
-                    }
-                    Files.delete(path);
+        }
+        return deleted;
+    }
+
+    private static int deleteDirectory(Path dir, UUID orgId) {
+        if (!Files.isDirectory(dir)) {
+            return 0;
+        }
+        int deleted = 0;
+        // Deepest first, so each directory is empty when its turn comes.
+        // Files.walk doesn't follow symbolic links: a link is deleted, never its target.
+        try (Stream<Path> walk = Files.walk(dir)) {
+            for (Path path : walk.sorted(Comparator.reverseOrder()).toList()) {
+                if (Files.isRegularFile(path)) {
+                    deleted++;
                 }
-            } catch (IOException e) {
-                throw new UncheckedIOException("Failed to delete files of organization " + orgId, e);
+                Files.delete(path);
             }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to delete files of organization " + orgId, e);
         }
         return deleted;
     }

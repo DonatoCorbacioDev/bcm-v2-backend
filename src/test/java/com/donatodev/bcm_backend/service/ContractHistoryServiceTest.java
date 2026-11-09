@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -53,7 +55,7 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 class ContractHistoryServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void enterTenant() {
@@ -95,14 +97,14 @@ class ContractHistoryServiceTest {
         @DisplayName("Get all histories as ADMIN")
         void shouldGetAllAsAdmin() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
-            ContractHistory entity = ContractHistory.builder().id(1L)
-                    .contract(Contracts.builder().id(1L).build())
-                    .modifiedBy(Users.builder().id(2L).build())
+            ContractHistory entity = ContractHistory.builder().id(uid(1))
+                    .contract(Contracts.builder().id(uid(1)).build())
+                    .modifiedBy(Users.builder().id(uid(2)).build())
                     .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.EXPIRED)
                     .build();
-            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.EXPIRED);
+            ContractHistoryDTO dto = new ContractHistoryDTO(uid(1), uid(1), uid(2), LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.EXPIRED);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(
@@ -127,14 +129,14 @@ class ContractHistoryServiceTest {
         @DisplayName("Get history by ID as ADMIN")
         void shouldGetByIdAsAdmin() {
             ContractHistory entity = ContractHistory.builder()
-                    .id(1L)
-                    .contract(Contracts.builder().id(1L).manager(Managers.builder().id(1L).build()).build())
-                    .modifiedBy(Users.builder().id(2L).build())
+                    .id(uid(1))
+                    .contract(Contracts.builder().id(uid(1)).manager(Managers.builder().id(uid(1)).build()).build())
+                    .modifiedBy(Users.builder().id(uid(2)).build())
                     .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.CANCELLED)
                     .build();
-            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
+            ContractHistoryDTO dto = new ContractHistoryDTO(uid(1), uid(1), uid(2), LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
 
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
 
@@ -144,11 +146,11 @@ class ContractHistoryServiceTest {
                     )
             );
 
-            when(historyRepository.findByIdAndContract_Organization_Id(1L, TENANT)).thenReturn(Optional.of(entity));
+            when(historyRepository.findByIdAndContract_Organization_Id(uid(1), TENANT)).thenReturn(Optional.of(entity));
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
             when(historyMapper.toDTO(entity)).thenReturn(dto);
 
-            ContractHistoryDTO result = historyService.getById(1L);
+            ContractHistoryDTO result = historyService.getById(uid(1));
             assertEquals(ContractStatus.CANCELLED, result.newStatus());
         }
 
@@ -160,9 +162,9 @@ class ContractHistoryServiceTest {
         @DisplayName("Get history by ID throws if not authorized")
         void shouldThrowIfManagerNotAuthorized() {
             ContractHistory entity = ContractHistory.builder()
-                    .id(1L)
-                    .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
-                    .modifiedBy(Users.builder().id(2L).build())
+                    .id(uid(1))
+                    .contract(Contracts.builder().manager(Managers.builder().id(uid(1)).build()).build())
+                    .modifiedBy(Users.builder().id(uid(2)).build())
                     .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.CANCELLED)
@@ -171,17 +173,17 @@ class ContractHistoryServiceTest {
             Users manager = Users.builder()
                     .username("manager1")
                     .role(Roles.builder().role("MANAGER").build())
-                    .manager(Managers.builder().id(2L).build())
+                    .manager(Managers.builder().id(uid(2)).build())
                     .build();
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(new User("manager1", "pwd", List.of()), null)
             );
 
-            when(historyRepository.findByIdAndContract_Organization_Id(1L, TENANT)).thenReturn(Optional.of(entity));
+            when(historyRepository.findByIdAndContract_Organization_Id(uid(1), TENANT)).thenReturn(Optional.of(entity));
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(manager));
 
-            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getById(1L));
+            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getById(uid(1)));
             assertNotNull(ex);
         }
 
@@ -192,23 +194,23 @@ class ContractHistoryServiceTest {
         @Order(4)
         @DisplayName("Create history returns saved DTO")
         void shouldCreateHistory() {
-            ContractHistoryDTO dto = new ContractHistoryDTO(null, 1L, 2L, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
+            ContractHistoryDTO dto = new ContractHistoryDTO(null, uid(1), uid(2), LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
             ContractHistory entity = ContractHistory.builder()
-                    .contract(Contracts.builder().id(1L).build())
-                    .modifiedBy(Users.builder().id(2L).build())
+                    .contract(Contracts.builder().id(uid(1)).build())
+                    .modifiedBy(Users.builder().id(uid(2)).build())
                     .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.CANCELLED)
                     .build();
             ContractHistory saved = ContractHistory.builder()
-                    .id(1L)
-                    .contract(Contracts.builder().id(1L).build())
-                    .modifiedBy(Users.builder().id(2L).build())
+                    .id(uid(1))
+                    .contract(Contracts.builder().id(uid(1)).build())
+                    .modifiedBy(Users.builder().id(uid(2)).build())
                     .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.CANCELLED)
                     .build();
-            ContractHistoryDTO savedDTO = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
+            ContractHistoryDTO savedDTO = new ContractHistoryDTO(uid(1), uid(1), uid(2), LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
 
             when(historyMapper.toEntity(dto)).thenReturn(entity);
             when(historyRepository.save(entity)).thenReturn(saved);
@@ -225,9 +227,9 @@ class ContractHistoryServiceTest {
         @Order(5)
         @DisplayName("Delete history removes record")
         void shouldDeleteHistory() {
-            ContractHistory entity = ContractHistory.builder().id(1L).build();
-            when(historyRepository.findByIdAndContract_Organization_Id(1L, TENANT)).thenReturn(Optional.of(entity));
-            historyService.delete(1L);
+            ContractHistory entity = ContractHistory.builder().id(uid(1)).build();
+            when(historyRepository.findByIdAndContract_Organization_Id(uid(1), TENANT)).thenReturn(Optional.of(entity));
+            historyService.delete(uid(1));
             verify(historyRepository).delete(entity);
         }
 
@@ -238,8 +240,8 @@ class ContractHistoryServiceTest {
         @Order(6)
         @DisplayName("Delete history throws if not found")
         void shouldThrowWhenDeletingNonExistent() {
-            when(historyRepository.findByIdAndContract_Organization_Id(999L, TENANT)).thenReturn(Optional.empty());
-            ContractHistoryNotFoundException ex = assertThrows(ContractHistoryNotFoundException.class, () -> historyService.delete(999L));
+            when(historyRepository.findByIdAndContract_Organization_Id(uid(999), TENANT)).thenReturn(Optional.empty());
+            ContractHistoryNotFoundException ex = assertThrows(ContractHistoryNotFoundException.class, () -> historyService.delete(uid(999)));
             assertNotNull(ex);
         }
 
@@ -256,15 +258,15 @@ class ContractHistoryServiceTest {
                     .build();
 
             ContractHistory entity = ContractHistory.builder()
-                    .id(1L)
-                    .contract(Contracts.builder().id(1L).build())
-                    .modifiedBy(Users.builder().id(2L).build())
+                    .id(uid(1))
+                    .contract(Contracts.builder().id(uid(1)).build())
+                    .modifiedBy(Users.builder().id(uid(2)).build())
                     .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.EXPIRED)
                     .build();
 
-            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.EXPIRED);
+            ContractHistoryDTO dto = new ContractHistoryDTO(uid(1), uid(1), uid(2), LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.EXPIRED);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(
@@ -275,11 +277,11 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractAccessGuard.getContractInScope(1L)).thenReturn(entity.getContract());
-            when(historyRepository.findByContractIdAndContract_Organization_Id(1L, TENANT)).thenReturn(List.of(entity));
+            when(contractAccessGuard.getContractInScope(uid(1))).thenReturn(entity.getContract());
+            when(historyRepository.findByContractIdAndContract_Organization_Id(uid(1), TENANT)).thenReturn(List.of(entity));
             when(historyMapper.toDTO(entity)).thenReturn(dto);
 
-            List<ContractHistoryDTO> result = historyService.getByContractId(1L);
+            List<ContractHistoryDTO> result = historyService.getByContractId(uid(1));
             assertEquals(1, result.size());
             assertEquals(ContractStatus.EXPIRED, result.get(0).newStatus());
         }
@@ -294,15 +296,15 @@ class ContractHistoryServiceTest {
             Users manager = Users.builder()
                     .username("manager1")
                     .role(Roles.builder().role("MANAGER").build())
-                    .manager(Managers.builder().id(2L).build())
+                    .manager(Managers.builder().id(uid(2)).build())
                     .build();
 
             ContractHistory entity = ContractHistory.builder()
-                    .id(1L)
-                    .contract(Contracts.builder().id(1L)
-                            .manager(Managers.builder().id(999L).build())
+                    .id(uid(1))
+                    .contract(Contracts.builder().id(uid(1))
+                            .manager(Managers.builder().id(uid(999)).build())
                             .build())
-                    .modifiedBy(Users.builder().id(2L).build())
+                    .modifiedBy(Users.builder().id(uid(2)).build())
                     .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.CANCELLED)
@@ -313,9 +315,9 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(manager));
-            when(contractAccessGuard.getContractInScope(1L)).thenReturn(entity.getContract());
+            when(contractAccessGuard.getContractInScope(uid(1))).thenReturn(entity.getContract());
 
-            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(1L));
+            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(uid(1)));
             assertNotNull(ex);
         }
 
@@ -327,7 +329,7 @@ class ContractHistoryServiceTest {
         @Order(9)
         @DisplayName("Get histories by contract ID as MANAGER")
         void shouldGetByContractIdAsManager() {
-            Managers manager = Managers.builder().id(2L).build();
+            Managers manager = Managers.builder().id(uid(2)).build();
             Users user = Users.builder()
                     .username("manager1")
                     .role(Roles.builder().role("MANAGER").build())
@@ -335,26 +337,26 @@ class ContractHistoryServiceTest {
                     .build();
 
             ContractHistory entity = ContractHistory.builder()
-                    .id(1L)
-                    .contract(Contracts.builder().id(1L).manager(manager).build())
-                    .modifiedBy(Users.builder().id(2L).build())
+                    .id(uid(1))
+                    .contract(Contracts.builder().id(uid(1)).manager(manager).build())
+                    .modifiedBy(Users.builder().id(uid(2)).build())
                     .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
                     .previousStatus(ContractStatus.ACTIVE)
                     .newStatus(ContractStatus.CANCELLED)
                     .build();
 
-            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, 2L, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
+            ContractHistoryDTO dto = new ContractHistoryDTO(uid(1), uid(1), uid(2), LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("manager1", null, List.of(() -> "ROLE_MANAGER"))
             );
 
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(user));
-            when(contractAccessGuard.getContractInScope(1L)).thenReturn(entity.getContract());
-            when(historyRepository.findByContractIdAndContract_Organization_Id(1L, TENANT)).thenReturn(List.of(entity));
+            when(contractAccessGuard.getContractInScope(uid(1))).thenReturn(entity.getContract());
+            when(historyRepository.findByContractIdAndContract_Organization_Id(uid(1), TENANT)).thenReturn(List.of(entity));
             when(historyMapper.toDTO(entity)).thenReturn(dto);
 
-            List<ContractHistoryDTO> result = historyService.getByContractId(1L);
+            List<ContractHistoryDTO> result = historyService.getByContractId(uid(1));
 
             assertEquals(1, result.size());
             assertEquals(ContractStatus.CANCELLED, result.get(0).newStatus());
@@ -368,7 +370,7 @@ class ContractHistoryServiceTest {
         @Order(10)
         @DisplayName("Get all histories as MANAGER")
         void shouldGetAllAsManager() {
-            Managers manager = Managers.builder().id(5L).build();
+            Managers manager = Managers.builder().id(uid(5)).build();
             Users managerUser = Users.builder()
                     .username("manager")
                     .role(Roles.builder().role("MANAGER").build())
@@ -376,23 +378,23 @@ class ContractHistoryServiceTest {
                     .build();
 
             ContractHistory entity = ContractHistory.builder()
-                    .id(1L)
-                    .contract(Contracts.builder().id(1L).manager(manager).build())
+                    .id(uid(1))
+                    .contract(Contracts.builder().id(uid(1)).manager(manager).build())
                     .build();
 
-            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, null, null, null, null);
+            ContractHistoryDTO dto = new ContractHistoryDTO(uid(1), uid(1), null, null, null, null);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("manager", null, List.of(() -> "ROLE_MANAGER"))
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(historyRepository.findByContractManagerId(5L)).thenReturn(List.of(entity));
+            when(historyRepository.findByContractManagerId(uid(5))).thenReturn(List.of(entity));
             when(historyMapper.toDTO(entity)).thenReturn(dto);
 
             List<ContractHistoryDTO> result = historyService.getAll();
             assertEquals(1, result.size());
-            assertEquals(1L, result.get(0).id());
+            assertEquals(uid(1), result.get(0).id());
         }
 
         @Test
@@ -420,7 +422,7 @@ class ContractHistoryServiceTest {
         @Order(11)
         @DisplayName("Get history by ID as MANAGER authorized")
         void shouldGetByIdAsManager() {
-            Managers manager = Managers.builder().id(5L).build();
+            Managers manager = Managers.builder().id(uid(5)).build();
             Users managerUser = Users.builder()
                     .username("manager")
                     .role(Roles.builder().role("MANAGER").build())
@@ -428,22 +430,22 @@ class ContractHistoryServiceTest {
                     .build();
 
             ContractHistory entity = ContractHistory.builder()
-                    .id(1L)
-                    .contract(Contracts.builder().id(1L).manager(manager).build())
+                    .id(uid(1))
+                    .contract(Contracts.builder().id(uid(1)).manager(manager).build())
                     .build();
 
-            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, null, null, null, null);
+            ContractHistoryDTO dto = new ContractHistoryDTO(uid(1), uid(1), null, null, null, null);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("manager", null, List.of(() -> "ROLE_MANAGER"))
             );
 
-            when(historyRepository.findByIdAndContract_Organization_Id(1L, TENANT)).thenReturn(Optional.of(entity));
+            when(historyRepository.findByIdAndContract_Organization_Id(uid(1), TENANT)).thenReturn(Optional.of(entity));
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
             when(historyMapper.toDTO(entity)).thenReturn(dto);
 
-            ContractHistoryDTO result = historyService.getById(1L);
-            assertEquals(1L, result.id());
+            ContractHistoryDTO result = historyService.getById(uid(1));
+            assertEquals(uid(1), result.id());
         }
 
         /**
@@ -454,7 +456,7 @@ class ContractHistoryServiceTest {
         @Order(12)
         @DisplayName("Get histories by contract ID where manager is not owner (denied)")
         void shouldThrowIfGetByContractIdIsOwnerFalse() {
-            Managers wrongManager = Managers.builder().id(9L).build();
+            Managers wrongManager = Managers.builder().id(uid(9)).build();
             Users managerUser = Users.builder()
                     .username("manager")
                     .role(Roles.builder().role("MANAGER").build())
@@ -462,7 +464,7 @@ class ContractHistoryServiceTest {
                     .build();
 
             ContractHistory h1 = ContractHistory.builder()
-                    .contract(Contracts.builder().manager(Managers.builder().id(5L).build()).build())
+                    .contract(Contracts.builder().manager(Managers.builder().id(uid(5)).build()).build())
                     .build();
 
             SecurityContextHolder.getContext().setAuthentication(
@@ -470,9 +472,9 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(contractAccessGuard.getContractInScope(1L)).thenReturn(h1.getContract());
+            when(contractAccessGuard.getContractInScope(uid(1))).thenReturn(h1.getContract());
 
-            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(1L));
+            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(uid(1)));
             assertNotNull(ex);
         }
 
@@ -502,8 +504,8 @@ class ContractHistoryServiceTest {
         @Order(14)
         @DisplayName("Should throw if manager tries to access history by ID not his")
         void shouldThrowIfManagerAccessesOtherHistory() {
-            Managers wrongManager = Managers.builder().id(3L).build();
-            Managers historyManager = Managers.builder().id(99L).build();
+            Managers wrongManager = Managers.builder().id(uid(3)).build();
+            Managers historyManager = Managers.builder().id(uid(99)).build();
             Users user = Users.builder()
                     .username("manager")
                     .role(Roles.builder().role("MANAGER").build())
@@ -511,7 +513,7 @@ class ContractHistoryServiceTest {
                     .build();
 
             ContractHistory entity = ContractHistory.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .contract(Contracts.builder().manager(historyManager).build())
                     .build();
 
@@ -520,9 +522,9 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(user));
-            when(historyRepository.findByIdAndContract_Organization_Id(1L, TENANT)).thenReturn(Optional.of(entity));
+            when(historyRepository.findByIdAndContract_Organization_Id(uid(1), TENANT)).thenReturn(Optional.of(entity));
 
-            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getById(1L));
+            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getById(uid(1)));
             assertNotNull(ex);
         }
 
@@ -556,16 +558,16 @@ class ContractHistoryServiceTest {
         @Order(16)
         @DisplayName("Should throw UserNotFoundException in getById if user not found")
         void shouldThrowUserNotFoundInGetById() {
-            ContractHistory entity = ContractHistory.builder().id(1L).build();
+            ContractHistory entity = ContractHistory.builder().id(uid(1)).build();
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("ghost", null, List.of(() -> "ROLE_MANAGER"))
             );
 
-            when(historyRepository.findByIdAndContract_Organization_Id(1L, TENANT)).thenReturn(Optional.of(entity));
+            when(historyRepository.findByIdAndContract_Organization_Id(uid(1), TENANT)).thenReturn(Optional.of(entity));
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
-            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getById(1L));
+            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getById(uid(1)));
             assertNotNull(ex);
         }
 
@@ -583,7 +585,7 @@ class ContractHistoryServiceTest {
 
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
-            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getByContractId(1L));
+            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getByContractId(uid(1)));
             assertNotNull(ex);
         }
 
@@ -607,10 +609,10 @@ class ContractHistoryServiceTest {
         @DisplayName("getAll with TenantContext uses org-filtered repository for ADMIN")
         void shouldGetAllWithTenantContext() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
-            ContractHistory entity = ContractHistory.builder().id(1L)
-                    .contract(Contracts.builder().id(1L).build())
+            ContractHistory entity = ContractHistory.builder().id(uid(1))
+                    .contract(Contracts.builder().id(uid(1)).build())
                     .build();
-            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, null, null, null, null);
+            ContractHistoryDTO dto = new ContractHistoryDTO(uid(1), uid(1), null, null, null, null);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(
@@ -618,16 +620,16 @@ class ContractHistoryServiceTest {
                     )
             );
 
-            TenantContext.set(2L);
+            TenantContext.set(uid(2));
             try {
                 when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-                when(historyRepository.findByContract_Organization_Id(2L)).thenReturn(List.of(entity));
+                when(historyRepository.findByContract_Organization_Id(uid(2))).thenReturn(List.of(entity));
                 when(historyMapper.toDTO(entity)).thenReturn(dto);
 
                 List<ContractHistoryDTO> result = historyService.getAll();
 
                 assertEquals(1, result.size());
-                verify(historyRepository).findByContract_Organization_Id(2L);
+                verify(historyRepository).findByContract_Organization_Id(uid(2));
             } finally {
                 TenantContext.clear();
             }
@@ -639,10 +641,10 @@ class ContractHistoryServiceTest {
         void shouldGetByIdWithTenantContext() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
             ContractHistory entity = ContractHistory.builder()
-                    .id(1L)
-                    .contract(Contracts.builder().id(1L).manager(Managers.builder().id(1L).build()).build())
+                    .id(uid(1))
+                    .contract(Contracts.builder().id(uid(1)).manager(Managers.builder().id(uid(1)).build()).build())
                     .build();
-            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, null, null, null, null);
+            ContractHistoryDTO dto = new ContractHistoryDTO(uid(1), uid(1), null, null, null, null);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(
@@ -650,16 +652,16 @@ class ContractHistoryServiceTest {
                     )
             );
 
-            TenantContext.set(2L);
+            TenantContext.set(uid(2));
             try {
                 when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-                when(historyRepository.findByIdAndContract_Organization_Id(1L, 2L)).thenReturn(Optional.of(entity));
+                when(historyRepository.findByIdAndContract_Organization_Id(uid(1), uid(2))).thenReturn(Optional.of(entity));
                 when(historyMapper.toDTO(entity)).thenReturn(dto);
 
-                ContractHistoryDTO result = historyService.getById(1L);
+                ContractHistoryDTO result = historyService.getById(uid(1));
 
-                assertEquals(1L, result.id());
-                verify(historyRepository).findByIdAndContract_Organization_Id(1L, 2L);
+                assertEquals(uid(1), result.id());
+                verify(historyRepository).findByIdAndContract_Organization_Id(uid(1), uid(2));
             } finally {
                 TenantContext.clear();
             }
@@ -669,13 +671,13 @@ class ContractHistoryServiceTest {
         @Order(21)
         @DisplayName("getById with TenantContext throws if not found in organization")
         void shouldThrowGetByIdWithTenantContextWhenNotFound() {
-            TenantContext.set(2L);
+            TenantContext.set(uid(2));
             try {
-                when(historyRepository.findByIdAndContract_Organization_Id(999L, 2L)).thenReturn(Optional.empty());
+                when(historyRepository.findByIdAndContract_Organization_Id(uid(999), uid(2))).thenReturn(Optional.empty());
 
                 ContractHistoryNotFoundException ex = assertThrows(ContractHistoryNotFoundException.class,
-                        () -> historyService.getById(999L));
-                assertEquals("Voce storico ID 999 non trovata", ex.getMessage());
+                        () -> historyService.getById(uid(999)));
+                assertEquals("Voce storico ID " + uid(999) + " non trovata", ex.getMessage());
             } finally {
                 TenantContext.clear();
             }
@@ -687,10 +689,10 @@ class ContractHistoryServiceTest {
         void shouldGetByContractIdWithTenantContext() {
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
             ContractHistory entity = ContractHistory.builder()
-                    .id(1L)
-                    .contract(Contracts.builder().id(1L).build())
+                    .id(uid(1))
+                    .contract(Contracts.builder().id(uid(1)).build())
                     .build();
-            ContractHistoryDTO dto = new ContractHistoryDTO(1L, 1L, null, null, null, null);
+            ContractHistoryDTO dto = new ContractHistoryDTO(uid(1), uid(1), null, null, null, null);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(
@@ -698,17 +700,17 @@ class ContractHistoryServiceTest {
                     )
             );
 
-            TenantContext.set(2L);
+            TenantContext.set(uid(2));
             try {
                 when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-                when(contractAccessGuard.getContractInScope(1L)).thenReturn(entity.getContract());
-            when(historyRepository.findByContractIdAndContract_Organization_Id(1L, 2L)).thenReturn(List.of(entity));
+                when(contractAccessGuard.getContractInScope(uid(1))).thenReturn(entity.getContract());
+            when(historyRepository.findByContractIdAndContract_Organization_Id(uid(1), uid(2))).thenReturn(List.of(entity));
                 when(historyMapper.toDTO(entity)).thenReturn(dto);
 
-                List<ContractHistoryDTO> result = historyService.getByContractId(1L);
+                List<ContractHistoryDTO> result = historyService.getByContractId(uid(1));
 
                 assertEquals(1, result.size());
-                verify(historyRepository).findByContractIdAndContract_Organization_Id(1L, 2L);
+                verify(historyRepository).findByContractIdAndContract_Organization_Id(uid(1), uid(2));
             } finally {
                 TenantContext.clear();
             }
@@ -718,13 +720,13 @@ class ContractHistoryServiceTest {
         @Order(23)
         @DisplayName("delete with TenantContext uses org-filtered repository")
         void shouldDeleteWithTenantContext() {
-            ContractHistory entity = ContractHistory.builder().id(1L).build();
+            ContractHistory entity = ContractHistory.builder().id(uid(1)).build();
 
-            TenantContext.set(2L);
+            TenantContext.set(uid(2));
             try {
-                when(historyRepository.findByIdAndContract_Organization_Id(1L, 2L)).thenReturn(Optional.of(entity));
+                when(historyRepository.findByIdAndContract_Organization_Id(uid(1), uid(2))).thenReturn(Optional.of(entity));
 
-                historyService.delete(1L);
+                historyService.delete(uid(1));
 
                 verify(historyRepository).delete(entity);
             } finally {

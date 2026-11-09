@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
@@ -36,28 +37,28 @@ public class ContractWorkflowController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @PostMapping("/submit")
-    public ResponseEntity<Void> submitForReview(@PathVariable Long contractId) {
+    public ResponseEntity<Void> submitForReview(@PathVariable UUID contractId) {
         contractWorkflowService.submitForReview(contractId);
         return ResponseEntity.noContent().build();
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @PostMapping("/approve")
-    public ResponseEntity<Void> approve(@PathVariable Long contractId) {
+    public ResponseEntity<Void> approve(@PathVariable UUID contractId) {
         contractWorkflowService.approve(contractId);
         return ResponseEntity.noContent().build();
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @PostMapping("/reject")
-    public ResponseEntity<Void> reject(@PathVariable Long contractId, @RequestBody RejectContractRequest request) {
+    public ResponseEntity<Void> reject(@PathVariable UUID contractId, @RequestBody RejectContractRequest request) {
         contractWorkflowService.reject(contractId, request.comment());
         return ResponseEntity.noContent().build();
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/events")
-    public ResponseEntity<List<ContractWorkflowEventDTO>> getEvents(@PathVariable Long contractId) {
+    public ResponseEntity<List<ContractWorkflowEventDTO>> getEvents(@PathVariable UUID contractId) {
         return ResponseEntity.ok(contractWorkflowService.getEvents(contractId));
     }
 }

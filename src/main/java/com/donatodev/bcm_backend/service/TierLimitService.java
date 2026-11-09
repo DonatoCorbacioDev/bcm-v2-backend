@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.Map;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -47,7 +48,7 @@ public class TierLimitService {
      *
      * @param orgId the organization attempting to create a contract
      */
-    public void enforceContractCreationLimit(Long orgId) {
+    public void enforceContractCreationLimit(UUID orgId) {
         if (orgId == null) {
             return;
         }
@@ -92,7 +93,7 @@ public class TierLimitService {
      *
      * @param orgId the organization attempting to call an ML endpoint
      */
-    public void requireMlAccess(Long orgId) {
+    public void requireMlAccess(UUID orgId) {
         if (orgId == null) {
             return;
         }

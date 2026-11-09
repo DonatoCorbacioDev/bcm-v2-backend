@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,7 +46,7 @@ public class BudgetService {
      * @return a list of {@link BudgetDTO}
      */
     public List<BudgetDTO> getAllBudgets() {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         List<Budget> budgets = budgetRepository.findAllByOrganizationId(orgId);
         return budgets.stream().map(budget -> budgetMapper.toDTO(budget, orgId)).toList();
     }
@@ -57,8 +58,8 @@ public class BudgetService {
      * @return the corresponding {@link BudgetDTO}
      * @throws BudgetNotFoundException if the budget is not found
      */
-    public BudgetDTO getBudgetById(Long id) {
-        Long orgId = TenantContext.require();
+    public BudgetDTO getBudgetById(UUID id) {
+        UUID orgId = TenantContext.require();
         Budget budget = findBudgetInScope(id)
                 .orElseThrow(() -> new BudgetNotFoundException(BUDGET_ID_PREFIX + id + NOT_FOUND_SUFFIX));
         return budgetMapper.toDTO(budget, orgId);
@@ -68,8 +69,8 @@ public class BudgetService {
      * Finds a budget by ID, scoped to the current tenant when
      * {@link TenantContext} carries an organization ID.
      */
-    private Optional<Budget> findBudgetInScope(Long id) {
-        Long orgId = TenantContext.require();
+    private Optional<Budget> findBudgetInScope(UUID id) {
+        UUID orgId = TenantContext.require();
         return budgetRepository.findByIdAndOrganizationId(id, orgId);
     }
 
@@ -83,7 +84,7 @@ public class BudgetService {
         Budget budget = budgetMapper.toEntity(dto);
         // Creation must never merge an existing row selected by a client-supplied ID.
         budget.setId(null);
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         Organization org = new Organization();
         org.setId(orgId);
         budget.setOrganization(org);
@@ -99,8 +100,8 @@ public class BudgetService {
      * @return the updated {@link BudgetDTO}
      * @throws BudgetNotFoundException if the budget is not found
      */
-    public BudgetDTO updateBudget(Long id, BudgetDTO dto) {
-        Long orgId = TenantContext.require();
+    public BudgetDTO updateBudget(UUID id, BudgetDTO dto) {
+        UUID orgId = TenantContext.require();
         Budget budget = findBudgetInScope(id)
                 .orElseThrow(() -> new BudgetNotFoundException(BUDGET_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
@@ -116,7 +117,7 @@ public class BudgetService {
      * @param id the ID of the budget to delete
      * @throws BudgetNotFoundException if the budget is not found
      */
-    public void deleteBudget(Long id) {
+    public void deleteBudget(UUID id) {
         Budget budget = findBudgetInScope(id)
                 .orElseThrow(() -> new BudgetNotFoundException(BUDGET_ID_PREFIX + id + NOT_FOUND_SUFFIX));
         budgetRepository.delete(budget);

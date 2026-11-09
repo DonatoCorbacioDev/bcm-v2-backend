@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.Normalizer;
@@ -105,7 +106,7 @@ public class ContractImportService {
             throw new IllegalArgumentException("Sono supportati solo file .xlsx");
         }
 
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         List<BusinessAreas> areas = businessAreasRepository.findAllByOrganizationId(orgId);
         List<Managers> managers = managersRepository.findAllByOrganizationId(orgId);
 
@@ -204,19 +205,19 @@ public class ContractImportService {
     }
 
     private ContractDTO parseRow(Row row, List<BusinessAreas> areas, List<Managers> managers,
-            Set<String> seenContractNumbers, Long orgId) {
+            Set<String> seenContractNumbers, UUID orgId) {
         String contractNumber = getRequiredString(row, COL_CONTRACT_NUMBER, "Numero contratto");
         String counterpartyName = getRequiredString(row, COL_COUNTERPARTY, "Controparte");
         String projectName = getOptionalString(row, COL_PROJECT);
         ContractStatus status = parseStatus(getOptionalString(row, COL_STATUS));
         LocalDate startDate = parseDateCell(getCell(row, COL_START_DATE), "Data inizio");
         LocalDate endDate = parseDateCell(getCell(row, COL_END_DATE), "Data fine");
-        Long areaId = resolveArea(getOptionalString(row, COL_AREA), areas);
-        Long managerId = resolveManager(getOptionalString(row, COL_MANAGER), managers);
+        UUID areaId = resolveArea(getOptionalString(row, COL_AREA), areas);
+        UUID managerId = resolveManager(getOptionalString(row, COL_MANAGER), managers);
         // Unlike area/manager, an unmatched counterparty name doesn't reject the
         // row -- it creates a new CUSTOMER-type counterparty on the fly, since a
         // company migrating from spreadsheets rarely has a clean anagraphic yet.
-        Long counterpartyId = counterpartyService.resolveOrCreateByName(counterpartyName).getId();
+        UUID counterpartyId = counterpartyService.resolveOrCreateByName(counterpartyName).getId();
 
         if (!seenContractNumbers.add(contractNumber)
                 || contractsRepository.existsByContractNumberAndOrganizationId(contractNumber, orgId)) {
@@ -309,7 +310,7 @@ public class ContractImportService {
         }
     }
 
-    private Long resolveArea(String name, List<BusinessAreas> areas) {
+    private UUID resolveArea(String name, List<BusinessAreas> areas) {
         if (name == null) {
             throw new ContractImportRowException("Area aziendale mancante");
         }
@@ -322,7 +323,7 @@ public class ContractImportService {
         throw new ContractImportRowException("Area aziendale non trovata: \"" + name + "\"");
     }
 
-    private Long resolveManager(String value, List<Managers> managers) {
+    private UUID resolveManager(String value, List<Managers> managers) {
         if (value == null) {
             return null;
         }

@@ -5,12 +5,12 @@
 
 package com.donatodev.bcm_backend.entity;
 
+import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -33,15 +33,15 @@ import lombok.Setter;
 public class OrganizationDeletionCode {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
+    private UUID id;
 
     @Column(name = "organization_id", nullable = false, unique = true)
-    private Long organizationId;
+    private UUID organizationId;
 
     /** The admin who asked: only they can confirm with this code. */
     @Column(name = "user_id", nullable = false)
-    private Long userId;
+    private UUID userId;
 
     /** SHA-256 hex of {@code "delete:" + organizationId + ":" + code}; the code itself is never stored. */
     @Column(name = "code_hash", nullable = false, length = 64)

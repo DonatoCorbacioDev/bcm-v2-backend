@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import com.donatodev.bcm_backend.entity.Users;
@@ -16,10 +17,10 @@ import com.donatodev.bcm_backend.entity.Users;
  * feed URL), and the lockout state (failedLoginAttempts, lockedUntil).
  */
 public record UserExportDTO(
-        Long id,
+        UUID id,
         String username,
         String role,
-        Long managerId,
+        UUID managerId,
         boolean verified,
         boolean totpEnabled,
         boolean canApproveContracts,

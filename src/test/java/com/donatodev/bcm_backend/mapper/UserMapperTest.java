@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.mapper;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -70,7 +72,7 @@ class UserMapperTest {
     @Test
     void shouldMapToDTOCorrectly() {
         Users user = Users.builder()
-                .id(1L)
+                .id(uid(1))
                 .username("dtoUser")
                 .manager(savedManager)
                 .role(savedRole)
@@ -92,7 +94,7 @@ class UserMapperTest {
     @Test
     void shouldMapToEntityWithManager() {
         UserDTO dto = new UserDTO(
-                1L,
+                uid(1),
                 "entityUser",
                 "password123",
                 savedManager.getId(),
@@ -117,7 +119,7 @@ class UserMapperTest {
     @Test
     void shouldMapToEntityWithoutManager() {
         UserDTO dto = new UserDTO(
-                2L,
+                uid(2),
                 "userNoManager",
                 "securePass",
                 null,
@@ -140,9 +142,9 @@ class UserMapperTest {
      */
     @Test
     void shouldThrowIfManagerNotFound() {
-        Long invalidManagerId = 999L;
+        UUID invalidManagerId = uid(999);
         UserDTO dto = new UserDTO(
-                3L,
+                uid(3),
                 "errorUser",
                 "pass",
                 invalidManagerId,
@@ -161,9 +163,9 @@ class UserMapperTest {
      */
     @Test
     void shouldThrowIfRoleNotFound() {
-        Long invalidRoleId = 888L;
+        UUID invalidRoleId = uid(888);
         UserDTO dto = new UserDTO(
-                4L,
+                uid(4),
                 "errorRoleUser",
                 "pass",
                 null,
@@ -183,7 +185,7 @@ class UserMapperTest {
     @Test
     void shouldMapToDTOWithoutManager() {
         Users user = Users.builder()
-                .id(5L)
+                .id(uid(5))
                 .username("userWithoutManager")
                 .manager(null) // No manager
                 .role(savedRole)

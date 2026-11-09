@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,7 +44,7 @@ class RiskScoreRefresherTest {
 
     private RiskScoreRefresher riskScoreRefresher;
 
-    private static final Long ORG_ID = 1L;
+    private static final UUID ORG_ID = uid(1);
 
     @org.junit.jupiter.api.BeforeEach
     void setup() {
@@ -59,7 +61,7 @@ class RiskScoreRefresherTest {
         org.mockito.Mockito.verifyNoInteractions(mlProxyService, organizationRepository, agentNotificationService);
     }
 
-    private Organization org(Long id) {
+    private Organization org(UUID id) {
         Organization o = new Organization();
         o.setId(id);
         return o;
@@ -80,16 +82,16 @@ class RiskScoreRefresherTest {
         @DisplayName("Should notify for contracts with riskScore above 0.7")
         void shouldNotifyHighRiskContracts() {
             oneOrg();
-            String json = "[{\"contractId\":1,\"riskScore\":0.85},{\"contractId\":2,\"riskScore\":0.3}]";
-            Contracts contract = Contracts.builder().id(1L).contractNumber("CNT-HIGH").build();
+            String json = "[{\"contractId\":\"00000000-0000-0000-0000-000000000001\",\"riskScore\":0.85},{\"contractId\":\"00000000-0000-0000-0000-000000000002\",\"riskScore\":0.3}]";
+            Contracts contract = Contracts.builder().id(uid(1)).contractNumber("CNT-HIGH").build();
 
             when(mlProxyService.fetchRiskScoresRaw(ORG_ID)).thenReturn(ResponseEntity.ok(json));
-            when(contractsRepository.findByIdAndOrganization_Id(1L, ORG_ID)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(1), ORG_ID)).thenReturn(Optional.of(contract));
 
             riskScoreRefresher.refreshRiskScores();
 
-            verify(contractsRepository).findByIdAndOrganization_Id(1L, ORG_ID);
-            verify(contractsRepository, never()).findByIdAndOrganization_Id(eq(2L), any());
+            verify(contractsRepository).findByIdAndOrganization_Id(uid(1), ORG_ID);
+            verify(contractsRepository, never()).findByIdAndOrganization_Id(eq(uid(2)), any());
             verify(agentNotificationService).notifyHighRisk(contract, 0.85);
         }
 
@@ -98,7 +100,7 @@ class RiskScoreRefresherTest {
         @DisplayName("Should not notify for contracts with riskScore at or below 0.7")
         void shouldNotNotifyLowRiskContracts() {
             oneOrg();
-            String json = "[{\"contractId\":1,\"riskScore\":0.7},{\"contractId\":2,\"riskScore\":0.5}]";
+            String json = "[{\"contractId\":\"00000000-0000-0000-0000-000000000001\",\"riskScore\":0.7},{\"contractId\":\"00000000-0000-0000-0000-000000000002\",\"riskScore\":0.5}]";
             when(mlProxyService.fetchRiskScoresRaw(ORG_ID)).thenReturn(ResponseEntity.ok(json));
 
             riskScoreRefresher.refreshRiskScores();
@@ -138,12 +140,12 @@ class RiskScoreRefresherTest {
         @DisplayName("Should continue processing when one contract lookup throws")
         void shouldContinueWhenContractLookupFails() {
             oneOrg();
-            String json = "[{\"contractId\":1,\"riskScore\":0.9},{\"contractId\":2,\"riskScore\":0.8}]";
-            Contracts contract2 = Contracts.builder().id(2L).contractNumber("CNT-002").build();
+            String json = "[{\"contractId\":\"00000000-0000-0000-0000-000000000001\",\"riskScore\":0.9},{\"contractId\":\"00000000-0000-0000-0000-000000000002\",\"riskScore\":0.8}]";
+            Contracts contract2 = Contracts.builder().id(uid(2)).contractNumber("CNT-002").build();
 
             when(mlProxyService.fetchRiskScoresRaw(ORG_ID)).thenReturn(ResponseEntity.ok(json));
-            when(contractsRepository.findByIdAndOrganization_Id(1L, ORG_ID)).thenThrow(new RuntimeException("DB error"));
-            when(contractsRepository.findByIdAndOrganization_Id(2L, ORG_ID)).thenReturn(Optional.of(contract2));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(1), ORG_ID)).thenThrow(new RuntimeException("DB error"));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(2), ORG_ID)).thenReturn(Optional.of(contract2));
 
             assertDoesNotThrow(() -> riskScoreRefresher.refreshRiskScores());
 
@@ -155,12 +157,12 @@ class RiskScoreRefresherTest {
         @DisplayName("Should continue processing when a contract lookup throws with no message")
         void shouldContinueWhenContractLookupFailsWithNullMessage() {
             oneOrg();
-            String json = "[{\"contractId\":1,\"riskScore\":0.9},{\"contractId\":2,\"riskScore\":0.8}]";
-            Contracts contract2 = Contracts.builder().id(2L).contractNumber("CNT-002").build();
+            String json = "[{\"contractId\":\"00000000-0000-0000-0000-000000000001\",\"riskScore\":0.9},{\"contractId\":\"00000000-0000-0000-0000-000000000002\",\"riskScore\":0.8}]";
+            Contracts contract2 = Contracts.builder().id(uid(2)).contractNumber("CNT-002").build();
 
             when(mlProxyService.fetchRiskScoresRaw(ORG_ID)).thenReturn(ResponseEntity.ok(json));
-            when(contractsRepository.findByIdAndOrganization_Id(1L, ORG_ID)).thenThrow(new RuntimeException());
-            when(contractsRepository.findByIdAndOrganization_Id(2L, ORG_ID)).thenReturn(Optional.of(contract2));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(1), ORG_ID)).thenThrow(new RuntimeException());
+            when(contractsRepository.findByIdAndOrganization_Id(uid(2), ORG_ID)).thenReturn(Optional.of(contract2));
 
             assertDoesNotThrow(() -> riskScoreRefresher.refreshRiskScores());
 
@@ -172,10 +174,10 @@ class RiskScoreRefresherTest {
         @DisplayName("Should skip notification when contract not found in the org")
         void shouldSkipWhenContractNotFound() {
             oneOrg();
-            String json = "[{\"contractId\":99,\"riskScore\":0.95}]";
+            String json = "[{\"contractId\":\"00000000-0000-0000-0000-000000000063\",\"riskScore\":0.95}]";
 
             when(mlProxyService.fetchRiskScoresRaw(ORG_ID)).thenReturn(ResponseEntity.ok(json));
-            when(contractsRepository.findByIdAndOrganization_Id(99L, ORG_ID)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(uid(99), ORG_ID)).thenReturn(Optional.empty());
 
             assertDoesNotThrow(() -> riskScoreRefresher.refreshRiskScores());
 
@@ -186,12 +188,12 @@ class RiskScoreRefresherTest {
         @Order(8)
         @DisplayName("Should continue refreshing remaining orgs when one fails")
         void shouldContinueWhenOneOrgFails() {
-            when(organizationRepository.findAll()).thenReturn(List.of(org(1L), org(2L)));
-            when(mlProxyService.fetchRiskScoresRaw(1L)).thenThrow(new RuntimeException("ML down"));
-            String json = "[{\"contractId\":5,\"riskScore\":0.9}]";
-            Contracts contract = Contracts.builder().id(5L).contractNumber("CNT-005").build();
-            when(mlProxyService.fetchRiskScoresRaw(2L)).thenReturn(ResponseEntity.ok(json));
-            when(contractsRepository.findByIdAndOrganization_Id(5L, 2L)).thenReturn(Optional.of(contract));
+            when(organizationRepository.findAll()).thenReturn(List.of(org(uid(1)), org(uid(2))));
+            when(mlProxyService.fetchRiskScoresRaw(uid(1))).thenThrow(new RuntimeException("ML down"));
+            String json = "[{\"contractId\":\"00000000-0000-0000-0000-000000000005\",\"riskScore\":0.9}]";
+            Contracts contract = Contracts.builder().id(uid(5)).contractNumber("CNT-005").build();
+            when(mlProxyService.fetchRiskScoresRaw(uid(2))).thenReturn(ResponseEntity.ok(json));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(5), uid(2))).thenReturn(Optional.of(contract));
 
             assertDoesNotThrow(() -> riskScoreRefresher.refreshRiskScores());
 
@@ -203,9 +205,9 @@ class RiskScoreRefresherTest {
         @DisplayName("Never queries a contract by an unscoped id across organizations")
         void neverLooksUpContractsUnscoped() {
             oneOrg();
-            String json = "[{\"contractId\":1,\"riskScore\":0.9}]";
+            String json = "[{\"contractId\":\"00000000-0000-0000-0000-000000000001\",\"riskScore\":0.9}]";
             when(mlProxyService.fetchRiskScoresRaw(ORG_ID)).thenReturn(ResponseEntity.ok(json));
-            when(contractsRepository.findByIdAndOrganization_Id(1L, ORG_ID)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(uid(1), ORG_ID)).thenReturn(Optional.empty());
 
             riskScoreRefresher.refreshRiskScores();
 

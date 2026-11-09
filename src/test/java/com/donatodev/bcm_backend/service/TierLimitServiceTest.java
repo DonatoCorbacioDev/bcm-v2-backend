@@ -1,5 +1,8 @@
 package com.donatodev.bcm_backend.service;
 
+import static org.mockito.ArgumentMatchers.any;
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -46,111 +49,111 @@ class TierLimitServiceTest {
     @DisplayName("No-op when there is no tenant context (orgId null)")
     void shouldDoNothingWhenOrgIdIsNull() {
         assertDoesNotThrow(() -> tierLimitService.enforceContractCreationLimit(null));
-        verify(organizationRepository, never()).findById(anyLong());
+        verify(organizationRepository, never()).findById(any(UUID.class));
     }
 
     @Test
     @DisplayName("No-op when the organization can't be resolved")
     void shouldDoNothingWhenOrganizationNotFound() {
-        when(organizationRepository.findById(99L)).thenReturn(Optional.empty());
+        when(organizationRepository.findById(uid(99))).thenReturn(Optional.empty());
 
-        assertDoesNotThrow(() -> tierLimitService.enforceContractCreationLimit(99L));
-        verify(contractsRepository, never()).countAllContractsByOrg(anyLong());
+        assertDoesNotThrow(() -> tierLimitService.enforceContractCreationLimit(uid(99)));
+        verify(contractsRepository, never()).countAllContractsByOrg(any(UUID.class));
     }
 
     @Test
     @DisplayName("FREE tier under the limit: allowed")
     void shouldAllowCreationUnderFreeLimit() {
-        Organization org = Organization.builder().id(1L).subscriptionTier(SubscriptionTier.FREE).build();
-        when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
-        when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(14);
+        Organization org = Organization.builder().id(uid(1)).subscriptionTier(SubscriptionTier.FREE).build();
+        when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
+        when(contractsRepository.countAllContractsByOrg(uid(1))).thenReturn(14);
 
-        assertDoesNotThrow(() -> tierLimitService.enforceContractCreationLimit(1L));
+        assertDoesNotThrow(() -> tierLimitService.enforceContractCreationLimit(uid(1)));
     }
 
     @Test
     @DisplayName("FREE tier at the limit: rejected")
     void shouldRejectCreationAtFreeLimit() {
-        Organization org = Organization.builder().id(1L).subscriptionTier(SubscriptionTier.FREE).build();
-        when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
-        when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(15);
+        Organization org = Organization.builder().id(uid(1)).subscriptionTier(SubscriptionTier.FREE).build();
+        when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
+        when(contractsRepository.countAllContractsByOrg(uid(1))).thenReturn(15);
 
         TierLimitExceededException ex = assertThrows(TierLimitExceededException.class,
-                () -> tierLimitService.enforceContractCreationLimit(1L));
+                () -> tierLimitService.enforceContractCreationLimit(uid(1)));
         assertTrue(ex.getMessage().contains("FREE"));
     }
 
     @Test
     @DisplayName("PRO tier under the limit: allowed")
     void shouldAllowCreationUnderProLimit() {
-        Organization org = Organization.builder().id(2L).subscriptionTier(SubscriptionTier.PRO).build();
-        when(organizationRepository.findById(2L)).thenReturn(Optional.of(org));
-        when(contractsRepository.countAllContractsByOrg(2L)).thenReturn(199);
+        Organization org = Organization.builder().id(uid(2)).subscriptionTier(SubscriptionTier.PRO).build();
+        when(organizationRepository.findById(uid(2))).thenReturn(Optional.of(org));
+        when(contractsRepository.countAllContractsByOrg(uid(2))).thenReturn(199);
 
-        assertDoesNotThrow(() -> tierLimitService.enforceContractCreationLimit(2L));
+        assertDoesNotThrow(() -> tierLimitService.enforceContractCreationLimit(uid(2)));
     }
 
     @Test
     @DisplayName("PRO tier at the limit: rejected")
     void shouldRejectCreationAtProLimit() {
-        Organization org = Organization.builder().id(2L).subscriptionTier(SubscriptionTier.PRO).build();
-        when(organizationRepository.findById(2L)).thenReturn(Optional.of(org));
-        when(contractsRepository.countAllContractsByOrg(2L)).thenReturn(200);
+        Organization org = Organization.builder().id(uid(2)).subscriptionTier(SubscriptionTier.PRO).build();
+        when(organizationRepository.findById(uid(2))).thenReturn(Optional.of(org));
+        when(contractsRepository.countAllContractsByOrg(uid(2))).thenReturn(200);
 
         assertThrows(TierLimitExceededException.class,
-                () -> tierLimitService.enforceContractCreationLimit(2L));
+                () -> tierLimitService.enforceContractCreationLimit(uid(2)));
     }
 
     @Test
     @DisplayName("ENTERPRISE tier is unlimited: never counts contracts")
     void shouldNeverLimitEnterpriseTier() {
-        Organization org = Organization.builder().id(3L).subscriptionTier(SubscriptionTier.ENTERPRISE).build();
-        when(organizationRepository.findById(3L)).thenReturn(Optional.of(org));
+        Organization org = Organization.builder().id(uid(3)).subscriptionTier(SubscriptionTier.ENTERPRISE).build();
+        when(organizationRepository.findById(uid(3))).thenReturn(Optional.of(org));
 
-        assertDoesNotThrow(() -> tierLimitService.enforceContractCreationLimit(3L));
-        verify(contractsRepository, never()).countAllContractsByOrg(anyLong());
+        assertDoesNotThrow(() -> tierLimitService.enforceContractCreationLimit(uid(3)));
+        verify(contractsRepository, never()).countAllContractsByOrg(any(UUID.class));
     }
 
     @Test
     @DisplayName("requireMlAccess: no-op when orgId is null")
     void requireMlAccessNoOpWhenOrgIdNull() {
         assertDoesNotThrow(() -> tierLimitService.requireMlAccess(null));
-        verify(organizationRepository, never()).findById(anyLong());
+        verify(organizationRepository, never()).findById(any(UUID.class));
     }
 
     @Test
     @DisplayName("requireMlAccess: no-op when the organization can't be resolved")
     void requireMlAccessNoOpWhenOrganizationNotFound() {
-        when(organizationRepository.findById(99L)).thenReturn(Optional.empty());
+        when(organizationRepository.findById(uid(99))).thenReturn(Optional.empty());
 
-        assertDoesNotThrow(() -> tierLimitService.requireMlAccess(99L));
+        assertDoesNotThrow(() -> tierLimitService.requireMlAccess(uid(99)));
     }
 
     @Test
     @DisplayName("requireMlAccess: FREE tier is denied")
     void requireMlAccessDeniesFreeTier() {
-        Organization org = Organization.builder().id(1L).subscriptionTier(SubscriptionTier.FREE).build();
-        when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+        Organization org = Organization.builder().id(uid(1)).subscriptionTier(SubscriptionTier.FREE).build();
+        when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
 
-        assertThrows(AccessDeniedException.class, () -> tierLimitService.requireMlAccess(1L));
+        assertThrows(AccessDeniedException.class, () -> tierLimitService.requireMlAccess(uid(1)));
     }
 
     @Test
     @DisplayName("requireMlAccess: PRO tier is allowed")
     void requireMlAccessAllowsProTier() {
-        Organization org = Organization.builder().id(2L).subscriptionTier(SubscriptionTier.PRO).build();
-        when(organizationRepository.findById(2L)).thenReturn(Optional.of(org));
+        Organization org = Organization.builder().id(uid(2)).subscriptionTier(SubscriptionTier.PRO).build();
+        when(organizationRepository.findById(uid(2))).thenReturn(Optional.of(org));
 
-        assertDoesNotThrow(() -> tierLimitService.requireMlAccess(2L));
+        assertDoesNotThrow(() -> tierLimitService.requireMlAccess(uid(2)));
     }
 
     @Test
     @DisplayName("requireMlAccess: ENTERPRISE tier is allowed")
     void requireMlAccessAllowsEnterpriseTier() {
-        Organization org = Organization.builder().id(3L).subscriptionTier(SubscriptionTier.ENTERPRISE).build();
-        when(organizationRepository.findById(3L)).thenReturn(Optional.of(org));
+        Organization org = Organization.builder().id(uid(3)).subscriptionTier(SubscriptionTier.ENTERPRISE).build();
+        when(organizationRepository.findById(uid(3))).thenReturn(Optional.of(org));
 
-        assertDoesNotThrow(() -> tierLimitService.requireMlAccess(3L));
+        assertDoesNotThrow(() -> tierLimitService.requireMlAccess(uid(3)));
     }
 
     @Test

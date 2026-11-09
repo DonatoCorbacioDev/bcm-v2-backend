@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
@@ -44,7 +45,7 @@ class SemanticSearchControllerTest {
         @DisplayName("Returns ranked results for an authorized query")
         void shouldReturnResults() throws Exception {
             when(semanticSearchService.search(anyString(), anyInt())).thenReturn(List.of(
-                    new SemanticSearchResultDTO(1L, "CTR-001", "Acme", 10L, "contract.pdf", 0.87)));
+                    new SemanticSearchResultDTO(uid(1), "CTR-001", "Acme", uid(10), "contract.pdf", 0.87)));
 
             mockMvc.perform(post("/contracts/search/semantic")
                             .contentType(MediaType.APPLICATION_JSON)

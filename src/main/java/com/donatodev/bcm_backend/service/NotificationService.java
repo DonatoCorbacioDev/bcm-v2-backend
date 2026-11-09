@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.List;
 
 import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
@@ -44,7 +45,7 @@ public class NotificationService {
     }
 
     @Transactional
-    public void createForUser(Long userId, Long orgId, String title, String message, NotificationType type) {
+    public void createForUser(UUID userId, UUID orgId, String title, String message, NotificationType type) {
         Users user = usersRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("Utente non trovato: " + userId));
 
@@ -62,9 +63,9 @@ public class NotificationService {
     // trust the contractId at face value just because the ML service already
     // checked it once; the write only happens here, behind normal auth.
     @Transactional
-    public void createReminderForCurrentUser(Long contractId, String message) {
+    public void createReminderForCurrentUser(UUID contractId, String message) {
         Users user = resolveCurrentUser();
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
 
         Contracts contract = contractsRepository.findByIdAndOrganization_Id(contractId, orgId)
                 .orElseThrow(() -> new ContractNotFoundException("Contratto ID " + contractId + " non trovato"));
@@ -73,7 +74,7 @@ public class NotificationService {
         // is only scoped by org (see bcm-v2-ml's _propose_reminder), so a manager
         // could otherwise confirm a reminder on a colleague's contract.
         if ("MANAGER".equals(user.getRole().getRole())) {
-            Long managerId = user.getManager() != null ? user.getManager().getId() : null;
+            UUID managerId = user.getManager() != null ? user.getManager().getId() : null;
             Managers contractManager = contract.getManager();
             if (managerId == null || contractManager == null || !managerId.equals(contractManager.getId())) {
                 throw new ContractNotFoundException("Contratto ID " + contractId + " non trovato");
@@ -98,9 +99,9 @@ public class NotificationService {
     }
 
     @Transactional
-    public void markAsRead(Long notificationId) {
+    public void markAsRead(UUID notificationId) {
         Users user = resolveCurrentUser();
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
 
         Notification n = notificationRepository.findByIdAndUserIdAndOrgId(notificationId, user.getId(), orgId)
                 .orElseThrow(() -> new NotificationNotFoundException("Notifica non trovata: " + notificationId));
@@ -112,7 +113,7 @@ public class NotificationService {
     @Transactional
     public void markAllAsRead() {
         Users user = resolveCurrentUser();
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
 
         List<Notification> unread = notificationRepository
                 .findByUserIdAndOrgIdOrderByCreatedAtDesc(user.getId(), orgId)
@@ -127,7 +128,7 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public List<NotificationDTO> getForCurrentUser() {
         Users user = resolveCurrentUser();
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
 
         return notificationRepository
                 .findByUserIdAndOrgIdOrderByCreatedAtDesc(user.getId(), orgId)
@@ -139,7 +140,7 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public long getUnreadCount() {
         Users user = resolveCurrentUser();
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         return notificationRepository.countByUserIdAndOrgIdAndReadFalse(user.getId(), orgId);
     }
 

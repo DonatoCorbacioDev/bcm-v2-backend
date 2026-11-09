@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.mapper;
 
+import java.util.UUID;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.ZoneId;
@@ -191,11 +192,11 @@ public class ContractMapper {
      * {@link TenantContext} carries an organization ID, so a contract can't
      * be linked to a manager belonging to a different organization.
      */
-    private Managers resolveManager(Long managerId) {
+    private Managers resolveManager(UUID managerId) {
         if (managerId == null) {
             return null;
         }
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         return managersRepository.findByIdAndOrganizationId(managerId, orgId)
                 .orElseThrow(() -> new ManagerNotFoundException("Manager not found: " + managerId));
     }
@@ -206,8 +207,8 @@ public class ContractMapper {
      * so a contract can't be linked to a business area belonging to a
      * different organization.
      */
-    private BusinessAreas resolveBusinessArea(Long areaId) {
-        Long orgId = TenantContext.require();
+    private BusinessAreas resolveBusinessArea(UUID areaId) {
+        UUID orgId = TenantContext.require();
         return businessAreasRepository.findByIdAndOrganizationId(areaId, orgId)
                 .orElseThrow(() -> new BusinessAreaNotFoundException("Business area not found: " + areaId));
     }
@@ -218,8 +219,8 @@ public class ContractMapper {
      * so a contract can't be linked to a counterparty belonging to a
      * different organization.
      */
-    private Counterparty resolveCounterparty(Long counterpartyId) {
-        Long orgId = TenantContext.require();
+    private Counterparty resolveCounterparty(UUID counterpartyId) {
+        UUID orgId = TenantContext.require();
         return counterpartiesRepository.findByIdAndOrganizationId(counterpartyId, orgId)
                 .orElseThrow(() -> new CounterpartyNotFoundException("Counterparty not found: " + counterpartyId));
     }
@@ -230,8 +231,8 @@ public class ContractMapper {
      * {@link TenantContext} carries an organization ID, same as the other
      * resolve helpers above.
      */
-    private FinancialTypes resolveFinancialType(Long financialTypeId) {
-        Long orgId = TenantContext.require();
+    private FinancialTypes resolveFinancialType(UUID financialTypeId) {
+        UUID orgId = TenantContext.require();
         return financialTypesRepository.findByIdAndOrganizationId(financialTypeId, orgId)
                 .orElseThrow(() -> new FinancialTypeNotFoundException("Financial type not found: " + financialTypeId));
     }

@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.aspect;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -52,10 +54,10 @@ class AuditAspectTest {
     }
 
     // Helper records/classes for extractEntityId testing
-    record DtoWithId(Long id) {}
+    record DtoWithId(UUID id) {}
 
     static class EntityWithGetId {
-        public Long getId() { return 99L; }
+        public UUID getId() { return uid(99); }
     }
 
     static class EntityWithStringId {
@@ -78,12 +80,12 @@ class AuditAspectTest {
         @Order(1)
         @DisplayName("Extracts id via id() record accessor")
         void shouldExtractIdFromIdMethod() throws Throwable {
-            when(joinPoint.proceed()).thenReturn(new DtoWithId(42L));
+            when(joinPoint.proceed()).thenReturn(new DtoWithId(uid(42)));
             when(signature.getName()).thenReturn("createContract");
 
             auditAspect.auditServiceMethod(joinPoint);
 
-            verify(auditLogService).save(eq("CREATE"), any(), eq(42L), any(), any(), any());
+            verify(auditLogService).save(eq("CREATE"), any(), eq(uid(42)), any(), any(), any());
         }
 
         @Test
@@ -95,7 +97,7 @@ class AuditAspectTest {
 
             auditAspect.auditServiceMethod(joinPoint);
 
-            verify(auditLogService).save(eq("UPDATE"), any(), eq(99L), any(), any(), any());
+            verify(auditLogService).save(eq("UPDATE"), any(), eq(uid(99)), any(), any(), any());
         }
 
         @Test
@@ -103,12 +105,12 @@ class AuditAspectTest {
         @DisplayName("Falls back to Long arg when id() returns non-Number — covers both catch blocks")
         void shouldFallbackToArgWhenIdReturnsNonNumber() throws Throwable {
             when(joinPoint.proceed()).thenReturn(new EntityWithStringId());
-            when(joinPoint.getArgs()).thenReturn(new Object[]{55L, "other"});
+            when(joinPoint.getArgs()).thenReturn(new Object[]{uid(55), "other"});
             when(signature.getName()).thenReturn("deleteStuff");
 
             auditAspect.auditServiceMethod(joinPoint);
 
-            verify(auditLogService).save(eq("DELETE"), any(), eq(55L), any(), any(), any());
+            verify(auditLogService).save(eq("DELETE"), any(), eq(uid(55)), any(), any(), any());
         }
 
         @Test
@@ -116,13 +118,13 @@ class AuditAspectTest {
         @DisplayName("getId() exists but returns non-Number — covers second try false branch")
         void shouldHandleGetIdReturningNonNumber() throws Throwable {
             when(joinPoint.proceed()).thenReturn(new EntityWithBothStringIds());
-            when(joinPoint.getArgs()).thenReturn(new Object[]{77L});
+            when(joinPoint.getArgs()).thenReturn(new Object[]{uid(77)});
             when(signature.getName()).thenReturn("updateItem");
 
             auditAspect.auditServiceMethod(joinPoint);
 
             // Falls through both id() and getId() non-Number checks → Long arg fallback
-            verify(auditLogService).save(eq("UPDATE"), any(), eq(77L), any(), any(), any());
+            verify(auditLogService).save(eq("UPDATE"), any(), eq(uid(77)), any(), any(), any());
         }
 
         @Test
@@ -130,12 +132,12 @@ class AuditAspectTest {
         @DisplayName("Falls back to the last Long arg — entity id, not the containing resource id")
         void shouldFallbackToLastLongArgForContainerEntityIdPattern() throws Throwable {
             when(joinPoint.proceed()).thenReturn(null);
-            when(joinPoint.getArgs()).thenReturn(new Object[]{1L, 7L}); // (contractId, invoiceId)
+            when(joinPoint.getArgs()).thenReturn(new Object[]{uid(1), uid(7)}); // (contractId, invoiceId)
             when(signature.getName()).thenReturn("deleteInvoice");
 
             auditAspect.auditServiceMethod(joinPoint);
 
-            verify(auditLogService).save(eq("DELETE"), any(), eq(7L), any(), any(), any());
+            verify(auditLogService).save(eq("DELETE"), any(), eq(uid(7)), any(), any(), any());
         }
 
         @Test

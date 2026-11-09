@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.time.Instant;
 
 import com.donatodev.bcm_backend.entity.ContractDocument;
@@ -17,13 +18,13 @@ import com.donatodev.bcm_backend.entity.ContractDocument;
  * document's own content.
  */
 public record ContractDocumentExportDTO(
-        Long id,
-        Long contractId,
+        UUID id,
+        UUID contractId,
         String archivePath,
         String fileName,
         Long fileSize,
         String contentType,
-        Long versionGroupId,
+        UUID versionGroupId,
         Integer versionNumber,
         String extractedText,
         Instant uploadedAt) {

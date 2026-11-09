@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Map;
 
@@ -75,7 +76,7 @@ public class UserController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{id}")
-    public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
+    public ResponseEntity<UserDTO> getUserById(@PathVariable UUID id) {
         UserDTO user = userService.getUserById(id);
         return ResponseEntity.ok(user);
     }
@@ -102,7 +103,7 @@ public class UserController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<UserDTO> updateUser(@PathVariable Long id, @RequestBody UserDTO userDTO) {
+    public ResponseEntity<UserDTO> updateUser(@PathVariable UUID id, @RequestBody UserDTO userDTO) {
         UserDTO updatedUser = userService.updateUser(id, userDTO);
         return ResponseEntity.ok(updatedUser);
     }
@@ -115,7 +116,7 @@ public class UserController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
@@ -129,7 +130,7 @@ public class UserController {
     
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}")
-    public ResponseEntity<UserDTO> patchUser(@PathVariable Long id, @RequestBody @Valid UpdateUserRequest req) {
+    public ResponseEntity<UserDTO> patchUser(@PathVariable UUID id, @RequestBody @Valid UpdateUserRequest req) {
         Users updated = userService.updateUserPartial(
                 id,
                 req.getUsername(),
@@ -142,7 +143,7 @@ public class UserController {
     
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/force-reset")
-    public ResponseEntity<Void> forceReset(@PathVariable Long id) {
+    public ResponseEntity<Void> forceReset(@PathVariable UUID id) {
         userService.sendResetLink(id);
         return ResponseEntity.noContent().build();
     }

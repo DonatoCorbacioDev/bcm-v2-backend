@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -29,7 +31,7 @@ class InvoiceTaxableAmountBackfillTest {
     @Mock private FatturaPaXmlParserService parser;
     @InjectMocks private InvoiceTaxableAmountBackfill backfill;
 
-    private static ElectronicInvoice stored(long id, String path) {
+    private static ElectronicInvoice stored(UUID id, String path) {
         ElectronicInvoice invoice = new ElectronicInvoice();
         invoice.setId(id);
         invoice.setStoragePath(path);
@@ -46,7 +48,7 @@ class InvoiceTaxableAmountBackfillTest {
     @Test
     @DisplayName("Re-reads each stored XML and fills in taxable amount and VAT")
     void fillsFromStoredXml() {
-        ElectronicInvoice invoice = stored(1L, "invoices/3/1/a.xml");
+        ElectronicInvoice invoice = stored(uid(1), "invoices/3/1/a.xml");
         byte[] xml = "<xml/>".getBytes();
         when(invoiceRepository.findByTaxableAmountIsNull()).thenReturn(List.of(invoice));
         when(localStorageService.readDocument("invoices/3/1/a.xml")).thenReturn(xml);
@@ -62,8 +64,8 @@ class InvoiceTaxableAmountBackfillTest {
     @Test
     @DisplayName("Skips, without failing the startup, a file that cannot be read")
     void skipsUnreadableFile() {
-        ElectronicInvoice broken = stored(2L, "missing.xml");
-        ElectronicInvoice ok = stored(3L, "ok.xml");
+        ElectronicInvoice broken = stored(uid(2), "missing.xml");
+        ElectronicInvoice ok = stored(uid(3), "ok.xml");
         byte[] xml = "<xml/>".getBytes();
         when(invoiceRepository.findByTaxableAmountIsNull()).thenReturn(List.of(broken, ok));
         when(localStorageService.readDocument("missing.xml")).thenThrow(new IllegalStateException("gone"));
@@ -90,7 +92,7 @@ class InvoiceTaxableAmountBackfillTest {
     @Test
     @DisplayName("Skips an XML that states no taxable amount, and logs nothing when there is nothing to do")
     void skipsXmlWithoutTaxableAmount() {
-        ElectronicInvoice invoice = stored(4L, "no-taxable.xml");
+        ElectronicInvoice invoice = stored(uid(4), "no-taxable.xml");
         byte[] xml = "<xml/>".getBytes();
         when(invoiceRepository.findByTaxableAmountIsNull()).thenReturn(List.of(invoice)).thenReturn(List.of());
         when(localStorageService.readDocument("no-taxable.xml")).thenReturn(xml);

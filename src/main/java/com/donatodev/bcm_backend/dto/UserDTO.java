@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import jakarta.validation.constraints.NotBlank;
@@ -26,16 +27,16 @@ import jakarta.validation.constraints.Size;
  * @param canApproveContracts whether the user can approve/reject contracts submitted for review
  */
 public record UserDTO(
-        Long id,
+        UUID id,
         @NotBlank(message = "Username obbligatorio")
         @Size(min = 4, max = 30, message = "Lo username deve avere tra 4 e 30 caratteri")
         String username,
         @NotBlank(message = "Password obbligatoria")
         @Size(min = 6, message = "La password deve contenere almeno 6 caratteri")
         String password,
-        Long managerId,
+        UUID managerId,
         @NotNull(message = "ID ruolo obbligatorio")
-        Long roleId,
+        UUID roleId,
         Boolean verified,
         LocalDateTime createdAt,
         Boolean canApproveContracts
@@ -45,7 +46,7 @@ public record UserDTO(
      * Compatibility constructor for call sites predating the approval
      * workflow permission — defaults {@code canApproveContracts} to false.
      */
-    public UserDTO(Long id, String username, String password, Long managerId, Long roleId,
+    public UserDTO(UUID id, String username, String password, UUID managerId, UUID roleId,
             Boolean verified, LocalDateTime createdAt) {
         this(id, username, password, managerId, roleId, verified, createdAt, false);
     }

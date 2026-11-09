@@ -5,12 +5,13 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import com.donatodev.bcm_backend.entity.NotificationType;
 
 public record NotificationDTO(
-        Long id,
+        UUID id,
         String title,
         String message,
         NotificationType type,

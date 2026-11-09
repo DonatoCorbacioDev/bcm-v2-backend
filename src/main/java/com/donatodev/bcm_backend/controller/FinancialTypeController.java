@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -50,7 +51,7 @@ public class FinancialTypeController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/{id}")
-    public ResponseEntity<FinancialTypeDTO> getTypeById(@PathVariable Long id) {
+    public ResponseEntity<FinancialTypeDTO> getTypeById(@PathVariable UUID id) {
         FinancialTypeDTO type = financialTypeService.getTypeById(id);
         return ResponseEntity.ok(type);
     }
@@ -77,7 +78,7 @@ public class FinancialTypeController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<FinancialTypeDTO> updateType(@PathVariable Long id, @RequestBody FinancialTypeDTO dto) {
+    public ResponseEntity<FinancialTypeDTO> updateType(@PathVariable UUID id, @RequestBody FinancialTypeDTO dto) {
         FinancialTypeDTO updated = financialTypeService.updateType(id, dto);
         return ResponseEntity.ok(updated);
     }
@@ -90,7 +91,7 @@ public class FinancialTypeController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteType(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteType(@PathVariable UUID id) {
         financialTypeService.deleteType(id);
         return ResponseEntity.noContent().build();
     }

@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Month;
@@ -72,15 +74,15 @@ class ContractDocumentControllerTest {
 
     @MockitoBean private ContractDocumentService contractDocumentService;
 
-    private Long contractId;
+    private UUID contractId;
 
     private static final byte[] VALID_PDF = "%PDF-1.4 fake pdf content for testing".getBytes();
 
-    private ContractDocumentDTO sampleDocDTO(Long contractId) {
-        return new ContractDocumentDTO(1L, contractId, "contract.pdf", 1024L,
+    private ContractDocumentDTO sampleDocDTO(UUID contractId) {
+        return new ContractDocumentDTO(uid(1), contractId, "contract.pdf", 1024L,
                 "application/pdf", Instant.parse("2027-01-15T12:00:00Z"),
                 "http://localhost:8090/api/v1/contracts/" + contractId + "/documents/1/download",
-                1L, 1, 1);
+                uid(1), 1, 1);
     }
 
     @BeforeEach
@@ -120,7 +122,7 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Admin uploads a valid PDF — returns 201")
         void shouldUploadPdfSuccessfully() throws Exception {
-            when(contractDocumentService.uploadDocument(anyLong(), any()))
+            when(contractDocumentService.uploadDocument(any(UUID.class), any()))
                     .thenReturn(sampleDocDTO(contractId));
 
             MockMultipartFile file = new MockMultipartFile(
@@ -137,13 +139,13 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Upload to non-existent contract returns 404")
         void shouldReturn404ForMissingContract() throws Exception {
-            when(contractDocumentService.uploadDocument(anyLong(), any()))
+            when(contractDocumentService.uploadDocument(any(UUID.class), any()))
                     .thenThrow(new ContractNotFoundException("Contract ID 99999 not found"));
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "contract.pdf", "application/pdf", VALID_PDF);
 
-            mockMvc.perform(multipart("/contracts/99999/documents").file(file))
+            mockMvc.perform(multipart("/contracts/" + uid(99999) + "/documents").file(file))
                     .andExpect(status().isNotFound());
         }
 
@@ -152,7 +154,7 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Invalid file (non-PDF magic bytes) returns 400")
         void shouldRejectNonPdfFile() throws Exception {
-            when(contractDocumentService.uploadDocument(anyLong(), any()))
+            when(contractDocumentService.uploadDocument(any(UUID.class), any()))
                     .thenThrow(new IllegalArgumentException("Only PDF files are accepted"));
 
             MockMultipartFile file = new MockMultipartFile(
@@ -185,7 +187,7 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns empty list when no documents exist")
         void shouldReturnEmptyList() throws Exception {
-            when(contractDocumentService.getDocuments(anyLong())).thenReturn(List.of());
+            when(contractDocumentService.getDocuments(any(UUID.class))).thenReturn(List.of());
 
             mockMvc.perform(get("/contracts/" + contractId + "/documents"))
                     .andExpect(status().isOk())
@@ -197,7 +199,7 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns list of documents with download URLs")
         void shouldReturnDocumentsWithUrls() throws Exception {
-            when(contractDocumentService.getDocuments(anyLong()))
+            when(contractDocumentService.getDocuments(any(UUID.class)))
                     .thenReturn(List.of(sampleDocDTO(contractId)));
 
             mockMvc.perform(get("/contracts/" + contractId + "/documents"))
@@ -219,20 +221,20 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Admin uploads a new version — returns 201 with versionNumber 2")
         void shouldUploadNewVersionSuccessfully() throws Exception {
-            ContractDocumentDTO versionTwo = new ContractDocumentDTO(2L, contractId, "contract-v2.pdf", 1024L,
+            ContractDocumentDTO versionTwo = new ContractDocumentDTO(uid(2), contractId, "contract-v2.pdf", 1024L,
                     "application/pdf", Instant.parse("2027-02-01T12:00:00Z"),
                     "http://localhost:8090/api/v1/contracts/" + contractId + "/documents/2/download",
-                    1L, 2, 2);
-            when(contractDocumentService.uploadNewVersion(anyLong(), anyLong(), any()))
+                    uid(1), 2, 2);
+            when(contractDocumentService.uploadNewVersion(any(UUID.class), any(UUID.class), any()))
                     .thenReturn(versionTwo);
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "contract-v2.pdf", "application/pdf", VALID_PDF);
 
-            mockMvc.perform(multipart("/contracts/" + contractId + "/documents/1/versions").file(file))
+            mockMvc.perform(multipart("/contracts/" + contractId + "/documents/" + uid(1) + "/versions").file(file))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.versionNumber").value(2))
-                    .andExpect(jsonPath("$.versionGroupId").value(1));
+                    .andExpect(jsonPath("$.versionGroupId").value(uid(1).toString()));
         }
 
         @Test
@@ -240,13 +242,13 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns 404 when base document not found")
         void shouldReturn404WhenBaseDocumentNotFound() throws Exception {
-            when(contractDocumentService.uploadNewVersion(anyLong(), anyLong(), any()))
+            when(contractDocumentService.uploadNewVersion(any(UUID.class), any(UUID.class), any()))
                     .thenThrow(new ContractNotFoundException("Document ID 999 not found"));
 
             MockMultipartFile file = new MockMultipartFile(
                     "file", "contract-v2.pdf", "application/pdf", VALID_PDF);
 
-            mockMvc.perform(multipart("/contracts/" + contractId + "/documents/999/versions").file(file))
+            mockMvc.perform(multipart("/contracts/" + contractId + "/documents/" + uid(999) + "/versions").file(file))
                     .andExpect(status().isNotFound());
         }
     }
@@ -262,14 +264,14 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns all versions in the group, newest first")
         void shouldReturnVersionHistory() throws Exception {
-            ContractDocumentDTO v2 = new ContractDocumentDTO(2L, contractId, "contract-v2.pdf", 1024L,
+            ContractDocumentDTO v2 = new ContractDocumentDTO(uid(2), contractId, "contract-v2.pdf", 1024L,
                     "application/pdf", Instant.parse("2027-02-01T12:00:00Z"),
                     "http://localhost:8090/api/v1/contracts/" + contractId + "/documents/2/download",
-                    1L, 2, 2);
-            when(contractDocumentService.getVersions(anyLong(), anyLong()))
+                    uid(1), 2, 2);
+            when(contractDocumentService.getVersions(any(UUID.class), any(UUID.class)))
                     .thenReturn(List.of(v2, sampleDocDTO(contractId)));
 
-            mockMvc.perform(get("/contracts/" + contractId + "/documents/1/versions"))
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/" + uid(1) + "/versions"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(2)))
                     .andExpect(jsonPath("$[0].versionNumber").value(2))
@@ -289,12 +291,12 @@ class ContractDocumentControllerTest {
         @DisplayName("Returns the diff rows between two versions")
         void shouldReturnDiff() throws Exception {
             com.donatodev.bcm_backend.dto.DocumentDiffDTO diff = new com.donatodev.bcm_backend.dto.DocumentDiffDTO(
-                    1L, "contract.pdf", 2L, "contract-v2.pdf",
+                    uid(1), "contract.pdf", uid(2), "contract-v2.pdf",
                     List.of(new com.donatodev.bcm_backend.dto.DiffLineDTO("CHANGE", "Amount: 1000", "Amount: 2000")));
 
-            when(contractDocumentService.diffDocuments(anyLong(), anyLong(), anyLong())).thenReturn(diff);
+            when(contractDocumentService.diffDocuments(any(UUID.class), any(UUID.class), any(UUID.class))).thenReturn(diff);
 
-            mockMvc.perform(get("/contracts/" + contractId + "/documents/1/diff/2"))
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/" + uid(1) + "/diff/" + uid(2)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.lines", hasSize(1)))
                     .andExpect(jsonPath("$.lines[0].tag").value("CHANGE"));
@@ -305,10 +307,10 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns 404 when a compared document is missing")
         void shouldReturn404WhenDocumentNotFound() throws Exception {
-            when(contractDocumentService.diffDocuments(anyLong(), anyLong(), anyLong()))
+            when(contractDocumentService.diffDocuments(any(UUID.class), any(UUID.class), any(UUID.class)))
                     .thenThrow(new ContractNotFoundException("Document ID 999 not found"));
 
-            mockMvc.perform(get("/contracts/" + contractId + "/documents/1/diff/999"))
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/" + uid(1) + "/diff/" + uid(999)))
                     .andExpect(status().isNotFound());
         }
     }
@@ -326,9 +328,9 @@ class ContractDocumentControllerTest {
         void shouldDownloadDocumentSuccessfully() throws Exception {
             FileDownload download = new FileDownload(
                     VALID_PDF, "contract.pdf", "application/pdf");
-            when(contractDocumentService.downloadDocument(anyLong(), anyLong())).thenReturn(download);
+            when(contractDocumentService.downloadDocument(any(UUID.class), any(UUID.class))).thenReturn(download);
 
-            mockMvc.perform(get("/contracts/" + contractId + "/documents/1/download"))
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/" + uid(1) + "/download"))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType("application/pdf"))
                     .andExpect(content().bytes(VALID_PDF));
@@ -339,10 +341,10 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns 404 when document not found")
         void shouldReturn404WhenDocumentNotFound() throws Exception {
-            when(contractDocumentService.downloadDocument(anyLong(), anyLong()))
+            when(contractDocumentService.downloadDocument(any(UUID.class), any(UUID.class)))
                     .thenThrow(new ContractNotFoundException("Document ID 999 not found"));
 
-            mockMvc.perform(get("/contracts/" + contractId + "/documents/999/download"))
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/" + uid(999) + "/download"))
                     .andExpect(status().isNotFound());
         }
 
@@ -350,7 +352,7 @@ class ContractDocumentControllerTest {
         @Order(3)
         @DisplayName("Unauthenticated download returns 401")
         void shouldReturn401WhenNotAuthenticated() throws Exception {
-            mockMvc.perform(get("/contracts/" + contractId + "/documents/1/download"))
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/" + uid(1) + "/download"))
                     .andExpect(status().isUnauthorized());
         }
     }
@@ -367,12 +369,12 @@ class ContractDocumentControllerTest {
         @DisplayName("Returns extracted fields from PDF")
         void shouldExtractTextSuccessfully() throws Exception {
             DocumentAnalysisDTO result = new DocumentAnalysisDTO(
-                    1L, "Customer: Test Corp\nTotal: EUR5000",
+                    uid(1), "Customer: Test Corp\nTotal: EUR5000",
                     "Test Corp", null, null, null, "EUR5000");
 
-            when(contractDocumentService.extractText(anyLong(), anyLong())).thenReturn(result);
+            when(contractDocumentService.extractText(any(UUID.class), any(UUID.class))).thenReturn(result);
 
-            mockMvc.perform(post("/contracts/" + contractId + "/documents/1/extract"))
+            mockMvc.perform(post("/contracts/" + contractId + "/documents/" + uid(1) + "/extract"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.detectedCustomerName").value("Test Corp"))
                     .andExpect(jsonPath("$.detectedAmount").value("EUR5000"));
@@ -383,10 +385,10 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns 404 when document not found")
         void shouldReturn404WhenDocumentNotFound() throws Exception {
-            when(contractDocumentService.extractText(anyLong(), anyLong()))
+            when(contractDocumentService.extractText(any(UUID.class), any(UUID.class)))
                     .thenThrow(new ContractNotFoundException("Document ID 999 not found"));
 
-            mockMvc.perform(post("/contracts/" + contractId + "/documents/999/extract"))
+            mockMvc.perform(post("/contracts/" + contractId + "/documents/" + uid(999) + "/extract"))
                     .andExpect(status().isNotFound());
         }
     }
@@ -400,11 +402,11 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "MANAGER")
         @DisplayName("Returns the terms with their source sentence, to a manager too")
         void shouldReturnTerms() throws Exception {
-            when(contractDocumentService.readTerms(anyLong(), anyLong())).thenReturn(new ContractTermsDTO(1L, java.util.List.of(
+            when(contractDocumentService.readTerms(any(UUID.class), any(UUID.class))).thenReturn(new ContractTermsDTO(uid(1), java.util.List.of(
                     new ContractTermsDTO.Term(ContractTermsDTO.Field.NOTICE_DAYS, "90", "3 mesi",
                             "Salvo disdetta con preavviso di tre mesi."))));
 
-            mockMvc.perform(get("/contracts/" + contractId + "/documents/1/terms"))
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/" + uid(1) + "/terms"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.terms[0].field").value("NOTICE_DAYS"))
                     .andExpect(jsonPath("$.terms[0].value").value("90"))
@@ -415,10 +417,10 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns 404 when document not found")
         void shouldReturn404WhenDocumentNotFound() throws Exception {
-            when(contractDocumentService.readTerms(anyLong(), anyLong()))
+            when(contractDocumentService.readTerms(any(UUID.class), any(UUID.class)))
                     .thenThrow(new ContractNotFoundException("Document ID 999 not found"));
 
-            mockMvc.perform(get("/contracts/" + contractId + "/documents/999/terms"))
+            mockMvc.perform(get("/contracts/" + contractId + "/documents/" + uid(999) + "/terms"))
                     .andExpect(status().isNotFound());
         }
     }
@@ -436,9 +438,9 @@ class ContractDocumentControllerTest {
         void shouldAnalyzeClauseRiskSuccessfully() throws Exception {
             org.springframework.http.ResponseEntity<String> mlResponse =
                     org.springframework.http.ResponseEntity.ok("{\"clauses\":[]}");
-            when(contractDocumentService.analyzeClauseRisk(anyLong(), anyLong())).thenReturn(mlResponse);
+            when(contractDocumentService.analyzeClauseRisk(any(UUID.class), any(UUID.class))).thenReturn(mlResponse);
 
-            mockMvc.perform(post("/contracts/" + contractId + "/documents/1/analyze-clause-risk"))
+            mockMvc.perform(post("/contracts/" + contractId + "/documents/" + uid(1) + "/analyze-clause-risk"))
                     .andExpect(status().isOk())
                     .andExpect(content().json("{\"clauses\":[]}"));
         }
@@ -448,10 +450,10 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Returns 404 when document not found")
         void shouldReturn404WhenDocumentNotFound() throws Exception {
-            when(contractDocumentService.analyzeClauseRisk(anyLong(), anyLong()))
+            when(contractDocumentService.analyzeClauseRisk(any(UUID.class), any(UUID.class)))
                     .thenThrow(new ContractNotFoundException("Document ID 999 not found"));
 
-            mockMvc.perform(post("/contracts/" + contractId + "/documents/999/analyze-clause-risk"))
+            mockMvc.perform(post("/contracts/" + contractId + "/documents/" + uid(999) + "/analyze-clause-risk"))
                     .andExpect(status().isNotFound());
         }
 
@@ -459,7 +461,7 @@ class ContractDocumentControllerTest {
         @Order(3)
         @DisplayName("Unauthenticated request returns 401")
         void shouldReturn401WhenNotAuthenticated() throws Exception {
-            mockMvc.perform(post("/contracts/" + contractId + "/documents/1/analyze-clause-risk"))
+            mockMvc.perform(post("/contracts/" + contractId + "/documents/" + uid(1) + "/analyze-clause-risk"))
                     .andExpect(status().isUnauthorized());
         }
     }
@@ -475,9 +477,9 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("Admin deletes a document — returns 204")
         void shouldDeleteSuccessfully() throws Exception {
-            doNothing().when(contractDocumentService).deleteDocument(anyLong(), anyLong());
+            doNothing().when(contractDocumentService).deleteDocument(any(UUID.class), any(UUID.class));
 
-            mockMvc.perform(delete("/contracts/" + contractId + "/documents/1"))
+            mockMvc.perform(delete("/contracts/" + contractId + "/documents/" + uid(1)))
                     .andExpect(status().isNoContent());
         }
 
@@ -486,7 +488,7 @@ class ContractDocumentControllerTest {
         @WithMockUser(roles = "MANAGER")
         @DisplayName("Manager cannot delete — returns 403")
         void shouldReturn403ForManager() throws Exception {
-            mockMvc.perform(delete("/contracts/" + contractId + "/documents/1"))
+            mockMvc.perform(delete("/contracts/" + contractId + "/documents/" + uid(1)))
                     .andExpect(status().isForbidden());
         }
 
@@ -496,9 +498,9 @@ class ContractDocumentControllerTest {
         @DisplayName("Delete non-existent document returns 404")
         void shouldReturn404WhenDocumentNotFound() throws Exception {
             doThrow(new ContractNotFoundException("Document ID 999 not found"))
-                    .when(contractDocumentService).deleteDocument(anyLong(), anyLong());
+                    .when(contractDocumentService).deleteDocument(any(UUID.class), any(UUID.class));
 
-            mockMvc.perform(delete("/contracts/" + contractId + "/documents/999"))
+            mockMvc.perform(delete("/contracts/" + contractId + "/documents/" + uid(999)))
                     .andExpect(status().isNotFound());
         }
     }

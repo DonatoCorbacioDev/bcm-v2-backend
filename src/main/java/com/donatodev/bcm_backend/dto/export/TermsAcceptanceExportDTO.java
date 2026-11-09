@@ -5,15 +5,16 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import com.donatodev.bcm_backend.entity.TermsAcceptance;
 
 /** One element of {@code data/terms_acceptances.json}: the customer's own copy of the evidence of its signature. */
 public record TermsAcceptanceExportDTO(
-        Long id,
+        UUID id,
         String organizationName,
-        Long userId,
+        UUID userId,
         String username,
         String signerEmail,
         String termsVersion,

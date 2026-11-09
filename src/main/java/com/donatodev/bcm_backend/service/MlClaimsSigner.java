@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
@@ -55,15 +56,15 @@ public class MlClaimsSigner {
      * convention already used for {@code ml.internal-api-key} in local dev.
      * Callers must omit the {@code X-Internal-Claims} header in that case.
      */
-    public String sign(Long orgId, Long managerId) {
+    public String sign(UUID orgId, UUID managerId) {
         if (privateKeyBase64 == null || privateKeyBase64.isBlank()) {
             return null;
         }
 
         Instant now = clock.instant();
         return Jwts.builder()
-                .claim(CLAIM_ORG_ID, orgId)
-                .claim(CLAIM_MANAGER_ID, managerId)
+                .claim(CLAIM_ORG_ID, orgId != null ? orgId.toString() : null)
+                .claim(CLAIM_MANAGER_ID, managerId != null ? managerId.toString() : null)
                 .issuedAt(toLegacyDate(now))
                 .expiration(toLegacyDate(now.plusMillis(CLAIMS_TTL_MS)))
                 .signWith(getPrivateKey(), Jwts.SIG.RS256)

@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
+
 /**
  * Data Transfer Object for Business Area.
  * <p>
@@ -15,7 +17,7 @@ package com.donatodev.bcm_backend.dto;
  * @param description a brief description of the business area
  */
 public record BusinessAreaDTO(
-        Long id,
+        UUID id,
         String name,
         String description
 ) {}

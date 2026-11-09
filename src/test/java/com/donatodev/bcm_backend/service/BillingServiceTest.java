@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -46,7 +48,7 @@ import com.stripe.exception.ApiConnectionException;
 class BillingServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void setup() {
@@ -74,7 +76,7 @@ class BillingServiceTest {
     }
 
     private static Organization org(SubscriptionTier tier) {
-        return Organization.builder().id(1L).name("Acme").slug("acme").subscriptionTier(tier).build();
+        return Organization.builder().id(uid(1)).name("Acme").slug("acme").subscriptionTier(tier).build();
     }
 
     /** Builds a Stripe-Signature header the same way Stripe does: HMAC-SHA256 over "timestamp.payload". */
@@ -93,7 +95,7 @@ class BillingServiceTest {
 
     private static final String PAID_SESSION =
             "{\"object\":\"checkout.session\",\"mode\":\"subscription\",\"payment_status\":\"paid\","
-            + "\"client_reference_id\":\"1\"}";
+            + "\"client_reference_id\":\"00000000-0000-0000-0000-000000000001\"}";
 
     @Nested
     @DisplayName("createProCheckoutUrl")
@@ -103,9 +105,9 @@ class BillingServiceTest {
         @Test
         @DisplayName("returns the Stripe URL for a FREE organization, with org id and return URLs")
         void shouldCreateCheckoutForFreeOrg() throws Exception {
-            TenantContext.set(1L);
-            when(organizationRepository.findById(1L)).thenReturn(Optional.of(org(SubscriptionTier.FREE)));
-            when(checkoutGateway.createSubscriptionCheckout(1L, "price_x", null,
+            TenantContext.set(uid(1));
+            when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org(SubscriptionTier.FREE)));
+            when(checkoutGateway.createSubscriptionCheckout(uid(1), "price_x", null,
                     FRONTEND + "/organization?checkout=success", FRONTEND + "/organization?checkout=cancel"))
                     .thenReturn("https://checkout.stripe.com/c/pay/cs_test_1");
 
@@ -115,11 +117,11 @@ class BillingServiceTest {
         @Test
         @DisplayName("reuses the org's existing Stripe customer when it resubscribes")
         void shouldReuseExistingCustomer() throws Exception {
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
             Organization returning = org(SubscriptionTier.FREE);
             returning.setStripeCustomerId("cus_returning");
-            when(organizationRepository.findById(1L)).thenReturn(Optional.of(returning));
-            when(checkoutGateway.createSubscriptionCheckout(1L, "price_x", "cus_returning",
+            when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(returning));
+            when(checkoutGateway.createSubscriptionCheckout(uid(1), "price_x", "cus_returning",
                     FRONTEND + "/organization?checkout=success", FRONTEND + "/organization?checkout=cancel"))
                     .thenReturn("https://checkout.stripe.com/c/pay/cs_test_2");
 
@@ -129,8 +131,8 @@ class BillingServiceTest {
         @Test
         @DisplayName("refuses an organization that is already on a paid plan")
         void shouldRefusePaidOrg() throws Exception {
-            TenantContext.set(1L);
-            when(organizationRepository.findById(1L)).thenReturn(Optional.of(org(SubscriptionTier.PRO)));
+            TenantContext.set(uid(1));
+            when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org(SubscriptionTier.PRO)));
 
             assertThrows(IllegalArgumentException.class, () -> billingService.createProCheckoutUrl());
             verify(checkoutGateway, never()).createSubscriptionCheckout(any(), any(), any(), any(), any());
@@ -150,9 +152,9 @@ class BillingServiceTest {
         @Test
         @DisplayName("maps a Stripe API failure to 502")
         void shouldMapStripeFailureToBadGateway() throws Exception {
-            TenantContext.set(1L);
-            when(organizationRepository.findById(1L)).thenReturn(Optional.of(org(SubscriptionTier.FREE)));
-            when(checkoutGateway.createSubscriptionCheckout(anyLong(), anyString(), any(), anyString(), anyString()))
+            TenantContext.set(uid(1));
+            when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org(SubscriptionTier.FREE)));
+            when(checkoutGateway.createSubscriptionCheckout(any(UUID.class), anyString(), any(), anyString(), anyString()))
                     .thenThrow(new ApiConnectionException("network down"));
 
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
@@ -163,7 +165,7 @@ class BillingServiceTest {
         @Test
         @DisplayName("refuses (409) while checkout is switched off, without contacting Stripe or reading the org")
         void shouldRefuseWhenCheckoutDisabled() throws Exception {
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
             BillingService notForSale = new BillingService(checkoutGateway, organizationService, organizationRepository,
                     "sk_test_x", "price_x", WEBHOOK_SECRET, FRONTEND, false);
 
@@ -189,10 +191,10 @@ class BillingServiceTest {
         @Test
         @DisplayName("opens the Customer Portal for the org's Stripe customer, returning to the organization page")
         void shouldOpenPortalForStripeCustomer() throws Exception {
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
             Organization subscribed = org(SubscriptionTier.PRO);
             subscribed.setStripeCustomerId("cus_1");
-            when(organizationRepository.findById(1L)).thenReturn(Optional.of(subscribed));
+            when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(subscribed));
             when(checkoutGateway.createPortalSession("cus_1", FRONTEND + "/organization"))
                     .thenReturn("https://billing.stripe.com/p/session/test_1");
 
@@ -202,8 +204,8 @@ class BillingServiceTest {
         @Test
         @DisplayName("refuses an org with no Stripe customer, e.g. one moved to PRO by hand (400)")
         void shouldRefuseOrgWithoutStripeCustomer() throws Exception {
-            TenantContext.set(1L);
-            when(organizationRepository.findById(1L)).thenReturn(Optional.of(org(SubscriptionTier.PRO)));
+            TenantContext.set(uid(1));
+            when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org(SubscriptionTier.PRO)));
 
             assertThrows(IllegalArgumentException.class, () -> billingService.createPortalUrl());
             verify(checkoutGateway, never()).createPortalSession(any(), any());
@@ -221,10 +223,10 @@ class BillingServiceTest {
         @Test
         @DisplayName("maps a Stripe API failure to 502")
         void shouldMapStripeFailureToBadGateway() throws Exception {
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
             Organization subscribed = org(SubscriptionTier.PRO);
             subscribed.setStripeCustomerId("cus_1");
-            when(organizationRepository.findById(1L)).thenReturn(Optional.of(subscribed));
+            when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(subscribed));
             when(checkoutGateway.createPortalSession(anyString(), anyString()))
                     .thenThrow(new ApiConnectionException("network down"));
 
@@ -244,39 +246,39 @@ class BillingServiceTest {
         @DisplayName("upgrades to PRO on a completed subscription checkout (paid, or free via e.g. a 100% coupon)")
         void shouldUpgradeOnCompletedCheckout(String paymentStatus) throws Exception {
             String payload = event("checkout.session.completed",
-                    "{\"mode\":\"subscription\",\"payment_status\":\"" + paymentStatus + "\",\"client_reference_id\":\"1\"}");
+                    "{\"mode\":\"subscription\",\"payment_status\":\"" + paymentStatus + "\",\"client_reference_id\":\"00000000-0000-0000-0000-000000000001\"}");
             String signature = sign(payload, WEBHOOK_SECRET);
 
             billingService.handleWebhook(payload, signature);
 
-            verify(organizationService).changeTier(1L, SubscriptionTier.PRO, "stripe");
+            verify(organizationService).changeTier(uid(1), SubscriptionTier.PRO, "stripe");
         }
 
         @Test
         @DisplayName("links the checkout's Stripe customer to the org before upgrading it")
         void shouldLinkCustomerThenUpgrade() throws Exception {
             String payload = event("checkout.session.completed",
-                    "{\"mode\":\"subscription\",\"payment_status\":\"paid\",\"client_reference_id\":\"1\","
+                    "{\"mode\":\"subscription\",\"payment_status\":\"paid\",\"client_reference_id\":\"00000000-0000-0000-0000-000000000001\","
                     + "\"customer\":\"cus_new\"}");
             String signature = sign(payload, WEBHOOK_SECRET);
 
             billingService.handleWebhook(payload, signature);
 
             InOrder order = inOrder(organizationService);
-            order.verify(organizationService).linkStripeCustomer(1L, "cus_new");
-            order.verify(organizationService).changeTier(1L, SubscriptionTier.PRO, "stripe");
+            order.verify(organizationService).linkStripeCustomer(uid(1), "cus_new");
+            order.verify(organizationService).changeTier(uid(1), SubscriptionTier.PRO, "stripe");
         }
 
         @Test
         @DisplayName("does not touch the stored Stripe customer when the subscription ends")
         void shouldKeepCustomerOnCancellation() throws Exception {
             String payload = event("customer.subscription.deleted",
-                    "{\"object\":\"subscription\",\"customer\":\"cus_1\",\"metadata\":{\"orgId\":\"1\"}}");
+                    "{\"object\":\"subscription\",\"customer\":\"cus_1\",\"metadata\":{\"orgId\":\"00000000-0000-0000-0000-000000000001\"}}");
             String signature = sign(payload, WEBHOOK_SECRET);
 
             billingService.handleWebhook(payload, signature);
 
-            verify(organizationService).changeTier(1L, SubscriptionTier.FREE, "stripe");
+            verify(organizationService).changeTier(uid(1), SubscriptionTier.FREE, "stripe");
             verify(organizationService, never()).linkStripeCustomer(any(), any());
         }
 
@@ -291,9 +293,9 @@ class BillingServiceTest {
 
         @ParameterizedTest(name = "{0}")
         @CsvSource(delimiter = '|', value = {
-            "checkout not paid yet | checkout.session.completed | {\"mode\":\"subscription\",\"payment_status\":\"unpaid\",\"client_reference_id\":\"1\"}",
-            "one-off payment, not a subscription | checkout.session.completed | {\"mode\":\"payment\",\"payment_status\":\"paid\",\"client_reference_id\":\"1\"}",
-            "non-numeric org id | checkout.session.completed | {\"mode\":\"subscription\",\"payment_status\":\"paid\",\"client_reference_id\":\"abc\"}",
+            "checkout not paid yet | checkout.session.completed | {\"mode\":\"subscription\",\"payment_status\":\"unpaid\",\"client_reference_id\":\"00000000-0000-0000-0000-000000000001\"}",
+            "one-off payment, not a subscription | checkout.session.completed | {\"mode\":\"payment\",\"payment_status\":\"paid\",\"client_reference_id\":\"00000000-0000-0000-0000-000000000001\"}",
+            "org id not a UUID | checkout.session.completed | {\"mode\":\"subscription\",\"payment_status\":\"paid\",\"client_reference_id\":\"abc\"}",
             "org id not a string | customer.subscription.deleted | {\"object\":\"subscription\",\"metadata\":{\"orgId\":7}}",
             "no org id at all | customer.subscription.deleted | {\"object\":\"subscription\",\"metadata\":{}}",
             "event type not handled | invoice.paid | {\"object\":\"invoice\"}",
@@ -312,11 +314,11 @@ class BillingServiceTest {
         @DisplayName("downgrades to FREE when the subscription is deleted, using its metadata org id")
         void shouldDowngradeOnSubscriptionDeleted() throws Exception {
             String payload = event("customer.subscription.deleted",
-                    "{\"object\":\"subscription\",\"metadata\":{\"orgId\":\"1\"}}");
+                    "{\"object\":\"subscription\",\"metadata\":{\"orgId\":\"00000000-0000-0000-0000-000000000001\"}}");
 
             billingService.handleWebhook(payload, sign(payload, WEBHOOK_SECRET));
 
-            verify(organizationService).changeTier(1L, SubscriptionTier.FREE, "stripe");
+            verify(organizationService).changeTier(uid(1), SubscriptionTier.FREE, "stripe");
         }
 
         @Test
@@ -336,7 +338,7 @@ class BillingServiceTest {
         void shouldRejectTamperedPayload() throws Exception {
             String payload = event("checkout.session.completed", PAID_SESSION);
             String signature = sign(payload, WEBHOOK_SECRET);
-            String tampered = payload.replace("\"client_reference_id\":\"1\"", "\"client_reference_id\":\"2\"");
+            String tampered = payload.replace("\"client_reference_id\":\"00000000-0000-0000-0000-000000000001\"", "\"client_reference_id\":\"00000000-0000-0000-0000-000000000002\"");
 
             assertThrows(ResponseStatusException.class, () -> billingService.handleWebhook(tampered, signature));
             verify(organizationService, never()).changeTier(any(), any(), any());
@@ -369,7 +371,7 @@ class BillingServiceTest {
         void shouldAcknowledgeUnknownOrg() throws Exception {
             String payload = event("checkout.session.completed", PAID_SESSION);
             String signature = sign(payload, WEBHOOK_SECRET);
-            when(organizationService.changeTier(1L, SubscriptionTier.PRO, "stripe"))
+            when(organizationService.changeTier(uid(1), SubscriptionTier.PRO, "stripe"))
                     .thenThrow(new OrganizationNotFoundException("Organizzazione non trovata"));
 
             assertDoesNotThrow(() -> billingService.handleWebhook(payload, signature));

@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.repository;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.List;
@@ -141,7 +142,7 @@ class RiskFeedbackRepositoryTest {
         @Test
         @DisplayName("Should return empty list for an organization with no feedback")
         void shouldReturnEmptyWhenNoFeedback() {
-            List<RiskFeedback> result = riskFeedbackRepository.findByOrganizationIdOrderByCreatedAtDescIdDesc(9999L);
+            List<RiskFeedback> result = riskFeedbackRepository.findByOrganizationIdOrderByCreatedAtDescIdDesc(uid(9999));
 
             assertTrue(result.isEmpty());
         }
@@ -172,7 +173,7 @@ class RiskFeedbackRepositoryTest {
         @Test
         @DisplayName("Should return empty list when manager has no associated feedback")
         void shouldReturnEmptyWhenNoFeedbackForManager() {
-            List<RiskFeedback> result = riskFeedbackRepository.findByContractManagerIdOrderByCreatedAtDescIdDesc(9999L);
+            List<RiskFeedback> result = riskFeedbackRepository.findByContractManagerIdOrderByCreatedAtDescIdDesc(uid(9999));
 
             assertTrue(result.isEmpty());
         }

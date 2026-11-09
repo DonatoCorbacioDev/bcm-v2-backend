@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.Collections;
@@ -72,8 +74,8 @@ class NotificationServiceTest {
 
     @InjectMocks private NotificationService notificationService;
 
-    private static final Long USER_ID = 1L;
-    private static final Long ORG_ID  = 10L;
+    private static final UUID USER_ID = uid(1);
+    private static final UUID ORG_ID  = uid(10);
     private static final String USERNAME = "testuser";
 
     private static Roles role(String name) {
@@ -104,10 +106,10 @@ class NotificationServiceTest {
         @Order(2)
         @DisplayName("Should throw UserNotFoundException when user not found on create")
         void shouldThrowWhenUserNotFoundOnCreate() {
-            when(usersRepository.findById(99L)).thenReturn(Optional.empty());
+            when(usersRepository.findById(uid(99))).thenReturn(Optional.empty());
 
             assertThrows(UserNotFoundException.class,
-                    () -> notificationService.createForUser(99L, ORG_ID, "T", "M", NotificationType.INFO));
+                    () -> notificationService.createForUser(uid(99), ORG_ID, "T", "M", NotificationType.INFO));
 
             verify(notificationRepository, never()).save(any());
         }
@@ -118,7 +120,7 @@ class NotificationServiceTest {
         void shouldReturnMappedDTOsForCurrentUser() {
             Users user = Users.builder().id(USER_ID).username(USERNAME).build();
             Notification n = Notification.builder()
-                    .id(1L).user(user).orgId(ORG_ID)
+                    .id(uid(1)).user(user).orgId(ORG_ID)
                     .title("T").message("M").type(NotificationType.WARNING)
                     .read(false).createdAt(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0)).build();
 
@@ -153,13 +155,13 @@ class NotificationServiceTest {
         void shouldMarkNotificationAsRead() {
             Users user = Users.builder().id(USER_ID).username(USERNAME).build();
             Notification n = Notification.builder()
-                    .id(1L).user(user).orgId(ORG_ID).title("T").message("M")
+                    .id(uid(1)).user(user).orgId(ORG_ID).title("T").message("M")
                     .type(NotificationType.INFO).read(false).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(notificationRepository.findByIdAndUserIdAndOrgId(1L, USER_ID, ORG_ID)).thenReturn(Optional.of(n));
+            when(notificationRepository.findByIdAndUserIdAndOrgId(uid(1), USER_ID, ORG_ID)).thenReturn(Optional.of(n));
 
-            notificationService.markAsRead(1L);
+            notificationService.markAsRead(uid(1));
 
             verify(notificationRepository).save(n);
             assertEquals(true, n.isRead());
@@ -171,27 +173,27 @@ class NotificationServiceTest {
         void shouldThrowWhenNotificationNotFound() {
             Users user = Users.builder().id(USER_ID).username(USERNAME).build();
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(notificationRepository.findByIdAndUserIdAndOrgId(99L, USER_ID, ORG_ID)).thenReturn(Optional.empty());
+            when(notificationRepository.findByIdAndUserIdAndOrgId(uid(99), USER_ID, ORG_ID)).thenReturn(Optional.empty());
 
             assertThrows(NotificationNotFoundException.class,
-                    () -> notificationService.markAsRead(99L));
+                    () -> notificationService.markAsRead(uid(99)));
         }
 
         @Test
         @Order(7)
         @DisplayName("Should hide another user's notification as not found")
         void shouldThrowWhenNotificationBelongsToAnotherUser() {
-            Users owner = Users.builder().id(2L).username("otheruser").build();
+            Users owner = Users.builder().id(uid(2)).username("otheruser").build();
             Users requester = Users.builder().id(USER_ID).username(USERNAME).build();
             Notification n = Notification.builder()
-                    .id(1L).user(owner).orgId(ORG_ID).title("T").message("M")
+                    .id(uid(1)).user(owner).orgId(ORG_ID).title("T").message("M")
                     .type(NotificationType.INFO).read(false).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(requester));
-            when(notificationRepository.findByIdAndUserIdAndOrgId(1L, USER_ID, ORG_ID)).thenReturn(Optional.empty());
+            when(notificationRepository.findByIdAndUserIdAndOrgId(uid(1), USER_ID, ORG_ID)).thenReturn(Optional.empty());
 
             assertThrows(NotificationNotFoundException.class,
-                    () -> notificationService.markAsRead(1L));
+                    () -> notificationService.markAsRead(uid(1)));
             verify(notificationRepository, never()).save(any());
             assertEquals(false, n.isRead());
         }
@@ -202,10 +204,10 @@ class NotificationServiceTest {
         void shouldMarkAllUnreadAsRead() {
             Users user = Users.builder().id(USER_ID).username(USERNAME).build();
             Notification n1 = Notification.builder()
-                    .id(1L).user(user).orgId(ORG_ID).title("T1").message("M1")
+                    .id(uid(1)).user(user).orgId(ORG_ID).title("T1").message("M1")
                     .type(NotificationType.INFO).read(false).build();
             Notification n2 = Notification.builder()
-                    .id(2L).user(user).orgId(ORG_ID).title("T2").message("M2")
+                    .id(uid(2)).user(user).orgId(ORG_ID).title("T2").message("M2")
                     .type(NotificationType.WARNING).read(true).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
@@ -248,14 +250,14 @@ class NotificationServiceTest {
         void shouldThrowWhenOrgDoesNotMatch() {
             Users owner = Users.builder().id(USER_ID).username(USERNAME).build();
             Notification n = Notification.builder()
-                    .id(1L).user(owner).orgId(99L)
+                    .id(uid(1)).user(owner).orgId(uid(99))
                     .title("T").message("M").type(NotificationType.INFO).read(false).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(owner));
-            when(notificationRepository.findByIdAndUserIdAndOrgId(1L, USER_ID, ORG_ID)).thenReturn(Optional.empty());
+            when(notificationRepository.findByIdAndUserIdAndOrgId(uid(1), USER_ID, ORG_ID)).thenReturn(Optional.empty());
 
             assertThrows(NotificationNotFoundException.class,
-                    () -> notificationService.markAsRead(1L));
+                    () -> notificationService.markAsRead(uid(1)));
             verify(notificationRepository, never()).save(any());
             assertEquals(false, n.isRead());
         }
@@ -265,12 +267,12 @@ class NotificationServiceTest {
         @DisplayName("Should create a reminder when the contract belongs to the caller's org")
         void shouldCreateReminderWhenContractInOrg() {
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("ADMIN")).build();
-            Contracts contract = Contracts.builder().id(5L).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).build();
+            Contracts contract = Contracts.builder().id(uid(5)).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(5), ORG_ID)).thenReturn(Optional.of(contract));
 
-            notificationService.createReminderForCurrentUser(5L, "Rinnovo in scadenza");
+            notificationService.createReminderForCurrentUser(uid(5), "Rinnovo in scadenza");
 
             verify(notificationRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
                     "Promemoria: Acme".equals(saved.getTitle())
@@ -284,10 +286,10 @@ class NotificationServiceTest {
         void shouldThrowWhenContractNotInOrg() {
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("ADMIN")).build();
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(contractsRepository.findByIdAndOrganization_Id(999L, ORG_ID)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(uid(999), ORG_ID)).thenReturn(Optional.empty());
 
             assertThrows(ContractNotFoundException.class,
-                    () -> notificationService.createReminderForCurrentUser(999L, "hi"));
+                    () -> notificationService.createReminderForCurrentUser(uid(999), "hi"));
 
             verify(notificationRepository, never()).save(any());
         }
@@ -298,14 +300,14 @@ class NotificationServiceTest {
         void shouldTruncateLongReminderTitle() {
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("ADMIN")).build();
             String longName = "A".repeat(250);
-            Contracts contract = Contracts.builder().id(6L)
+            Contracts contract = Contracts.builder().id(uid(6))
                     .counterparty(Counterparty.builder().name(longName).type(CounterpartyType.CUSTOMER).build())
                     .build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(contractsRepository.findByIdAndOrganization_Id(6L, ORG_ID)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(6), ORG_ID)).thenReturn(Optional.of(contract));
 
-            notificationService.createReminderForCurrentUser(6L, "hi");
+            notificationService.createReminderForCurrentUser(uid(6), "hi");
 
             verify(notificationRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
                     saved.getTitle().length() == 200));
@@ -319,7 +321,7 @@ class NotificationServiceTest {
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("ADMIN")).build();
             org.mockito.Mockito.lenient().when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
 
-            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class, () -> notificationService.createReminderForCurrentUser(7L, "hi"));
+            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class, () -> notificationService.createReminderForCurrentUser(uid(7), "hi"));
             verify(notificationRepository, never()).save(any());
         }
 
@@ -331,14 +333,14 @@ class NotificationServiceTest {
         @Order(16)
         @DisplayName("Should create a reminder when the contract is assigned to the manager")
         void shouldCreateReminderWhenContractAssignedToManager() {
-            Managers manager = Managers.builder().id(42L).build();
+            Managers manager = Managers.builder().id(uid(42)).build();
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("MANAGER")).manager(manager).build();
-            Contracts contract = Contracts.builder().id(5L).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).manager(manager).build();
+            Contracts contract = Contracts.builder().id(uid(5)).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).manager(manager).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(5), ORG_ID)).thenReturn(Optional.of(contract));
 
-            notificationService.createReminderForCurrentUser(5L, "Rinnovo in scadenza");
+            notificationService.createReminderForCurrentUser(uid(5), "Rinnovo in scadenza");
 
             verify(notificationRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
                     "Promemoria: Acme".equals(saved.getTitle())));
@@ -348,16 +350,16 @@ class NotificationServiceTest {
         @Order(17)
         @DisplayName("Should throw ContractNotFoundException when the contract belongs to another manager")
         void shouldThrowWhenContractBelongsToAnotherManager() {
-            Managers callerManager = Managers.builder().id(42L).build();
-            Managers otherManager = Managers.builder().id(99L).build();
+            Managers callerManager = Managers.builder().id(uid(42)).build();
+            Managers otherManager = Managers.builder().id(uid(99)).build();
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("MANAGER")).manager(callerManager).build();
-            Contracts contract = Contracts.builder().id(5L).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).manager(otherManager).build();
+            Contracts contract = Contracts.builder().id(uid(5)).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).manager(otherManager).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(5), ORG_ID)).thenReturn(Optional.of(contract));
 
             assertThrows(ContractNotFoundException.class,
-                    () -> notificationService.createReminderForCurrentUser(5L, "hi"));
+                    () -> notificationService.createReminderForCurrentUser(uid(5), "hi"));
 
             verify(notificationRepository, never()).save(any());
         }
@@ -366,15 +368,15 @@ class NotificationServiceTest {
         @Order(18)
         @DisplayName("Should throw ContractNotFoundException when the caller has the MANAGER role but no manager assigned")
         void shouldThrowWhenManagerRoleHasNoManagerAssigned() {
-            Managers contractManager = Managers.builder().id(42L).build();
+            Managers contractManager = Managers.builder().id(uid(42)).build();
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("MANAGER")).manager(null).build();
-            Contracts contract = Contracts.builder().id(5L).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).manager(contractManager).build();
+            Contracts contract = Contracts.builder().id(uid(5)).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).manager(contractManager).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(5), ORG_ID)).thenReturn(Optional.of(contract));
 
             assertThrows(ContractNotFoundException.class,
-                    () -> notificationService.createReminderForCurrentUser(5L, "hi"));
+                    () -> notificationService.createReminderForCurrentUser(uid(5), "hi"));
 
             verify(notificationRepository, never()).save(any());
         }
@@ -383,15 +385,15 @@ class NotificationServiceTest {
         @Order(19)
         @DisplayName("Should throw ContractNotFoundException when the contract has no manager assigned")
         void shouldThrowWhenContractHasNoManagerAssigned() {
-            Managers callerManager = Managers.builder().id(42L).build();
+            Managers callerManager = Managers.builder().id(uid(42)).build();
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("MANAGER")).manager(callerManager).build();
-            Contracts contract = Contracts.builder().id(5L).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).manager(null).build();
+            Contracts contract = Contracts.builder().id(uid(5)).counterparty(Counterparty.builder().name("Acme").type(CounterpartyType.CUSTOMER).build()).manager(null).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(contractsRepository.findByIdAndOrganization_Id(5L, ORG_ID)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(5), ORG_ID)).thenReturn(Optional.of(contract));
 
             assertThrows(ContractNotFoundException.class,
-                    () -> notificationService.createReminderForCurrentUser(5L, "hi"));
+                    () -> notificationService.createReminderForCurrentUser(uid(5), "hi"));
 
             verify(notificationRepository, never()).save(any());
         }

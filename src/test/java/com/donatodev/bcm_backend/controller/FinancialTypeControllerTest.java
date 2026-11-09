@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import com.donatodev.bcm_backend.support.TestTenant;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
@@ -162,7 +164,7 @@ class FinancialTypeControllerTest {
 
             mockMvc.perform(get("/financial-types/{id}", savedEntity.getId()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(savedEntity.getId()))
+                    .andExpect(jsonPath("$.id").value(savedEntity.getId().toString()))
                     .andExpect(jsonPath("$.name").value("R&D"))
                     .andExpect(jsonPath("$.description").value("Research and Development"));
         }
@@ -229,7 +231,7 @@ class FinancialTypeControllerTest {
         @DisplayName("Financial type not found when searching by invalid ID")
         @WithMockUser(roles = "ADMIN")
         void shouldReturnNotFoundForInvalidId() throws Exception {
-            mockMvc.perform(get("/financial-types/{id}", 9999L))
+            mockMvc.perform(get("/financial-types/{id}", uid(9999)))
                     .andExpect(status().isNotFound());
         }
     }

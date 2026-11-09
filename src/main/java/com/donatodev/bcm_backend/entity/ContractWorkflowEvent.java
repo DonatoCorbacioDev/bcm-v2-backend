@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.entity;
 
+import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
@@ -26,8 +28,8 @@ import lombok.*;
 public class ContractWorkflowEvent {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
+    private UUID id;
 
     @ManyToOne
     @JoinColumn(name = "contract_id", nullable = false)

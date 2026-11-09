@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.mockito.Mockito.verifyNoInteractions;
 import java.time.LocalDate;
 import java.time.Month;
@@ -44,7 +46,7 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 class CalendarFeedServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void setup() {
@@ -60,7 +62,7 @@ class CalendarFeedServiceTest {
         SecurityContextHolder.clearContext();
     }
 
-    private static final Long ORG_ID = 5L;
+    private static final UUID ORG_ID = uid(5);
     private static final String USERNAME = "admin";
     private static final String BACKEND_URL = "http://localhost:8090/api/v1";
 
@@ -76,19 +78,19 @@ class CalendarFeedServiceTest {
 
     private Users adminUser(String calendarToken) {
         Organization org = Organization.builder().id(ORG_ID).name("Acme").build();
-        Roles adminRole = Roles.builder().id(1L).role("ADMIN").build();
-        return Users.builder().id(1L).username(USERNAME).role(adminRole)
+        Roles adminRole = Roles.builder().id(uid(1)).role("ADMIN").build();
+        return Users.builder().id(uid(1)).username(USERNAME).role(adminRole)
                 .organization(org).calendarToken(calendarToken).build();
     }
 
-    private Users managerUser(Long managerId, String calendarToken) {
-        Roles managerRole = Roles.builder().id(2L).role("MANAGER").build();
+    private Users managerUser(UUID managerId, String calendarToken) {
+        Roles managerRole = Roles.builder().id(uid(2)).role("MANAGER").build();
         Managers manager = Managers.builder().id(managerId).build();
-        return Users.builder().id(2L).username("manager1").role(managerRole)
+        return Users.builder().id(uid(2)).username("manager1").role(managerRole)
                 .manager(manager).calendarToken(calendarToken).build();
     }
 
-    private Contracts contract(Long id, String number, String customer, LocalDate endDate) {
+    private Contracts contract(UUID id, String number, String customer, LocalDate endDate) {
         Contracts c = new Contracts();
         c.setId(id);
         c.setContractNumber(number);
@@ -180,13 +182,13 @@ class CalendarFeedServiceTest {
             when(usersRepository.findByCalendarToken("token-1")).thenReturn(Optional.of(user));
             when(contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, ORG_ID))
                     .thenReturn(List.of(
-                            contract(1L, "CTR-001", "Acme Corp", LocalDate.of(2026, Month.AUGUST, 15))));
+                            contract(uid(1), "CTR-001", "Acme Corp", LocalDate.of(2026, Month.AUGUST, 15))));
 
             String ics = calendarFeedService.buildIcsFeed("token-1");
 
             assertTrue(ics.startsWith("BEGIN:VCALENDAR\r\n"));
             assertTrue(ics.contains("BEGIN:VEVENT\r\n"));
-            assertTrue(ics.contains("UID:contract-1@bcm\r\n"));
+            assertTrue(ics.contains("UID:contract-" + uid(1) + "@bcm\r\n"));
             assertTrue(ics.contains("DTSTART;VALUE=DATE:20260815\r\n"));
             assertTrue(ics.contains("DTEND;VALUE=DATE:20260816\r\n"));
             assertTrue(ics.contains("SUMMARY:Scadenza contratto CTR-001 - Acme Corp\r\n"));
@@ -196,8 +198,8 @@ class CalendarFeedServiceTest {
         @Test
         @DisplayName("admin with no organization: an empty feed, never every organization's contracts")
         void shouldBuildFeedForAdminWithoutOrganization() {
-            Roles adminRole = Roles.builder().id(1L).role("ADMIN").build();
-            Users user = Users.builder().id(1L).username(USERNAME).role(adminRole)
+            Roles adminRole = Roles.builder().id(uid(1)).role("ADMIN").build();
+            Users user = Users.builder().id(uid(1)).username(USERNAME).role(adminRole)
                     .calendarToken("token-no-org").build();
             when(usersRepository.findByCalendarToken("token-no-org")).thenReturn(Optional.of(user));
 
@@ -210,15 +212,15 @@ class CalendarFeedServiceTest {
         @Test
         @DisplayName("manager: scoped to their own assigned contracts only")
         void shouldBuildFeedForManager() {
-            Users user = managerUser(42L, "token-2");
+            Users user = managerUser(uid(42), "token-2");
             when(usersRepository.findByCalendarToken("token-2")).thenReturn(Optional.of(user));
-            when(contractsRepository.findByManagerIdAndStatus(42L, ContractStatus.ACTIVE))
+            when(contractsRepository.findByManagerIdAndStatus(uid(42), ContractStatus.ACTIVE))
                     .thenReturn(List.of(
-                            contract(2L, "CTR-002", "Beta Srl", LocalDate.of(2026, Month.SEPTEMBER, 1))));
+                            contract(uid(2), "CTR-002", "Beta Srl", LocalDate.of(2026, Month.SEPTEMBER, 1))));
 
             String ics = calendarFeedService.buildIcsFeed("token-2");
 
-            assertTrue(ics.contains("UID:contract-2@bcm\r\n"));
+            assertTrue(ics.contains("UID:contract-" + uid(2) + "@bcm\r\n"));
             verify(contractsRepository, never()).findByStatusAndOrganization_Id(any(), any());
         }
 
@@ -226,7 +228,7 @@ class CalendarFeedServiceTest {
         @DisplayName("a tacit renewal gets a second event on the last day to give notice")
         void shouldAddNoticeDeadlineEvent() {
             Users user = adminUser("token-4");
-            Contracts renewing = contract(4L, "NRT-119", "Rossi Impianti", LocalDate.of(2026, Month.DECEMBER, 31));
+            Contracts renewing = contract(uid(4), "NRT-119", "Rossi Impianti", LocalDate.of(2026, Month.DECEMBER, 31));
             renewing.setAutoRenew(true);
             renewing.setNoticeDays(90);
             when(usersRepository.findByCalendarToken("token-4")).thenReturn(Optional.of(user));
@@ -235,8 +237,8 @@ class CalendarFeedServiceTest {
 
             String ics = calendarFeedService.buildIcsFeed("token-4");
 
-            assertTrue(ics.contains("UID:contract-4@bcm\r\n"));
-            assertTrue(ics.contains("UID:contract-notice-4@bcm\r\nDTSTAMP:"));
+            assertTrue(ics.contains("UID:contract-" + uid(4) + "@bcm\r\n"));
+            assertTrue(ics.contains("UID:contract-notice-" + uid(4) + "@bcm\r\nDTSTAMP:"));
             // CRLF line ends, as RFC 5545 requires.
             assertTrue(ics.contains("""
                     DTSTART;VALUE=DATE:20261002\r
@@ -251,7 +253,7 @@ class CalendarFeedServiceTest {
             Users user = adminUser("token-3");
             when(usersRepository.findByCalendarToken("token-3")).thenReturn(Optional.of(user));
             when(contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, ORG_ID))
-                    .thenReturn(List.of(contract(3L, "CTR-003", "Gamma", null)));
+                    .thenReturn(List.of(contract(uid(3), "CTR-003", "Gamma", null)));
 
             String ics = calendarFeedService.buildIcsFeed("token-3");
 
@@ -266,7 +268,7 @@ class CalendarFeedServiceTest {
             when(usersRepository.findByCalendarToken("token-4")).thenReturn(Optional.of(user));
             when(contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, ORG_ID))
                     .thenReturn(List.of(
-                            contract(4L, "CTR-004", "Cliente; Sub, Ramo\\Test", LocalDate.of(2026, Month.OCTOBER, 10))));
+                            contract(uid(4), "CTR-004", "Cliente; Sub, Ramo\\Test", LocalDate.of(2026, Month.OCTOBER, 10))));
 
             String ics = calendarFeedService.buildIcsFeed("token-4");
 
@@ -276,8 +278,8 @@ class CalendarFeedServiceTest {
         @Test
         @DisplayName("manager with no assigned Manager profile gets an empty (but valid) calendar")
         void shouldReturnEmptyCalendarWhenManagerHasNoProfile() {
-            Roles managerRole = Roles.builder().id(2L).role("MANAGER").build();
-            Users user = Users.builder().id(3L).username("orphan").role(managerRole).calendarToken("token-5").build();
+            Roles managerRole = Roles.builder().id(uid(2)).role("MANAGER").build();
+            Users user = Users.builder().id(uid(3)).username("orphan").role(managerRole).calendarToken("token-5").build();
             when(usersRepository.findByCalendarToken("token-5")).thenReturn(Optional.of(user));
 
             String ics = calendarFeedService.buildIcsFeed("token-5");

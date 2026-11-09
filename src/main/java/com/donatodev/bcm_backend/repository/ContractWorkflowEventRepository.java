@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,7 +17,7 @@ import com.donatodev.bcm_backend.entity.ContractWorkflowEvent;
  * Repository interface for accessing {@link ContractWorkflowEvent} entities.
  */
 @Repository
-public interface ContractWorkflowEventRepository extends JpaRepository<ContractWorkflowEvent, Long> {
+public interface ContractWorkflowEventRepository extends JpaRepository<ContractWorkflowEvent, UUID> {
 
     /**
      * Retrieves all workflow events for a contract, oldest first.
@@ -24,7 +25,7 @@ public interface ContractWorkflowEventRepository extends JpaRepository<ContractW
      * @param contractId the contract ID
      * @return the contract's workflow events in chronological order
      */
-    List<ContractWorkflowEvent> findByContractIdOrderByCreatedAtAsc(Long contractId);
+    List<ContractWorkflowEvent> findByContractIdOrderByCreatedAtAsc(UUID contractId);
 
-    List<ContractWorkflowEvent> findAllByContract_Organization_Id(Long organizationId);
+    List<ContractWorkflowEvent> findAllByContract_Organization_Id(UUID organizationId);
 }

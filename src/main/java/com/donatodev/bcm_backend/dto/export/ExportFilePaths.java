@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 import com.donatodev.bcm_backend.entity.ContractDocument;
@@ -37,8 +38,8 @@ public final class ExportFilePaths {
         return path("sepa", batch.getContract().getId(), batch.getId(), batch.getFileName());
     }
 
-    private static String path(String kind, Long contractId, Long id, String fileName) {
-        return "files/%s/%d/%d-%s".formatted(kind, contractId, id, safeFileName(fileName));
+    private static String path(String kind, UUID contractId, UUID id, String fileName) {
+        return "files/%s/%s/%s-%s".formatted(kind, contractId, id, safeFileName(fileName));
     }
 
     /**

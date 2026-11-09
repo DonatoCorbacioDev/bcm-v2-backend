@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import com.donatodev.bcm_backend.support.TestTenant;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
@@ -272,7 +274,7 @@ class FinancialValueControllerTest {
 
             mockMvc.perform(get("/financial-values/{id}", value.getId()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(value.getId()))
+                    .andExpect(jsonPath("$.id").value(value.getId().toString()))
                     .andExpect(jsonPath("$.financialAmount").value(5000.00))
                     .andExpect(jsonPath("$.month").value(6))
                     .andExpect(jsonPath("$.year").value(2025));
@@ -317,7 +319,7 @@ class FinancialValueControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(updatedDTO)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(original.getId()))
+                    .andExpect(jsonPath("$.id").value(original.getId().toString()))
                     .andExpect(jsonPath("$.financialAmount").value(3000.00))
                     .andExpect(jsonPath("$.month").value(8))
                     .andExpect(jsonPath("$.year").value(2025));
@@ -367,7 +369,7 @@ class FinancialValueControllerTest {
         @DisplayName("Financial value not found when searching by invalid ID")
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldReturnNotFoundForInvalidId() throws Exception {
-            mockMvc.perform(get("/financial-values/{id}", 9999L))
+            mockMvc.perform(get("/financial-values/{id}", uid(9999)))
                     .andExpect(status().isNotFound());
         }
 

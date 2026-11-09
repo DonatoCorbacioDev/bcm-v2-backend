@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.mapper;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import com.donatodev.bcm_backend.config.TenantContext;
 import java.time.LocalDateTime;
@@ -30,14 +32,14 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 class ContractHistoryMapperTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     @SuppressWarnings("unused")
     void setUp() {
         TenantContext.set(TENANT);
-        contract = Contracts.builder().id(1L).build();
-        user = Users.builder().id(2L).build();
+        contract = Contracts.builder().id(uid(1)).build();
+        user = Users.builder().id(uid(2)).build();
     }
 
     @AfterEach
@@ -60,7 +62,7 @@ class ContractHistoryMapperTest {
     @Test
     void shouldConvertToDTO() {
         ContractHistory history = ContractHistory.builder()
-                .id(100L)
+                .id(uid(100))
                 .contract(contract)
                 .modifiedBy(user)
                 .modificationDate(LocalDateTime.of(2024, Month.MAY, 5, 12, 0))
@@ -70,9 +72,9 @@ class ContractHistoryMapperTest {
 
         ContractHistoryDTO dto = mapper.toDTO(history);
 
-        assertEquals(100L, dto.id());
-        assertEquals(1L, dto.contractId());
-        assertEquals(2L, dto.modifiedById());
+        assertEquals(uid(100), dto.id());
+        assertEquals(uid(1), dto.contractId());
+        assertEquals(uid(2), dto.modifiedById());
         assertEquals(LocalDateTime.of(2024, Month.MAY, 5, 12, 0), dto.modificationDate());
         assertEquals(ContractStatus.ACTIVE, dto.previousStatus());
         assertEquals(ContractStatus.CANCELLED, dto.newStatus());
@@ -81,18 +83,18 @@ class ContractHistoryMapperTest {
     @Test
     void shouldConvertToEntity() {
         ContractHistoryDTO dto = new ContractHistoryDTO(
-                100L, 1L, 2L,
+                uid(100), uid(1), uid(2),
                 LocalDateTime.of(2024, Month.MAY, 5, 12, 0),
                 ContractStatus.EXPIRED,
                 ContractStatus.ACTIVE
         );
 
-        when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
-        when(usersRepository.findByIdAndOrganizationId(2L, TENANT)).thenReturn(Optional.of(user));
+        when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
+        when(usersRepository.findByIdAndOrganizationId(uid(2), TENANT)).thenReturn(Optional.of(user));
 
         ContractHistory entity = mapper.toEntity(dto);
 
-        assertEquals(100L, entity.getId());
+        assertEquals(uid(100), entity.getId());
         assertEquals(contract, entity.getContract());
         assertEquals(user, entity.getModifiedBy());
         assertEquals(LocalDateTime.of(2024, Month.MAY, 5, 12, 0), entity.getModificationDate());
@@ -103,14 +105,14 @@ class ContractHistoryMapperTest {
     @Test
     void shouldUseNowIfModificationDateIsNull() {
         ContractHistoryDTO dto = new ContractHistoryDTO(
-                100L, 1L, 2L,
+                uid(100), uid(1), uid(2),
                 null,
                 ContractStatus.CANCELLED,
                 ContractStatus.ACTIVE
         );
 
-        when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
-        when(usersRepository.findByIdAndOrganizationId(2L, TENANT)).thenReturn(Optional.of(user));
+        when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
+        when(usersRepository.findByIdAndOrganizationId(uid(2), TENANT)).thenReturn(Optional.of(user));
 
         ContractHistory entity = mapper.toEntity(dto);
 
@@ -120,7 +122,7 @@ class ContractHistoryMapperTest {
     @Test
     void shouldConvertToDTOWithNullModifiedByWhenUserWasDeleted() {
         ContractHistory history = ContractHistory.builder()
-                .id(100L)
+                .id(uid(100))
                 .contract(contract)
                 .modifiedBy(null)
                 .modificationDate(LocalDateTime.of(2024, Month.MAY, 5, 12, 0))
@@ -136,7 +138,7 @@ class ContractHistoryMapperTest {
 
     private ContractHistoryDTO dtoModifiedBy(Users author) {
         return mapper.toDTO(ContractHistory.builder()
-                .id(100L).contract(contract).modifiedBy(author)
+                .id(uid(100)).contract(contract).modifiedBy(author)
                 .modificationDate(LocalDateTime.of(2024, Month.MAY, 5, 12, 0))
                 .previousStatus(ContractStatus.ACTIVE).newStatus(ContractStatus.EXPIRED)
                 .build());
@@ -144,7 +146,7 @@ class ContractHistoryMapperTest {
 
     @Test
     void shouldNameTheAuthorByTheirManagerProfile() {
-        Users author = Users.builder().id(2L).username("m.bellini")
+        Users author = Users.builder().id(uid(2)).username("m.bellini")
                 .manager(Managers.builder().firstName("Marco").lastName("Bellini").build()).build();
 
         assertEquals("Marco Bellini", dtoModifiedBy(author).modifiedByName());
@@ -152,8 +154,8 @@ class ContractHistoryMapperTest {
 
     @Test
     void shouldFallBackToTheUsernameWithoutAManagerName() {
-        Users noProfile = Users.builder().id(2L).username("admin").build();
-        Users blankProfile = Users.builder().id(3L).username("ops")
+        Users noProfile = Users.builder().id(uid(2)).username("admin").build();
+        Users blankProfile = Users.builder().id(uid(3)).username("ops")
                 .manager(Managers.builder().firstName(" ").build()).build();
 
         assertEquals("admin", dtoModifiedBy(noProfile).modifiedByName());
@@ -163,13 +165,13 @@ class ContractHistoryMapperTest {
     @Test
     void shouldConvertToEntityWithNullModifiedByWhenIdIsNull() {
         ContractHistoryDTO dto = new ContractHistoryDTO(
-                100L, 1L, null,
+                uid(100), uid(1), null,
                 LocalDateTime.of(2024, Month.MAY, 5, 12, 0),
                 ContractStatus.EXPIRED,
                 ContractStatus.ACTIVE
         );
 
-        when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
+        when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
 
         ContractHistory entity = mapper.toEntity(dto);
 
@@ -179,13 +181,13 @@ class ContractHistoryMapperTest {
     @Test
     void shouldThrowIfContractNotFound() {
         ContractHistoryDTO dto = new ContractHistoryDTO(
-                100L, 99L, 2L,
+                uid(100), uid(99), uid(2),
                 LocalDateTime.of(2027, Month.JUNE, 15, 12, 0),
                 ContractStatus.CANCELLED,
                 ContractStatus.ACTIVE
         );
 
-        when(contractsRepository.findByIdAndOrganization_Id(99L, TENANT)).thenReturn(Optional.empty());
+        when(contractsRepository.findByIdAndOrganization_Id(uid(99), TENANT)).thenReturn(Optional.empty());
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> mapper.toEntity(dto));
         assertEquals("Contract not found", ex.getMessage());
@@ -194,14 +196,14 @@ class ContractHistoryMapperTest {
     @Test
     void shouldThrowIfUserNotFound() {
         ContractHistoryDTO dto = new ContractHistoryDTO(
-                100L, 1L, 99L,
+                uid(100), uid(1), uid(99),
                 LocalDateTime.of(2027, Month.JUNE, 15, 12, 0),
                 ContractStatus.CANCELLED,
                 ContractStatus.ACTIVE
         );
 
-        when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
-        when(usersRepository.findByIdAndOrganizationId(99L, TENANT)).thenReturn(Optional.empty());
+        when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
+        when(usersRepository.findByIdAndOrganizationId(uid(99), TENANT)).thenReturn(Optional.empty());
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> mapper.toEntity(dto));
         assertEquals("User not found", ex.getMessage());
@@ -209,7 +211,7 @@ class ContractHistoryMapperTest {
 
     @Test
     void shouldNameTheAuthorByLastNameAlone() {
-        Users author = Users.builder().id(2L).username("bellini")
+        Users author = Users.builder().id(uid(2)).username("bellini")
                 .manager(Managers.builder().lastName("Bellini").build()).build();
 
         assertEquals("Bellini", dtoModifiedBy(author).modifiedByName());
@@ -217,13 +219,13 @@ class ContractHistoryMapperTest {
 
     @Test
     void shouldLookUpContractAndAuthorInTheCurrentOrganizationOnly() {
-        com.donatodev.bcm_backend.config.TenantContext.set(7L);
+        com.donatodev.bcm_backend.config.TenantContext.set(uid(7));
         try {
-            when(contractsRepository.findByIdAndOrganization_Id(1L, 7L)).thenReturn(Optional.of(contract));
-            when(usersRepository.findByIdAndOrganizationId(2L, 7L)).thenReturn(Optional.of(user));
+            when(contractsRepository.findByIdAndOrganization_Id(uid(1), uid(7))).thenReturn(Optional.of(contract));
+            when(usersRepository.findByIdAndOrganizationId(uid(2), uid(7))).thenReturn(Optional.of(user));
 
             ContractHistory entity = mapper.toEntity(new ContractHistoryDTO(
-                    100L, 1L, 2L, LocalDateTime.of(2024, Month.MAY, 5, 12, 0), ContractStatus.EXPIRED, ContractStatus.ACTIVE));
+                    uid(100), uid(1), uid(2), LocalDateTime.of(2024, Month.MAY, 5, 12, 0), ContractStatus.EXPIRED, ContractStatus.ACTIVE));
 
             assertEquals(contract, entity.getContract());
             assertEquals(user, entity.getModifiedBy());

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.time.Instant;
 import java.util.List;
 
@@ -18,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.donatodev.bcm_backend.entity.AuditLog;
 
 @Repository
-public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
+public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
 
     Page<AuditLog> findAllByOrderByTimestampDesc(Pageable pageable);
 
@@ -30,7 +31,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
      * @param pageable pagination information
      * @return a page of audit log entries belonging to the given organization
      */
-    Page<AuditLog> findAllByOrgIdOrderByTimestampDesc(Long orgId, Pageable pageable);
+    Page<AuditLog> findAllByOrgIdOrderByTimestampDesc(UUID orgId, Pageable pageable);
 
     /**
      * Bulk-deletes audit log entries older than the given cutoff, backing the
@@ -43,5 +44,5 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     @Transactional
     long deleteByTimestampBefore(Instant cutoff);
 
-    List<AuditLog> findAllByOrgIdOrderByTimestampAsc(Long orgId);
+    List<AuditLog> findAllByOrgIdOrderByTimestampAsc(UUID orgId);
 }

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,7 +21,7 @@ public class UpdateUserRequest {
 
     private String role;
 
-    private Long managerId;
+    private UUID managerId;
 
     private String password;
 }

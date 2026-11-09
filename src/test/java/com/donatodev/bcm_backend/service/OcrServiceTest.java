@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics2D;

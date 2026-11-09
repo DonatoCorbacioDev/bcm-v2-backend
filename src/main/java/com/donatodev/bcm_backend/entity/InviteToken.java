@@ -5,12 +5,12 @@
 
 package com.donatodev.bcm_backend.entity;
 
+import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,8 +25,8 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 public class InviteToken {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
+    private UUID id;
 
     @Column(unique = true, nullable = false)
     private String token;
@@ -41,7 +41,7 @@ public class InviteToken {
     private String role;
 
     @Column(nullable = false)
-    private Long managerId;
+    private UUID managerId;
 
     @Builder.Default
     @Column(nullable = false)

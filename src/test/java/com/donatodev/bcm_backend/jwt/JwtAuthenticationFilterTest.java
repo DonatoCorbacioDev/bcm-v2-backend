@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.jwt;
 
+import java.util.UUID;
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -92,12 +94,12 @@ class JwtAuthenticationFilterTest {
         token = "validToken";
         reset(jwtUtils, userDetailsService);
         when(jwtUtils.generateToken(user)).thenReturn(token);
-        when(userDetailsService.loadUserByUsername(eq(user.getUsername()), nullable(Long.class)))
+        when(userDetailsService.loadUserByUsername(eq(user.getUsername()), nullable(UUID.class)))
         .thenReturn(org.springframework.security.core.userdetails.User
             .withUsername(user.getUsername()).password(DUMMY_PASSWORD_ENCODED).roles("MANAGER").build());
         when(jwtUtils.validateToken(eq(token), any())).thenReturn(true);
         when(jwtUtils.getUsernameFromToken(token)).thenReturn("jwtuser");
-        when(jwtUtils.getOrganizationIdFromToken(token)).thenReturn(7L);
+        when(jwtUtils.getOrganizationIdFromToken(token)).thenReturn(uid(7));
     }
 
     /**
@@ -188,7 +190,7 @@ class JwtAuthenticationFilterTest {
         mockMvc.perform(get("/auth/me")
             .header("Authorization", "Bearer " + token))
             .andExpect(status().isUnauthorized());
-        verify(userDetailsService, never()).loadUserByUsername(anyString(), nullable(Long.class));
+        verify(userDetailsService, never()).loadUserByUsername(anyString(), nullable(UUID.class));
     }
 
     @Test
@@ -198,7 +200,7 @@ class JwtAuthenticationFilterTest {
         String testToken = "validToken";
 
         when(jwtUtils.getUsernameFromToken(testToken)).thenReturn(user.getUsername());
-        when(userDetailsService.loadUserByUsername(eq(user.getUsername()), nullable(Long.class)))
+        when(userDetailsService.loadUserByUsername(eq(user.getUsername()), nullable(UUID.class)))
                .thenReturn(org.springframework.security.core.userdetails.User
                        .withUsername(user.getUsername()).password(DUMMY_PASSWORD_PLAIN).roles("MANAGER").build());
         when(jwtUtils.validateToken(eq(testToken), any())).thenReturn(false);
@@ -215,7 +217,7 @@ class JwtAuthenticationFilterTest {
         String testToken = "validToken";
 
         when(jwtUtils.getUsernameFromToken(testToken)).thenReturn(user.getUsername());
-        when(userDetailsService.loadUserByUsername(eq(user.getUsername()), nullable(Long.class)))
+        when(userDetailsService.loadUserByUsername(eq(user.getUsername()), nullable(UUID.class)))
                .thenThrow(new RuntimeException("DB error"));
 
         mockMvc.perform(get("/auth/me")

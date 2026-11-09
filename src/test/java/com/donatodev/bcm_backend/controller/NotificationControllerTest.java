@@ -1,5 +1,8 @@
 package com.donatodev.bcm_backend.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.Collections;
@@ -71,7 +74,7 @@ class NotificationControllerTest {
         @WithMockUser(roles = "MANAGER")
         void shouldReturn200WithNotifications() throws Exception {
             NotificationDTO dto = new NotificationDTO(
-                    1L, "Test Title", "Test Message",
+                    uid(1), "Test Title", "Test Message",
                     NotificationType.WARNING, false, LocalDateTime.of(2027, Month.JUNE, 15, 12, 0));
 
             when(notificationService.getForCurrentUser()).thenReturn(List.of(dto));
@@ -104,9 +107,9 @@ class NotificationControllerTest {
         @DisplayName("Should return 204 when notification marked as read")
         @WithMockUser(roles = "ADMIN")
         void shouldReturn204OnSuccess() throws Exception {
-            doNothing().when(notificationService).markAsRead(1L);
+            doNothing().when(notificationService).markAsRead(uid(1));
 
-            mockMvc.perform(patch("/notifications/1/read"))
+            mockMvc.perform(patch("/notifications/" + uid(1) + "/read"))
                     .andExpect(status().isNoContent());
         }
 
@@ -116,9 +119,9 @@ class NotificationControllerTest {
         @WithMockUser(roles = "MANAGER")
         void shouldReturn404WhenNotFound() throws Exception {
             doThrow(new NotificationNotFoundException("Notification not found: 99"))
-                    .when(notificationService).markAsRead(99L);
+                    .when(notificationService).markAsRead(uid(99));
 
-            mockMvc.perform(patch("/notifications/99/read"))
+            mockMvc.perform(patch("/notifications/" + uid(99) + "/read"))
                     .andExpect(status().isNotFound());
         }
 
@@ -128,9 +131,9 @@ class NotificationControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldReturn404ForAnotherUsersNotification() throws Exception {
             doThrow(new NotificationNotFoundException("Notifica non trovata: 5"))
-                    .when(notificationService).markAsRead(5L);
+                    .when(notificationService).markAsRead(uid(5));
 
-            mockMvc.perform(patch("/notifications/5/read"))
+            mockMvc.perform(patch("/notifications/" + uid(5) + "/read"))
                     .andExpect(status().isNotFound());
         }
 
@@ -138,7 +141,7 @@ class NotificationControllerTest {
         @Order(4)
         @DisplayName("Should return 401 for unauthenticated request")
         void shouldReturn401WhenNotAuthenticated() throws Exception {
-            mockMvc.perform(patch("/notifications/1/read"))
+            mockMvc.perform(patch("/notifications/" + uid(1) + "/read"))
                     .andExpect(status().isUnauthorized());
         }
     }
@@ -154,14 +157,14 @@ class NotificationControllerTest {
         @DisplayName("Should return 201 when the reminder is created")
         @WithMockUser(roles = "ADMIN")
         void shouldReturn201OnSuccess() throws Exception {
-            doNothing().when(notificationService).createReminderForCurrentUser(5L, "Rinnovo in scadenza");
+            doNothing().when(notificationService).createReminderForCurrentUser(uid(5), "Rinnovo in scadenza");
 
             mockMvc.perform(post("/notifications")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"contractId\":5,\"message\":\"Rinnovo in scadenza\"}"))
+                    .content("{\"contractId\":\"00000000-0000-0000-0000-000000000005\",\"message\":\"Rinnovo in scadenza\"}"))
                     .andExpect(status().isCreated());
 
-            verify(notificationService).createReminderForCurrentUser(5L, "Rinnovo in scadenza");
+            verify(notificationService).createReminderForCurrentUser(uid(5), "Rinnovo in scadenza");
         }
 
         @Test
@@ -169,12 +172,12 @@ class NotificationControllerTest {
         @DisplayName("Should return 404 when the contract is not in the caller's org")
         @WithMockUser(roles = "MANAGER")
         void shouldReturn404WhenContractNotFound() throws Exception {
-            doThrow(new ContractNotFoundException("Contratto ID 999 non trovato"))
-                    .when(notificationService).createReminderForCurrentUser(anyLong(), anyString());
+            doThrow(new ContractNotFoundException("Contratto ID " + uid(999) + " non trovato"))
+                    .when(notificationService).createReminderForCurrentUser(any(UUID.class), anyString());
 
             mockMvc.perform(post("/notifications")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"contractId\":999,\"message\":\"hi\"}"))
+                    .content("{\"contractId\":\"00000000-0000-0000-0000-0000000003e7\",\"message\":\"hi\"}"))
                     .andExpect(status().isNotFound());
         }
 
@@ -185,7 +188,7 @@ class NotificationControllerTest {
         void shouldReturn400WhenMessageBlank() throws Exception {
             mockMvc.perform(post("/notifications")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"contractId\":5,\"message\":\"\"}"))
+                    .content("{\"contractId\":\"00000000-0000-0000-0000-000000000005\",\"message\":\"\"}"))
                     .andExpect(status().isBadRequest());
         }
 
@@ -206,7 +209,7 @@ class NotificationControllerTest {
         void shouldReturn401WhenNotAuthenticated() throws Exception {
             mockMvc.perform(post("/notifications")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"contractId\":5,\"message\":\"hi\"}"))
+                    .content("{\"contractId\":\"00000000-0000-0000-0000-000000000005\",\"message\":\"hi\"}"))
                     .andExpect(status().isUnauthorized());
         }
     }

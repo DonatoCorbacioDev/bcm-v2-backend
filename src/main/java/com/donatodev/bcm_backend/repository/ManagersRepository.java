@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,13 +17,13 @@ import org.springframework.stereotype.Repository;
 import com.donatodev.bcm_backend.entity.Managers;
 
 @Repository
-public interface ManagersRepository extends JpaRepository<Managers, Long> {
+public interface ManagersRepository extends JpaRepository<Managers, UUID> {
 
     Managers findByEmail(String email);
 
     boolean existsByEmail(String email);
 
-    Page<Managers> findByOrganizationId(Long organizationId, Pageable pageable);
+    Page<Managers> findByOrganizationId(UUID organizationId, Pageable pageable);
 
     /**
      * Finds all managers belonging to the given organization, unpaged. Used
@@ -32,7 +33,7 @@ public interface ManagersRepository extends JpaRepository<Managers, Long> {
      * @param organizationId the organization ID
      * @return all managers belonging to the organization
      */
-    List<Managers> findAllByOrganizationId(Long organizationId);
+    List<Managers> findAllByOrganizationId(UUID organizationId);
 
     /**
      * Finds a manager by ID, scoped to the given organization. Used to
@@ -43,12 +44,12 @@ public interface ManagersRepository extends JpaRepository<Managers, Long> {
      * @return an {@link Optional} containing the manager if it exists and
      * belongs to the given organization
      */
-    Optional<Managers> findByIdAndOrganizationId(Long id, Long orgId);
+    Optional<Managers> findByIdAndOrganizationId(UUID id, UUID orgId);
 
     Page<Managers> findByOrganizationIdAndFirstNameContainingIgnoreCaseOrOrganizationIdAndLastNameContainingIgnoreCaseOrOrganizationIdAndEmailContainingIgnoreCase(
-            Long orgId1, String first,
-            Long orgId2, String last,
-            Long orgId3, String email,
+            UUID orgId1, String first,
+            UUID orgId2, String last,
+            UUID orgId3, String email,
             Pageable pageable);
 
     Page<Managers> findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCase(

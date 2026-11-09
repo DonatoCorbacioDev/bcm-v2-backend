@@ -5,13 +5,14 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.donatodev.bcm_backend.entity.OrganizationDeletionCode;
 
-public interface OrganizationDeletionCodeRepository extends JpaRepository<OrganizationDeletionCode, Long> {
+public interface OrganizationDeletionCodeRepository extends JpaRepository<OrganizationDeletionCode, UUID> {
 
-    Optional<OrganizationDeletionCode> findByOrganizationId(Long organizationId);
+    Optional<OrganizationDeletionCode> findByOrganizationId(UUID organizationId);
 }

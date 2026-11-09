@@ -59,7 +59,7 @@ public class SepaPaymentService {
     private static final String PAIN_NAMESPACE = "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03";
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final String NOT_PROVIDED = "NOTPROVIDED";
-    private static final String BATCH_NOT_FOUND = "Lotto pagamento SEPA ID %d non trovato per il contratto %d";
+    private static final String BATCH_NOT_FOUND = "Lotto pagamento SEPA ID %s non trovato per il contratto %s";
 
     private final ContractAccessGuard contractAccessGuard;
     private final ElectronicInvoiceRepository invoiceRepository;
@@ -86,7 +86,7 @@ public class SepaPaymentService {
     }
 
     @Transactional
-    public FileDownload createSepaPayment(Long contractId, List<Long> invoiceIds, LocalDate requestedExecutionDate) {
+    public FileDownload createSepaPayment(UUID contractId, List<UUID> invoiceIds, LocalDate requestedExecutionDate) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
 
@@ -135,7 +135,7 @@ public class SepaPaymentService {
         String messageId = "MSG" + UUID.randomUUID().toString().replace("-", "").substring(0, 28).toUpperCase(Locale.ROOT);
         byte[] xmlBytes = buildXml(organization, invoices, currency, executionDate, messageId, totalAmount);
 
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         String storagePath = localStorageService.storeSepaPayment(orgId, contractId, xmlBytes);
         String fileName = "sepa-" + contractId + "-" + executionDate + ".xml";
 
@@ -160,7 +160,7 @@ public class SepaPaymentService {
     }
 
     @Transactional(readOnly = true)
-    public List<SepaPaymentBatchDTO> getPayments(Long contractId) {
+    public List<SepaPaymentBatchDTO> getPayments(UUID contractId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         return batchRepository.findByContractIdOrderByCreatedAtDesc(contractId)
@@ -170,7 +170,7 @@ public class SepaPaymentService {
     }
 
     @Transactional(readOnly = true)
-    public FileDownload downloadPayment(Long contractId, Long batchId) {
+    public FileDownload downloadPayment(UUID contractId, UUID batchId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         SepaPaymentBatch batch = batchRepository.findByIdAndContractId(batchId, contractId)
@@ -243,7 +243,7 @@ public class SepaPaymentService {
     }
 
     private Organization resolveOrganization() {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         return organizationRepository.findById(orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Organizzazione non trovata"));
     }

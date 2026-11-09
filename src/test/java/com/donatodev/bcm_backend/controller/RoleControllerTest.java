@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -113,7 +114,7 @@ class RoleControllerTest {
             mockMvc.perform(get("/roles/{id}", savedEntity.getId()))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(jsonPath("$.id").value(savedEntity.getId()))
+                    .andExpect(jsonPath("$.id").value(savedEntity.getId().toString()))
                     .andExpect(jsonPath("$.role").value("TESTER"));
         }
 
@@ -150,7 +151,7 @@ class RoleControllerTest {
         @DisplayName("Role not found when searching by invalid ID")
         @WithMockUser(roles = "ADMIN")
         void shouldReturnNotFoundForInvalidId() throws Exception {
-            mockMvc.perform(get("/roles/{id}", 9999L))
+            mockMvc.perform(get("/roles/{id}", uid(9999)))
                     .andExpect(status().isNotFound());
         }
 

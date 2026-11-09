@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import com.donatodev.bcm_backend.entity.ContractManager;
 import com.donatodev.bcm_backend.entity.ContractManagerId;
 
@@ -26,17 +27,17 @@ import org.springframework.transaction.annotation.Transactional;
 public interface ContractManagerRepository extends JpaRepository<ContractManager, ContractManagerId> {
 	
 	@Query(value = "SELECT manager_id FROM contract_manager WHERE contract_id = :contractId", nativeQuery = true)
-    List<Long> findManagerIdsByContractId(Long contractId);
+    List<UUID> findManagerIdsByContractId(UUID contractId);
 
     @Modifying 
     @Transactional
     @Query(value = "DELETE FROM contract_manager WHERE contract_id = :contractId", nativeQuery = true)
-    void deleteAllByContractId(Long contractId);
+    void deleteAllByContractId(UUID contractId);
 
     @Modifying 
     @Transactional
     @Query(value = "INSERT IGNORE INTO contract_manager (contract_id, manager_id) VALUES (:contractId, :managerId)", nativeQuery = true)
-    void insertIgnore(Long contractId, Long managerId);
+    void insertIgnore(UUID contractId, UUID managerId);
 
-    List<ContractManager> findAllByContract_Organization_Id(Long organizationId);
+    List<ContractManager> findAllByContract_Organization_Id(UUID organizationId);
 }

@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.security.KeyPair;
 import java.time.Clock;
 import java.time.Instant;
@@ -42,7 +43,7 @@ class MlClaimsSignerTest {
     void returnsNullWhenNoKeyConfigured() {
         MlClaimsSigner signer = new MlClaimsSigner();
 
-        assertNull(signer.sign(1L, 2L));
+        assertNull(signer.sign(uid(1), uid(2)));
     }
 
     @Test
@@ -51,7 +52,7 @@ class MlClaimsSignerTest {
         MlClaimsSigner signer = new MlClaimsSigner();
         ReflectionTestUtils.setField(signer, "privateKeyBase64", "   ");
 
-        assertNull(signer.sign(1L, 2L));
+        assertNull(signer.sign(uid(1), uid(2)));
     }
 
     @Test
@@ -59,11 +60,11 @@ class MlClaimsSignerTest {
     void signsTokenWithClaims() {
         MlClaimsSigner signer = signerWithKey();
 
-        String token = signer.sign(5L, 42L);
+        String token = signer.sign(uid(5), uid(42));
         Claims claims = verify(token);
 
-        assertEquals(5, ((Number) claims.get("orgId")).longValue());
-        assertEquals(42, ((Number) claims.get("managerId")).longValue());
+        assertEquals(uid(5).toString(), claims.get("orgId"));
+        assertEquals(uid(42).toString(), claims.get("managerId"));
     }
 
     @Test
@@ -71,10 +72,10 @@ class MlClaimsSignerTest {
     void signsTokenWithNullManagerId() {
         MlClaimsSigner signer = signerWithKey();
 
-        String token = signer.sign(5L, null);
+        String token = signer.sign(uid(5), null);
         Claims claims = verify(token);
 
-        assertEquals(5, ((Number) claims.get("orgId")).longValue());
+        assertEquals(uid(5).toString(), claims.get("orgId"));
         assertNull(claims.get("managerId"));
     }
 
@@ -84,7 +85,7 @@ class MlClaimsSignerTest {
         MlClaimsSigner signer = new MlClaimsSigner();
         ReflectionTestUtils.setField(signer, "privateKeyBase64", "not-valid-base64-pkcs8!!");
 
-        assertThrows(IllegalStateException.class, () -> signer.sign(1L, null));
+        assertThrows(IllegalStateException.class, () -> signer.sign(uid(1), null));
     }
 
     @Test
@@ -94,7 +95,7 @@ class MlClaimsSignerTest {
         Instant fixedNow = Instant.parse("2026-01-01T00:00:00Z");
         signer.setClock(Clock.fixed(fixedNow, ZoneOffset.UTC));
 
-        String token = signer.sign(1L, null);
+        String token = signer.sign(uid(1), null);
         // Parse with the same fixed clock — otherwise the parser's own
         // (real) expiration check would reject a token deliberately signed
         // in the past, which is the whole point of this test.

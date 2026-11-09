@@ -5,16 +5,17 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.time.Instant;
 
 import com.donatodev.bcm_backend.entity.AuditLog;
 
 /** One element of {@code data/audit_logs.json}. */
 public record AuditLogExportDTO(
-        Long id,
+        UUID id,
         String action,
         String entityType,
-        Long entityId,
+        UUID entityId,
         String username,
         Instant timestamp,
         String details) {

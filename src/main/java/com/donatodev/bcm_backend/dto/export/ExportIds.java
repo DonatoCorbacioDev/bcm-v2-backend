@@ -5,7 +5,8 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
-import java.util.function.ToLongFunction;
+import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * Export files reference each other by id, like database tables, instead of
@@ -18,7 +19,7 @@ final class ExportIds {
     }
 
     /** The id of an optional reference, or null when the reference is unset. */
-    static <T> Long idOf(T entity, ToLongFunction<T> id) {
-        return entity != null ? id.applyAsLong(entity) : null;
+    static <T> UUID idOf(T entity, Function<T, UUID> id) {
+        return entity != null ? id.apply(entity) : null;
     }
 }

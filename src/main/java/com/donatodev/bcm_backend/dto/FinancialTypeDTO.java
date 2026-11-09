@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto;
 
+import java.util.UUID;
 import com.donatodev.bcm_backend.entity.FinancialCategory;
 
 /**
@@ -18,7 +19,7 @@ import com.donatodev.bcm_backend.entity.FinancialCategory;
  * @param category    whether this type represents revenue or a cost
  */
 public record FinancialTypeDTO(
-        Long id,
+        UUID id,
         String name,
         String description,
         FinancialCategory category

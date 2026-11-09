@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.UUID;
@@ -139,7 +140,7 @@ class ContractResourceAuthorizationTest {
         if (scenario.equals("missingTenant")) {
             clearTenant();
         }
-        Long id = scenario.equals("missingContract") ? Long.MAX_VALUE : contract.getId();
+        UUID id = scenario.equals("missingContract") ? uid(Long.MAX_VALUE) : contract.getId();
         String path = endpoint.equals("financial")
                 ? "/financial-values/by-contract/{id}" : "/contracts/{id}/collaborators";
         var response = mockMvc.perform(get(path, id).with(user(username).roles(role)))

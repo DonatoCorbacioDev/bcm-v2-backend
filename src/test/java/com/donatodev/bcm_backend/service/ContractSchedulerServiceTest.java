@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.Collections;
@@ -85,14 +87,14 @@ class ContractSchedulerServiceTest {
             LocalDate today = TODAY;
 
             Contracts overdueContract1 = Contracts.builder()
-                    .id(1L).contractNumber("CNT-001")
+                    .id(uid(1)).contractNumber("CNT-001")
                     .counterparty(Counterparty.builder().name("Client A").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .startDate(today.minusMonths(6)).endDate(today.minusDays(1))
                     .build();
 
             Contracts overdueContract2 = Contracts.builder()
-                    .id(2L).contractNumber("CNT-002")
+                    .id(uid(2)).contractNumber("CNT-002")
                     .counterparty(Counterparty.builder().name("Client B").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .startDate(today.minusMonths(12)).endDate(today.minusDays(7))
@@ -134,32 +136,32 @@ class ContractSchedulerServiceTest {
             LocalDate today = TODAY;
 
             Contracts overdueContract = Contracts.builder()
-                    .id(1L).contractNumber("CNT-004")
+                    .id(uid(1)).contractNumber("CNT-004")
                     .counterparty(Counterparty.builder().name("Client D").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .startDate(today.minusMonths(6)).endDate(today.minusDays(1))
-                    .organization(Organization.builder().id(3L).build())
+                    .organization(Organization.builder().id(uid(3)).build())
                     .build();
 
             Users firstAdmin = Users.builder()
-                    .id(1L).username("admin@bcm.com")
+                    .id(uid(1)).username("admin@bcm.com")
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
             Users laterAdmin = Users.builder()
-                    .id(9L).username("second-admin@bcm.com")
+                    .id(uid(9)).username("second-admin@bcm.com")
                     .role(Roles.builder().role("ADMIN").build())
                     .build();
 
             when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
                     .thenReturn(List.of(overdueContract));
             // Only the contract's own organization is asked for its admins.
-            when(usersRepository.findByOrganizationIdAndRoleRole(3L, "ADMIN"))
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(3), "ADMIN"))
                     .thenReturn(List.of(laterAdmin, firstAdmin));
 
             schedulerService.expireOverdueContracts();
 
             verify(contractHistoryRepository).save(argThat(history ->
-                    history.getContract().getId().equals(1L)
+                    history.getContract().getId().equals(uid(1))
                     && history.getPreviousStatus() == ContractStatus.ACTIVE
                     && history.getNewStatus() == ContractStatus.EXPIRED
                     && history.getModifiedBy().getUsername().equals("admin@bcm.com")
@@ -173,16 +175,16 @@ class ContractSchedulerServiceTest {
             LocalDate today = TODAY;
 
             Contracts overdueContract = Contracts.builder()
-                    .id(1L).contractNumber("CNT-005")
+                    .id(uid(1)).contractNumber("CNT-005")
                     .counterparty(Counterparty.builder().name("Client E").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .startDate(today.minusMonths(6)).endDate(today.minusDays(1))
-                    .organization(Organization.builder().id(3L).build())
+                    .organization(Organization.builder().id(uid(3)).build())
                     .build();
 
             when(contractsRepository.findByStatusAndEndDateBefore(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
                     .thenReturn(List.of(overdueContract));
-            when(usersRepository.findByOrganizationIdAndRoleRole(3L, "ADMIN"))
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(3), "ADMIN"))
                     .thenReturn(List.of());
 
             schedulerService.expireOverdueContracts();
@@ -199,7 +201,7 @@ class ContractSchedulerServiceTest {
             LocalDate today = TODAY;
 
             Contracts overdueContract = Contracts.builder()
-                    .id(1L).contractNumber("CNT-008")
+                    .id(uid(1)).contractNumber("CNT-008")
                     .status(ContractStatus.ACTIVE).endDate(today.minusDays(5))
                     .build();
 
@@ -220,8 +222,8 @@ class ContractSchedulerServiceTest {
         @Order(9)
         @DisplayName("Should send notification for contract at 30-day threshold")
         void shouldSendExpirationNotifications() {
-            Managers manager = buildManager(1L, "John", "Doe", "john.doe@example.com");
-            Contracts expiringContract = buildContract(1L, "CNT-2025-EXPIRING", "Test Customer", "Test Project", manager);
+            Managers manager = buildManager(uid(1), "John", "Doe", "john.doe@example.com");
+            Contracts expiringContract = buildContract(uid(1), "CNT-2025-EXPIRING", "Test Customer", "Test Project", manager);
 
             // First threshold (30 days) returns the contract; the rest return empty
             when(contractsRepository.findByStatusAndEndDate(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
@@ -242,7 +244,7 @@ class ContractSchedulerServiceTest {
         @Order(10)
         @DisplayName("Should not send notification when contract has no manager")
         void shouldNotSendNotificationWhenContractHasNoManager() {
-            Contracts contractWithoutManager = buildContract(1L, "CNT-NO-MANAGER", "Test", null, null);
+            Contracts contractWithoutManager = buildContract(uid(1), "CNT-NO-MANAGER", "Test", null, null);
 
             when(contractsRepository.findByStatusAndEndDate(any(ContractStatus.class), any(LocalDate.class)))
                     .thenReturn(List.of(contractWithoutManager))
@@ -257,8 +259,8 @@ class ContractSchedulerServiceTest {
         @Order(11)
         @DisplayName("Should not send notification when manager has no email")
         void shouldNotSendNotificationWhenManagerHasNoEmail() {
-            Managers managerWithoutEmail = buildManager(1L, "Jane", "Smith", null);
-            Contracts contract = buildContract(1L, "CNT-NO-EMAIL", "Test", null, managerWithoutEmail);
+            Managers managerWithoutEmail = buildManager(uid(1), "Jane", "Smith", null);
+            Contracts contract = buildContract(uid(1), "CNT-NO-EMAIL", "Test", null, managerWithoutEmail);
 
             when(contractsRepository.findByStatusAndEndDate(any(ContractStatus.class), any(LocalDate.class)))
                     .thenReturn(List.of(contract))
@@ -273,8 +275,8 @@ class ContractSchedulerServiceTest {
         @Order(12)
         @DisplayName("Should continue processing when email sending throws")
         void shouldHandleEmailSendingException() {
-            Managers manager = buildManager(1L, "Test", "User", "test@example.com");
-            Contracts contract = buildContract(1L, "CNT-ERROR", "Error Test", "Error Project", manager);
+            Managers manager = buildManager(uid(1), "Test", "User", "test@example.com");
+            Contracts contract = buildContract(uid(1), "CNT-ERROR", "Error Test", "Error Project", manager);
 
             when(contractsRepository.findByStatusAndEndDate(any(ContractStatus.class), any(LocalDate.class)))
                     .thenReturn(List.of(contract))
@@ -291,10 +293,10 @@ class ContractSchedulerServiceTest {
         @Order(13)
         @DisplayName("Should send notifications for multiple contracts at the same threshold")
         void shouldSendMultipleNotificationsForMultipleContracts() {
-            Managers manager1 = buildManager(1L, "Manager", "One", "manager1@example.com");
-            Managers manager2 = buildManager(2L, "Manager", "Two", "manager2@example.com");
-            Contracts contract1 = buildContract(1L, "CNT-001", "Customer 1", "Project 1", manager1);
-            Contracts contract2 = buildContract(2L, "CNT-002", "Customer 2", "Project 2", manager2);
+            Managers manager1 = buildManager(uid(1), "Manager", "One", "manager1@example.com");
+            Managers manager2 = buildManager(uid(2), "Manager", "Two", "manager2@example.com");
+            Contracts contract1 = buildContract(uid(1), "CNT-001", "Customer 1", "Project 1", manager1);
+            Contracts contract2 = buildContract(uid(2), "CNT-002", "Customer 2", "Project 2", manager2);
 
             // Both contracts at 30-day threshold
             when(contractsRepository.findByStatusAndEndDate(any(ContractStatus.class), any(LocalDate.class)))
@@ -312,8 +314,8 @@ class ContractSchedulerServiceTest {
         @Order(14)
         @DisplayName("Should send notification when project name is null")
         void shouldSendNotificationWhenProjectNameIsNull() {
-            Managers manager = buildManager(1L, "John", "Doe", "john.doe@example.com");
-            Contracts contract = buildContract(1L, "CNT-NO-PROJECT", "Test Customer", null, manager);
+            Managers manager = buildManager(uid(1), "John", "Doe", "john.doe@example.com");
+            Contracts contract = buildContract(uid(1), "CNT-NO-PROJECT", "Test Customer", null, manager);
 
             when(contractsRepository.findByStatusAndEndDate(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
                     .thenReturn(List.of(contract))
@@ -328,8 +330,8 @@ class ContractSchedulerServiceTest {
         @Order(15)
         @DisplayName("Should handle in-app notification exception gracefully")
         void shouldHandleInAppNotificationException() {
-            Managers manager = buildManager(1L, "Error", "Test", "error@test.com");
-            Contracts contract = buildContract(1L, "CNT-INAPP-ERROR", "Test Customer", "Test Project", manager);
+            Managers manager = buildManager(uid(1), "Error", "Test", "error@test.com");
+            Contracts contract = buildContract(uid(1), "CNT-INAPP-ERROR", "Test Customer", "Test Project", manager);
 
             when(contractsRepository.findByStatusAndEndDate(any(ContractStatus.class), any(LocalDate.class)))
                     .thenReturn(List.of(contract))
@@ -358,8 +360,8 @@ class ContractSchedulerServiceTest {
         @Order(17)
         @DisplayName("Should include 'Ultimo avviso' in subject for 1-day threshold")
         void shouldSendFinalNoticeForContractExpiringTomorrow() {
-            Managers manager = buildManager(1L, "Final", "Test", "final@test.com");
-            Contracts contract = buildContract(1L, "CNT-FINAL", "Customer", "Project", manager);
+            Managers manager = buildManager(uid(1), "Final", "Test", "final@test.com");
+            Contracts contract = buildContract(uid(1), "CNT-FINAL", "Customer", "Project", manager);
 
             // Only the 1-day threshold (4th call) returns the contract
             when(contractsRepository.findByStatusAndEndDate(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
@@ -380,8 +382,8 @@ class ContractSchedulerServiceTest {
         @Order(18)
         @DisplayName("Should include 'Urgente' in subject for 7-day threshold")
         void shouldSendUrgentNoticeForContractExpiring7Days() {
-            Managers manager = buildManager(1L, "Urgent", "Test", "urgent@test.com");
-            Contracts contract = buildContract(1L, "CNT-URGENT", "Customer", "Project", manager);
+            Managers manager = buildManager(uid(1), "Urgent", "Test", "urgent@test.com");
+            Contracts contract = buildContract(uid(1), "CNT-URGENT", "Customer", "Project", manager);
 
             // Only the 7-day threshold (3rd call) returns the contract
             when(contractsRepository.findByStatusAndEndDate(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
@@ -400,7 +402,7 @@ class ContractSchedulerServiceTest {
 
         // ── Helpers ────────────────────────────────────────────────────────
 
-        private Managers buildManager(Long id, String firstName, String lastName, String email) {
+        private Managers buildManager(UUID id, String firstName, String lastName, String email) {
             Managers m = new Managers();
             m.setId(id);
             m.setFirstName(firstName);
@@ -409,7 +411,7 @@ class ContractSchedulerServiceTest {
             return m;
         }
 
-        private Contracts buildContract(Long id, String contractNumber, String customerName,
+        private Contracts buildContract(UUID id, String contractNumber, String customerName,
                 String projectName, Managers manager) {
             Contracts c = new Contracts();
             c.setId(id);
@@ -438,12 +440,12 @@ class ContractSchedulerServiceTest {
 
         private Contracts tacitContract(Integer noticeDays, Integer renewalMonths, LocalDate endDate) {
             Managers manager = new Managers();
-            manager.setId(1L);
+            manager.setId(uid(1));
             manager.setFirstName("Anna");
             manager.setLastName("Verdi");
             manager.setEmail("anna@example.com");
             return Contracts.builder()
-                    .id(10L).contractNumber("MAN-2026")
+                    .id(uid(10)).contractNumber("MAN-2026")
                     .counterparty(Counterparty.builder().name("Rossi Impianti").type(CounterpartyType.SUPPLIER).build())
                     .projectName("Manutenzione impianti")
                     .status(ContractStatus.ACTIVE)

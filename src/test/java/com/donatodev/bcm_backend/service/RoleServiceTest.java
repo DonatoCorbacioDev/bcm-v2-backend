@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.List;
 import java.util.Optional;
 
@@ -61,8 +62,8 @@ class RoleServiceTest {
         @Order(1)
         @DisplayName("Get all roles returns list of DTOs")
         void shouldGetAllRoles() {
-            Roles entity = Roles.builder().id(1L).role("ADMIN").build();
-            RoleDTO dto = new RoleDTO(1L, "ADMIN");
+            Roles entity = Roles.builder().id(uid(1)).role("ADMIN").build();
+            RoleDTO dto = new RoleDTO(uid(1), "ADMIN");
 
             when(rolesRepository.findAll()).thenReturn(List.of(entity));
             when(roleMapper.toDTO(entity)).thenReturn(dto);
@@ -80,13 +81,13 @@ class RoleServiceTest {
         @Order(2)
         @DisplayName("Get role by ID returns DTO")
         void shouldGetRoleById() {
-            Roles entity = Roles.builder().id(1L).role("MANAGER").build();
-            RoleDTO dto = new RoleDTO(1L, "MANAGER");
+            Roles entity = Roles.builder().id(uid(1)).role("MANAGER").build();
+            RoleDTO dto = new RoleDTO(uid(1), "MANAGER");
 
-            when(rolesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(rolesRepository.findById(uid(1))).thenReturn(Optional.of(entity));
             when(roleMapper.toDTO(entity)).thenReturn(dto);
 
-            RoleDTO result = roleService.getRoleById(1L);
+            RoleDTO result = roleService.getRoleById(uid(1));
 
             assertEquals("MANAGER", result.role());
         }
@@ -99,10 +100,10 @@ class RoleServiceTest {
         @Order(3)
         @DisplayName("Get role by ID throws exception if not found")
         void shouldThrowIfRoleNotFound() {
-            when(rolesRepository.findById(999L)).thenReturn(Optional.empty());
+            when(rolesRepository.findById(uid(999))).thenReturn(Optional.empty());
             RoleNotFoundException ex =
-                assertThrows(RoleNotFoundException.class, () -> roleService.getRoleById(999L));
-            assertEquals("Ruolo ID 999 non trovato", ex.getMessage());
+                assertThrows(RoleNotFoundException.class, () -> roleService.getRoleById(uid(999)));
+            assertEquals("Ruolo ID " + uid(999) + " non trovato", ex.getMessage());
         }
     }
 }

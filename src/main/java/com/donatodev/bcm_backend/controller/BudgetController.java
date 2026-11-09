@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -51,7 +52,7 @@ public class BudgetController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/{id}")
-    public ResponseEntity<BudgetDTO> getBudgetById(@PathVariable Long id) {
+    public ResponseEntity<BudgetDTO> getBudgetById(@PathVariable UUID id) {
         BudgetDTO budget = budgetService.getBudgetById(id);
         return ResponseEntity.ok(budget);
     }
@@ -78,7 +79,7 @@ public class BudgetController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<BudgetDTO> updateBudget(@PathVariable Long id, @RequestBody BudgetDTO dto) {
+    public ResponseEntity<BudgetDTO> updateBudget(@PathVariable UUID id, @RequestBody BudgetDTO dto) {
         BudgetDTO updatedBudget = budgetService.updateBudget(id, dto);
         return ResponseEntity.ok(updatedBudget);
     }
@@ -91,7 +92,7 @@ public class BudgetController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteBudget(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteBudget(@PathVariable UUID id) {
         budgetService.deleteBudget(id);
         return ResponseEntity.noContent().build();
     }

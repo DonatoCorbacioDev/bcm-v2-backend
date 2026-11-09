@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import java.util.Arrays;
@@ -54,7 +56,7 @@ import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 class BusinessAreaServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void enterTenant() {
@@ -92,10 +94,10 @@ class BusinessAreaServiceTest {
         @Order(1)
         @DisplayName("Get all areas returns list of DTOs")
         void shouldGetAllAreas() {
-            BusinessAreas entity1 = BusinessAreas.builder().id(1L).name("Finance").description("Budgeting").build();
-            BusinessAreas entity2 = BusinessAreas.builder().id(2L).name("HR").description("Hiring").build();
-            BusinessAreaDTO dto1 = new BusinessAreaDTO(1L, "Finance", "Budgeting");
-            BusinessAreaDTO dto2 = new BusinessAreaDTO(2L, "HR", "Hiring");
+            BusinessAreas entity1 = BusinessAreas.builder().id(uid(1)).name("Finance").description("Budgeting").build();
+            BusinessAreas entity2 = BusinessAreas.builder().id(uid(2)).name("HR").description("Hiring").build();
+            BusinessAreaDTO dto1 = new BusinessAreaDTO(uid(1), "Finance", "Budgeting");
+            BusinessAreaDTO dto2 = new BusinessAreaDTO(uid(2), "HR", "Hiring");
 
             when(repository.findAllByOrganizationId(TENANT)).thenReturn(Arrays.asList(entity1, entity2));
             when(mapper.toDTO(entity1)).thenReturn(dto1);
@@ -115,13 +117,13 @@ class BusinessAreaServiceTest {
         @Order(2)
         @DisplayName("Get area by ID returns DTO")
         void shouldGetAreaById() {
-            BusinessAreas entity = BusinessAreas.builder().id(1L).name("IT").description("Infra").build();
-            BusinessAreaDTO dto = new BusinessAreaDTO(1L, "IT", "Infra");
+            BusinessAreas entity = BusinessAreas.builder().id(uid(1)).name("IT").description("Infra").build();
+            BusinessAreaDTO dto = new BusinessAreaDTO(uid(1), "IT", "Infra");
 
-            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(entity));
             when(mapper.toDTO(entity)).thenReturn(dto);
 
-            BusinessAreaDTO result = service.getAreaById(1L);
+            BusinessAreaDTO result = service.getAreaById(uid(1));
 
             assertEquals("IT", result.name());
             assertEquals("Infra", result.description());
@@ -134,11 +136,11 @@ class BusinessAreaServiceTest {
         @Order(3)
         @DisplayName("Get area by ID throws exception if not found")
         void shouldThrowExceptionWhenAreaNotFound() {
-            when(repository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(repository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
             BusinessAreaNotFoundException ex =
-                assertThrows(BusinessAreaNotFoundException.class, () -> service.getAreaById(999L));
-            assertEquals("ID area aziendale 999 non trovata", ex.getMessage());
+                assertThrows(BusinessAreaNotFoundException.class, () -> service.getAreaById(uid(999)));
+            assertEquals("ID area aziendale " + uid(999) + " non trovata", ex.getMessage());
         }
 
         /**
@@ -150,8 +152,8 @@ class BusinessAreaServiceTest {
         void shouldCreateArea() {
             BusinessAreaDTO dto = new BusinessAreaDTO(null, "New", "New Desc");
             BusinessAreas entity = BusinessAreas.builder().name("New").description("New Desc").build();
-            BusinessAreas savedEntity = BusinessAreas.builder().id(1L).name("New").description("New Desc").build();
-            BusinessAreaDTO savedDTO = new BusinessAreaDTO(1L, "New", "New Desc");
+            BusinessAreas savedEntity = BusinessAreas.builder().id(uid(1)).name("New").description("New Desc").build();
+            BusinessAreaDTO savedDTO = new BusinessAreaDTO(uid(1), "New", "New Desc");
 
             when(mapper.toEntity(dto)).thenReturn(entity);
             when(repository.save(entity)).thenReturn(savedEntity);
@@ -159,7 +161,7 @@ class BusinessAreaServiceTest {
 
             BusinessAreaDTO result = service.createArea(dto);
 
-            assertEquals(1L, result.id());
+            assertEquals(uid(1), result.id());
             assertEquals("New", result.name());
         }
 
@@ -170,14 +172,14 @@ class BusinessAreaServiceTest {
         @Order(5)
         @DisplayName("Update area returns updated DTO")
         void shouldUpdateArea() {
-            BusinessAreas existing = BusinessAreas.builder().id(1L).name("Old").description("Old Desc").build();
-            BusinessAreaDTO updatedDTO = new BusinessAreaDTO(1L, "Updated", "Updated Desc");
+            BusinessAreas existing = BusinessAreas.builder().id(uid(1)).name("Old").description("Old Desc").build();
+            BusinessAreaDTO updatedDTO = new BusinessAreaDTO(uid(1), "Updated", "Updated Desc");
 
-            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(existing));
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(existing));
             when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
             when(mapper.toDTO(any())).thenReturn(updatedDTO);
 
-            BusinessAreaDTO result = service.updateArea(1L, updatedDTO);
+            BusinessAreaDTO result = service.updateArea(uid(1), updatedDTO);
 
             assertEquals("Updated", result.name());
             assertEquals("Updated Desc", result.description());
@@ -190,12 +192,12 @@ class BusinessAreaServiceTest {
         @Order(6)
         @DisplayName("Update area throws exception if not found")
         void shouldThrowExceptionWhenUpdatingMissingArea() {
-            BusinessAreaDTO updatedDTO = new BusinessAreaDTO(1L, "Updated", "Updated Desc");
-            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.empty());
+            BusinessAreaDTO updatedDTO = new BusinessAreaDTO(uid(1), "Updated", "Updated Desc");
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.empty());
 
             BusinessAreaNotFoundException ex =
-                assertThrows(BusinessAreaNotFoundException.class, () -> service.updateArea(1L, updatedDTO));
-            assertEquals("ID area aziendale 1 non trovata", ex.getMessage());
+                assertThrows(BusinessAreaNotFoundException.class, () -> service.updateArea(uid(1), updatedDTO));
+            assertEquals("ID area aziendale " + uid(1) + " non trovata", ex.getMessage());
         }
 
 
@@ -206,7 +208,7 @@ class BusinessAreaServiceTest {
         @Order(7)
         @DisplayName("Delete area calls repository")
         void shouldDeleteArea() {
-            Long id = 1L;
+            UUID id = uid(1);
             BusinessAreas area = BusinessAreas.builder().id(id).build();
             when(repository.findByIdAndOrganizationId(id, TENANT)).thenReturn(Optional.of(area));
 
@@ -222,11 +224,11 @@ class BusinessAreaServiceTest {
         @Order(8)
         @DisplayName("Delete area throws if area doesn't exist")
         void shouldThrowWhenDeletingNonExistentArea() {
-            when(repository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(repository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
             BusinessAreaNotFoundException ex = assertThrows(BusinessAreaNotFoundException.class,
-                    () -> service.deleteArea(999L));
-            assertEquals("ID area aziendale 999 non trovata", ex.getMessage());
+                    () -> service.deleteArea(uid(999)));
+            assertEquals("ID area aziendale " + uid(999) + " non trovata", ex.getMessage());
             verify(repository, never()).delete(any(BusinessAreas.class));
         }
 
@@ -234,18 +236,18 @@ class BusinessAreaServiceTest {
         @Order(9)
         @DisplayName("getAllAreas with TenantContext uses org-filtered repository")
         void shouldGetAllAreasWithTenantContext() {
-            BusinessAreas area = BusinessAreas.builder().id(1L).name("IT").build();
-            BusinessAreaDTO dto = new BusinessAreaDTO(1L, "IT", "desc");
+            BusinessAreas area = BusinessAreas.builder().id(uid(1)).name("IT").build();
+            BusinessAreaDTO dto = new BusinessAreaDTO(uid(1), "IT", "desc");
 
-            TenantContext.set(1L);
+            TenantContext.set(uid(1));
             try {
-                when(repository.findAllByOrganizationId(1L)).thenReturn(List.of(area));
+                when(repository.findAllByOrganizationId(uid(1))).thenReturn(List.of(area));
                 when(mapper.toDTO(area)).thenReturn(dto);
 
                 List<BusinessAreaDTO> result = service.getAllAreas();
 
                 assertEquals(1, result.size());
-                verify(repository).findAllByOrganizationId(1L);
+                verify(repository).findAllByOrganizationId(uid(1));
             } finally {
                 TenantContext.clear();
             }
@@ -257,10 +259,10 @@ class BusinessAreaServiceTest {
         void shouldCreateAreaWithTenantContext() {
             BusinessAreaDTO dto = new BusinessAreaDTO(null, "Finance", "Finance dept");
             BusinessAreas entity = BusinessAreas.builder().name("Finance").build();
-            BusinessAreas saved = BusinessAreas.builder().id(2L).name("Finance").build();
-            BusinessAreaDTO savedDTO = new BusinessAreaDTO(2L, "Finance", "Finance dept");
+            BusinessAreas saved = BusinessAreas.builder().id(uid(2)).name("Finance").build();
+            BusinessAreaDTO savedDTO = new BusinessAreaDTO(uid(2), "Finance", "Finance dept");
 
-            TenantContext.set(5L);
+            TenantContext.set(uid(5));
             try {
                 when(mapper.toEntity(dto)).thenReturn(entity);
                 when(repository.save(any())).thenReturn(saved);
@@ -268,9 +270,9 @@ class BusinessAreaServiceTest {
 
                 BusinessAreaDTO result = service.createArea(dto);
 
-                assertEquals(2L, result.id());
+                assertEquals(uid(2), result.id());
                 assertNotNull(entity.getOrganization());
-                assertEquals(5L, entity.getOrganization().getId());
+                assertEquals(uid(5), entity.getOrganization().getId());
             } finally {
                 TenantContext.clear();
             }
@@ -280,18 +282,18 @@ class BusinessAreaServiceTest {
         @Order(11)
         @DisplayName("getAreaById with TenantContext uses org-scoped repository")
         void shouldGetAreaByIdWithTenantContext() {
-            BusinessAreas entity = BusinessAreas.builder().id(1L).name("IT").description("Infra").build();
-            BusinessAreaDTO dto = new BusinessAreaDTO(1L, "IT", "Infra");
+            BusinessAreas entity = BusinessAreas.builder().id(uid(1)).name("IT").description("Infra").build();
+            BusinessAreaDTO dto = new BusinessAreaDTO(uid(1), "IT", "Infra");
 
-            TenantContext.set(8L);
+            TenantContext.set(uid(8));
             try {
-                when(repository.findByIdAndOrganizationId(1L, 8L)).thenReturn(Optional.of(entity));
+                when(repository.findByIdAndOrganizationId(uid(1), uid(8))).thenReturn(Optional.of(entity));
                 when(mapper.toDTO(entity)).thenReturn(dto);
 
-                BusinessAreaDTO result = service.getAreaById(1L);
+                BusinessAreaDTO result = service.getAreaById(uid(1));
 
                 assertEquals("IT", result.name());
-                verify(repository).findByIdAndOrganizationId(1L, 8L);
+                verify(repository).findByIdAndOrganizationId(uid(1), uid(8));
             } finally {
                 TenantContext.clear();
             }

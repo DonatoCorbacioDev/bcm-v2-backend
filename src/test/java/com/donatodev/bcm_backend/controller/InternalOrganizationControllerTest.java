@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -32,7 +34,7 @@ class InternalOrganizationControllerTest {
     @Autowired private OrganizationRepository organizationRepository;
     @Autowired private AuditLogRepository auditLogRepository;
 
-    private Long orgId;
+    private UUID orgId;
 
     @BeforeEach
     void setup() {
@@ -41,7 +43,7 @@ class InternalOrganizationControllerTest {
                 .subscriptionTier(SubscriptionTier.FREE).build()).getId();
     }
 
-    private static String tierUrl(Long id) {
+    private static String tierUrl(UUID id) {
         return "/internal/organizations/" + id + "/tier";
     }
 
@@ -95,7 +97,7 @@ class InternalOrganizationControllerTest {
     @Test
     @DisplayName("returns 404 for an unknown organization")
     void shouldReturn404ForUnknownOrg() throws Exception {
-        mockMvc.perform(put(tierUrl(999_999L))
+        mockMvc.perform(put(tierUrl(uid(999_999)))
                         .header(InternalApiKeyGuard.HEADER, "test-admin-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tier\":\"PRO\"}"))

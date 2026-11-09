@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.mapper;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.api.DisplayName;
@@ -26,7 +27,7 @@ class CounterpartyMapperTest {
         @Test
         void shouldMapEntityToDTO() {
             Counterparty counterparty = Counterparty.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .name("Alfa Srl")
                     .type(CounterpartyType.CUSTOMER)
                     .vatNumber("IT123")
@@ -42,7 +43,7 @@ class CounterpartyMapperTest {
 
             CounterpartyDTO dto = counterpartyMapper.toDTO(counterparty);
 
-            assertEquals(1L, dto.id());
+            assertEquals(uid(1), dto.id());
             assertEquals("Alfa Srl", dto.name());
             assertEquals(CounterpartyType.CUSTOMER, dto.type());
             assertEquals("IT123", dto.vatNumber());
@@ -60,7 +61,7 @@ class CounterpartyMapperTest {
         @DisplayName("maps a null verifiedIban/verifiedBic as null, not a masked placeholder")
         void shouldMapNullVerifiedIbanAsNull() {
             Counterparty counterparty = Counterparty.builder()
-                    .id(3L).name("Gamma Srl").type(CounterpartyType.SUPPLIER).build();
+                    .id(uid(3)).name("Gamma Srl").type(CounterpartyType.SUPPLIER).build();
 
             CounterpartyDTO dto = counterpartyMapper.toDTO(counterparty);
 
@@ -77,14 +78,14 @@ class CounterpartyMapperTest {
         @Test
         void shouldMapEntityToDTOWithOnlyRequiredFields() {
             Counterparty counterparty = Counterparty.builder()
-                    .id(2L)
+                    .id(uid(2))
                     .name("Beta Srl")
                     .type(CounterpartyType.SUPPLIER)
                     .build();
 
             CounterpartyDTO dto = counterpartyMapper.toDTO(counterparty);
 
-            assertEquals(2L, dto.id());
+            assertEquals(uid(2), dto.id());
             assertEquals("Beta Srl", dto.name());
             assertEquals(CounterpartyType.SUPPLIER, dto.type());
             assertNull(dto.vatNumber());
@@ -97,13 +98,13 @@ class CounterpartyMapperTest {
 
         @Test
         void shouldMapDTOToEntity() {
-            CounterpartyDTO dto = new CounterpartyDTO(10L, "Gamma Srl", CounterpartyType.BOTH,
+            CounterpartyDTO dto = new CounterpartyDTO(uid(10), "Gamma Srl", CounterpartyType.BOTH,
                     "IT456", "TAXCODE1", "Via Napoli 2", "Luigi Verdi", "luigi@gamma.it", "+39987654", "Notes here",
                     null, null);
 
             Counterparty counterparty = counterpartyMapper.toEntity(dto);
 
-            assertEquals(10L, counterparty.getId());
+            assertEquals(uid(10), counterparty.getId());
             assertEquals("Gamma Srl", counterparty.getName());
             assertEquals(CounterpartyType.BOTH, counterparty.getType());
             assertEquals("IT456", counterparty.getVatNumber());
@@ -130,7 +131,7 @@ class CounterpartyMapperTest {
         @Test
         @DisplayName("ignores verifiedIban/verifiedBic from the DTO -- only confirmVerifiedIban may set them")
         void shouldIgnoreVerifiedIbanFromDto() {
-            CounterpartyDTO dto = new CounterpartyDTO(10L, "Gamma Srl", CounterpartyType.BOTH,
+            CounterpartyDTO dto = new CounterpartyDTO(uid(10), "Gamma Srl", CounterpartyType.BOTH,
                     null, null, null, null, null, null, null,
                     "IT60X0542811101000000123456", "COBADEFFXXX");
 

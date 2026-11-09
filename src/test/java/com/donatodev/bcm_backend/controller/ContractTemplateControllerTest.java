@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.time.LocalDate;
 import java.time.Month;
 
@@ -190,7 +191,7 @@ class ContractTemplateControllerTest {
         @Order(5)
         @DisplayName("GET /contract-templates/{id} returns 404 for an unknown id")
         void shouldReturnNotFoundForInvalidId() throws Exception {
-            mockMvc.perform(get("/contract-templates/{id}", 9999L)
+            mockMvc.perform(get("/contract-templates/{id}", uid(9999))
                     .header("Authorization", "Bearer " + adminToken))
                     .andExpect(status().isNotFound());
         }
@@ -310,7 +311,7 @@ class ContractTemplateControllerTest {
                     .andExpect(jsonPath("$.counterparty.name").value("Acme Corp"))
                     .andExpect(jsonPath("$.status").value("ACTIVE"))
                     .andExpect(jsonPath("$.endDate").value("2026-12-31"))
-                    .andExpect(jsonPath("$.areaId").value(overrideArea.getId()));
+                    .andExpect(jsonPath("$.areaId").value(overrideArea.getId().toString()));
         }
 
         @Test
@@ -344,8 +345,8 @@ class ContractTemplateControllerTest {
                     .andExpect(jsonPath("$.counterparty.name").value("Beta Corp"))
                     .andExpect(jsonPath("$.status").value("DRAFT"))
                     .andExpect(jsonPath("$.endDate").value("2026-03-02"))
-                    .andExpect(jsonPath("$.areaId").value(area.getId()))
-                    .andExpect(jsonPath("$.managerId").value(manager.getId()));
+                    .andExpect(jsonPath("$.areaId").value(area.getId().toString()))
+                    .andExpect(jsonPath("$.managerId").value(manager.getId().toString()));
         }
 
         @Test

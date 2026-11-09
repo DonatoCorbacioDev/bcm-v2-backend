@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -35,7 +36,7 @@ class StripeCheckoutGatewayTest {
                     .thenReturn(session);
 
             String url = new StripeCheckoutGateway("sk_test_abc")
-                    .createSubscriptionCheckout(42L, "price_pro", null, "http://app/ok", "http://app/ko");
+                    .createSubscriptionCheckout(uid(42), "price_pro", null, "http://app/ok", "http://app/ko");
 
             assertThat(url).isEqualTo("https://checkout.stripe.com/c/pay/cs_test_1");
             stripe.verify(() -> Session.create(params.capture(), options.capture()));
@@ -43,8 +44,8 @@ class StripeCheckoutGatewayTest {
 
         SessionCreateParams sent = params.getValue();
         assertThat(sent.getMode()).isEqualTo(SessionCreateParams.Mode.SUBSCRIPTION);
-        assertThat(sent.getClientReferenceId()).isEqualTo("42");
-        assertThat(sent.getSubscriptionData().getMetadata()).containsEntry(BillingService.ORG_ID_METADATA_KEY, "42");
+        assertThat(sent.getClientReferenceId()).isEqualTo(uid(42).toString());
+        assertThat(sent.getSubscriptionData().getMetadata()).containsEntry(BillingService.ORG_ID_METADATA_KEY, uid(42).toString());
         assertThat(sent.getLineItems()).singleElement().satisfies(item -> {
             assertThat(item.getPrice()).isEqualTo("price_pro");
             assertThat(item.getQuantity()).isEqualTo(1L);
@@ -68,7 +69,7 @@ class StripeCheckoutGatewayTest {
                     .thenReturn(session);
 
             new StripeCheckoutGateway("sk_test_abc")
-                    .createSubscriptionCheckout(42L, "price_pro", "cus_existing", "http://app/ok", "http://app/ko");
+                    .createSubscriptionCheckout(uid(42), "price_pro", "cus_existing", "http://app/ok", "http://app/ko");
 
             stripe.verify(() -> Session.create(params.capture(), any(RequestOptions.class)));
         }

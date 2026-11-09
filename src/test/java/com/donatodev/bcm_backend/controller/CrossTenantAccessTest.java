@@ -215,15 +215,15 @@ class CrossTenantAccessTest {
         Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("New Customer").type(CounterpartyType.CUSTOMER).organization(orgAArea.getOrganization()).build());
         String body = """
                 {
-                  "counterpartyId": %d,
+                  "counterpartyId": "%s",
                   "contractNumber": "CNTR-NEW-MANAGER",
                   "wbsCode": "WBS-NEW",
                   "projectName": "New Project",
                   "status": "ACTIVE",
                   "startDate": "2025-01-01",
                   "endDate": "2026-01-01",
-                  "areaId": %d,
-                  "managerId": %d
+                  "areaId": "%s",
+                  "managerId": "%s"
                 }
                 """.formatted(counterparty.getId(), orgAArea.getId(), orgBManager.getId());
 
@@ -240,14 +240,14 @@ class CrossTenantAccessTest {
         Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("New Customer").type(CounterpartyType.CUSTOMER).organization(orgAArea.getOrganization()).build());
         String body = """
                 {
-                  "counterpartyId": %d,
+                  "counterpartyId": "%s",
                   "contractNumber": "CNTR-NEW-AREA",
                   "wbsCode": "WBS-NEW",
                   "projectName": "New Project",
                   "status": "ACTIVE",
                   "startDate": "2025-01-01",
                   "endDate": "2026-01-01",
-                  "areaId": %d
+                  "areaId": "%s"
                 }
                 """.formatted(counterparty.getId(), orgBArea.getId());
 
@@ -264,14 +264,14 @@ class CrossTenantAccessTest {
         Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("New Customer").type(CounterpartyType.CUSTOMER).organization(orgAArea.getOrganization()).build());
         String body = """
                 {
-                  "counterpartyId": %d,
+                  "counterpartyId": "%s",
                   "contractNumber": "CNTR-NEW-OWN",
                   "wbsCode": "WBS-NEW",
                   "projectName": "New Project",
                   "status": "ACTIVE",
                   "startDate": "2025-01-01",
                   "endDate": "2026-01-01",
-                  "areaId": %d
+                  "areaId": "%s"
                 }
                 """.formatted(counterparty.getId(), orgAArea.getId());
 
@@ -280,14 +280,14 @@ class CrossTenantAccessTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.areaId").value(orgAArea.getId()));
+                .andExpect(jsonPath("$.areaId").value(orgAArea.getId().toString()));
     }
 
     @Test
     @DisplayName("POST /users/invite rejects a manager of another organization (the invitee would join that organization)")
     void inviteRejectsOtherOrganizationManager() throws Exception {
         String body = """
-                {"username": "intruder", "role": "MANAGER", "managerId": %d}
+                {"username": "intruder", "role": "MANAGER", "managerId": "%s"}
                 """.formatted(orgBManager.getId());
 
         mockMvc.perform(post("/users/invite")
@@ -312,14 +312,14 @@ class CrossTenantAccessTest {
                 .name("Foreign type").description("Org B only").category(FinancialCategory.REVENUE).organization(orgB).build());
         String template = """
                 {
-                  "counterpartyId": %d,
+                  "counterpartyId": "%s",
                   "contractNumber": "CNTR-ORG-A",
                   "wbsCode": "WBS-A",
                   "projectName": "Project A",
                   "status": "ACTIVE",
                   "startDate": "2025-01-01",
                   "endDate": "2026-01-01",
-                  "areaId": %d%s
+                  "areaId": "%s"%s
                 }
                 """;
 
@@ -327,7 +327,7 @@ class CrossTenantAccessTest {
                 template.formatted(foreignCounterparty.getId(), orgAArea.getId(), ""),
                 template.formatted(ownCounterparty.getId(), orgBArea.getId(), ""),
                 template.formatted(ownCounterparty.getId(), orgAArea.getId(),
-                        ", \"financialTypeId\": %d, \"annualValue\": 1200, \"billingFrequency\": \"MONTHLY\"".formatted(foreignType.getId())))) {
+                        ", \"financialTypeId\": \"%s\", \"annualValue\": 1200, \"billingFrequency\": \"MONTHLY\"".formatted(foreignType.getId())))) {
             mockMvc.perform(put("/contracts/" + orgAContract.getId())
                             .header("Authorization", "Bearer " + orgAAdminToken)
                             .contentType(MediaType.APPLICATION_JSON)
@@ -343,8 +343,8 @@ class CrossTenantAccessTest {
     @DisplayName("POST /contract-templates rejects an area or default manager of another organization")
     void createTemplateRejectsOtherOrganizationReferences() throws Exception {
         for (String relation : List.of(
-                "\"businessAreaId\": " + orgBArea.getId(),
-                "\"defaultManagerId\": " + orgBManager.getId())) {
+                "\"businessAreaId\": \"" + orgBArea.getId() + "\"",
+                "\"defaultManagerId\": \"" + orgBManager.getId() + "\"")) {
             mockMvc.perform(post("/contract-templates")
                             .header("Authorization", "Bearer " + orgAAdminToken)
                             .contentType(MediaType.APPLICATION_JSON)
@@ -359,7 +359,7 @@ class CrossTenantAccessTest {
         mockMvc.perform(post("/budgets")
                         .header("Authorization", "Bearer " + orgAAdminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"businessAreaId\": %d, \"category\": \"REVENUE\", \"year\": 2026, \"targetAmount\": 1000}"
+                        .content("{\"businessAreaId\": \"%s\", \"category\": \"REVENUE\", \"year\": 2026, \"targetAmount\": 1000}"
                                 .formatted(orgBArea.getId())))
                 .andExpect(status().isNotFound());
     }
@@ -370,7 +370,7 @@ class CrossTenantAccessTest {
         mockMvc.perform(post("/contract-history")
                         .header("Authorization", "Bearer " + orgAAdminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"contractId\": %d, \"previousStatus\": \"ACTIVE\", \"newStatus\": \"CANCELLED\"}"
+                        .content("{\"contractId\": \"%s\", \"previousStatus\": \"ACTIVE\", \"newStatus\": \"CANCELLED\"}"
                                 .formatted(orgBContract.getId())))
                 .andExpect(status().isNotFound());
 

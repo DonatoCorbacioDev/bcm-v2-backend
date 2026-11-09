@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.time.Year;
 import java.util.Collections;
 import java.util.List;
@@ -62,18 +63,18 @@ class MonthlyReporterTest {
         @Test
         @DisplayName("Formats the monthly total the Italian way and dates the footer with the current year")
         void shouldFormatAmountAndFooterYear() {
-            Organization org = Organization.builder().id(1L).name("TestOrg")
+            Organization org = Organization.builder().id(uid(1)).name("TestOrg")
                     .subscriptionTier(SubscriptionTier.FREE).build();
             Managers manager = new Managers();
-            manager.setId(1L);
+            manager.setId(uid(1));
             manager.setEmail("admin@testorg.com");
-            Users admin = Users.builder().id(1L).username("admin")
+            Users admin = Users.builder().id(uid(1)).username("admin")
                     .role(Roles.builder().role("ADMIN").build())
                     .manager(manager).organization(org).build();
             when(organizationRepository.findAll()).thenReturn(List.of(org));
-            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class)))
+            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class)))
                     .thenReturn(148800.0);
-            when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN")).thenReturn(List.of(admin));
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(1), "ADMIN")).thenReturn(List.of(admin));
 
             monthlyReporter.sendMonthlyReports();
 
@@ -99,23 +100,23 @@ class MonthlyReporterTest {
         @Order(1)
         @DisplayName("Should send monthly report to admin for each organization")
         void shouldSendReportForEachOrg() {
-            Organization org = Organization.builder().id(1L).name("TestOrg")
+            Organization org = Organization.builder().id(uid(1)).name("TestOrg")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
             Managers manager = new Managers();
-            manager.setId(1L);
+            manager.setId(uid(1));
             manager.setEmail("admin@testorg.com");
-            Users admin = Users.builder().id(1L).username("admin")
+            Users admin = Users.builder().id(uid(1)).username("admin")
                     .role(Roles.builder().role("ADMIN").build())
                     .manager(manager).organization(org).build();
 
             when(organizationRepository.findAll()).thenReturn(List.of(org));
-            when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(10);
-            when(contractsRepository.countActiveContractsByOrg(1L)).thenReturn(7);
-            when(contractsRepository.countExpiredContractsByOrg(1L)).thenReturn(2);
-            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(3L);
-            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(50000.0);
-            when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN")).thenReturn(List.of(admin));
+            when(contractsRepository.countAllContractsByOrg(uid(1))).thenReturn(10);
+            when(contractsRepository.countActiveContractsByOrg(uid(1))).thenReturn(7);
+            when(contractsRepository.countExpiredContractsByOrg(uid(1))).thenReturn(2);
+            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(3L);
+            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(50000.0);
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(1), "ADMIN")).thenReturn(List.of(admin));
 
             monthlyReporter.sendMonthlyReports();
 
@@ -126,16 +127,16 @@ class MonthlyReporterTest {
         @Order(2)
         @DisplayName("Should skip organization with no admins")
         void shouldSkipOrgWithNoAdmins() {
-            Organization org = Organization.builder().id(1L).name("NoAdminOrg")
+            Organization org = Organization.builder().id(uid(1)).name("NoAdminOrg")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
             when(organizationRepository.findAll()).thenReturn(List.of(org));
-            when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(5);
-            when(contractsRepository.countActiveContractsByOrg(1L)).thenReturn(3);
-            when(contractsRepository.countExpiredContractsByOrg(1L)).thenReturn(1);
-            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(1L);
-            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(0.0);
-            when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN")).thenReturn(Collections.emptyList());
+            when(contractsRepository.countAllContractsByOrg(uid(1))).thenReturn(5);
+            when(contractsRepository.countActiveContractsByOrg(uid(1))).thenReturn(3);
+            when(contractsRepository.countExpiredContractsByOrg(uid(1))).thenReturn(1);
+            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(1L);
+            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(0.0);
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(1), "ADMIN")).thenReturn(Collections.emptyList());
 
             assertDoesNotThrow(() -> monthlyReporter.sendMonthlyReports());
 
@@ -146,26 +147,26 @@ class MonthlyReporterTest {
         @Order(3)
         @DisplayName("Should continue processing other orgs when one fails")
         void shouldContinueWhenOneOrgFails() {
-            Organization org1 = Organization.builder().id(1L).name("Org One")
+            Organization org1 = Organization.builder().id(uid(1)).name("Org One")
                     .subscriptionTier(SubscriptionTier.FREE).build();
-            Organization org2 = Organization.builder().id(2L).name("Org Two")
+            Organization org2 = Organization.builder().id(uid(2)).name("Org Two")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
             Managers manager2 = new Managers();
-            manager2.setId(2L);
+            manager2.setId(uid(2));
             manager2.setEmail("admin2@orgtwo.com");
-            Users admin2 = Users.builder().id(2L).username("admin2")
+            Users admin2 = Users.builder().id(uid(2)).username("admin2")
                     .role(Roles.builder().role("ADMIN").build())
                     .manager(manager2).organization(org2).build();
 
             when(organizationRepository.findAll()).thenReturn(List.of(org1, org2));
-            when(contractsRepository.countAllContractsByOrg(1L)).thenThrow(new RuntimeException("DB error"));
-            when(contractsRepository.countAllContractsByOrg(2L)).thenReturn(3);
-            when(contractsRepository.countActiveContractsByOrg(2L)).thenReturn(2);
-            when(contractsRepository.countExpiredContractsByOrg(2L)).thenReturn(1);
-            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(2L), any(Integer.class), any(Integer.class))).thenReturn(1L);
-            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(2L), any(Integer.class), any(Integer.class))).thenReturn(1000.0);
-            when(usersRepository.findByOrganizationIdAndRoleRole(2L, "ADMIN")).thenReturn(List.of(admin2));
+            when(contractsRepository.countAllContractsByOrg(uid(1))).thenThrow(new RuntimeException("DB error"));
+            when(contractsRepository.countAllContractsByOrg(uid(2))).thenReturn(3);
+            when(contractsRepository.countActiveContractsByOrg(uid(2))).thenReturn(2);
+            when(contractsRepository.countExpiredContractsByOrg(uid(2))).thenReturn(1);
+            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(uid(2)), any(Integer.class), any(Integer.class))).thenReturn(1L);
+            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(uid(2)), any(Integer.class), any(Integer.class))).thenReturn(1000.0);
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(2), "ADMIN")).thenReturn(List.of(admin2));
 
             assertDoesNotThrow(() -> monthlyReporter.sendMonthlyReports());
 
@@ -176,20 +177,20 @@ class MonthlyReporterTest {
         @Order(4)
         @DisplayName("Should skip admin with no manager email")
         void shouldSkipAdminWithNoManagerEmail() {
-            Organization org = Organization.builder().id(1L).name("TestOrg")
+            Organization org = Organization.builder().id(uid(1)).name("TestOrg")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
-            Users adminNoEmail = Users.builder().id(1L).username("noemail")
+            Users adminNoEmail = Users.builder().id(uid(1)).username("noemail")
                     .role(Roles.builder().role("ADMIN").build())
                     .manager(null).organization(org).build();
 
             when(organizationRepository.findAll()).thenReturn(List.of(org));
-            when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(5);
-            when(contractsRepository.countActiveContractsByOrg(1L)).thenReturn(3);
-            when(contractsRepository.countExpiredContractsByOrg(1L)).thenReturn(1);
-            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(1L);
-            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(0.0);
-            when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN")).thenReturn(List.of(adminNoEmail));
+            when(contractsRepository.countAllContractsByOrg(uid(1))).thenReturn(5);
+            when(contractsRepository.countActiveContractsByOrg(uid(1))).thenReturn(3);
+            when(contractsRepository.countExpiredContractsByOrg(uid(1))).thenReturn(1);
+            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(1L);
+            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(0.0);
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(1), "ADMIN")).thenReturn(List.of(adminNoEmail));
 
             assertDoesNotThrow(() -> monthlyReporter.sendMonthlyReports());
 
@@ -200,28 +201,28 @@ class MonthlyReporterTest {
         @Order(5)
         @DisplayName("Should send reports to all admins when multiple admins in org")
         void shouldSendToAllAdmins() {
-            Organization org = Organization.builder().id(1L).name("MultiAdmin")
+            Organization org = Organization.builder().id(uid(1)).name("MultiAdmin")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
             Managers m1 = new Managers();
-            m1.setId(1L);
+            m1.setId(uid(1));
             m1.setEmail("admin1@org.com");
             Managers m2 = new Managers();
-            m2.setId(2L);
+            m2.setId(uid(2));
             m2.setEmail("admin2@org.com");
 
-            Users admin1 = Users.builder().id(1L).username("a1").manager(m1).organization(org)
+            Users admin1 = Users.builder().id(uid(1)).username("a1").manager(m1).organization(org)
                     .role(Roles.builder().role("ADMIN").build()).build();
-            Users admin2 = Users.builder().id(2L).username("a2").manager(m2).organization(org)
+            Users admin2 = Users.builder().id(uid(2)).username("a2").manager(m2).organization(org)
                     .role(Roles.builder().role("ADMIN").build()).build();
 
             when(organizationRepository.findAll()).thenReturn(List.of(org));
-            when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(5);
-            when(contractsRepository.countActiveContractsByOrg(1L)).thenReturn(3);
-            when(contractsRepository.countExpiredContractsByOrg(1L)).thenReturn(1);
-            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(2L);
-            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(20000.0);
-            when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN")).thenReturn(List.of(admin1, admin2));
+            when(contractsRepository.countAllContractsByOrg(uid(1))).thenReturn(5);
+            when(contractsRepository.countActiveContractsByOrg(uid(1))).thenReturn(3);
+            when(contractsRepository.countExpiredContractsByOrg(uid(1))).thenReturn(1);
+            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(2L);
+            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(20000.0);
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(1), "ADMIN")).thenReturn(List.of(admin1, admin2));
 
             monthlyReporter.sendMonthlyReports();
 
@@ -245,24 +246,24 @@ class MonthlyReporterTest {
         @Order(7)
         @DisplayName("Should skip admin when manager is not null but email is null")
         void shouldSkipAdminWhenManagerEmailIsNull() {
-            Organization org = Organization.builder().id(1L).name("TestOrg")
+            Organization org = Organization.builder().id(uid(1)).name("TestOrg")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
             Managers managerNoEmail = new Managers();
-            managerNoEmail.setId(1L);
+            managerNoEmail.setId(uid(1));
             managerNoEmail.setEmail(null);
 
-            Users admin = Users.builder().id(1L).username("admin")
+            Users admin = Users.builder().id(uid(1)).username("admin")
                     .role(Roles.builder().role("ADMIN").build())
                     .manager(managerNoEmail).organization(org).build();
 
             when(organizationRepository.findAll()).thenReturn(List.of(org));
-            when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(5);
-            when(contractsRepository.countActiveContractsByOrg(1L)).thenReturn(3);
-            when(contractsRepository.countExpiredContractsByOrg(1L)).thenReturn(1);
-            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(1L);
-            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(0.0);
-            when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN")).thenReturn(List.of(admin));
+            when(contractsRepository.countAllContractsByOrg(uid(1))).thenReturn(5);
+            when(contractsRepository.countActiveContractsByOrg(uid(1))).thenReturn(3);
+            when(contractsRepository.countExpiredContractsByOrg(uid(1))).thenReturn(1);
+            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(1L);
+            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(0.0);
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(1), "ADMIN")).thenReturn(List.of(admin));
 
             assertDoesNotThrow(() -> monthlyReporter.sendMonthlyReports());
 
@@ -273,23 +274,23 @@ class MonthlyReporterTest {
         @Order(8)
         @DisplayName("Should handle email send failure gracefully")
         void shouldHandleEmailSendFailure() {
-            Organization org = Organization.builder().id(1L).name("TestOrg")
+            Organization org = Organization.builder().id(uid(1)).name("TestOrg")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
             Managers manager = new Managers();
-            manager.setId(1L);
+            manager.setId(uid(1));
             manager.setEmail("admin@testorg.com");
-            Users admin = Users.builder().id(1L).username("admin")
+            Users admin = Users.builder().id(uid(1)).username("admin")
                     .role(Roles.builder().role("ADMIN").build())
                     .manager(manager).organization(org).build();
 
             when(organizationRepository.findAll()).thenReturn(List.of(org));
-            when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(10);
-            when(contractsRepository.countActiveContractsByOrg(1L)).thenReturn(7);
-            when(contractsRepository.countExpiredContractsByOrg(1L)).thenReturn(2);
-            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(3L);
-            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(50000.0);
-            when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN")).thenReturn(List.of(admin));
+            when(contractsRepository.countAllContractsByOrg(uid(1))).thenReturn(10);
+            when(contractsRepository.countActiveContractsByOrg(uid(1))).thenReturn(7);
+            when(contractsRepository.countExpiredContractsByOrg(uid(1))).thenReturn(2);
+            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(3L);
+            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(50000.0);
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(1), "ADMIN")).thenReturn(List.of(admin));
             doThrow(new RuntimeException("SMTP error")).when(emailService).sendEmail(anyString(), anyString(), anyString());
 
             assertDoesNotThrow(() -> monthlyReporter.sendMonthlyReports());
@@ -301,23 +302,23 @@ class MonthlyReporterTest {
         @Order(9)
         @DisplayName("Should send report without info logging when INFO level is disabled")
         void shouldSendReportWithInfoLoggingDisabled() {
-            Organization org = Organization.builder().id(1L).name("TestOrg")
+            Organization org = Organization.builder().id(uid(1)).name("TestOrg")
                     .subscriptionTier(SubscriptionTier.FREE).build();
 
             Managers manager = new Managers();
-            manager.setId(1L);
+            manager.setId(uid(1));
             manager.setEmail("admin@testorg.com");
-            Users admin = Users.builder().id(1L).username("admin")
+            Users admin = Users.builder().id(uid(1)).username("admin")
                     .role(Roles.builder().role("ADMIN").build())
                     .manager(manager).organization(org).build();
 
             when(organizationRepository.findAll()).thenReturn(List.of(org));
-            when(contractsRepository.countAllContractsByOrg(1L)).thenReturn(10);
-            when(contractsRepository.countActiveContractsByOrg(1L)).thenReturn(7);
-            when(contractsRepository.countExpiredContractsByOrg(1L)).thenReturn(2);
-            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(3L);
-            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(1L), any(Integer.class), any(Integer.class))).thenReturn(50000.0);
-            when(usersRepository.findByOrganizationIdAndRoleRole(1L, "ADMIN")).thenReturn(List.of(admin));
+            when(contractsRepository.countAllContractsByOrg(uid(1))).thenReturn(10);
+            when(contractsRepository.countActiveContractsByOrg(uid(1))).thenReturn(7);
+            when(contractsRepository.countExpiredContractsByOrg(uid(1))).thenReturn(2);
+            when(contractsRepository.countNewContractsByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(3L);
+            when(financialValuesRepository.sumFinancialAmountByOrgAndYearMonth(eq(uid(1)), any(Integer.class), any(Integer.class))).thenReturn(50000.0);
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(1), "ADMIN")).thenReturn(List.of(admin));
 
             ch.qos.logback.classic.Logger reporterLogger =
                     (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(MonthlyReporter.class);

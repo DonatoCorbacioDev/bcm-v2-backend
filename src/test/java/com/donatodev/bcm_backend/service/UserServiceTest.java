@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -87,7 +89,7 @@ import jakarta.persistence.criteria.Root;
 class UserServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void enterTenant() {
@@ -142,8 +144,8 @@ class UserServiceTest {
         @Order(1)
         @DisplayName("Get all users")
         void shouldGetAllUsers() {
-            Users user = Users.builder().id(1L).username("admin").build();
-            UserDTO dto = new UserDTO(1L, "admin", "pass", 1L, 1L, null, null);
+            Users user = Users.builder().id(uid(1)).username("admin").build();
+            UserDTO dto = new UserDTO(uid(1), "admin", "pass", uid(1), uid(1), null, null);
 
             when(usersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(user));
             when(userMapper.toDTO(user)).thenReturn(dto);
@@ -162,13 +164,13 @@ class UserServiceTest {
         @Order(2)
         @DisplayName("Get user by ID")
         void shouldGetUserById() {
-            Users user = Users.builder().id(1L).username("admin").build();
-            UserDTO dto = new UserDTO(1L, "admin", "pass", 1L, 1L, null, null);
+            Users user = Users.builder().id(uid(1)).username("admin").build();
+            UserDTO dto = new UserDTO(uid(1), "admin", "pass", uid(1), uid(1), null, null);
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(userMapper.toDTO(user)).thenReturn(dto);
 
-            UserDTO result = userService.getUserById(1L);
+            UserDTO result = userService.getUserById(uid(1));
 
             assertEquals("admin", result.username());
         }
@@ -180,10 +182,10 @@ class UserServiceTest {
         @Order(3)
         @DisplayName("Get user by ID throws if not found")
         void shouldThrowIfUserNotFound() {
-            when(usersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(usersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
             UserNotFoundException ex
-                    = assertThrows(UserNotFoundException.class, () -> userService.getUserById(999L));
-            assertEquals("Utente ID 999 non trovato", ex.getMessage());
+                    = assertThrows(UserNotFoundException.class, () -> userService.getUserById(uid(999)));
+            assertEquals("Utente ID " + uid(999) + " non trovato", ex.getMessage());
         }
 
         /**
@@ -194,10 +196,10 @@ class UserServiceTest {
         @Order(4)
         @DisplayName("Create user successfully")
         void shouldCreateUser() {
-            UserDTO dto = new UserDTO(null, "user1", "plainpass", 1L, 1L, null, null);
+            UserDTO dto = new UserDTO(null, "user1", "plainpass", uid(1), uid(1), null, null);
             Users user = Users.builder().username("user1").build();
-            Users saved = Users.builder().id(1L).username("user1").build();
-            UserDTO savedDTO = new UserDTO(1L, "user1", null, 1L, 1L, null, null);
+            Users saved = Users.builder().id(uid(1)).username("user1").build();
+            UserDTO savedDTO = new UserDTO(uid(1), "user1", null, uid(1), uid(1), null, null);
 
             when(usersRepository.existsByUsername("user1")).thenReturn(false);
             when(userMapper.toEntity(dto)).thenReturn(user);
@@ -207,7 +209,7 @@ class UserServiceTest {
 
             UserDTO result = userService.createUser(dto);
 
-            assertEquals(1L, result.id());
+            assertEquals(uid(1), result.id());
             verify(usersRepository).save(user);
         }
 
@@ -221,11 +223,11 @@ class UserServiceTest {
         @DisplayName("Create user sets organization from manager")
         void shouldSetOrganizationFromManagerOnCreate() {
             Organization organization = Organization.builder().id(TENANT).name("Acme").build();
-            Managers manager = Managers.builder().id(1L).organization(organization).build();
-            UserDTO dto = new UserDTO(null, "user1", "plainpass", 1L, 1L, null, null);
+            Managers manager = Managers.builder().id(uid(1)).organization(organization).build();
+            UserDTO dto = new UserDTO(null, "user1", "plainpass", uid(1), uid(1), null, null);
             Users user = Users.builder().username("user1").manager(manager).build();
-            Users saved = Users.builder().id(1L).username("user1").manager(manager).organization(organization).build();
-            UserDTO savedDTO = new UserDTO(1L, "user1", null, 1L, 1L, null, null);
+            Users saved = Users.builder().id(uid(1)).username("user1").manager(manager).organization(organization).build();
+            UserDTO savedDTO = new UserDTO(uid(1), "user1", null, uid(1), uid(1), null, null);
 
             when(usersRepository.existsByUsername("user1")).thenReturn(false);
             when(userMapper.toEntity(dto)).thenReturn(user);
@@ -249,10 +251,10 @@ class UserServiceTest {
         @Order(17)
         @DisplayName("Create user rejects manager from a different organization")
         void shouldRejectCreateUserWithCrossTenantManager() {
-            Organization callerOrg = Organization.builder().id(9L).name("Acme").build();
-            Organization otherOrg = Organization.builder().id(42L).name("Other Corp").build();
-            Managers foreignManager = Managers.builder().id(1L).organization(otherOrg).build();
-            UserDTO dto = new UserDTO(null, "user1", "plainpass", 1L, 1L, null, null);
+            Organization callerOrg = Organization.builder().id(uid(9)).name("Acme").build();
+            Organization otherOrg = Organization.builder().id(uid(42)).name("Other Corp").build();
+            Managers foreignManager = Managers.builder().id(uid(1)).organization(otherOrg).build();
+            UserDTO dto = new UserDTO(null, "user1", "plainpass", uid(1), uid(1), null, null);
             Users user = Users.builder().username("user1").manager(foreignManager).build();
 
             when(usersRepository.existsByUsername("user1")).thenReturn(false);
@@ -280,12 +282,12 @@ class UserServiceTest {
         @Order(18)
         @DisplayName("Create user accepts manager from the caller's own organization")
         void shouldAllowCreateUserWithSameTenantManager() {
-            Organization callerOrg = Organization.builder().id(9L).name("Acme").build();
-            Managers sameOrgManager = Managers.builder().id(1L).organization(callerOrg).build();
-            UserDTO dto = new UserDTO(null, "user1", "plainpass", 1L, 1L, null, null);
+            Organization callerOrg = Organization.builder().id(uid(9)).name("Acme").build();
+            Managers sameOrgManager = Managers.builder().id(uid(1)).organization(callerOrg).build();
+            UserDTO dto = new UserDTO(null, "user1", "plainpass", uid(1), uid(1), null, null);
             Users user = Users.builder().username("user1").manager(sameOrgManager).build();
-            Users saved = Users.builder().id(1L).username("user1").manager(sameOrgManager).organization(callerOrg).build();
-            UserDTO savedDTO = new UserDTO(1L, "user1", null, 1L, 1L, null, null);
+            Users saved = Users.builder().id(uid(1)).username("user1").manager(sameOrgManager).organization(callerOrg).build();
+            UserDTO savedDTO = new UserDTO(uid(1), "user1", null, uid(1), uid(1), null, null);
 
             when(usersRepository.existsByUsername("user1")).thenReturn(false);
             when(userMapper.toEntity(dto)).thenReturn(user);
@@ -296,7 +298,7 @@ class UserServiceTest {
             try {
                 TenantContext.set(callerOrg.getId());
                 UserDTO result = userService.createUser(dto);
-                assertEquals(1L, result.id());
+                assertEquals(uid(1), result.id());
             } finally {
                 TenantContext.clear();
             }
@@ -308,8 +310,8 @@ class UserServiceTest {
         @Order(18)
         @DisplayName("Create user rejects a manager that belongs to no organization")
         void shouldRejectCreateUserWithManagerWithoutOrganization() {
-            Managers orphan = Managers.builder().id(3L).build();
-            UserDTO dto = new UserDTO(null, "user3", "plainpass", 3L, 1L, null, null);
+            Managers orphan = Managers.builder().id(uid(3)).build();
+            UserDTO dto = new UserDTO(null, "user3", "plainpass", uid(3), uid(1), null, null);
             Users user = Users.builder().username("user3").manager(orphan).build();
 
             when(usersRepository.existsByUsername("user3")).thenReturn(false);
@@ -324,9 +326,9 @@ class UserServiceTest {
         @Order(18)
         @DisplayName("Create user without a manager joins the caller's organization and ignores a client-supplied id")
         void shouldCreateUserWithoutManagerInCallerOrganization() {
-            UserDTO dto = new UserDTO(99L, "user2", "plainpass", null, 1L, null, null);
-            Users user = Users.builder().id(99L).username("user2").build();
-            UserDTO savedDTO = new UserDTO(2L, "user2", null, null, 1L, null, null);
+            UserDTO dto = new UserDTO(uid(99), "user2", "plainpass", null, uid(1), null, null);
+            Users user = Users.builder().id(uid(99)).username("user2").build();
+            UserDTO savedDTO = new UserDTO(uid(2), "user2", null, null, uid(1), null, null);
 
             when(usersRepository.existsByUsername("user2")).thenReturn(false);
             when(userMapper.toEntity(dto)).thenReturn(user);
@@ -350,20 +352,20 @@ class UserServiceTest {
         @Order(5)
         @DisplayName("Update user successfully")
         void shouldUpdateUser() {
-            Users user = Users.builder().id(1L).username("olduser").build();
-            Managers manager = Managers.builder().id(2L).build();
-            Roles role = Roles.builder().id(3L).role("MANAGER").build();
-            UserDTO dto = new UserDTO(1L, "updatedUser", "newpass", 2L, 3L, null, null);
-            UserDTO resultDTO = new UserDTO(1L, "updatedUser", null, 2L, 3L, null, null);
+            Users user = Users.builder().id(uid(1)).username("olduser").build();
+            Managers manager = Managers.builder().id(uid(2)).build();
+            Roles role = Roles.builder().id(uid(3)).role("MANAGER").build();
+            UserDTO dto = new UserDTO(uid(1), "updatedUser", "newpass", uid(2), uid(3), null, null);
+            UserDTO resultDTO = new UserDTO(uid(1), "updatedUser", null, uid(2), uid(3), null, null);
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(passwordEncoder.encode("newpass")).thenReturn("encodedpass");
-            when(managersRepository.findByIdAndOrganizationId(2L, TENANT)).thenReturn(Optional.of(manager));
-            when(rolesRepository.findById(3L)).thenReturn(Optional.of(role));
+            when(managersRepository.findByIdAndOrganizationId(uid(2), TENANT)).thenReturn(Optional.of(manager));
+            when(rolesRepository.findById(uid(3))).thenReturn(Optional.of(role));
             when(usersRepository.save(user)).thenReturn(user);
             when(userMapper.toDTO(user)).thenReturn(resultDTO);
 
-            UserDTO result = userService.updateUser(1L, dto);
+            UserDTO result = userService.updateUser(uid(1), dto);
 
             assertEquals("updatedUser", result.username());
             verify(usersRepository).save(user);
@@ -377,10 +379,10 @@ class UserServiceTest {
         @Order(6)
         @DisplayName("Delete user by ID")
         void shouldDeleteUser() {
-            Users user = Users.builder().id(1L).username("admin").build();
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            Users user = Users.builder().id(uid(1)).username("admin").build();
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
 
-            userService.deleteUser(1L);
+            userService.deleteUser(uid(1));
 
             verify(usersRepository).delete(user);
         }
@@ -392,12 +394,12 @@ class UserServiceTest {
         @Order(60)
         @DisplayName("Delete user throws if not found")
         void shouldThrowWhenDeletingMissingUser() {
-            when(usersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(usersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
-                    () -> userService.deleteUser(999L));
+                    () -> userService.deleteUser(uid(999)));
 
-            assertEquals("Utente ID 999 non trovato", ex.getMessage());
+            assertEquals("Utente ID " + uid(999) + " non trovato", ex.getMessage());
             verify(usersRepository, never()).delete(any(Users.class));
         }
 
@@ -409,9 +411,9 @@ class UserServiceTest {
         @Order(7)
         @DisplayName("Get current user profile")
         void shouldReturnCurrentUserProfile() {
-            Organization organization = Organization.builder().id(1L).name("Acme").build();
+            Organization organization = Organization.builder().id(uid(1)).name("Acme").build();
             Users user = Users.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .username("admin")
                     .role(Roles.builder().role("ADMIN").build())
                     .verified(true)
@@ -437,10 +439,10 @@ class UserServiceTest {
         @DisplayName("Get current user profile: first name from the manager profile")
         void shouldReturnFirstNameFromManagerProfile() {
             Users user = Users.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .username("demo")
                     .role(Roles.builder().role("MANAGER").build())
-                    .manager(Managers.builder().id(4L).firstName("Marco").lastName("Bellini").build())
+                    .manager(Managers.builder().id(uid(4)).firstName("Marco").lastName("Bellini").build())
                     .build();
             SecurityContextHolder.getContext().setAuthentication(
                     UsernamePasswordAuthenticationToken.authenticated("demo", null, List.of()));
@@ -456,7 +458,7 @@ class UserServiceTest {
         @Test
         @DisplayName("Change own password: checks the current one, then stores the new hash")
         void shouldChangeOwnPasswordAfterCheckingCurrentOne() {
-            Users user = Users.builder().id(1L).username("marco").passwordHash("old-hash").build();
+            Users user = Users.builder().id(uid(1)).username("marco").passwordHash("old-hash").build();
             SecurityContextHolder.getContext().setAuthentication(
                     UsernamePasswordAuthenticationToken.authenticated("marco", null, List.of()));
             when(usersRepository.findByUsername("marco")).thenReturn(Optional.of(user));
@@ -483,7 +485,7 @@ class UserServiceTest {
         @Test
         @DisplayName("Get current user profile: a blank demo setting locks nobody")
         void blankDemoSettingIsNoDemo() {
-            Users user = Users.builder().id(1L).username("demo").role(Roles.builder().role("MANAGER").build()).build();
+            Users user = Users.builder().id(uid(1)).username("demo").role(Roles.builder().role("MANAGER").build()).build();
             SecurityContextHolder.getContext().setAuthentication(
                     UsernamePasswordAuthenticationToken.authenticated("demo", null, List.of()));
             when(usersRepository.findByUsername("demo")).thenReturn(Optional.of(user));
@@ -498,7 +500,7 @@ class UserServiceTest {
         @Test
         @DisplayName("Change own password: a wrong current password changes nothing")
         void shouldRefuseOwnPasswordChangeWithWrongCurrentOne() {
-            Users user = Users.builder().id(1L).username("marco").passwordHash("old-hash").build();
+            Users user = Users.builder().id(uid(1)).username("marco").passwordHash("old-hash").build();
             SecurityContextHolder.getContext().setAuthentication(
                     UsernamePasswordAuthenticationToken.authenticated("marco", null, List.of()));
             when(usersRepository.findByUsername("marco")).thenReturn(Optional.of(user));
@@ -531,7 +533,7 @@ class UserServiceTest {
 
         static Stream<Arguments> findByEmailCases() {
             Users found = Users.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .username("managerUser")
                     .manager(Managers.builder().email("found@example.com").build())
                     .build();
@@ -552,7 +554,7 @@ class UserServiceTest {
         @DisplayName("Update user password")
         void shouldUpdateUserPassword() {
             Users user = Users.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .username("user")
                     .build();
 
@@ -588,9 +590,9 @@ class UserServiceTest {
         @Order(11)
         @DisplayName("Register user fails if manager already assigned")
         void shouldThrowIfManagerAlreadyAssigned() {
-            UserDTO dto = new UserDTO(null, "newuser", "pass", 1L, null, null, null);
+            UserDTO dto = new UserDTO(null, "newuser", "pass", uid(1), null, null, null);
             when(usersRepository.existsByUsername("newuser")).thenReturn(false);
-            when(usersRepository.existsByManagerId(1L)).thenReturn(true);
+            when(usersRepository.existsByManagerId(uid(1))).thenReturn(true);
 
             IllegalArgumentException ex
                     = assertThrows(IllegalArgumentException.class, () -> userService.createUser(dto));
@@ -605,15 +607,15 @@ class UserServiceTest {
         @Order(12)
         @DisplayName("Update user fails if manager not found")
         void shouldThrowIfManagerNotFound() {
-            UserDTO dto = new UserDTO(1L, "user", "pass", 10L, 1L, null, null);
-            Users user = Users.builder().id(1L).build();
+            UserDTO dto = new UserDTO(uid(1), "user", "pass", uid(10), uid(1), null, null);
+            Users user = Users.builder().id(uid(1)).build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(passwordEncoder.encode("pass")).thenReturn("encoded");
-            when(managersRepository.findByIdAndOrganizationId(10L, TENANT)).thenReturn(Optional.empty());
+            when(managersRepository.findByIdAndOrganizationId(uid(10), TENANT)).thenReturn(Optional.empty());
 
             IllegalArgumentException ex
-                    = assertThrows(IllegalArgumentException.class, () -> userService.updateUser(1L, dto));
+                    = assertThrows(IllegalArgumentException.class, () -> userService.updateUser(uid(1), dto));
             assertEquals("ID manager non trovato", ex.getMessage());
         }
 
@@ -624,17 +626,17 @@ class UserServiceTest {
         @Order(13)
         @DisplayName("Update user fails if role not found")
         void shouldThrowIfRoleNotFound() {
-            UserDTO dto = new UserDTO(1L, "user", "pass", 1L, 20L, null, null);
-            Users user = Users.builder().id(1L).build();
-            Managers manager = Managers.builder().id(1L).build();
+            UserDTO dto = new UserDTO(uid(1), "user", "pass", uid(1), uid(20), null, null);
+            Users user = Users.builder().id(uid(1)).build();
+            Managers manager = Managers.builder().id(uid(1)).build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(passwordEncoder.encode("pass")).thenReturn("encoded");
-            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(manager));
-            when(rolesRepository.findById(20L)).thenReturn(Optional.empty());
+            when(managersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(manager));
+            when(rolesRepository.findById(uid(20))).thenReturn(Optional.empty());
 
             IllegalArgumentException ex
-                    = assertThrows(IllegalArgumentException.class, () -> userService.updateUser(1L, dto));
+                    = assertThrows(IllegalArgumentException.class, () -> userService.updateUser(uid(1), dto));
             assertEquals("ID ruolo non trovato", ex.getMessage());
         }
 
@@ -677,13 +679,13 @@ class UserServiceTest {
         @Order(17)
         @DisplayName("Register user passes if managerId is not null and not assigned")
         void shouldRegisterUserIfManagerIdNotAssigned() {
-            UserDTO dto = new UserDTO(null, "newUser", "password", 1L, 2L, null, null);
+            UserDTO dto = new UserDTO(null, "newUser", "password", uid(1), uid(2), null, null);
             Users user = Users.builder().username("newUser").build();
-            Users saved = Users.builder().id(1L).username("newUser").build();
-            UserDTO savedDTO = new UserDTO(1L, "newUser", null, 1L, 2L, null, null);
+            Users saved = Users.builder().id(uid(1)).username("newUser").build();
+            UserDTO savedDTO = new UserDTO(uid(1), "newUser", null, uid(1), uid(2), null, null);
 
             when(usersRepository.existsByUsername("newUser")).thenReturn(false);
-            when(usersRepository.existsByManagerId(1L)).thenReturn(false);
+            when(usersRepository.existsByManagerId(uid(1))).thenReturn(false);
             when(userMapper.toEntity(dto)).thenReturn(user);
             when(passwordEncoder.encode("password")).thenReturn("encodedPassword");
             when(usersRepository.save(user)).thenReturn(saved);
@@ -702,10 +704,10 @@ class UserServiceTest {
         @Order(20)
         @DisplayName("Register user when managerId is null")
         void shouldRegisterUserIfManagerIdIsNull() {
-            UserDTO dto = new UserDTO(null, "userNoManager", "pass", null, 2L, null, null);
+            UserDTO dto = new UserDTO(null, "userNoManager", "pass", null, uid(2), null, null);
             Users user = Users.builder().username("userNoManager").build();
-            Users saved = Users.builder().id(1L).username("userNoManager").build();
-            UserDTO savedDTO = new UserDTO(1L, "userNoManager", null, null, 2L, null, null);
+            Users saved = Users.builder().id(uid(1)).username("userNoManager").build();
+            UserDTO savedDTO = new UserDTO(uid(1), "userNoManager", null, null, uid(2), null, null);
 
             when(usersRepository.existsByUsername("userNoManager")).thenReturn(false);
             when(userMapper.toEntity(dto)).thenReturn(user);
@@ -727,11 +729,11 @@ class UserServiceTest {
         @Order(21)
         @DisplayName("Get user by ID throws with correct message")
         void shouldThrowUserNotFoundWithCorrectMessage() {
-            long userId = 123L;
+            UUID userId = uid(123);
             when(usersRepository.findByIdAndOrganizationId(userId, TENANT)).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> userService.getUserById(userId));
-            assertEquals("Utente ID 123 non trovato", ex.getMessage());
+            assertEquals("Utente ID " + uid(123) + " non trovato", ex.getMessage());
         }
 
         /**
@@ -742,14 +744,14 @@ class UserServiceTest {
         @Order(22)
         @DisplayName("Update user throws with correct UserNotFoundException message")
         void shouldThrowUserNotFoundWithCorrectMessageInUpdate() {
-            long userId = 999L;
-            UserDTO dto = new UserDTO(userId, "updatedUser", "pass", 1L, 1L, null, null);
+            UUID userId = uid(999);
+            UserDTO dto = new UserDTO(userId, "updatedUser", "pass", uid(1), uid(1), null, null);
 
             when(usersRepository.findByIdAndOrganizationId(userId, TENANT)).thenReturn(Optional.empty());
 
             UserNotFoundException exception = assertThrows(UserNotFoundException.class, () -> userService.updateUser(userId, dto));
 
-            assertEquals("Utente ID 999 non trovato", exception.getMessage());
+            assertEquals("Utente ID " + uid(999) + " non trovato", exception.getMessage());
         }
 
         /**
@@ -760,12 +762,12 @@ class UserServiceTest {
         @Order(23)
         @DisplayName("Invite user successfully generates token and link")
         void shouldInviteUserSuccessfully() {
-            Managers manager = Managers.builder().id(1L).email("manager@company.com").build();
+            Managers manager = Managers.builder().id(uid(1)).email("manager@company.com").build();
 
             when(usersRepository.existsByUsername("newmanager")).thenReturn(false);
-            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(manager));
+            when(managersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(manager));
 
-            String result = userService.inviteUser("newmanager", "MANAGER", 1L);
+            String result = userService.inviteUser("newmanager", "MANAGER", uid(1));
 
             assertTrue(result.contains("/complete-invite?token="));
             verify(inviteTokenRepository).save(any(InviteToken.class));
@@ -781,7 +783,7 @@ class UserServiceTest {
         void shouldThrowIfUsernameExistsDuringInvite() {
             when(usersRepository.existsByUsername("existinguser")).thenReturn(true);
 
-            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("existinguser", "MANAGER", 1L));
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("existinguser", "MANAGER", uid(1)));
             assertEquals("Username già esistente.", ex.getMessage());
         }
 
@@ -794,7 +796,7 @@ class UserServiceTest {
         void shouldThrowIfRoleNotManagerDuringInvite() {
             when(usersRepository.existsByUsername("user")).thenReturn(false);
 
-            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("user", "USER", 1L));
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("user", "USER", uid(1)));
 
             assertEquals("Solo il ruolo MANAGER è consentito tramite invito.", ex.getMessage());
 
@@ -808,9 +810,9 @@ class UserServiceTest {
         @DisplayName("Invite user fails if manager not found")
         void shouldThrowIfManagerNotFoundDuringInvite() {
             when(usersRepository.existsByUsername("user")).thenReturn(false);
-            when(managersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(managersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
-            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("user", "MANAGER", 999L));
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("user", "MANAGER", uid(999)));
 
             assertEquals("Manager non trovato", ex.getMessage());
         }
@@ -823,23 +825,23 @@ class UserServiceTest {
         @DisplayName("Complete invite successfully creates new user")
         void shouldCompleteInviteSuccessfully() {
             String token = "valid-token-123";
-            Organization organization = Organization.builder().id(9L).name("Acme").build();
-            Managers manager = Managers.builder().id(1L).email("mgr@company.com").organization(organization).build();
+            Organization organization = Organization.builder().id(uid(9)).name("Acme").build();
+            Managers manager = Managers.builder().id(uid(1)).email("mgr@company.com").organization(organization).build();
             Roles role = Roles.builder().role("MANAGER").build();
 
             InviteToken inviteToken = InviteToken.builder()
                     .token(token)
                     .username("inviteduser")
                     .role("MANAGER")
-                    .managerId(1L)
+                    .managerId(uid(1))
                     .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .used(false)
                     .build();
 
             when(inviteTokenRepository.findByToken(token)).thenReturn(Optional.of(inviteToken));
             when(usersRepository.existsByUsername("inviteduser")).thenReturn(false);
-            when(usersRepository.existsByManagerId(1L)).thenReturn(false);
-            when(managersRepository.findById(1L)).thenReturn(Optional.of(manager));
+            when(usersRepository.existsByManagerId(uid(1))).thenReturn(false);
+            when(managersRepository.findById(uid(1))).thenReturn(Optional.of(manager));
             when(rolesRepository.findByRole("MANAGER")).thenReturn(Optional.of(role));
             when(passwordEncoder.encode("mypassword")).thenReturn("encodedpass");
 
@@ -945,14 +947,14 @@ class UserServiceTest {
             InviteToken inviteToken = InviteToken.builder()
                     .token("token")
                     .username("newuser")
-                    .managerId(1L)
+                    .managerId(uid(1))
                     .used(false)
                     .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .build();
 
             when(inviteTokenRepository.findByToken("token")).thenReturn(Optional.of(inviteToken));
             when(usersRepository.existsByUsername("newuser")).thenReturn(false);
-            when(usersRepository.existsByManagerId(1L)).thenReturn(true);
+            when(usersRepository.existsByManagerId(uid(1))).thenReturn(true);
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.completeInvite("token", "password"));
@@ -968,16 +970,16 @@ class UserServiceTest {
         @DisplayName("Update user partial - update username only")
         void shouldUpdateUsernameOnlyInPartialUpdate() {
             Users user = Users.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .username("oldusername")
                     .passwordHash("oldpass")
                     .build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.existsByUsername("newusername")).thenReturn(false);
             when(usersRepository.save(user)).thenReturn(user);
 
-            Users result = userService.updateUserPartial(1L, "newusername", null, null, null);
+            Users result = userService.updateUserPartial(uid(1), "newusername", null, null, null);
 
             assertEquals("newusername", result.getUsername());
             verify(usersRepository).save(user);
@@ -991,15 +993,15 @@ class UserServiceTest {
         @DisplayName("Update user partial - fails if username exists")
         void shouldThrowIfUsernameExistsInPartialUpdate() {
             Users user = Users.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .username("olduser")
                     .build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.existsByUsername("existinguser")).thenReturn(true);
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                    () -> userService.updateUserPartial(1L, "existinguser", null, null, null));
+                    () -> userService.updateUserPartial(uid(1), "existinguser", null, null, null));
 
             assertEquals("Username già esistente.", ex.getMessage());
         }
@@ -1012,14 +1014,14 @@ class UserServiceTest {
         @DisplayName("Update user partial - skip if username unchanged")
         void shouldSkipUsernameUpdateIfUnchanged() {
             Users user = Users.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .username("sameuser")
                     .build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.save(user)).thenReturn(user);
 
-            Users result = userService.updateUserPartial(1L, "sameuser", null, null, null);
+            Users result = userService.updateUserPartial(uid(1), "sameuser", null, null, null);
 
             assertEquals("sameuser", result.getUsername());
             verify(usersRepository).save(user);
@@ -1032,14 +1034,14 @@ class UserServiceTest {
         @Order(36)
         @DisplayName("Update user partial - update role only")
         void shouldUpdateRoleOnlyInPartialUpdate() {
-            Users user = Users.builder().id(1L).username("user").build();
-            Roles role = Roles.builder().id(2L).role("ADMIN").build();
+            Users user = Users.builder().id(uid(1)).username("user").build();
+            Roles role = Roles.builder().id(uid(2)).role("ADMIN").build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.of(role));
             when(usersRepository.save(user)).thenReturn(user);
 
-            Users result = userService.updateUserPartial(1L, null, "ADMIN", null, null);
+            Users result = userService.updateUserPartial(uid(1), null, "ADMIN", null, null);
 
             assertEquals(role, result.getRole());
             verify(usersRepository).save(user);
@@ -1052,13 +1054,13 @@ class UserServiceTest {
         @Order(37)
         @DisplayName("Update user partial - fails if role not found")
         void shouldThrowIfRoleNotFoundInPartialUpdate() {
-            Users user = Users.builder().id(1L).username("user").build();
+            Users user = Users.builder().id(uid(1)).username("user").build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(rolesRepository.findByRole("INVALIDROLE")).thenReturn(Optional.empty());
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                    () -> userService.updateUserPartial(1L, null, "INVALIDROLE", null, null));
+                    () -> userService.updateUserPartial(uid(1), null, "INVALIDROLE", null, null));
 
             assertEquals("Ruolo non trovato: INVALIDROLE", ex.getMessage());
         }
@@ -1070,14 +1072,14 @@ class UserServiceTest {
         @Order(38)
         @DisplayName("Update user partial - update manager only")
         void shouldUpdateManagerOnlyInPartialUpdate() {
-            Users user = Users.builder().id(1L).username("user").build();
-            Managers manager = Managers.builder().id(5L).build();
+            Users user = Users.builder().id(uid(1)).username("user").build();
+            Managers manager = Managers.builder().id(uid(5)).build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
-            when(managersRepository.findByIdAndOrganizationId(5L, TENANT)).thenReturn(Optional.of(manager));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
+            when(managersRepository.findByIdAndOrganizationId(uid(5), TENANT)).thenReturn(Optional.of(manager));
             when(usersRepository.save(user)).thenReturn(user);
 
-            Users result = userService.updateUserPartial(1L, null, null, 5L, null);
+            Users result = userService.updateUserPartial(uid(1), null, null, uid(5), null);
 
             assertEquals(manager, result.getManager());
             verify(usersRepository).save(user);
@@ -1090,13 +1092,13 @@ class UserServiceTest {
         @Order(39)
         @DisplayName("Update user partial - fails if manager not found")
         void shouldThrowIfManagerNotFoundInPartialUpdate() {
-            Users user = Users.builder().id(1L).username("user").build();
+            Users user = Users.builder().id(uid(1)).username("user").build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
-            when(managersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
+            when(managersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                    () -> userService.updateUserPartial(1L, null, null, 999L, null));
+                    () -> userService.updateUserPartial(uid(1), null, null, uid(999), null));
 
             assertEquals("ID manager non trovato", ex.getMessage());
         }
@@ -1108,13 +1110,13 @@ class UserServiceTest {
         @Order(40)
         @DisplayName("Update user partial - update password only")
         void shouldUpdatePasswordOnlyInPartialUpdate() {
-            Users user = Users.builder().id(1L).username("user").build();
+            Users user = Users.builder().id(uid(1)).username("user").build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(passwordEncoder.encode("newpassword")).thenReturn("encodednewpass");
             when(usersRepository.save(user)).thenReturn(user);
 
-            Users result = userService.updateUserPartial(1L, null, null, null, "newpassword");
+            Users result = userService.updateUserPartial(uid(1), null, null, null, "newpassword");
 
             assertEquals("encodednewpass", result.getPasswordHash());
             verify(usersRepository).save(user);
@@ -1127,12 +1129,12 @@ class UserServiceTest {
         @Order(41)
         @DisplayName("Update user partial - fails if user not found")
         void shouldThrowIfUserNotFoundInPartialUpdate() {
-            when(usersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(usersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
-                    () -> userService.updateUserPartial(999L, "newname", null, null, null));
+                    () -> userService.updateUserPartial(uid(999), "newname", null, null, null));
 
-            assertEquals("Utente ID 999 non trovato", ex.getMessage());
+            assertEquals("Utente ID " + uid(999) + " non trovato", ex.getMessage());
         }
 
         /**
@@ -1142,12 +1144,12 @@ class UserServiceTest {
         @Order(42)
         @DisplayName("Update user partial - skip username if null")
         void shouldSkipUsernameIfNull() {
-            Users user = Users.builder().id(1L).username("original").build();
+            Users user = Users.builder().id(uid(1)).username("original").build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.save(user)).thenReturn(user);
 
-            Users result = userService.updateUserPartial(1L, null, null, null, null);
+            Users result = userService.updateUserPartial(uid(1), null, null, null, null);
 
             assertEquals("original", result.getUsername());
         }
@@ -1159,12 +1161,12 @@ class UserServiceTest {
         @Order(43)
         @DisplayName("Update user partial - skip username if blank")
         void shouldSkipUsernameIfBlank() {
-            Users user = Users.builder().id(1L).username("original").build();
+            Users user = Users.builder().id(uid(1)).username("original").build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.save(user)).thenReturn(user);
 
-            Users result = userService.updateUserPartial(1L, "   ", null, null, null);
+            Users result = userService.updateUserPartial(uid(1), "   ", null, null, null);
 
             assertEquals("original", result.getUsername());
         }
@@ -1176,12 +1178,12 @@ class UserServiceTest {
         @Order(44)
         @DisplayName("Update user partial - skip role if blank")
         void shouldSkipRoleIfBlank() {
-            Users user = Users.builder().id(1L).username("user").build();
+            Users user = Users.builder().id(uid(1)).username("user").build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.save(user)).thenReturn(user);
 
-            userService.updateUserPartial(1L, null, "  ", null, null);
+            userService.updateUserPartial(uid(1), null, "  ", null, null);
 
             verify(rolesRepository, never()).findByRole(any());
         }
@@ -1193,12 +1195,12 @@ class UserServiceTest {
         @Order(45)
         @DisplayName("Update user partial - skip password if blank")
         void shouldSkipPasswordIfBlank() {
-            Users user = Users.builder().id(1L).username("user").build();
+            Users user = Users.builder().id(uid(1)).username("user").build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.save(user)).thenReturn(user);
 
-            userService.updateUserPartial(1L, null, null, null, "   ");
+            userService.updateUserPartial(uid(1), null, null, null, "   ");
 
             verify(passwordEncoder, never()).encode(any());
         }
@@ -1210,18 +1212,18 @@ class UserServiceTest {
         @Order(46)
         @DisplayName("Update user partial - update all fields")
         void shouldUpdateAllFieldsInPartialUpdate() {
-            Users user = Users.builder().id(1L).username("olduser").build();
-            Roles role = Roles.builder().id(2L).role("MANAGER").build();
-            Managers manager = Managers.builder().id(3L).build();
+            Users user = Users.builder().id(uid(1)).username("olduser").build();
+            Roles role = Roles.builder().id(uid(2)).role("MANAGER").build();
+            Managers manager = Managers.builder().id(uid(3)).build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.existsByUsername("newuser")).thenReturn(false);
             when(rolesRepository.findByRole("MANAGER")).thenReturn(Optional.of(role));
-            when(managersRepository.findByIdAndOrganizationId(3L, TENANT)).thenReturn(Optional.of(manager));
+            when(managersRepository.findByIdAndOrganizationId(uid(3), TENANT)).thenReturn(Optional.of(manager));
             when(passwordEncoder.encode("newpass")).thenReturn("encodedpass");
             when(usersRepository.save(user)).thenReturn(user);
 
-            Users result = userService.updateUserPartial(1L, "newuser", "MANAGER", 3L, "newpass");
+            Users result = userService.updateUserPartial(uid(1), "newuser", "MANAGER", uid(3), "newpass");
 
             assertEquals("newuser", result.getUsername());
             assertEquals(role, result.getRole());
@@ -1238,7 +1240,7 @@ class UserServiceTest {
         @DisplayName("Send reset link with manager email")
         void shouldSendResetLinkWithManagerEmail() {
             Users user = Users.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .username("user")
                     .manager(Managers.builder().email("manager@company.com").build())
                     .build();
@@ -1247,10 +1249,10 @@ class UserServiceTest {
                     .token("reset-token-123")
                     .build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(passwordResetTokenService.createToken(user)).thenReturn(token);
 
-            userService.sendResetLink(1L);
+            userService.sendResetLink(uid(1));
 
             verify(emailService).sendResetPasswordEmail(
                     eq("manager@company.com"),
@@ -1267,7 +1269,7 @@ class UserServiceTest {
         @DisplayName("Send reset link uses username as fallback")
         void shouldSendResetLinkToUsernameWhenNoManagerEmail() {
             Users user = Users.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .username("john.doe")
                     .manager(null)
                     .build();
@@ -1276,10 +1278,10 @@ class UserServiceTest {
                     .token("reset-token-456")
                     .build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(passwordResetTokenService.createToken(user)).thenReturn(token);
 
-            userService.sendResetLink(1L);
+            userService.sendResetLink(uid(1));
 
             verify(emailService).sendResetPasswordEmail(
                     eq("john.doe"),
@@ -1296,7 +1298,7 @@ class UserServiceTest {
         @DisplayName("Send reset link uses username when manager email is null")
         void shouldSendResetLinkToUsernameWhenManagerEmailIsNull() {
             Users user = Users.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .username("jane.smith")
                     .manager(Managers.builder().email(null).build())
                     .build();
@@ -1305,10 +1307,10 @@ class UserServiceTest {
                     .token("reset-token-789")
                     .build();
 
-            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(passwordResetTokenService.createToken(user)).thenReturn(token);
 
-            userService.sendResetLink(1L);
+            userService.sendResetLink(uid(1));
 
             verify(emailService).sendResetPasswordEmail(
                     eq("jane.smith"),
@@ -1323,12 +1325,12 @@ class UserServiceTest {
         @Order(50)
         @DisplayName("Send reset link fails if user not found")
         void shouldThrowIfUserNotFoundForResetLink() {
-            when(usersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(usersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
-                    () -> userService.sendResetLink(999L));
+                    () -> userService.sendResetLink(uid(999)));
 
-            assertEquals("Utente ID 999 non trovato", ex.getMessage());
+            assertEquals("Utente ID " + uid(999) + " non trovato", ex.getMessage());
         }
 
         /**
@@ -1340,7 +1342,7 @@ class UserServiceTest {
         @SuppressWarnings("unchecked")
         void shouldSearchUsersByQuery() {
             Pageable pageable = Pageable.unpaged();
-            Users user = Users.builder().id(1L).username("johndoe").build();
+            Users user = Users.builder().id(uid(1)).username("johndoe").build();
             Page<Users> page = new PageImpl<>(List.of(user));
 
             when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
@@ -1360,7 +1362,7 @@ class UserServiceTest {
         @SuppressWarnings("unchecked")
         void shouldSearchUsersByRole() {
             Pageable pageable = Pageable.unpaged();
-            Users user = Users.builder().id(1L).username("admin").build();
+            Users user = Users.builder().id(uid(1)).username("admin").build();
             Page<Users> page = new PageImpl<>(List.of(user));
 
             when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
@@ -1380,7 +1382,7 @@ class UserServiceTest {
         @SuppressWarnings("unchecked")
         void shouldSearchUsersByVerified() {
             Pageable pageable = Pageable.unpaged();
-            Users user = Users.builder().id(1L).username("verified").verified(true).build();
+            Users user = Users.builder().id(uid(1)).username("verified").verified(true).build();
             Page<Users> page = new PageImpl<>(List.of(user));
 
             when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
@@ -1400,7 +1402,7 @@ class UserServiceTest {
         @SuppressWarnings("unchecked")
         void shouldSearchUsersWithAllFilters() {
             Pageable pageable = Pageable.unpaged();
-            Users user = Users.builder().id(1L).username("admin").verified(true).build();
+            Users user = Users.builder().id(uid(1)).username("admin").verified(true).build();
             Page<Users> page = new PageImpl<>(List.of(user));
 
             when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
@@ -1420,8 +1422,8 @@ class UserServiceTest {
         @SuppressWarnings("unchecked")
         void shouldSearchUsersWithNoFilters() {
             Pageable pageable = Pageable.unpaged();
-            Users user1 = Users.builder().id(1L).username("user1").build();
-            Users user2 = Users.builder().id(2L).username("user2").build();
+            Users user1 = Users.builder().id(uid(1)).username("user1").build();
+            Users user2 = Users.builder().id(uid(2)).username("user2").build();
             Page<Users> page = new PageImpl<>(List.of(user1, user2));
 
             when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
@@ -1481,15 +1483,15 @@ class UserServiceTest {
                     .token(token)
                     .username("newuser")
                     .role("MANAGER")
-                    .managerId(999L)
+                    .managerId(uid(999))
                     .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .used(false)
                     .build();
 
             when(inviteTokenRepository.findByToken(token)).thenReturn(Optional.of(inviteToken));
             when(usersRepository.existsByUsername("newuser")).thenReturn(false);
-            when(usersRepository.existsByManagerId(999L)).thenReturn(false);
-            when(managersRepository.findById(999L)).thenReturn(Optional.empty());
+            when(usersRepository.existsByManagerId(uid(999))).thenReturn(false);
+            when(managersRepository.findById(uid(999))).thenReturn(Optional.empty());
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.completeInvite(token, "password"));
@@ -1507,21 +1509,21 @@ class UserServiceTest {
         @DisplayName("Complete invite fails if role not found")
         void shouldThrowIfRoleNotFoundOnCompleteInvite() {
             String token = "valid-token";
-            Managers manager = Managers.builder().id(1L).email("mgr@company.com").build();
+            Managers manager = Managers.builder().id(uid(1)).email("mgr@company.com").build();
 
             InviteToken inviteToken = InviteToken.builder()
                     .token(token)
                     .username("newuser")
                     .role("INVALIDROLE")
-                    .managerId(1L)
+                    .managerId(uid(1))
                     .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .used(false)
                     .build();
 
             when(inviteTokenRepository.findByToken(token)).thenReturn(Optional.of(inviteToken));
             when(usersRepository.existsByUsername("newuser")).thenReturn(false);
-            when(usersRepository.existsByManagerId(1L)).thenReturn(false);
-            when(managersRepository.findById(1L)).thenReturn(Optional.of(manager));
+            when(usersRepository.existsByManagerId(uid(1))).thenReturn(false);
+            when(managersRepository.findById(uid(1))).thenReturn(Optional.of(manager));
             when(rolesRepository.findByRole("INVALIDROLE")).thenReturn(Optional.empty());
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
@@ -1538,18 +1540,18 @@ class UserServiceTest {
         @Order(61)
         @DisplayName("Get all users with TenantContext uses org-filtered repository")
         void shouldGetAllUsersWithTenantContext() {
-            Users user = Users.builder().id(1L).username("orguser").build();
-            UserDTO dto = new UserDTO(1L, "orguser", "pass", 1L, 1L, null, null);
+            Users user = Users.builder().id(uid(1)).username("orguser").build();
+            UserDTO dto = new UserDTO(uid(1), "orguser", "pass", uid(1), uid(1), null, null);
 
-            TenantContext.set(2L);
+            TenantContext.set(uid(2));
             try {
-                when(usersRepository.findAllByOrganizationId(2L)).thenReturn(List.of(user));
+                when(usersRepository.findAllByOrganizationId(uid(2))).thenReturn(List.of(user));
                 when(userMapper.toDTO(user)).thenReturn(dto);
 
                 List<UserDTO> result = userService.getAllUsers();
 
                 assertEquals(1, result.size());
-                verify(usersRepository).findAllByOrganizationId(2L);
+                verify(usersRepository).findAllByOrganizationId(uid(2));
             } finally {
                 TenantContext.clear();
             }
@@ -1562,18 +1564,18 @@ class UserServiceTest {
         @Order(62)
         @DisplayName("Get user by ID with TenantContext uses org-scoped repository")
         void shouldGetUserByIdWithTenantContext() {
-            Users user = Users.builder().id(1L).username("orguser").build();
-            UserDTO dto = new UserDTO(1L, "orguser", "pass", 1L, 1L, null, null);
+            Users user = Users.builder().id(uid(1)).username("orguser").build();
+            UserDTO dto = new UserDTO(uid(1), "orguser", "pass", uid(1), uid(1), null, null);
 
-            TenantContext.set(9L);
+            TenantContext.set(uid(9));
             try {
-                when(usersRepository.findByIdAndOrganizationId(1L, 9L)).thenReturn(Optional.of(user));
+                when(usersRepository.findByIdAndOrganizationId(uid(1), uid(9))).thenReturn(Optional.of(user));
                 when(userMapper.toDTO(user)).thenReturn(dto);
 
-                UserDTO result = userService.getUserById(1L);
+                UserDTO result = userService.getUserById(uid(1));
 
                 assertEquals("orguser", result.username());
-                verify(usersRepository).findByIdAndOrganizationId(1L, 9L);
+                verify(usersRepository).findByIdAndOrganizationId(uid(1), uid(9));
             } finally {
                 TenantContext.clear();
             }
@@ -1586,19 +1588,19 @@ class UserServiceTest {
         @Order(63)
         @DisplayName("Update user partial with TenantContext resolves manager via org-scoped repository")
         void shouldUpdateManagerWithTenantContext() {
-            Users user = Users.builder().id(1L).username("user").build();
-            Managers manager = Managers.builder().id(5L).build();
+            Users user = Users.builder().id(uid(1)).username("user").build();
+            Managers manager = Managers.builder().id(uid(5)).build();
 
-            TenantContext.set(3L);
+            TenantContext.set(uid(3));
             try {
-                when(usersRepository.findByIdAndOrganizationId(1L, 3L)).thenReturn(Optional.of(user));
-                when(managersRepository.findByIdAndOrganizationId(5L, 3L)).thenReturn(Optional.of(manager));
+                when(usersRepository.findByIdAndOrganizationId(uid(1), uid(3))).thenReturn(Optional.of(user));
+                when(managersRepository.findByIdAndOrganizationId(uid(5), uid(3))).thenReturn(Optional.of(manager));
                 when(usersRepository.save(user)).thenReturn(user);
 
-                Users result = userService.updateUserPartial(1L, null, null, 5L, null);
+                Users result = userService.updateUserPartial(uid(1), null, null, uid(5), null);
 
                 assertEquals(manager, result.getManager());
-                verify(managersRepository).findByIdAndOrganizationId(5L, 3L);
+                verify(managersRepository).findByIdAndOrganizationId(uid(5), uid(3));
             } finally {
                 TenantContext.clear();
             }
@@ -1613,10 +1615,10 @@ class UserServiceTest {
         @SuppressWarnings("unchecked")
         void shouldSearchUsersWithTenantContext() {
             Pageable pageable = Pageable.unpaged();
-            Users user = Users.builder().id(1L).username("orguser").build();
+            Users user = Users.builder().id(uid(1)).username("orguser").build();
             Page<Users> page = new PageImpl<>(List.of(user));
 
-            TenantContext.set(4L);
+            TenantContext.set(uid(4));
             try {
                 when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
 
@@ -1650,12 +1652,12 @@ class UserServiceTest {
 
             when(root.<Object>get("organization")).thenReturn(orgPath);
             when(orgPath.<Object>get("id")).thenReturn(idPath);
-            when(cb.equal(idPath, 4L)).thenReturn(orgPredicate);
+            when(cb.equal(idPath, uid(4))).thenReturn(orgPredicate);
 
             ArgumentCaptor<Specification> captor = ArgumentCaptor.forClass(Specification.class);
             when(usersRepository.findAll(captor.capture(), eq(pageable))).thenReturn(page);
 
-            TenantContext.set(4L);
+            TenantContext.set(uid(4));
             try {
                 userService.searchUsers(null, null, null, pageable);
             } finally {

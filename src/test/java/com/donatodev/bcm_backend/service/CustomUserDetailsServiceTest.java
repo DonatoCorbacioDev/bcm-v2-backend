@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -93,9 +94,9 @@ class CustomUserDetailsServiceTest {
                 .role(Roles.builder().role("ADMIN").build())
                 .build();
 
-        when(usersRepository.findByUsernameAndOrganizationId("user1", 1L)).thenReturn(Optional.of(user));
+        when(usersRepository.findByUsernameAndOrganizationId("user1", uid(1))).thenReturn(Optional.of(user));
 
-        UserDetails result = userDetailsService.loadUserByUsername("user1", 1L);
+        UserDetails result = userDetailsService.loadUserByUsername("user1", uid(1));
 
         assertNotNull(result);
         assertEquals("user1", result.getUsername());
@@ -112,10 +113,10 @@ class CustomUserDetailsServiceTest {
     @Order(4)
     @DisplayName("Exception when user does not exist in organization")
     void shouldThrowIfUserNotFoundInOrganization() {
-        when(usersRepository.findByUsernameAndOrganizationId("ghost", 1L)).thenReturn(Optional.empty());
+        when(usersRepository.findByUsernameAndOrganizationId("ghost", uid(1))).thenReturn(Optional.empty());
 
         UsernameNotFoundException ex = assertThrows(UsernameNotFoundException.class,
-                () -> userDetailsService.loadUserByUsername("ghost", 1L));
+                () -> userDetailsService.loadUserByUsername("ghost", uid(1)));
         assertEquals("Utente non trovato: ghost", ex.getMessage());
     }
 }

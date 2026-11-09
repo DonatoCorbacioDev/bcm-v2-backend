@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -43,13 +44,13 @@ public class CounterpartyController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/{id}")
-    public ResponseEntity<CounterpartyDTO> getCounterpartyById(@PathVariable Long id) {
+    public ResponseEntity<CounterpartyDTO> getCounterpartyById(@PathVariable UUID id) {
         return ResponseEntity.ok(counterpartyService.getCounterpartyById(id));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/{id}/invoicing-summary")
-    public ResponseEntity<CounterpartyInvoicingSummaryDTO> getInvoicingSummary(@PathVariable Long id) {
+    public ResponseEntity<CounterpartyInvoicingSummaryDTO> getInvoicingSummary(@PathVariable UUID id) {
         return ResponseEntity.ok(counterpartyService.getInvoicingSummary(id));
     }
 
@@ -62,7 +63,7 @@ public class CounterpartyController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<CounterpartyDTO> updateCounterparty(@PathVariable Long id, @Valid @RequestBody CounterpartyDTO dto) {
+    public ResponseEntity<CounterpartyDTO> updateCounterparty(@PathVariable UUID id, @Valid @RequestBody CounterpartyDTO dto) {
         return ResponseEntity.ok(counterpartyService.updateCounterparty(id, dto));
     }
 
@@ -75,14 +76,14 @@ public class CounterpartyController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/verified-iban")
-    public ResponseEntity<CounterpartyDTO> confirmVerifiedIban(@PathVariable Long id,
+    public ResponseEntity<CounterpartyDTO> confirmVerifiedIban(@PathVariable UUID id,
                                                                 @Valid @RequestBody VerifyCounterpartyIbanRequest request) {
         return ResponseEntity.ok(counterpartyService.confirmVerifiedIban(id, request));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCounterparty(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteCounterparty(@PathVariable UUID id) {
         counterpartyService.deleteCounterparty(id);
         return ResponseEntity.noContent().build();
     }

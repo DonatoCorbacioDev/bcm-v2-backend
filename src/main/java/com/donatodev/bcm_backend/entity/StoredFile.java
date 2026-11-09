@@ -5,14 +5,14 @@
 
 package com.donatodev.bcm_backend.entity;
 
+import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
 import java.time.Instant;
 
 import org.hibernate.annotations.CreationTimestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -34,8 +34,8 @@ import lombok.experimental.SuperBuilder;
 public abstract class StoredFile {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
+    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contract_id", nullable = false)
@@ -54,7 +54,7 @@ public abstract class StoredFile {
     private String contentType;
 
     @Column(name = "org_id")
-    private Long orgId;
+    private UUID orgId;
 
     @CreationTimestamp
     @Column(name = "uploaded_at", nullable = false, updatable = false)

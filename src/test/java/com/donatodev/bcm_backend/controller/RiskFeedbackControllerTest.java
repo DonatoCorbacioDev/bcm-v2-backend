@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import com.donatodev.bcm_backend.support.TestTenant;
 import java.time.LocalDate;
@@ -138,7 +140,7 @@ class RiskFeedbackControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.contractId").value(contract.getId()))
+                    .andExpect(jsonPath("$.contractId").value(contract.getId().toString()))
                     .andExpect(jsonPath("$.riskLevel").value("HIGH"))
                     .andExpect(jsonPath("$.agree").value(true));
         }
@@ -238,7 +240,7 @@ class RiskFeedbackControllerTest {
 
             RiskFeedbackRequest request = new RiskFeedbackRequest(0.5, "MEDIUM", null, null, true);
 
-            mockMvc.perform(post("/risk-feedback/contracts/{contractId}", 999999L)
+            mockMvc.perform(post("/risk-feedback/contracts/{contractId}", uid(999999))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isNotFound());

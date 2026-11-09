@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -44,7 +45,7 @@ public class InternalOrganizationController {
     @PutMapping("/{id}/tier")
     public ResponseEntity<OrganizationDTO> changeTier(
             @RequestHeader(value = InternalApiKeyGuard.HEADER, required = false) String key,
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @Valid @RequestBody ChangeTierRequest request) {
         internalApiKeyGuard.verify(key);
         return ResponseEntity.ok(organizationService.changeTier(id, request.tier(), "manual"));

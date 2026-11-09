@@ -5,7 +5,7 @@ Everything needed to turn every `BIGINT` identifier into a UUID stored as `CHAR(
 | File | What it is |
 |---|---|
 | `generate_v55.py` | Reads the real V54 schema (tables, primary keys, foreign keys with their rules, indexes) from `information_schema`, adds the id columns that have no constraint, and prints the migration |
-| `V55__uuid_identifiers.sql` | The generated migration. It stays in this folder until the application code is converted; then it moves to `src/main/resources/db/migration/` in the same commit, because Hibernate validates the schema at startup |
+| `src/main/resources/db/migration/V55__uuid_identifiers.sql` | The generated migration, applied by Flyway like any other since the application code was converted (V56 then widens `ml_result_cache.cache_key`: manager-scoped keys grew with UUIDs) |
 | `fingerprint.sql` | Every relationship written without ids (contract number, counterparty name, username, slug...). Identical output before and after V55 means nothing moved |
 
 `UuidMigrationIT` applies V55 with Flyway to a V54 database holding every kind of
@@ -16,7 +16,9 @@ fingerprint, foreign keys and indexes, UUID format and the guard below.
 
 Against a database migrated to exactly V54 (the local docker stack by default):
 
-    python3 scripts/uuid-migration/generate_v55.py > scripts/uuid-migration/V55__uuid_identifiers.sql
+    python3 scripts/uuid-migration/generate_v55.py > src/main/resources/db/migration/V55__uuid_identifiers.sql
+
+(Only ever against a V54 schema: once V55 has run anywhere, the file must not change.)
 
 Same schema, same output. `MYSQL_CMD` overrides the command that runs `mysql`.
 Anything the generator cannot handle safely (a foreign key not pointing at `id`,

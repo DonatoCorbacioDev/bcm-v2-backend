@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.repository;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,9 +15,9 @@ import org.springframework.stereotype.Repository;
 import com.donatodev.bcm_backend.entity.ContractTemplate;
 
 @Repository
-public interface ContractTemplateRepository extends JpaRepository<ContractTemplate, Long> {
+public interface ContractTemplateRepository extends JpaRepository<ContractTemplate, UUID> {
 
-    List<ContractTemplate> findAllByOrgIdOrderByCreatedAtDesc(Long orgId);
+    List<ContractTemplate> findAllByOrgIdOrderByCreatedAtDesc(UUID orgId);
 
-    Optional<ContractTemplate> findByIdAndOrgId(Long id, Long orgId);
+    Optional<ContractTemplate> findByIdAndOrgId(UUID id, UUID orgId);
 }

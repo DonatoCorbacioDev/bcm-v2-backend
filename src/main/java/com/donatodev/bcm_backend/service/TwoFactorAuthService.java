@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -133,7 +134,7 @@ public class TwoFactorAuthService {
         }
 
         String username = jwtUtils.getUsernameFromToken(mfaToken);
-        Long orgId = jwtUtils.getOrganizationIdFromToken(mfaToken);
+        UUID orgId = jwtUtils.getOrganizationIdFromToken(mfaToken);
 
         // Fails closed: a token without an organization identifies nobody.
         if (orgId == null) {

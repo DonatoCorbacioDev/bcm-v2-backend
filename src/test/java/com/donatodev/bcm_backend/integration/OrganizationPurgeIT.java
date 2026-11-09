@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.integration;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -13,12 +14,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.nio.charset.StandardCharsets;
-import java.sql.PreparedStatement;
-import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 
 import javax.sql.DataSource;
@@ -29,8 +28,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.donatodev.bcm_backend.service.IEmailService;
@@ -63,7 +60,7 @@ class OrganizationPurgeIT extends AbstractMySQLIntegrationTest {
     private JdbcTemplate jdbc;
 
     /** Ids of everything seeded for one organization, by table. */
-    private record Seeded(long orgId, String name, String adminEmail, Map<String, Long> ids, List<String> files) {}
+    private record Seeded(UUID orgId, String name, String adminEmail, Map<String, UUID> ids, List<String> files) {}
 
     @BeforeEach
     void setUp() {
@@ -96,7 +93,7 @@ class OrganizationPurgeIT extends AbstractMySQLIntegrationTest {
         // What stays: the proof of the Terms, and one audit row without names.
         assertThat(countWhere("terms_acceptances", "organization_id", doomed.orgId())).isOne();
         List<Map<String, Object>> audit = jdbc.queryForList(
-                "SELECT action, username, details FROM audit_logs WHERE org_id = ?", doomed.orgId());
+                "SELECT action, username, details FROM audit_logs WHERE org_id = ?", doomed.orgId().toString());
         assertThat(audit).hasSize(1);
         assertThat(audit.get(0)).containsEntry("action", "ORGANIZATION_DELETED")
                 .containsEntry("username", "system");
@@ -121,7 +118,7 @@ class OrganizationPurgeIT extends AbstractMySQLIntegrationTest {
         schedule(later.orgId(), "NOW() + INTERVAL 1 DAY");
         schedule(paying.orgId(), "NOW() - INTERVAL 1 DAY");
         jdbc.update("UPDATE organizations SET subscription_tier = 'PRO', stripe_customer_id = 'cus_test' WHERE id = ?",
-                paying.orgId());
+                paying.orgId().toString());
 
         purgeService.purgeDueOrganizations();
 
@@ -139,7 +136,7 @@ class OrganizationPurgeIT extends AbstractMySQLIntegrationTest {
         // A row of another organization pointing at this one's manager (no
         // cascade on contract_manager.manager_id): deleting the managers fails.
         jdbc.update("INSERT INTO contract_manager (contract_id, manager_id) VALUES (?, ?)",
-                other.ids().get("contracts"), doomed.ids().get("managers"));
+                other.ids().get("contracts").toString(), doomed.ids().get("managers").toString());
         schedule(doomed.orgId(), "NOW() - INTERVAL 1 DAY");
 
         int deleted = purgeService.purgeDueOrganizations();
@@ -147,7 +144,7 @@ class OrganizationPurgeIT extends AbstractMySQLIntegrationTest {
         assertThat(deleted).isZero();
         rowsOf(doomed).forEach((table, n) -> assertThat(n).as(table).isOne());
         assertThat(jdbc.queryForObject("SELECT deletion_scheduled_for FROM organizations WHERE id = ?",
-                Object.class, doomed.orgId())).as("still scheduled").isNotNull();
+                Object.class, doomed.orgId().toString())).as("still scheduled").isNotNull();
         for (String path : doomed.files()) {
             assertThat(storage.readDocument(path)).as(path).isNotEmpty();
         }
@@ -161,19 +158,19 @@ class OrganizationPurgeIT extends AbstractMySQLIntegrationTest {
         String tag = label + "-" + UUID.randomUUID().toString().substring(0, 8);
         String name = "Org " + tag;
         String email = tag.toLowerCase() + "@purge.test";
-        Map<String, Long> ids = new LinkedHashMap<>();
-        long org = insert(ids, "organizations", "INSERT INTO organizations (name, slug, subscription_tier) VALUES (?, ?, 'FREE')",
+        Map<String, UUID> ids = new LinkedHashMap<>();
+        UUID org = insert(ids, "organizations", "INSERT INTO organizations (name, slug, subscription_tier) VALUES (?, ?, 'FREE')",
                 name, tag.toLowerCase());
-        long area = insert(ids, "business_areas", "INSERT INTO business_areas (name, organization_id) VALUES (?, ?)", "Area " + tag, org);
-        long type = insert(ids, "financial_types",
+        UUID area = insert(ids, "business_areas", "INSERT INTO business_areas (name, organization_id) VALUES (?, ?)", "Area " + tag, org);
+        UUID type = insert(ids, "financial_types",
                 "INSERT INTO financial_types (name, category, organization_id) VALUES (?, 'REVENUE', ?)", "Ricavi " + tag, org);
-        long manager = insert(ids, "managers",
+        UUID manager = insert(ids, "managers",
                 "INSERT INTO managers (first_name, last_name, email, organization_id) VALUES ('Ada', 'Admin', ?, ?)", email, org);
-        long user = insert(ids, "users", "INSERT INTO users (username, password_hash, manager_id, role_id, organization_id)"
+        UUID user = insert(ids, "users", "INSERT INTO users (username, password_hash, manager_id, role_id, organization_id)"
                 + " VALUES (?, 'x', ?, (SELECT id FROM roles WHERE role = 'ADMIN'), ?)", "admin-" + tag, manager, org);
-        long counterparty = insert(ids, "counterparties",
+        UUID counterparty = insert(ids, "counterparties",
                 "INSERT INTO counterparties (name, type, organization_id) VALUES (?, 'CUSTOMER', ?)", "Cliente " + tag, org);
-        long contract = insert(ids, "contracts", "INSERT INTO contracts (contract_number, counterparty_id, organization_id, start_date,"
+        UUID contract = insert(ids, "contracts", "INSERT INTO contracts (contract_number, counterparty_id, organization_id, start_date,"
                 + " status, area_id, financial_type_id, manager_id) VALUES (?, ?, ?, CURDATE(), 'ACTIVE', ?, ?, ?)",
                 "C-" + tag, counterparty, org, area, type, manager);
         insert(ids, "contract_manager", "INSERT INTO contract_manager (contract_id, manager_id) VALUES (?, ?)", contract, manager);
@@ -186,13 +183,13 @@ class OrganizationPurgeIT extends AbstractMySQLIntegrationTest {
         String sepaFile = storage.storeSepaPayment(org, contract, bytes(tag));
         insert(ids, "contract_documents", "INSERT INTO contract_documents (contract_id, org_id, file_name, file_size, storage_path,"
                 + " version_number) VALUES (?, ?, 'a.pdf', 1, ?, 1)", contract, org, document);
-        long value = insert(ids, "financial_values", "INSERT INTO financial_values (financial_amount, month_value, year_value,"
+        UUID value = insert(ids, "financial_values", "INSERT INTO financial_values (financial_amount, month_value, year_value,"
                 + " organization_id, contract_id, financial_type_id, area_id) VALUES (100, 1, 2026, ?, ?, ?, ?)",
                 org, contract, type, area);
-        long batch = insert(ids, "sepa_payment_batches", "INSERT INTO sepa_payment_batches (contract_id, org_id, currency,"
+        UUID batch = insert(ids, "sepa_payment_batches", "INSERT INTO sepa_payment_batches (contract_id, org_id, currency,"
                 + " execution_date, file_name, message_id, number_of_transactions, storage_path, total_amount)"
                 + " VALUES (?, ?, 'EUR', CURDATE(), 's.xml', ?, 1, ?, 100)", contract, org, "M-" + tag, sepaFile);
-        long invoice = insert(ids, "electronic_invoices", "INSERT INTO electronic_invoices (contract_id, org_id, file_name, file_size,"
+        UUID invoice = insert(ids, "electronic_invoices", "INSERT INTO electronic_invoices (contract_id, org_id, file_name, file_size,"
                 + " storage_path, matched_financial_value_id, sepa_batch_id, matched_by_user_id) VALUES (?, ?, 'i.xml', 1, ?, ?, ?, ?)",
                 contract, org, invoiceFile, value, batch, user);
         insert(ids, "invoice_line_items", "INSERT INTO invoice_line_items (invoice_id) VALUES (?)", invoice);
@@ -224,18 +221,27 @@ class OrganizationPurgeIT extends AbstractMySQLIntegrationTest {
         return new Seeded(org, name, email, ids, List.of(document, invoiceFile, sepaFile));
     }
 
-    private long insert(Map<String, Long> ids, String table, String sql, Object... args) {
-        KeyHolder key = new GeneratedKeyHolder();
-        jdbc.update(connection -> {
-            PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-            for (int i = 0; i < args.length; i++) {
-                ps.setObject(i + 1, args[i]);
-            }
-            return ps;
-        }, key);
-        // contract_manager has a composite key and returns none.
-        long id = key.getKeyList().isEmpty() ? 0L : Objects.requireNonNull(key.getKey()).longValue();
-        ids.put(table, id);
+    /**
+     * Inserts one row with an application-side UUID (ADR-0009: MySQL no longer
+     * generates ids), passing every UUID as text: the driver cannot bind a
+     * java.util.UUID to a CHAR(36) column.
+     */
+    private UUID insert(Map<String, UUID> ids, String table, String sql, Object... args) {
+        // contract_manager has a composite key: no id of its own.
+        UUID id = table.equals("contract_manager") ? null : UUID.randomUUID();
+        String statement = id == null ? sql
+                : sql.replace("INSERT INTO " + table + " (", "INSERT INTO " + table + " (id, ").replace("VALUES (", "VALUES (?, ");
+        List<Object> values = new ArrayList<>();
+        if (id != null) {
+            values.add(id.toString());
+        }
+        for (Object arg : args) {
+            values.add(arg instanceof UUID uuid ? uuid.toString() : arg);
+        }
+        jdbc.update(statement, values.toArray());
+        if (id != null) {
+            ids.put(table, id);
+        }
         return id;
     }
 
@@ -243,9 +249,9 @@ class OrganizationPurgeIT extends AbstractMySQLIntegrationTest {
         return tag.getBytes(StandardCharsets.UTF_8);
     }
 
-    private void schedule(long orgId, String when) {
+    private void schedule(UUID orgId, String when) {
         jdbc.update("UPDATE organizations SET deletion_scheduled_for = " + when + ", deletion_requested_at = NOW(),"
-                + " deletion_requested_by = 'admin' WHERE id = ?", orgId);
+                + " deletion_requested_by = 'admin' WHERE id = ?", orgId.toString());
     }
 
     // ── checks ───────────────────────────────────────────────────────────────
@@ -270,9 +276,9 @@ class OrganizationPurgeIT extends AbstractMySQLIntegrationTest {
                 (rs, n) -> new String[] {rs.getString(1), rs.getString(2)});
     }
 
-    private int countWhere(String table, String column, long value) {
+    private int countWhere(String table, String column, UUID value) {
         // Table and column come from this class or from information_schema, never from input.
-        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE " + column + " = ?", Integer.class, value);
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE " + column + " = ?", Integer.class, value.toString());
         return n == null ? 0 : n;
     }
 }

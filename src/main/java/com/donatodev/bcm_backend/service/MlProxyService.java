@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -88,34 +89,34 @@ public class MlProxyService {
     // ── Cache-aware public methods (called from HTTP requests) ──────────────
 
     public ResponseEntity<String> getForecast(int months) {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         tierLimitService.requireMlAccess(orgId);
-        Long managerId = resolveManagerId();
+        UUID managerId = resolveManagerId();
         String key = "FORECAST_" + months + cacheKeySuffix(managerId);
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/forecast").queryParam(QUERY_PARAM_MONTHS, months);
         return cachedGet(key, uriBuilder, orgId, managerId, "forecast");
     }
 
     public ResponseEntity<String> getAgentInsights(int months) {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         tierLimitService.requireMlAccess(orgId);
-        Long managerId = resolveManagerId();
+        UUID managerId = resolveManagerId();
         String key = "AGENT_INSIGHTS_" + months + cacheKeySuffix(managerId);
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/agent/insights").queryParam(QUERY_PARAM_MONTHS, months);
         return cachedGet(key, uriBuilder, orgId, managerId, "agent-insights");
     }
 
     public ResponseEntity<String> getAnomalies() {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         tierLimitService.requireMlAccess(orgId);
-        Long managerId = resolveManagerId();
+        UUID managerId = resolveManagerId();
         String key = "ANOMALIES" + cacheKeySuffix(managerId);
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/anomalies");
         return cachedGet(key, uriBuilder, orgId, managerId, "anomalies");
     }
 
     public ResponseEntity<String> getRiskScores() {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         tierLimitService.requireMlAccess(orgId);
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/risk-scores");
         return callMl(uriBuilder, orgId, resolveManagerId(), "risk-scores");
@@ -133,9 +134,9 @@ public class MlProxyService {
     }
 
     public ResponseEntity<String> askAgent(String question) {
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         tierLimitService.requireMlAccess(orgId);
-        Long managerId = resolveManagerId();
+        UUID managerId = resolveManagerId();
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/agent/ask")
                 .queryParam("org_id", orgId);
         if (managerId != null) {
@@ -150,16 +151,16 @@ public class MlProxyService {
 
     // ── Raw methods for the nightly refresher (bypass cache) ────────────────
 
-    public ResponseEntity<String> fetchForecastRaw(int months, Long orgId) {
+    public ResponseEntity<String> fetchForecastRaw(int months, UUID orgId) {
         return callMl(
                 UriComponentsBuilder.fromUriString(fastApiUrl + "/forecast").queryParam(QUERY_PARAM_MONTHS, months), orgId, null, "forecast");
     }
 
-    public ResponseEntity<String> fetchAnomaliesRaw(Long orgId) {
+    public ResponseEntity<String> fetchAnomaliesRaw(UUID orgId) {
         return callMl(UriComponentsBuilder.fromUriString(fastApiUrl + "/anomalies"), orgId, null, "anomalies");
     }
 
-    public ResponseEntity<String> fetchRiskScoresRaw(Long orgId) {
+    public ResponseEntity<String> fetchRiskScoresRaw(UUID orgId) {
         return callMl(UriComponentsBuilder.fromUriString(fastApiUrl + "/risk-scores"), orgId, null, "risk-scores");
     }
 
@@ -173,7 +174,7 @@ public class MlProxyService {
      * accepted as a caller-supplied parameter, so a request can't widen its
      * own scope by claiming a different manager.
      */
-    private Long resolveManagerId() {
+    private UUID resolveManagerId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             return null;
@@ -188,7 +189,7 @@ public class MlProxyService {
                 .orElse(null);
     }
 
-    private String cacheKeySuffix(Long managerId) {
+    private String cacheKeySuffix(UUID managerId) {
         return managerId != null ? "_MGR" + managerId : "";
     }
 
@@ -201,7 +202,7 @@ public class MlProxyService {
      * {@link MlClaimsSigner}). The two are independent and both optional in
      * local dev (empty key / no signing key configured).
      */
-    private HttpHeaders buildInternalHeaders(Long orgId, Long managerId) {
+    private HttpHeaders buildInternalHeaders(UUID orgId, UUID managerId) {
         HttpHeaders headers = new HttpHeaders();
         if (internalApiKey != null && !internalApiKey.isBlank()) {
             headers.set("X-Internal-Api-Key", internalApiKey);
@@ -219,7 +220,7 @@ public class MlProxyService {
      * shape of every cache-aware GET endpoint (forecast/agent-insights/anomalies),
      * which otherwise differ only in cache key and FastAPI path.
      */
-    private ResponseEntity<String> cachedGet(String cacheKey, UriComponentsBuilder uriBuilder, Long orgId, Long managerId, String endpoint) {
+    private ResponseEntity<String> cachedGet(String cacheKey, UriComponentsBuilder uriBuilder, UUID orgId, UUID managerId, String endpoint) {
         Optional<String> cached = mlCacheService.get(orgId, cacheKey);
         if (cached.isPresent()) {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
@@ -232,7 +233,7 @@ public class MlProxyService {
     }
 
     /** orgId is never null: HTTP callers pass TenantContext.require(), the nightly refreshers one organization at a time. */
-    private ResponseEntity<String> callMl(UriComponentsBuilder uriBuilder, Long orgId, Long managerId, String endpoint) {
+    private ResponseEntity<String> callMl(UriComponentsBuilder uriBuilder, UUID orgId, UUID managerId, String endpoint) {
         uriBuilder.queryParam("org_id", orgId);
         if (managerId != null) {
             uriBuilder.queryParam("manager_id", managerId);

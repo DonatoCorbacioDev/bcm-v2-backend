@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.mapper;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.time.LocalDateTime;
 import java.time.Month;
 
@@ -17,8 +18,8 @@ class RiskFeedbackMapperTest {
     @Test
     void shouldConvertToDTO() {
         RiskFeedback feedback = RiskFeedback.builder()
-                .id(1L)
-                .contract(Contracts.builder().id(42L).build())
+                .id(uid(1))
+                .contract(Contracts.builder().id(uid(42)).build())
                 .riskScore(0.72)
                 .riskLevel("HIGH")
                 .mlScore(0.65)
@@ -29,8 +30,8 @@ class RiskFeedbackMapperTest {
 
         RiskFeedbackDTO dto = mapper.toDTO(feedback);
 
-        assertEquals(1L, dto.id());
-        assertEquals(42L, dto.contractId());
+        assertEquals(uid(1), dto.id());
+        assertEquals(uid(42), dto.contractId());
         assertEquals(0.72, dto.riskScore());
         assertEquals("HIGH", dto.riskLevel());
         assertEquals(0.65, dto.mlScore());
@@ -42,8 +43,8 @@ class RiskFeedbackMapperTest {
     @Test
     void shouldConvertToDTOWithoutMlFields() {
         RiskFeedback feedback = RiskFeedback.builder()
-                .id(2L)
-                .contract(Contracts.builder().id(7L).build())
+                .id(uid(2))
+                .contract(Contracts.builder().id(uid(7)).build())
                 .riskScore(0.2)
                 .riskLevel("LOW")
                 .agree(false)
@@ -52,8 +53,8 @@ class RiskFeedbackMapperTest {
 
         RiskFeedbackDTO dto = mapper.toDTO(feedback);
 
-        assertEquals(2L, dto.id());
-        assertEquals(7L, dto.contractId());
+        assertEquals(uid(2), dto.id());
+        assertEquals(uid(7), dto.contractId());
         assertEquals(null, dto.mlScore());
         assertEquals(null, dto.mlLevel());
         assertEquals(false, dto.agree());

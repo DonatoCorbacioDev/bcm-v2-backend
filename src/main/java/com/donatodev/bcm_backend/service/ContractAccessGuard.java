@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.Optional;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -41,8 +42,8 @@ public class ContractAccessGuard {
      * {@link TenantContext} carries an organization ID. Used to prevent
      * cross-tenant access to a contract's documents/invoices by ID.
      */
-    public Contracts getContractInScope(Long contractId) {
-        Long orgId = TenantContext.require();
+    public Contracts getContractInScope(UUID contractId) {
+        UUID orgId = TenantContext.require();
         Optional<Contracts> contract = contractsRepository.findByIdAndOrganization_Id(contractId, orgId);
         return contract.orElseThrow(() -> new ContractNotFoundException("Contratto ID " + contractId + " non trovato"));
     }
@@ -57,14 +58,14 @@ public class ContractAccessGuard {
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
             throw new AccessDeniedException("non autenticato");
         }
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         Users user = usersRepository.findByUsernameAndOrganizationId(auth.getName(), orgId)
                 .orElseThrow(() -> new AccessDeniedException("utente non trovato nell'organizzazione"));
         if (!"MANAGER".equals(user.getRole().getRole())) {
             return;
         }
-        Long managerId = user.getManager() != null ? user.getManager().getId() : null;
-        Long contractManagerId = contract.getManager() != null ? contract.getManager().getId() : null;
+        UUID managerId = user.getManager() != null ? user.getManager().getId() : null;
+        UUID contractManagerId = contract.getManager() != null ? contract.getManager().getId() : null;
         if (managerId == null || !managerId.equals(contractManagerId)) {
             throw new AccessDeniedException("non autorizzato ad accedere al contratto: " + contract.getId());
         }

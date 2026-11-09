@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.List;
@@ -47,7 +49,7 @@ import com.donatodev.bcm_backend.util.TotpUtil;
 class TwoFactorAuthServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void setup() {
@@ -70,7 +72,7 @@ class TwoFactorAuthServiceTest {
     }
 
     private static final String USERNAME = "admin";
-    private static final Long ORG_ID = 5L;
+    private static final UUID ORG_ID = uid(5);
 
     @Mock private UsersRepository usersRepository;
     @Mock private TotpRecoveryCodeRepository recoveryCodeRepository;
@@ -126,7 +128,7 @@ class TwoFactorAuthServiceTest {
         void shouldConfirmWithValidCode() throws Exception {
             authenticateAs(USERNAME);
             String secret = TotpUtil.generateSecret();
-            Users user = Users.builder().id(1L).username(USERNAME)
+            Users user = Users.builder().id(uid(1)).username(USERNAME)
                     .totpSecretEncrypted("ENC(" + secret + ")").build();
             when(usersRepository.findByUsernameAndOrganizationId(USERNAME, TENANT)).thenReturn(Optional.of(user));
             when(passwordEncoder.encode(anyString())).thenReturn("hashed");
@@ -136,7 +138,7 @@ class TwoFactorAuthServiceTest {
             assertEquals(10, response.recoveryCodes().size());
             assertEquals(10, response.recoveryCodes().stream().distinct().count());
             assertTrue(user.isTotpEnabled());
-            verify(recoveryCodeRepository).deleteByUserId(1L);
+            verify(recoveryCodeRepository).deleteByUserId(uid(1));
 
             ArgumentCaptor<List<TotpRecoveryCode>> captor = ArgumentCaptor.forClass(List.class);
             verify(recoveryCodeRepository).saveAll(captor.capture());
@@ -148,7 +150,7 @@ class TwoFactorAuthServiceTest {
         void shouldRejectWrongCode() {
             authenticateAs(USERNAME);
             String secret = TotpUtil.generateSecret();
-            Users user = Users.builder().id(1L).username(USERNAME)
+            Users user = Users.builder().id(uid(1)).username(USERNAME)
                     .totpSecretEncrypted("ENC(" + secret + ")").build();
             when(usersRepository.findByUsernameAndOrganizationId(USERNAME, TENANT)).thenReturn(Optional.of(user));
 
@@ -161,7 +163,7 @@ class TwoFactorAuthServiceTest {
         @DisplayName("throws if setup was never called")
         void shouldRequireSetupFirst() {
             authenticateAs(USERNAME);
-            Users user = Users.builder().id(1L).username(USERNAME).build();
+            Users user = Users.builder().id(uid(1)).username(USERNAME).build();
             when(usersRepository.findByUsernameAndOrganizationId(USERNAME, TENANT)).thenReturn(Optional.of(user));
 
             assertThrows(IllegalArgumentException.class, () -> twoFactorAuthService.confirm("123456"));
@@ -177,7 +179,7 @@ class TwoFactorAuthServiceTest {
         void shouldDisableWithValidCode() throws Exception {
             authenticateAs(USERNAME);
             String secret = TotpUtil.generateSecret();
-            Users user = Users.builder().id(1L).username(USERNAME).totpEnabled(true)
+            Users user = Users.builder().id(uid(1)).username(USERNAME).totpEnabled(true)
                     .totpSecretEncrypted("ENC(" + secret + ")").build();
             when(usersRepository.findByUsernameAndOrganizationId(USERNAME, TENANT)).thenReturn(Optional.of(user));
 
@@ -185,7 +187,7 @@ class TwoFactorAuthServiceTest {
 
             assertFalse(user.isTotpEnabled());
             assertNull(user.getTotpSecretEncrypted());
-            verify(recoveryCodeRepository).deleteByUserId(1L);
+            verify(recoveryCodeRepository).deleteByUserId(uid(1));
         }
 
         @Test
@@ -193,12 +195,12 @@ class TwoFactorAuthServiceTest {
         void shouldDisableWithRecoveryCode() {
             authenticateAs(USERNAME);
             String secret = TotpUtil.generateSecret();
-            Users user = Users.builder().id(1L).username(USERNAME).totpEnabled(true)
+            Users user = Users.builder().id(uid(1)).username(USERNAME).totpEnabled(true)
                     .totpSecretEncrypted("ENC(" + secret + ")").build();
             when(usersRepository.findByUsernameAndOrganizationId(USERNAME, TENANT)).thenReturn(Optional.of(user));
 
-            TotpRecoveryCode recoveryCode = TotpRecoveryCode.builder().id(9L).user(user).codeHash("hash").build();
-            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(1L)).thenReturn(List.of(recoveryCode));
+            TotpRecoveryCode recoveryCode = TotpRecoveryCode.builder().id(uid(9)).user(user).codeHash("hash").build();
+            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(uid(1))).thenReturn(List.of(recoveryCode));
             when(passwordEncoder.matches("ABCD-1234", "hash")).thenReturn(true);
 
             twoFactorAuthService.disable("ABCD-1234");
@@ -211,7 +213,7 @@ class TwoFactorAuthServiceTest {
         @DisplayName("throws when 2FA isn't enabled")
         void shouldThrowWhenNotEnabled() {
             authenticateAs(USERNAME);
-            Users user = Users.builder().id(1L).username(USERNAME).totpEnabled(false).build();
+            Users user = Users.builder().id(uid(1)).username(USERNAME).totpEnabled(false).build();
             when(usersRepository.findByUsernameAndOrganizationId(USERNAME, TENANT)).thenReturn(Optional.of(user));
 
             assertThrows(IllegalArgumentException.class, () -> twoFactorAuthService.disable("123456"));
@@ -222,10 +224,10 @@ class TwoFactorAuthServiceTest {
         void shouldThrowOnInvalidCode() {
             authenticateAs(USERNAME);
             String secret = TotpUtil.generateSecret();
-            Users user = Users.builder().id(1L).username(USERNAME).totpEnabled(true)
+            Users user = Users.builder().id(uid(1)).username(USERNAME).totpEnabled(true)
                     .totpSecretEncrypted("ENC(" + secret + ")").build();
             when(usersRepository.findByUsernameAndOrganizationId(USERNAME, TENANT)).thenReturn(Optional.of(user));
-            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(1L)).thenReturn(List.of());
+            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(uid(1))).thenReturn(List.of());
 
             assertThrows(IllegalArgumentException.class, () -> twoFactorAuthService.disable("000000"));
             assertTrue(user.isTotpEnabled());
@@ -235,7 +237,7 @@ class TwoFactorAuthServiceTest {
         @DisplayName("throws when 2FA is enabled but no secret was ever stored")
         void shouldThrowWhenEnabledWithoutSecret() {
             authenticateAs(USERNAME);
-            Users user = Users.builder().id(1L).username(USERNAME).totpEnabled(true).build();
+            Users user = Users.builder().id(uid(1)).username(USERNAME).totpEnabled(true).build();
             when(usersRepository.findByUsernameAndOrganizationId(USERNAME, TENANT)).thenReturn(Optional.of(user));
 
             assertThrows(IllegalArgumentException.class, () -> twoFactorAuthService.disable("123456"));
@@ -246,12 +248,12 @@ class TwoFactorAuthServiceTest {
         void shouldThrowWhenRecoveryCodeDoesNotMatch() {
             authenticateAs(USERNAME);
             String secret = TotpUtil.generateSecret();
-            Users user = Users.builder().id(1L).username(USERNAME).totpEnabled(true)
+            Users user = Users.builder().id(uid(1)).username(USERNAME).totpEnabled(true)
                     .totpSecretEncrypted("ENC(" + secret + ")").build();
             when(usersRepository.findByUsernameAndOrganizationId(USERNAME, TENANT)).thenReturn(Optional.of(user));
 
-            TotpRecoveryCode recoveryCode = TotpRecoveryCode.builder().id(9L).user(user).codeHash("hash").build();
-            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(1L)).thenReturn(List.of(recoveryCode));
+            TotpRecoveryCode recoveryCode = TotpRecoveryCode.builder().id(uid(9)).user(user).codeHash("hash").build();
+            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(uid(1))).thenReturn(List.of(recoveryCode));
             when(passwordEncoder.matches("WRONG-CODE", "hash")).thenReturn(false);
 
             assertThrows(IllegalArgumentException.class, () -> twoFactorAuthService.disable("WRONG-CODE"));
@@ -303,7 +305,7 @@ class TwoFactorAuthServiceTest {
         @DisplayName("a valid unused recovery code also completes the login and gets marked used")
         void shouldVerifyWithRecoveryCode() {
             String secret = TotpUtil.generateSecret();
-            Users user = Users.builder().id(1L).username(USERNAME).totpEnabled(true)
+            Users user = Users.builder().id(uid(1)).username(USERNAME).totpEnabled(true)
                     .totpSecretEncrypted("ENC(" + secret + ")").build();
 
             when(jwtUtils.isMfaPendingToken("pending-token")).thenReturn(true);
@@ -311,8 +313,8 @@ class TwoFactorAuthServiceTest {
             when(jwtUtils.getOrganizationIdFromToken("pending-token")).thenReturn(ORG_ID);
             when(usersRepository.findByUsernameAndOrganizationId(USERNAME, ORG_ID)).thenReturn(Optional.of(user));
 
-            TotpRecoveryCode recoveryCode = TotpRecoveryCode.builder().id(9L).user(user).codeHash("hash").build();
-            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(1L)).thenReturn(List.of(recoveryCode));
+            TotpRecoveryCode recoveryCode = TotpRecoveryCode.builder().id(uid(9)).user(user).codeHash("hash").build();
+            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(uid(1))).thenReturn(List.of(recoveryCode));
             when(passwordEncoder.matches("ABCD-1234", "hash")).thenReturn(true);
             when(jwtUtils.generateToken(user)).thenReturn("real-access-token");
             when(refreshTokenService.createRefreshToken(user)).thenReturn("real-refresh-token");
@@ -350,14 +352,14 @@ class TwoFactorAuthServiceTest {
         @DisplayName("rejects a wrong code")
         void shouldRejectWrongCode() {
             String secret = TotpUtil.generateSecret();
-            Users user = Users.builder().id(1L).username(USERNAME).totpEnabled(true)
+            Users user = Users.builder().id(uid(1)).username(USERNAME).totpEnabled(true)
                     .totpSecretEncrypted("ENC(" + secret + ")").build();
 
             when(jwtUtils.isMfaPendingToken("pending-token")).thenReturn(true);
             when(jwtUtils.getUsernameFromToken("pending-token")).thenReturn(USERNAME);
             when(jwtUtils.getOrganizationIdFromToken("pending-token")).thenReturn(ORG_ID);
             when(usersRepository.findByUsernameAndOrganizationId(USERNAME, ORG_ID)).thenReturn(Optional.of(user));
-            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(1L)).thenReturn(List.of());
+            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(uid(1))).thenReturn(List.of());
 
             assertThrows(BadCredentialsException.class,
                     () -> twoFactorAuthService.verifyLogin("pending-token", "000000"));

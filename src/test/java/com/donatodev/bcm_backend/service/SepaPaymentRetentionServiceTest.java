@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -40,8 +41,8 @@ class SepaPaymentRetentionServiceTest {
         @DisplayName("Deletes each expired batch's file and then the batch rows, using the configured retention window")
         void shouldPurgeBatchesOlderThanRetentionWindow() {
             ReflectionTestUtils.setField(sepaPaymentRetentionService, "retentionDays", 730);
-            SepaPaymentBatch batch1 = SepaPaymentBatch.builder().id(1L).storagePath("sepa/5/1/a.xml").build();
-            SepaPaymentBatch batch2 = SepaPaymentBatch.builder().id(2L).storagePath("sepa/5/2/b.xml").build();
+            SepaPaymentBatch batch1 = SepaPaymentBatch.builder().id(uid(1)).storagePath("sepa/5/1/a.xml").build();
+            SepaPaymentBatch batch2 = SepaPaymentBatch.builder().id(uid(2)).storagePath("sepa/5/2/b.xml").build();
             when(batchRepository.findByCreatedAtBefore(any())).thenReturn(List.of(batch1, batch2));
 
             sepaPaymentRetentionService.purgeExpiredSepaPayments();

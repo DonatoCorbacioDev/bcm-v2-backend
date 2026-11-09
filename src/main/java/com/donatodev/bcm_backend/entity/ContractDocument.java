@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.entity;
 
+import java.util.UUID;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -31,7 +32,7 @@ public class ContractDocument extends StoredFile {
      * instant between a brand-new document's insert and the follow-up
      * update that sets it to its own generated id. */
     @Column(name = "version_group_id")
-    private Long versionGroupId;
+    private UUID versionGroupId;
 
     @Column(name = "version_number", nullable = false)
     private Integer versionNumber;

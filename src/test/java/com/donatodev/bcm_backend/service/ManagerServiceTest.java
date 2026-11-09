@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import java.util.List;
@@ -59,7 +61,7 @@ import com.donatodev.bcm_backend.repository.ManagersRepository;
 class ManagerServiceTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     @BeforeEach
     void enterTenant() {
@@ -94,8 +96,8 @@ class ManagerServiceTest {
         @Order(1)
         @DisplayName("Get all managers returns list of DTOs")
         void shouldGetAllManagers() {
-            Managers entity = Managers.builder().id(1L).firstName("Mario").lastName("Rossi").build();
-            ManagerDTO dto = new ManagerDTO(1L, "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
+            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").lastName("Rossi").build();
+            ManagerDTO dto = new ManagerDTO(uid(1), "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
 
             when(managersRepository.findByOrganizationId(TENANT, Pageable.unpaged())).thenReturn(new PageImpl<>(List.of(entity)));
             when(managerMapper.toDTO(entity)).thenReturn(dto);
@@ -113,13 +115,13 @@ class ManagerServiceTest {
         @Order(2)
         @DisplayName("Get manager by ID returns DTO")
         void shouldGetManagerById() {
-            Managers entity = Managers.builder().id(1L).firstName("Luca").lastName("Bianchi").build();
-            ManagerDTO dto = new ManagerDTO(1L, "Luca", "Bianchi", "luca@example.com", "0987654321", "HR");
+            Managers entity = Managers.builder().id(uid(1)).firstName("Luca").lastName("Bianchi").build();
+            ManagerDTO dto = new ManagerDTO(uid(1), "Luca", "Bianchi", "luca@example.com", "0987654321", "HR");
 
-            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
+            when(managersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(entity));
             when(managerMapper.toDTO(entity)).thenReturn(dto);
 
-            ManagerDTO result = managerService.getManagerById(1L);
+            ManagerDTO result = managerService.getManagerById(uid(1));
 
             assertEquals("Luca", result.firstName());
         }
@@ -133,10 +135,10 @@ class ManagerServiceTest {
         @Order(3)
         @DisplayName("Get manager by ID throws exception if not found")
         void shouldThrowIfManagerNotFound() {
-            when(managersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(managersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
             ManagerNotFoundException ex
-                    = assertThrows(ManagerNotFoundException.class, () -> managerService.getManagerById(999L));
-            assertEquals("ID manager 999 non trovato", ex.getMessage());
+                    = assertThrows(ManagerNotFoundException.class, () -> managerService.getManagerById(uid(999)));
+            assertEquals("ID manager " + uid(999) + " non trovato", ex.getMessage());
         }
 
         /**
@@ -148,8 +150,8 @@ class ManagerServiceTest {
         void shouldCreateManager() {
             ManagerDTO dto = new ManagerDTO(null, "Anna", "Verdi", "anna@example.com", "111222333", "Finance");
             Managers entity = Managers.builder().firstName("Anna").build();
-            Managers saved = Managers.builder().id(1L).firstName("Anna").build();
-            ManagerDTO savedDTO = new ManagerDTO(1L, "Anna", "Verdi", "anna@example.com", "111222333", "Finance");
+            Managers saved = Managers.builder().id(uid(1)).firstName("Anna").build();
+            ManagerDTO savedDTO = new ManagerDTO(uid(1), "Anna", "Verdi", "anna@example.com", "111222333", "Finance");
 
             when(managerMapper.toEntity(dto)).thenReturn(entity);
             when(managersRepository.save(entity)).thenReturn(saved);
@@ -157,7 +159,7 @@ class ManagerServiceTest {
 
             ManagerDTO result = managerService.createManager(dto);
 
-            assertEquals(1L, result.id());
+            assertEquals(uid(1), result.id());
             assertEquals("Anna", result.firstName());
         }
 
@@ -169,15 +171,15 @@ class ManagerServiceTest {
         @Order(5)
         @DisplayName("Update manager returns updated DTO")
         void shouldUpdateManager() {
-            Managers existing = Managers.builder().id(1L).firstName("Paolo").build();
-            ManagerDTO updateDTO = new ManagerDTO(1L, "Paolo", "Neri", "paolo@example.com", "444555666", "Marketing");
-            ManagerDTO updatedDTO = new ManagerDTO(1L, "Paolo", "Neri", "paolo@example.com", "444555666", "Marketing");
+            Managers existing = Managers.builder().id(uid(1)).firstName("Paolo").build();
+            ManagerDTO updateDTO = new ManagerDTO(uid(1), "Paolo", "Neri", "paolo@example.com", "444555666", "Marketing");
+            ManagerDTO updatedDTO = new ManagerDTO(uid(1), "Paolo", "Neri", "paolo@example.com", "444555666", "Marketing");
 
-            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(existing));
+            when(managersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(existing));
             when(managersRepository.save(existing)).thenReturn(existing);
             when(managerMapper.toDTO(existing)).thenReturn(updatedDTO);
 
-            ManagerDTO result = managerService.updateManager(1L, updateDTO);
+            ManagerDTO result = managerService.updateManager(uid(1), updateDTO);
 
             assertEquals("Neri", result.lastName());
             assertEquals("Marketing", result.department());
@@ -192,12 +194,12 @@ class ManagerServiceTest {
         @Order(6)
         @DisplayName("Update manager throws exception if not found")
         void shouldThrowWhenUpdatingMissingManager() {
-            ManagerDTO dto = new ManagerDTO(1L, "Giulia", "Moretti", "giulia@example.com", "777888999", "Sales");
-            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.empty());
+            ManagerDTO dto = new ManagerDTO(uid(1), "Giulia", "Moretti", "giulia@example.com", "777888999", "Sales");
+            when(managersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.empty());
 
             ManagerNotFoundException ex
-                    = assertThrows(ManagerNotFoundException.class, () -> managerService.updateManager(1L, dto));
-            assertEquals("ID manager 1 non trovato", ex.getMessage());
+                    = assertThrows(ManagerNotFoundException.class, () -> managerService.updateManager(uid(1), dto));
+            assertEquals("ID manager " + uid(1) + " non trovato", ex.getMessage());
         }
 
         /**
@@ -208,10 +210,10 @@ class ManagerServiceTest {
         @Order(7)
         @DisplayName("Delete manager calls repository")
         void shouldDeleteManager() {
-            Managers manager = Managers.builder().id(1L).build();
-            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(manager));
+            Managers manager = Managers.builder().id(uid(1)).build();
+            when(managersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(manager));
 
-            managerService.deleteManager(1L);
+            managerService.deleteManager(uid(1));
 
             verify(managersRepository, times(1)).delete(manager);
         }
@@ -220,12 +222,12 @@ class ManagerServiceTest {
         @Order(70)
         @DisplayName("Delete manager throws if not found")
         void shouldThrowWhenDeletingMissingManager() {
-            when(managersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(managersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
             ManagerNotFoundException ex = assertThrows(ManagerNotFoundException.class,
-                    () -> managerService.deleteManager(999L));
+                    () -> managerService.deleteManager(uid(999)));
 
-            assertEquals("ID manager 999 non trovato", ex.getMessage());
+            assertEquals("ID manager " + uid(999) + " non trovato", ex.getMessage());
             verify(managersRepository, never()).delete(any(Managers.class));
         }
 
@@ -233,8 +235,8 @@ class ManagerServiceTest {
         @Order(8)
         @DisplayName("Search managers with null query returns all managers paginated")
         void shouldSearchManagersWithNullQuery() {
-            Managers entity = Managers.builder().id(1L).firstName("Mario").lastName("Rossi").build();
-            ManagerDTO dto = new ManagerDTO(1L, "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
+            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").lastName("Rossi").build();
+            ManagerDTO dto = new ManagerDTO(uid(1), "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
 
             Page<Managers> page = new PageImpl<>(List.of(entity));
             Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
@@ -253,8 +255,8 @@ class ManagerServiceTest {
         @Order(9)
         @DisplayName("Search managers with blank query returns all managers paginated")
         void shouldSearchManagersWithBlankQuery() {
-            Managers entity = Managers.builder().id(1L).firstName("Mario").lastName("Rossi").build();
-            ManagerDTO dto = new ManagerDTO(1L, "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
+            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").lastName("Rossi").build();
+            ManagerDTO dto = new ManagerDTO(uid(1), "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
 
             Page<Managers> page = new PageImpl<>(List.of(entity));
             Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
@@ -273,8 +275,8 @@ class ManagerServiceTest {
         @Order(10)
         @DisplayName("Search managers with query term returns filtered results")
         void shouldSearchManagersWithQuery() {
-            Managers entity = Managers.builder().id(1L).firstName("Mario").lastName("Rossi").build();
-            ManagerDTO dto = new ManagerDTO(1L, "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
+            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").lastName("Rossi").build();
+            ManagerDTO dto = new ManagerDTO(uid(1), "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
 
             Page<Managers> page = new PageImpl<>(List.of(entity));
             Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
@@ -297,13 +299,13 @@ class ManagerServiceTest {
         @Order(11)
         @DisplayName("Get manager entity returns entity when found")
         void shouldGetManagerEntity() {
-            Managers entity = Managers.builder().id(1L).firstName("Mario").lastName("Rossi").build();
+            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").lastName("Rossi").build();
 
-            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
+            when(managersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(entity));
 
-            Managers result = managerService.getManagerEntity(1L);
+            Managers result = managerService.getManagerEntity(uid(1));
 
-            assertEquals(1L, result.getId());
+            assertEquals(uid(1), result.getId());
             assertEquals("Mario", result.getFirstName());
         }
 
@@ -311,33 +313,33 @@ class ManagerServiceTest {
         @Order(12)
         @DisplayName("Get manager entity throws exception when not found")
         void shouldThrowWhenGetManagerEntityNotFound() {
-            when(managersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
+            when(managersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
             ManagerNotFoundException ex = assertThrows(
                     ManagerNotFoundException.class,
-                    () -> managerService.getManagerEntity(999L)
+                    () -> managerService.getManagerEntity(uid(999))
             );
 
-            assertEquals("ID manager 999 non trovato", ex.getMessage());
+            assertEquals("ID manager " + uid(999) + " non trovato", ex.getMessage());
         }
 
         @Test
         @Order(13)
         @DisplayName("getAllManagers with TenantContext uses org-filtered repository")
         void shouldGetAllManagersWithTenantContext() {
-            Managers entity = Managers.builder().id(1L).firstName("Mario").build();
-            ManagerDTO dto = new ManagerDTO(1L, "Mario", "Rossi", "mario@example.com", "123", "IT");
+            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").build();
+            ManagerDTO dto = new ManagerDTO(uid(1), "Mario", "Rossi", "mario@example.com", "123", "IT");
             Page<Managers> page = new PageImpl<>(List.of(entity));
 
-            TenantContext.set(3L);
+            TenantContext.set(uid(3));
             try {
-                when(managersRepository.findByOrganizationId(eq(3L), any(Pageable.class))).thenReturn(page);
+                when(managersRepository.findByOrganizationId(eq(uid(3)), any(Pageable.class))).thenReturn(page);
                 when(managerMapper.toDTO(entity)).thenReturn(dto);
 
                 List<ManagerDTO> result = managerService.getAllManagers();
 
                 assertEquals(1, result.size());
-                verify(managersRepository).findByOrganizationId(eq(3L), any(Pageable.class));
+                verify(managersRepository).findByOrganizationId(eq(uid(3)), any(Pageable.class));
             } finally {
                 TenantContext.clear();
             }
@@ -349,10 +351,10 @@ class ManagerServiceTest {
         void shouldCreateManagerWithTenantContext() {
             ManagerDTO dto = new ManagerDTO(null, "Anna", "Verdi", "anna@example.com", "111", "Finance");
             Managers entity = Managers.builder().firstName("Anna").build();
-            Managers saved = Managers.builder().id(2L).firstName("Anna").build();
-            ManagerDTO savedDTO = new ManagerDTO(2L, "Anna", "Verdi", "anna@example.com", "111", "Finance");
+            Managers saved = Managers.builder().id(uid(2)).firstName("Anna").build();
+            ManagerDTO savedDTO = new ManagerDTO(uid(2), "Anna", "Verdi", "anna@example.com", "111", "Finance");
 
-            TenantContext.set(4L);
+            TenantContext.set(uid(4));
             try {
                 when(managerMapper.toEntity(dto)).thenReturn(entity);
                 when(managersRepository.save(entity)).thenReturn(saved);
@@ -360,9 +362,9 @@ class ManagerServiceTest {
 
                 ManagerDTO result = managerService.createManager(dto);
 
-                assertEquals(2L, result.id());
+                assertEquals(uid(2), result.id());
                 assertNotNull(entity.getOrganization());
-                assertEquals(4L, entity.getOrganization().getId());
+                assertEquals(uid(4), entity.getOrganization().getId());
             } finally {
                 TenantContext.clear();
             }
@@ -372,20 +374,20 @@ class ManagerServiceTest {
         @Order(15)
         @DisplayName("searchManagers with TenantContext and blank query uses org-filtered findByOrganizationId")
         void shouldSearchManagersWithOrgAndBlankQuery() {
-            Managers entity = Managers.builder().id(1L).firstName("Mario").build();
-            ManagerDTO dto = new ManagerDTO(1L, "Mario", "Rossi", "m@e.com", "1", "IT");
+            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").build();
+            ManagerDTO dto = new ManagerDTO(uid(1), "Mario", "Rossi", "m@e.com", "1", "IT");
             Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
             Page<Managers> page = new PageImpl<>(List.of(entity));
 
-            TenantContext.set(6L);
+            TenantContext.set(uid(6));
             try {
-                when(managersRepository.findByOrganizationId(6L, pageable)).thenReturn(page);
+                when(managersRepository.findByOrganizationId(uid(6), pageable)).thenReturn(page);
                 when(managerMapper.toDTO(entity)).thenReturn(dto);
 
                 Page<ManagerDTO> result = managerService.searchManagers("", 0, 10);
 
                 assertEquals(1, result.getTotalElements());
-                verify(managersRepository).findByOrganizationId(6L, pageable);
+                verify(managersRepository).findByOrganizationId(uid(6), pageable);
             } finally {
                 TenantContext.clear();
             }
@@ -395,16 +397,16 @@ class ManagerServiceTest {
         @Order(16)
         @DisplayName("searchManagers with TenantContext and non-blank query uses org-filtered search")
         void shouldSearchManagersWithOrgAndQuery() {
-            Managers entity = Managers.builder().id(1L).firstName("Mario").build();
-            ManagerDTO dto = new ManagerDTO(1L, "Mario", "Rossi", "m@e.com", "1", "IT");
+            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").build();
+            ManagerDTO dto = new ManagerDTO(uid(1), "Mario", "Rossi", "m@e.com", "1", "IT");
             Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
             Page<Managers> page = new PageImpl<>(List.of(entity));
 
-            TenantContext.set(6L);
+            TenantContext.set(uid(6));
             try {
                 when(managersRepository
                         .findByOrganizationIdAndFirstNameContainingIgnoreCaseOrOrganizationIdAndLastNameContainingIgnoreCaseOrOrganizationIdAndEmailContainingIgnoreCase(
-                                6L, "Mario", 6L, "Mario", 6L, "Mario", pageable))
+                                uid(6), "Mario", uid(6), "Mario", uid(6), "Mario", pageable))
                         .thenReturn(page);
                 when(managerMapper.toDTO(entity)).thenReturn(dto);
 
@@ -420,18 +422,18 @@ class ManagerServiceTest {
         @Order(17)
         @DisplayName("getManagerById with TenantContext uses org-scoped repository")
         void shouldGetManagerByIdWithTenantContext() {
-            Managers entity = Managers.builder().id(1L).firstName("Luca").lastName("Bianchi").build();
-            ManagerDTO dto = new ManagerDTO(1L, "Luca", "Bianchi", "luca@example.com", "0987654321", "HR");
+            Managers entity = Managers.builder().id(uid(1)).firstName("Luca").lastName("Bianchi").build();
+            ManagerDTO dto = new ManagerDTO(uid(1), "Luca", "Bianchi", "luca@example.com", "0987654321", "HR");
 
-            TenantContext.set(9L);
+            TenantContext.set(uid(9));
             try {
-                when(managersRepository.findByIdAndOrganizationId(1L, 9L)).thenReturn(Optional.of(entity));
+                when(managersRepository.findByIdAndOrganizationId(uid(1), uid(9))).thenReturn(Optional.of(entity));
                 when(managerMapper.toDTO(entity)).thenReturn(dto);
 
-                ManagerDTO result = managerService.getManagerById(1L);
+                ManagerDTO result = managerService.getManagerById(uid(1));
 
                 assertEquals("Luca", result.firstName());
-                verify(managersRepository).findByIdAndOrganizationId(1L, 9L);
+                verify(managersRepository).findByIdAndOrganizationId(uid(1), uid(9));
             } finally {
                 TenantContext.clear();
             }

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -23,8 +24,8 @@ import com.donatodev.bcm_backend.entity.Users;
  * of their invoice. The storage path is internal.
  */
 public record ElectronicInvoiceExportDTO(
-        Long id,
-        Long contractId,
+        UUID id,
+        UUID contractId,
         String archivePath,
         String fileName,
         Long fileSize,
@@ -40,12 +41,12 @@ public record ElectronicInvoiceExportDTO(
         String supplierIban,
         String supplierBic,
         LocalDate paymentDueDate,
-        Long sepaBatchId,
-        Long matchedFinancialValueId,
+        UUID sepaBatchId,
+        UUID matchedFinancialValueId,
         Double matchConfidence,
         InvoiceMatchStatus matchStatus,
         Instant matchedAt,
-        Long matchedByUserId,
+        UUID matchedByUserId,
         List<LineItem> lineItems) {
 
     public record LineItem(

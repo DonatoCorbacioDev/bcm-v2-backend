@@ -89,7 +89,7 @@ public class UserService {
 	 * @return list of {@link UserDTO}
 	 */
 	public List<UserDTO> getAllUsers() {
-		Long orgId = TenantContext.require();
+		UUID orgId = TenantContext.require();
 		List<Users> users = usersRepository.findAllByOrganizationId(orgId);
 		return users.stream()
 				.map(userMapper::toDTO)
@@ -103,7 +103,7 @@ public class UserService {
 	 * @return the corresponding {@link UserDTO}
 	 * @throws UserNotFoundException if the user is not found
 	 */
-	public UserDTO getUserById(Long id) {
+	public UserDTO getUserById(UUID id) {
 		return findUserInScope(id)
 				.map(userMapper::toDTO)
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
@@ -113,8 +113,8 @@ public class UserService {
 	 * Finds a user by ID, scoped to the current tenant when
 	 * {@link TenantContext} carries an organization ID.
 	 */
-	private Optional<Users> findUserInScope(Long id) {
-		Long orgId = TenantContext.require();
+	private Optional<Users> findUserInScope(UUID id) {
+		UUID orgId = TenantContext.require();
 		return usersRepository.findByIdAndOrganizationId(id, orgId);
 	}
 
@@ -122,8 +122,8 @@ public class UserService {
 	 * Finds a manager by ID, scoped to the current tenant when
 	 * {@link TenantContext} carries an organization ID.
 	 */
-	private Optional<Managers> findManagerInScope(Long managerId) {
-		Long orgId = TenantContext.require();
+	private Optional<Managers> findManagerInScope(UUID managerId) {
+		UUID orgId = TenantContext.require();
 		return managersRepository.findByIdAndOrganizationId(managerId, orgId);
 	}
 
@@ -136,7 +136,7 @@ public class UserService {
 	 * or if the manager belongs to a different tenant than the caller
 	 */
 	public Users registerUser(UserDTO dto) {
-		Long orgId = TenantContext.require();
+		UUID orgId = TenantContext.require();
 		if (usersRepository.existsByUsername(dto.username())) {
 			throw new IllegalArgumentException("Username già esistente.");
 		}
@@ -153,7 +153,7 @@ public class UserService {
 			// userMapper.toEntity() resolves the manager by ID without tenant
 			// scoping, so an admin could otherwise attach a manager - and thus
 			// the new user - to a different organization. Reject it here.
-			Long managerOrgId = user.getManager().getOrganization() != null
+			UUID managerOrgId = user.getManager().getOrganization() != null
 					? user.getManager().getOrganization().getId() : null;
 			if (!orgId.equals(managerOrgId)) {
 				throw new IllegalArgumentException("ID manager non trovato");
@@ -187,7 +187,7 @@ public class UserService {
 	 * @throws UserNotFoundException if the user is not found
 	 * @throws IllegalArgumentException if referenced manager or role is not found
 	 */
-	public UserDTO updateUser(Long id, UserDTO dto) {
+	public UserDTO updateUser(UUID id, UserDTO dto) {
 		Users user = findUserInScope(id)
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
 
@@ -212,7 +212,7 @@ public class UserService {
 	 * @param id the ID of the user to delete
 	 * @throws UserNotFoundException if the user is not found
 	 */
-	public void deleteUser(Long id) {
+	public void deleteUser(UUID id) {
 		Users user = findUserInScope(id)
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
 		usersRepository.delete(user);
@@ -291,7 +291,7 @@ public class UserService {
 		updatePassword(user, newPassword);
 	}
 
-	public String inviteUser(String username, String role, Long managerId) {
+	public String inviteUser(String username, String role, UUID managerId) {
 
 		if (usersRepository.existsByUsername(username)) {
 			throw new IllegalArgumentException("Username già esistente.");
@@ -303,7 +303,7 @@ public class UserService {
 		// Scoped to the inviting admin's organization: completeInvite() puts
 		// the new user in the manager's organization, so another tenant's
 		// manager id would let an admin plant a user in that tenant.
-		Long orgId = TenantContext.require();
+		UUID orgId = TenantContext.require();
 		Managers manager = managersRepository.findByIdAndOrganizationId(managerId, orgId)
 				.orElseThrow(() -> new IllegalArgumentException("Manager non trovato"));
 
@@ -356,7 +356,7 @@ public class UserService {
 	}
 
 	@Transactional
-	public Users updateUserPartial(Long id, String username, String role, Long managerId, String rawPassword) {
+	public Users updateUserPartial(UUID id, String username, String role, UUID managerId, String rawPassword) {
 		Users user = findUserInScope(id)
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
 
@@ -386,12 +386,12 @@ public class UserService {
 		return usersRepository.save(user);
 	}
 
-	public Users getEntityById(Long id) {
+	public Users getEntityById(UUID id) {
 		return findUserInScope(id)
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
 	}
 
-	public void sendResetLink(Long userId) {
+	public void sendResetLink(UUID userId) {
 		Users u = getEntityById(userId);
 		var token = passwordResetTokenService.createToken(u);
 
@@ -407,7 +407,7 @@ public class UserService {
 	public Page<Users> searchUsers(String q, String role, Boolean verified, Pageable pageable) {
 		Specification<Users> spec = Specification.allOf();
 
-		Long orgId = TenantContext.require();
+		UUID orgId = TenantContext.require();
 		spec = spec.and((root, query, cb) ->
 			cb.equal(root.get("organization").get("id"), orgId)
 		);

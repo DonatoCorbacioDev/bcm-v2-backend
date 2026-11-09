@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.mapper;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.api.Nested;
@@ -24,7 +25,7 @@ class ManagerMapperTest {
         @Test
         void shouldMapEntityToDTO() {
             Managers manager = Managers.builder()
-                    .id(1L)
+                    .id(uid(1))
                     .firstName("Mario")
                     .lastName("Rossi")
                     .email("mario.rossi@example.com")
@@ -34,7 +35,7 @@ class ManagerMapperTest {
 
             ManagerDTO dto = managerMapper.toDTO(manager);
 
-            assertEquals(1L, dto.id());
+            assertEquals(uid(1), dto.id());
             assertEquals("Mario", dto.firstName());
             assertEquals("Rossi", dto.lastName());
             assertEquals("mario.rossi@example.com", dto.email());
@@ -45,7 +46,7 @@ class ManagerMapperTest {
         @Test
         void shouldMapEntityToDTOWithNullOptionalFields() {
             Managers manager = Managers.builder()
-                    .id(2L)
+                    .id(uid(2))
                     .firstName("Luca")
                     .lastName("Bianchi")
                     .email("luca@example.com")
@@ -55,7 +56,7 @@ class ManagerMapperTest {
 
             ManagerDTO dto = managerMapper.toDTO(manager);
 
-            assertEquals(2L, dto.id());
+            assertEquals(uid(2), dto.id());
             assertEquals("Luca", dto.firstName());
             assertEquals("Bianchi", dto.lastName());
             assertEquals("luca@example.com", dto.email());
@@ -86,11 +87,11 @@ class ManagerMapperTest {
 
         @Test
         void shouldMapDTOToEntity() {
-            ManagerDTO dto = new ManagerDTO(10L, "Paolo", "Neri", "paolo@example.com", "111222333", "HR");
+            ManagerDTO dto = new ManagerDTO(uid(10), "Paolo", "Neri", "paolo@example.com", "111222333", "HR");
 
             Managers manager = managerMapper.toEntity(dto);
 
-            assertEquals(10L, manager.getId());
+            assertEquals(uid(10), manager.getId());
             assertEquals("Paolo", manager.getFirstName());
             assertEquals("Neri", manager.getLastName());
             assertEquals("paolo@example.com", manager.getEmail());
@@ -100,11 +101,11 @@ class ManagerMapperTest {
 
         @Test
         void shouldMapDTOToEntityWithNullOptionalFields() {
-            ManagerDTO dto = new ManagerDTO(11L, "Giulia", "Ferri", "giulia@example.com", null, null);
+            ManagerDTO dto = new ManagerDTO(uid(11), "Giulia", "Ferri", "giulia@example.com", null, null);
 
             Managers manager = managerMapper.toEntity(dto);
 
-            assertEquals(11L, manager.getId());
+            assertEquals(uid(11), manager.getId());
             assertEquals("Giulia", manager.getFirstName());
             assertEquals("Ferri", manager.getLastName());
             assertEquals("giulia@example.com", manager.getEmail());

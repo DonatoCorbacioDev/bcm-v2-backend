@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -16,8 +17,8 @@ import com.donatodev.bcm_backend.entity.SepaPaymentBatch;
  * at {@code archivePath}. The storage path is internal.
  */
 public record SepaPaymentBatchExportDTO(
-        Long id,
-        Long contractId,
+        UUID id,
+        UUID contractId,
         String archivePath,
         String messageId,
         LocalDate executionDate,

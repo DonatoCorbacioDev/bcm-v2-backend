@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.mapper;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
@@ -47,7 +49,7 @@ import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 class FinancialValueMapperTest {
 
     /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
+    private static final UUID TENANT = uid(1);
 
     /**
      * Enters the test tenant and initializes the mocks before each test.
@@ -83,14 +85,14 @@ class FinancialValueMapperTest {
     @Test
     @DisplayName("Convert entity to DTO")
     void shouldConvertToDTO() {
-        FinancialTypes type = FinancialTypes.builder().id(1L).category(FinancialCategory.REVENUE).build();
-        BusinessAreas area = BusinessAreas.builder().id(2L).build();
-        Contracts contract = Contracts.builder().id(3L)
-                .counterparty(Counterparty.builder().id(4L).name("Client").type(CounterpartyType.CUSTOMER).build())
+        FinancialTypes type = FinancialTypes.builder().id(uid(1)).category(FinancialCategory.REVENUE).build();
+        BusinessAreas area = BusinessAreas.builder().id(uid(2)).build();
+        Contracts contract = Contracts.builder().id(uid(3))
+                .counterparty(Counterparty.builder().id(uid(4)).name("Client").type(CounterpartyType.CUSTOMER).build())
                 .build();
 
         FinancialValues value = FinancialValues.builder()
-                .id(10L)
+                .id(uid(10))
                 .month(5)
                 .year(2025)
                 .financialAmount(1500.0)
@@ -101,13 +103,13 @@ class FinancialValueMapperTest {
 
         FinancialValueDTO dto = financialValueMapper.toDTO(value);
 
-        assertEquals(10L, dto.id());
+        assertEquals(uid(10), dto.id());
         assertEquals(5, dto.month());
         assertEquals(2025, dto.year());
         assertEquals(1500.0, dto.financialAmount());
-        assertEquals(1L, dto.financialTypeId());
-        assertEquals(2L, dto.businessAreaId());
-        assertEquals(3L, dto.contractId());
+        assertEquals(uid(1), dto.financialTypeId());
+        assertEquals(uid(2), dto.businessAreaId());
+        assertEquals(uid(3), dto.contractId());
         assertEquals(FinancialCategory.REVENUE, dto.category());
     }
 
@@ -118,22 +120,22 @@ class FinancialValueMapperTest {
     @Test
     @DisplayName("Convert DTO to entity, scoped to the caller's org")
     void shouldConvertToEntity() {
-        FinancialTypes type = FinancialTypes.builder().id(1L).build();
-        BusinessAreas area = BusinessAreas.builder().id(2L).build();
-        Contracts contract = Contracts.builder().id(3L).build();
+        FinancialTypes type = FinancialTypes.builder().id(uid(1)).build();
+        BusinessAreas area = BusinessAreas.builder().id(uid(2)).build();
+        Contracts contract = Contracts.builder().id(uid(3)).build();
 
         FinancialValueDTO dto = new FinancialValueDTO(
-                10L, 5, 2025, 1500.0,
-                1L, 2L, 3L, "Type", "Area", "Contract"
+                uid(10), 5, 2025, 1500.0,
+                uid(1), uid(2), uid(3), "Type", "Area", "Contract"
         , FinancialCategory.REVENUE);
 
-        when(financialTypesRepository.findByIdAndOrganizationId(1L, 7L)).thenReturn(Optional.of(type));
-        when(businessAreaRepository.findByIdAndOrganizationId(2L, 7L)).thenReturn(Optional.of(area));
-        when(contractsRepository.findByIdAndOrganization_Id(3L, 7L)).thenReturn(Optional.of(contract));
+        when(financialTypesRepository.findByIdAndOrganizationId(uid(1), uid(7))).thenReturn(Optional.of(type));
+        when(businessAreaRepository.findByIdAndOrganizationId(uid(2), uid(7))).thenReturn(Optional.of(area));
+        when(contractsRepository.findByIdAndOrganization_Id(uid(3), uid(7))).thenReturn(Optional.of(contract));
 
-        FinancialValues entity = financialValueMapper.toEntity(dto, 7L);
+        FinancialValues entity = financialValueMapper.toEntity(dto, uid(7));
 
-        assertEquals(10L, entity.getId());
+        assertEquals(uid(10), entity.getId());
         assertEquals(5, entity.getMonth());
         assertEquals(2025, entity.getYear());
         assertEquals(1500.0, entity.getFinancialAmount());
@@ -146,7 +148,7 @@ class FinancialValueMapperTest {
     @DisplayName("Without an organization nothing is resolved: no lookup across organizations")
     void shouldConvertToEntityWithoutOrgScope() {
         FinancialValueDTO dto = new FinancialValueDTO(
-                10L, 5, 2025, 1500.0, 1L, 2L, 3L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
+                uid(10), 5, 2025, 1500.0, uid(1), uid(2), uid(3), "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
         assertThrows(FinancialTypeNotFoundException.class, () -> financialValueMapper.toEntity(dto, null));
         verify(financialTypesRepository, never()).findById(any());
@@ -162,49 +164,49 @@ class FinancialValueMapperTest {
     @Test
     @DisplayName("Throw exception if financial type belongs to another org (or does not exist)")
     void shouldThrowIfFinancialTypeNotFound() {
-        FinancialValueDTO dto = new FinancialValueDTO(1L, 5, 2025, 1000.0, 99L, 2L, 3L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
+        FinancialValueDTO dto = new FinancialValueDTO(uid(1), 5, 2025, 1000.0, uid(99), uid(2), uid(3), "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
-        when(financialTypesRepository.findByIdAndOrganizationId(99L, 7L)).thenReturn(Optional.empty());
+        when(financialTypesRepository.findByIdAndOrganizationId(uid(99), uid(7))).thenReturn(Optional.empty());
 
         FinancialTypeNotFoundException ex = assertThrows(FinancialTypeNotFoundException.class, () -> {
-            financialValueMapper.toEntity(dto, 7L);
+            financialValueMapper.toEntity(dto, uid(7));
         });
 
-        assertEquals("Tipo finanziario ID 99 non trovato", ex.getMessage());
+        assertEquals("Tipo finanziario ID " + uid(99) + " non trovato", ex.getMessage());
     }
 
     @Test
     @DisplayName("Throw exception if business area belongs to another org (or does not exist)")
     void shouldThrowIfBusinessAreaNotFound() {
-        FinancialValueDTO dto = new FinancialValueDTO(1L, 5, 2025, 1000.0, 1L, 99L, 3L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
+        FinancialValueDTO dto = new FinancialValueDTO(uid(1), 5, 2025, 1000.0, uid(1), uid(99), uid(3), "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
-        when(financialTypesRepository.findByIdAndOrganizationId(1L, 7L))
-                .thenReturn(Optional.of(FinancialTypes.builder().id(1L).build()));
-        when(businessAreaRepository.findByIdAndOrganizationId(99L, 7L)).thenReturn(Optional.empty());
+        when(financialTypesRepository.findByIdAndOrganizationId(uid(1), uid(7)))
+                .thenReturn(Optional.of(FinancialTypes.builder().id(uid(1)).build()));
+        when(businessAreaRepository.findByIdAndOrganizationId(uid(99), uid(7))).thenReturn(Optional.empty());
 
         BusinessAreaNotFoundException ex = assertThrows(BusinessAreaNotFoundException.class, () -> {
-            financialValueMapper.toEntity(dto, 7L);
+            financialValueMapper.toEntity(dto, uid(7));
         });
 
-        assertEquals("Area di business ID 99 non trovata", ex.getMessage());
+        assertEquals("Area di business ID " + uid(99) + " non trovata", ex.getMessage());
     }
 
     @Test
     @DisplayName("Throw exception if contract belongs to another org (or does not exist)")
     void shouldThrowIfContractNotFound() {
-        FinancialValueDTO dto = new FinancialValueDTO(1L, 5, 2025, 1000.0, 1L, 2L, 99L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
+        FinancialValueDTO dto = new FinancialValueDTO(uid(1), 5, 2025, 1000.0, uid(1), uid(2), uid(99), "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
-        when(financialTypesRepository.findByIdAndOrganizationId(1L, 7L))
-                .thenReturn(Optional.of(FinancialTypes.builder().id(1L).build()));
-        when(businessAreaRepository.findByIdAndOrganizationId(2L, 7L))
-                .thenReturn(Optional.of(BusinessAreas.builder().id(2L).build()));
-        when(contractsRepository.findByIdAndOrganization_Id(99L, 7L)).thenReturn(Optional.empty());
+        when(financialTypesRepository.findByIdAndOrganizationId(uid(1), uid(7)))
+                .thenReturn(Optional.of(FinancialTypes.builder().id(uid(1)).build()));
+        when(businessAreaRepository.findByIdAndOrganizationId(uid(2), uid(7)))
+                .thenReturn(Optional.of(BusinessAreas.builder().id(uid(2)).build()));
+        when(contractsRepository.findByIdAndOrganization_Id(uid(99), uid(7))).thenReturn(Optional.empty());
 
         ContractNotFoundException ex = assertThrows(ContractNotFoundException.class, () -> {
-            financialValueMapper.toEntity(dto, 7L);
+            financialValueMapper.toEntity(dto, uid(7));
         });
 
-        assertEquals("Contratto ID 99 non trovato", ex.getMessage());
+        assertEquals("Contratto ID " + uid(99) + " non trovato", ex.getMessage());
     }
 
     /**
@@ -213,27 +215,27 @@ class FinancialValueMapperTest {
     @Test
     @DisplayName("updateEntity should update all fields including relations")
     void shouldUpdateEntityInPlace() {
-        FinancialTypes newType = FinancialTypes.builder().id(2L).build();
-        BusinessAreas newArea = BusinessAreas.builder().id(3L).build();
-        Contracts newContract = Contracts.builder().id(4L).build();
+        FinancialTypes newType = FinancialTypes.builder().id(uid(2)).build();
+        BusinessAreas newArea = BusinessAreas.builder().id(uid(3)).build();
+        Contracts newContract = Contracts.builder().id(uid(4)).build();
 
         FinancialValues existing = FinancialValues.builder()
-                .id(10L)
+                .id(uid(10))
                 .month(1)
                 .year(2024)
                 .financialAmount(100.0)
-                .financialType(FinancialTypes.builder().id(1L).build())
-                .businessArea(BusinessAreas.builder().id(1L).build())
-                .contract(Contracts.builder().id(1L).build())
+                .financialType(FinancialTypes.builder().id(uid(1)).build())
+                .businessArea(BusinessAreas.builder().id(uid(1)).build())
+                .contract(Contracts.builder().id(uid(1)).build())
                 .build();
 
-        FinancialValueDTO dto = new FinancialValueDTO(10L, 6, 2025, 999.0, 2L, 3L, 4L, "NewType", "NewArea", "NewContract", FinancialCategory.REVENUE);
+        FinancialValueDTO dto = new FinancialValueDTO(uid(10), 6, 2025, 999.0, uid(2), uid(3), uid(4), "NewType", "NewArea", "NewContract", FinancialCategory.REVENUE);
 
-        when(financialTypesRepository.findByIdAndOrganizationId(2L, 7L)).thenReturn(Optional.of(newType));
-        when(businessAreaRepository.findByIdAndOrganizationId(3L, 7L)).thenReturn(Optional.of(newArea));
-        when(contractsRepository.findByIdAndOrganization_Id(4L, 7L)).thenReturn(Optional.of(newContract));
+        when(financialTypesRepository.findByIdAndOrganizationId(uid(2), uid(7))).thenReturn(Optional.of(newType));
+        when(businessAreaRepository.findByIdAndOrganizationId(uid(3), uid(7))).thenReturn(Optional.of(newArea));
+        when(contractsRepository.findByIdAndOrganization_Id(uid(4), uid(7))).thenReturn(Optional.of(newContract));
 
-        financialValueMapper.updateEntity(existing, dto, 7L);
+        financialValueMapper.updateEntity(existing, dto, uid(7));
 
         assertEquals(6, existing.getMonth());
         assertEquals(2025, existing.getYear());
@@ -251,46 +253,46 @@ class FinancialValueMapperTest {
     @Test
     @DisplayName("updateEntity should throw if financial type belongs to another org (or does not exist)")
     void shouldThrowOnUpdateIfFinancialTypeNotFound() {
-        FinancialValues existing = FinancialValues.builder().id(1L).build();
-        FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2025, 100.0, 99L, 2L, 3L, null, null, null, FinancialCategory.REVENUE);
+        FinancialValues existing = FinancialValues.builder().id(uid(1)).build();
+        FinancialValueDTO dto = new FinancialValueDTO(uid(1), 1, 2025, 100.0, uid(99), uid(2), uid(3), null, null, null, FinancialCategory.REVENUE);
 
-        when(financialTypesRepository.findByIdAndOrganizationId(99L, 7L)).thenReturn(Optional.empty());
+        when(financialTypesRepository.findByIdAndOrganizationId(uid(99), uid(7))).thenReturn(Optional.empty());
 
         FinancialTypeNotFoundException ex = assertThrows(FinancialTypeNotFoundException.class,
-                () -> financialValueMapper.updateEntity(existing, dto, 7L));
-        assertEquals("Tipo finanziario ID 99 non trovato", ex.getMessage());
+                () -> financialValueMapper.updateEntity(existing, dto, uid(7)));
+        assertEquals("Tipo finanziario ID " + uid(99) + " non trovato", ex.getMessage());
     }
 
     @Test
     @DisplayName("updateEntity should throw if business area belongs to another org (or does not exist)")
     void shouldThrowOnUpdateIfBusinessAreaNotFound() {
-        FinancialValues existing = FinancialValues.builder().id(1L).build();
-        FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2025, 100.0, 1L, 99L, 3L, null, null, null, FinancialCategory.REVENUE);
+        FinancialValues existing = FinancialValues.builder().id(uid(1)).build();
+        FinancialValueDTO dto = new FinancialValueDTO(uid(1), 1, 2025, 100.0, uid(1), uid(99), uid(3), null, null, null, FinancialCategory.REVENUE);
 
-        when(financialTypesRepository.findByIdAndOrganizationId(1L, 7L))
-                .thenReturn(Optional.of(FinancialTypes.builder().id(1L).build()));
-        when(businessAreaRepository.findByIdAndOrganizationId(99L, 7L)).thenReturn(Optional.empty());
+        when(financialTypesRepository.findByIdAndOrganizationId(uid(1), uid(7)))
+                .thenReturn(Optional.of(FinancialTypes.builder().id(uid(1)).build()));
+        when(businessAreaRepository.findByIdAndOrganizationId(uid(99), uid(7))).thenReturn(Optional.empty());
 
         BusinessAreaNotFoundException ex = assertThrows(BusinessAreaNotFoundException.class,
-                () -> financialValueMapper.updateEntity(existing, dto, 7L));
-        assertEquals("Area di business ID 99 non trovata", ex.getMessage());
+                () -> financialValueMapper.updateEntity(existing, dto, uid(7)));
+        assertEquals("Area di business ID " + uid(99) + " non trovata", ex.getMessage());
     }
 
     @Test
     @DisplayName("updateEntity should throw if contract belongs to another org (or does not exist)")
     void shouldThrowOnUpdateIfContractNotFound() {
-        FinancialValues existing = FinancialValues.builder().id(1L).build();
-        FinancialValueDTO dto = new FinancialValueDTO(1L, 1, 2025, 100.0, 1L, 2L, 99L, null, null, null, FinancialCategory.REVENUE);
+        FinancialValues existing = FinancialValues.builder().id(uid(1)).build();
+        FinancialValueDTO dto = new FinancialValueDTO(uid(1), 1, 2025, 100.0, uid(1), uid(2), uid(99), null, null, null, FinancialCategory.REVENUE);
 
-        when(financialTypesRepository.findByIdAndOrganizationId(1L, 7L))
-                .thenReturn(Optional.of(FinancialTypes.builder().id(1L).build()));
-        when(businessAreaRepository.findByIdAndOrganizationId(2L, 7L))
-                .thenReturn(Optional.of(BusinessAreas.builder().id(2L).build()));
-        when(contractsRepository.findByIdAndOrganization_Id(99L, 7L)).thenReturn(Optional.empty());
+        when(financialTypesRepository.findByIdAndOrganizationId(uid(1), uid(7)))
+                .thenReturn(Optional.of(FinancialTypes.builder().id(uid(1)).build()));
+        when(businessAreaRepository.findByIdAndOrganizationId(uid(2), uid(7)))
+                .thenReturn(Optional.of(BusinessAreas.builder().id(uid(2)).build()));
+        when(contractsRepository.findByIdAndOrganization_Id(uid(99), uid(7))).thenReturn(Optional.empty());
 
         ContractNotFoundException ex = assertThrows(ContractNotFoundException.class,
-                () -> financialValueMapper.updateEntity(existing, dto, 7L));
-        assertEquals("Contratto ID 99 non trovato", ex.getMessage());
+                () -> financialValueMapper.updateEntity(existing, dto, uid(7)));
+        assertEquals("Contratto ID " + uid(99) + " non trovato", ex.getMessage());
     }
 
     /**
@@ -310,14 +312,14 @@ class FinancialValueMapperTest {
     @DisplayName("toDTO should handle null financial type")
     void shouldHandleNullFinancialType() {
         FinancialValues entity = FinancialValues.builder()
-                .id(1L)
+                .id(uid(1))
                 .month(1)
                 .year(2025)
                 .financialAmount(1000.00)
                 .financialType(null)
-                .businessArea(BusinessAreas.builder().id(1L).name("IT").build())
-                .contract(Contracts.builder().id(1L)
-                        .counterparty(Counterparty.builder().id(1L).name("Client").type(CounterpartyType.CUSTOMER).build())
+                .businessArea(BusinessAreas.builder().id(uid(1)).name("IT").build())
+                .contract(Contracts.builder().id(uid(1))
+                        .counterparty(Counterparty.builder().id(uid(1)).name("Client").type(CounterpartyType.CUSTOMER).build())
                         .build())
                 .build();
 
@@ -338,14 +340,14 @@ class FinancialValueMapperTest {
     @DisplayName("toDTO should handle null business area")
     void shouldHandleNullBusinessArea() {
         FinancialValues entity = FinancialValues.builder()
-                .id(1L)
+                .id(uid(1))
                 .month(1)
                 .year(2025)
                 .financialAmount(1000.00)
-                .financialType(FinancialTypes.builder().id(1L).name("Revenue").build())
+                .financialType(FinancialTypes.builder().id(uid(1)).name("Revenue").build())
                 .businessArea(null)
-                .contract(Contracts.builder().id(1L)
-                        .counterparty(Counterparty.builder().id(1L).name("Client").type(CounterpartyType.CUSTOMER).build())
+                .contract(Contracts.builder().id(uid(1))
+                        .counterparty(Counterparty.builder().id(uid(1)).name("Client").type(CounterpartyType.CUSTOMER).build())
                         .build())
                 .build();
 
@@ -365,12 +367,12 @@ class FinancialValueMapperTest {
     @DisplayName("toDTO should handle null contract")
     void shouldHandleNullContract() {
         FinancialValues entity = FinancialValues.builder()
-                .id(1L)
+                .id(uid(1))
                 .month(1)
                 .year(2025)
                 .financialAmount(1000.00)
-                .financialType(FinancialTypes.builder().id(1L).name("Revenue").build())
-                .businessArea(BusinessAreas.builder().id(1L).name("IT").build())
+                .financialType(FinancialTypes.builder().id(uid(1)).name("Revenue").build())
+                .businessArea(BusinessAreas.builder().id(uid(1)).name("IT").build())
                 .contract(null)
                 .build();
 

@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import com.donatodev.bcm_backend.support.TestTenant;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
@@ -211,7 +213,7 @@ class UserControllerTest {
 
             mockMvc.perform(get("/users/{id}", user.getId()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(user.getId()))
+                    .andExpect(jsonPath("$.id").value(user.getId().toString()))
                     .andExpect(jsonPath("$.username").value("laura.bianchi"));
         }
 
@@ -304,7 +306,7 @@ class UserControllerTest {
         @DisplayName("User not found when searching by invalid ID")
         @WithMockUser(roles = "ADMIN")
         void shouldReturnNotFoundForInvalidId() throws Exception {
-            mockMvc.perform(get("/users/{id}", 9999L))
+            mockMvc.perform(get("/users/{id}", uid(9999)))
                     .andExpect(status().isNotFound());
         }
 
@@ -330,7 +332,7 @@ class UserControllerTest {
                             .build());
 
             String requestBody = String.format(
-                    "{\"username\":\"newuser@example.com\",\"role\":\"%s\",\"managerId\":%d}",
+                    "{\"username\":\"newuser@example.com\",\"role\":\"%s\",\"managerId\":\"%s\"}",
                     role.getRole(), manager.getId()
             );
 
@@ -374,7 +376,7 @@ class UserControllerTest {
                             .build());
 
             String patchRequest = String.format(
-                    "{\"username\":\"updated.user\",\"role\":\"%s\",\"managerId\":%d}",
+                    "{\"username\":\"updated.user\",\"role\":\"%s\",\"managerId\":\"%s\"}",
                     role.getRole(), manager.getId()
             );
 

@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import static com.donatodev.bcm_backend.support.TestIds.uid;
 import com.donatodev.bcm_backend.support.TestTenant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -285,7 +286,7 @@ class OrganizationExportControllerTest {
 
         JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
         assertThat(manifest.get("formatVersion").asInt()).isEqualTo(1);
-        assertThat(manifest.get("organizationId").asLong()).isEqualTo(org.getId());
+        assertThat(manifest.get("organizationId").asText()).isEqualTo(org.getId().toString());
         JsonNode file = manifest.get("files").get(0);
         byte[] content = entries.get("data/organization.json");
         assertThat(file.get("path").asText()).isEqualTo("data/organization.json");
@@ -314,7 +315,7 @@ class OrganizationExportControllerTest {
         assertThat(users).hasSize(1);
         assertThat(users.get(0).get("username").asText()).isEqualTo("export-admin");
         assertThat(users.get(0).get("role").asText()).isEqualTo("ADMIN");
-        assertThat(users.get(0).get("managerId").asLong()).isEqualTo(managers.get(0).get("id").asLong());
+        assertThat(users.get(0).get("managerId").asText()).isEqualTo(managers.get(0).get("id").asText());
         String usersJson = new String(entries.get("data/users.json"), StandardCharsets.UTF_8);
         assertThat(usersJson).doesNotContain("passwordHash", "pwd", "totp-secret", "calendar-secret",
                 "failedLoginAttempts", "lockedUntil");
@@ -362,11 +363,11 @@ class OrganizationExportControllerTest {
         JsonNode documents = objectMapper.readTree(entries.get("data/contract_documents.json"));
         String archivePath = null;
         for (JsonNode d : documents) {
-            if (d.get("id").asLong() == document.getId()) {
+            if (d.get("id").asText().equals(document.getId().toString())) {
                 archivePath = d.get("archivePath").asText();
             }
         }
-        assertThat(archivePath).isEqualTo("files/contracts/%d/%d-__.._evil name.pdf"
+        assertThat(archivePath).isEqualTo("files/contracts/%s/%s-__.._evil name.pdf"
                 .formatted(contract.getId(), document.getId()));
         assertThat(entries).containsEntry(archivePath, pdf);
         for (String path : entries.keySet()) {
@@ -427,11 +428,11 @@ class OrganizationExportControllerTest {
         JsonNode invoice = objectMapper.readTree(entries.get("data/electronic_invoices.json")).get(0);
         JsonNode batch = objectMapper.readTree(entries.get("data/sepa_payment_batches.json")).get(0);
         assertThat(invoice.get("lineItems").get(0).get("description").asText()).isEqualTo("ours line");
-        assertThat(invoice.get("sepaBatchId").asLong()).isEqualTo(batch.get("id").asLong());
+        assertThat(invoice.get("sepaBatchId").asText()).isEqualTo(batch.get("id").asText());
 
         JsonNode contract = objectMapper.readTree(entries.get("data/contracts.json")).get(0);
         JsonNode manager = objectMapper.readTree(entries.get("data/managers.json")).get(0);
-        assertThat(contract.get("managerId").asLong()).isEqualTo(manager.get("id").asLong());
+        assertThat(contract.get("managerId").asText()).isEqualTo(manager.get("id").asText());
 
         JsonNode analysis = objectMapper.readTree(entries.get("data/ml_analyses.json")).get(0);
         assertThat(analysis.get("result").get("label").asText()).isEqualTo("ours");

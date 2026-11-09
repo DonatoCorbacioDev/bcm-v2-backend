@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -40,7 +41,7 @@ public class ContractDocumentService {
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024L;
     private static final byte[] PDF_MAGIC = {'%', 'P', 'D', 'F'};
-    private static final String DOC_NOT_FOUND = "Documento ID %d non trovato per il contratto %d";
+    private static final String DOC_NOT_FOUND = "Documento ID %s non trovato per il contratto %s";
     private static final String LINE_SPLIT_REGEX = "\\r\\n|\\r|\\n";
     private static final String CRLF_REGEX = "[\r\n]";
 
@@ -72,18 +73,18 @@ public class ContractDocumentService {
     }
 
     @Transactional(rollbackFor = IOException.class)
-    public ContractDocumentDTO uploadDocument(Long contractId, MultipartFile file) throws IOException {
+    public ContractDocumentDTO uploadDocument(UUID contractId, MultipartFile file) throws IOException {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         validateFile(file);
 
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         ContractDocument doc = saveNewVersion(contract, orgId, file, null, 1);
         return toDTO(doc, 1);
     }
 
     @Transactional(rollbackFor = IOException.class)
-    public ContractDocumentDTO uploadNewVersion(Long contractId, Long documentId, MultipartFile file) throws IOException {
+    public ContractDocumentDTO uploadNewVersion(UUID contractId, UUID documentId, MultipartFile file) throws IOException {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         validateFile(file);
@@ -98,13 +99,13 @@ public class ContractDocumentService {
                 ? existing.getVersionNumber() + 1
                 : siblings.get(0).getVersionNumber() + 1;
 
-        Long orgId = TenantContext.require();
+        UUID orgId = TenantContext.require();
         ContractDocument doc = saveNewVersion(contract, orgId, file, existing.getVersionGroupId(), nextVersion);
         return toDTO(doc, siblings.size() + 1);
     }
 
     @Transactional(readOnly = true)
-    public List<ContractDocumentDTO> getVersions(Long contractId, Long documentId) {
+    public List<ContractDocumentDTO> getVersions(UUID contractId, UUID documentId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
 
@@ -117,7 +118,7 @@ public class ContractDocumentService {
         return versions.stream().map(d -> toDTO(d, versions.size())).toList();
     }
 
-    public DocumentDiffDTO diffDocuments(Long contractId, Long fromDocumentId, Long toDocumentId) {
+    public DocumentDiffDTO diffDocuments(UUID contractId, UUID fromDocumentId, UUID toDocumentId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
 
@@ -148,7 +149,7 @@ public class ContractDocumentService {
     }
 
     @Transactional(readOnly = true)
-    public List<ContractDocumentDTO> getDocuments(Long contractId) {
+    public List<ContractDocumentDTO> getDocuments(UUID contractId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
 
@@ -158,8 +159,8 @@ public class ContractDocumentService {
         // list; older versions are reached via getVersions(). Input is already
         // ordered newest-first, so the first document seen per group is both
         // the most recently uploaded and (by construction) the highest version.
-        Map<Long, ContractDocument> latestByGroup = new LinkedHashMap<>();
-        Map<Long, Integer> countByGroup = new HashMap<>();
+        Map<UUID, ContractDocument> latestByGroup = new LinkedHashMap<>();
+        Map<UUID, Integer> countByGroup = new HashMap<>();
         for (ContractDocument doc : all) {
             countByGroup.merge(doc.getVersionGroupId(), 1, Integer::sum);
             latestByGroup.putIfAbsent(doc.getVersionGroupId(), doc);
@@ -170,7 +171,7 @@ public class ContractDocumentService {
                 .toList();
     }
 
-    public DocumentAnalysisDTO extractText(Long contractId, Long documentId) {
+    public DocumentAnalysisDTO extractText(UUID contractId, UUID documentId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
@@ -189,7 +190,7 @@ public class ContractDocumentService {
      * upload (backfilled if missing), so no PDF parsing on the usual path.
      */
     @Transactional
-    public ContractTermsDTO readTerms(Long contractId, Long documentId) {
+    public ContractTermsDTO readTerms(UUID contractId, UUID documentId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
@@ -198,7 +199,7 @@ public class ContractDocumentService {
         return new ContractTermsDTO(doc.getId(), termsExtractor.extract(getOrExtractText(doc)));
     }
 
-    public ResponseEntity<String> analyzeClauseRisk(Long contractId, Long documentId) {
+    public ResponseEntity<String> analyzeClauseRisk(UUID contractId, UUID documentId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
@@ -211,7 +212,7 @@ public class ContractDocumentService {
     }
 
     @Transactional(readOnly = true)
-    public FileDownload downloadDocument(Long contractId, Long documentId) {
+    public FileDownload downloadDocument(UUID contractId, UUID documentId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
@@ -223,7 +224,7 @@ public class ContractDocumentService {
     }
 
     @Transactional
-    public void deleteDocument(Long contractId, Long documentId) {
+    public void deleteDocument(UUID contractId, UUID documentId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
         ContractDocument doc = documentRepository.findByIdAndContractId(documentId, contractId)
@@ -234,8 +235,8 @@ public class ContractDocumentService {
         documentRepository.delete(doc);
     }
 
-    private ContractDocument saveNewVersion(Contracts contract, Long orgId, MultipartFile file,
-                                             Long versionGroupId, int versionNumber) throws IOException {
+    private ContractDocument saveNewVersion(Contracts contract, UUID orgId, MultipartFile file,
+                                             UUID versionGroupId, int versionNumber) throws IOException {
         byte[] bytes = file.getBytes();
         String storagePath = localStorageService.storeDocument(orgId, contract.getId(), bytes);
 
@@ -316,7 +317,7 @@ public class ContractDocumentService {
     }
 
     private ContractDocumentDTO toDTO(ContractDocument doc, int versionCount) {
-        String downloadUrl = String.format("%s/contracts/%d/documents/%d/download",
+        String downloadUrl = String.format("%s/contracts/%s/documents/%s/download",
                 backendBaseUrl, doc.getContract().getId(), doc.getId());
         return new ContractDocumentDTO(
                 doc.getId(),

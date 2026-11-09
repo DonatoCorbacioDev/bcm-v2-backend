@@ -60,7 +60,7 @@ class ContractImportTenantIsolationIT extends AbstractMySQLIntegrationTest {
     @Autowired private CounterpartiesRepository counterparties;
     @Autowired private ContractsRepository contracts;
 
-    private final List<Long> createdOrganizations = new ArrayList<>();
+    private final List<UUID> createdOrganizations = new ArrayList<>();
     private Organization org;
     private BusinessAreas area;
     private Contracts foreignContract;
@@ -80,12 +80,12 @@ class ContractImportTenantIsolationIT extends AbstractMySQLIntegrationTest {
     void cleanOnlyCreatedOrganizations() {
         TestTenant.clear();
         TenantContext.clear();
-        for (Long orgId : createdOrganizations) {
-            jdbc.update("DELETE FROM audit_logs WHERE org_id = ?", orgId);
-            jdbc.update("DELETE FROM contracts WHERE organization_id = ?", orgId);
-            jdbc.update("DELETE FROM counterparties WHERE organization_id = ?", orgId);
-            jdbc.update("DELETE FROM business_areas WHERE organization_id = ?", orgId);
-            jdbc.update("DELETE FROM organizations WHERE id = ?", orgId);
+        for (UUID orgId : createdOrganizations) {
+            jdbc.update("DELETE FROM audit_logs WHERE org_id = ?", String.valueOf(orgId));
+            jdbc.update("DELETE FROM contracts WHERE organization_id = ?", String.valueOf(orgId));
+            jdbc.update("DELETE FROM counterparties WHERE organization_id = ?", String.valueOf(orgId));
+            jdbc.update("DELETE FROM business_areas WHERE organization_id = ?", String.valueOf(orgId));
+            jdbc.update("DELETE FROM organizations WHERE id = ?", String.valueOf(orgId));
         }
         createdOrganizations.clear();
     }
@@ -144,7 +144,7 @@ class ContractImportTenantIsolationIT extends AbstractMySQLIntegrationTest {
     }
 
     private Map<String, Object> foreignSnapshot() {
-        return jdbc.queryForMap("SELECT * FROM contracts WHERE id = ?", foreignContract.getId());
+        return jdbc.queryForMap("SELECT * FROM contracts WHERE id = ?", String.valueOf(foreignContract.getId()));
     }
 
     private MockMultipartFile workbook(String... numbers) throws Exception {

@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.dto.export;
 
+import java.util.UUID;
 import java.time.Instant;
 import java.util.List;
 
@@ -19,7 +20,7 @@ import java.util.List;
 public record ExportManifest(
         int formatVersion,
         Instant exportedAt,
-        Long organizationId,
+        UUID organizationId,
         String organizationName,
         List<ExportedFile> files,
         List<String> missingFiles) {

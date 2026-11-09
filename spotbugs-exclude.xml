@@ -264,4 +264,50 @@
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
 
+    <!-- CRLF_INJECTION_LOGS on record ids (ADR-0009). These methods log a
+         java.util.UUID (an entity id or organization id): its text form is only
+         hexadecimal digits and hyphens, so it cannot carry CR/LF. FindSecBugs
+         treats numbers as safe but not UUIDs, which is why these appeared when
+         ids stopped being Longs. Any other argument in these calls is already
+         sanitized. Excluded per method, so the rule keeps guarding everything else. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.mapper.UserMapper"/>
+        <Method name="toEntity"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.ContractService"/>
+        <Method name="generateFinancialValuesIfApplicable"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.ElectronicInvoiceService"/>
+        <Method name="uploadInvoice"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.InvoicePaymentMethodBackfill"/>
+        <Method name="backfill"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.InvoiceTaxableAmountBackfill"/>
+        <Method name="backfill"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.OrganizationPurgeService"/>
+        <Method name="deleteRows"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.SemanticSearchService"/>
+        <Method name="generateAndStoreEmbedding"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.SemanticSearchService"/>
+        <Method name="readEmbedding"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
 </FindBugsFilter>

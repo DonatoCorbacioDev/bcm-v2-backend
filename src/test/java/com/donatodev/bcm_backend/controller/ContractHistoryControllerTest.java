@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import com.donatodev.bcm_backend.support.TestTenant;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
@@ -193,11 +194,11 @@ class ContractHistoryControllerTest {
                     .andExpect(status().isCreated())
                     .andReturn().getResponse().getContentAsString();
 
-            Long id = objectMapper.readTree(response).get("id").asLong();
+            UUID id = UUID.fromString(objectMapper.readTree(response).get("id").asText());
 
             mockMvc.perform(get("/contract-history/{id}", id))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.contractId").value(contract.getId()))
+                    .andExpect(jsonPath("$.contractId").value(contract.getId().toString()))
                     .andExpect(jsonPath("$.previousStatus").value("ACTIVE"))
                     .andExpect(jsonPath("$.newStatus").value("EXPIRED"));
         }
@@ -287,7 +288,7 @@ class ContractHistoryControllerTest {
                     .andExpect(status().isCreated())
                     .andReturn().getResponse().getContentAsString();
 
-            Long id = objectMapper.readTree(response).get("id").asLong();
+            UUID id = UUID.fromString(objectMapper.readTree(response).get("id").asText());
 
             mockMvc.perform(delete("/contract-history/{id}", id))
                     .andExpect(status().isNoContent());

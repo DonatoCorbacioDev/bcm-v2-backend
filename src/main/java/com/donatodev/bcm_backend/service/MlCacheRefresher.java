@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.util.UUID;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -36,19 +37,19 @@ public class MlCacheRefresher {
 
     @Scheduled(cron = "0 0 2 * * *")
     public void refreshAll() {
-        List<Long> orgIds = organizationRepository.findAll()
+        List<UUID> orgIds = organizationRepository.findAll()
                 .stream()
                 .map(org -> org.getId())
                 .toList();
         logger.info("ML cache refresh started for {} organization(s)", orgIds.size());
         int refreshed = 0;
-        for (Long orgId : orgIds) {
+        for (UUID orgId : orgIds) {
             if (refreshForOrg(orgId)) refreshed++;
         }
         logger.info("ML cache refresh complete: {}/{} organizations updated", refreshed, orgIds.size());
     }
 
-    boolean refreshForOrg(Long orgId) {
+    boolean refreshForOrg(UUID orgId) {
         try {
             for (int months : FORECAST_HORIZONS) {
                 ResponseEntity<String> r = mlProxyService.fetchForecastRaw(months, orgId);
