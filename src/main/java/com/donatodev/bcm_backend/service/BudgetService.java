@@ -81,6 +81,8 @@ public class BudgetService {
      */
     public BudgetDTO createBudget(BudgetDTO dto) {
         Budget budget = budgetMapper.toEntity(dto);
+        // Creation must never merge an existing row selected by a client-supplied ID.
+        budget.setId(null);
         Long orgId = TenantContext.require();
         Organization org = new Organization();
         org.setId(orgId);

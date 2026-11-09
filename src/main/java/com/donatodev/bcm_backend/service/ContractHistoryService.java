@@ -8,13 +8,14 @@ package com.donatodev.bcm_backend.service;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractHistoryDTO;
 import com.donatodev.bcm_backend.entity.ContractHistory;
+import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Users;
-import com.donatodev.bcm_backend.exception.AccessDeniedException;
 import com.donatodev.bcm_backend.exception.ContractHistoryNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.mapper.ContractHistoryMapper;
@@ -37,14 +38,16 @@ public class ContractHistoryService {
 	private final ContractHistoryRepository historyRepository;
 	private final ContractHistoryMapper historyMapper;
 	private final UsersRepository usersRepository;
+	private final ContractAccessGuard contractAccessGuard;
 
 	public ContractHistoryService(
 			ContractHistoryRepository historyRepository,
 			ContractHistoryMapper historyMapper,
-			UsersRepository usersRepository) {
+			UsersRepository usersRepository, ContractAccessGuard contractAccessGuard) {
 		this.historyRepository = historyRepository;
 		this.historyMapper = historyMapper;
 		this.usersRepository = usersRepository;
+		this.contractAccessGuard = contractAccessGuard;
 	}
 
 	/**
@@ -68,6 +71,9 @@ public class ContractHistoryService {
 					.map(historyMapper::toDTO)
 					.toList();
 		} else {
+			if (user.getManager() == null) {
+				return List.of();
+			}
 			Long managerId = user.getManager().getId();
 			return historyRepository.findByContractManagerId(managerId).stream()
 					.map(historyMapper::toDTO)
@@ -93,12 +99,7 @@ public class ContractHistoryService {
 		Users user = usersRepository.findByUsername(username)
 				.orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG));
 
-		if (!user.getRole().getRole().equals(ADMIN_ROLE)) { 
-			Long managerId = user.getManager().getId();
-			if (!history.getContract().getManager().getId().equals(managerId)) {
-				throw new AccessDeniedException("non autorizzato a visualizzare questa voce dello storico");
-			}
-		}
+		checkManagerAccess(history.getContract(), user);
 
 		return historyMapper.toDTO(history);
 	}
@@ -117,25 +118,19 @@ public class ContractHistoryService {
 		Users user = usersRepository.findByUsername(username)
 				.orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG));
 
+		Contracts contract = contractAccessGuard.getContractInScope(contractId);
+		checkManagerAccess(contract, user);
 		Long orgId = TenantContext.require();
-		List<ContractHistory> all = historyRepository.findByContractIdAndContract_Organization_Id(contractId, orgId);
+		return historyRepository.findByContractIdAndContract_Organization_Id(contractId, orgId)
+				.stream().map(historyMapper::toDTO).toList();
+	}
 
-		if (user.getRole().getRole().equals(ADMIN_ROLE)) {
-			return all.stream()
-					.map(historyMapper::toDTO)
-					.toList();
-		} else {
-			Long managerId = user.getManager().getId();
-			boolean isOwner = all.stream()
-					.allMatch(h -> h.getContract().getManager().getId().equals(managerId));
-
-			if (!isOwner) {
-				throw new AccessDeniedException("non autorizzato a visualizzare lo storico di questo contratto");
-			}
-
-			return all.stream()
-					.map(historyMapper::toDTO)
-					.toList();
+	/** A plain manager reads only the history of contracts assigned to them; an admin reads all. */
+	private void checkManagerAccess(Contracts contract, Users user) {
+		if (!ADMIN_ROLE.equals(user.getRole().getRole()) && (user.getManager() == null
+				|| contract.getManager() == null
+				|| !user.getManager().getId().equals(contract.getManager().getId()))) {
+			throw new AccessDeniedException("non autorizzato a visualizzare lo storico di questo contratto");
 		}
 	}
 
@@ -147,6 +142,8 @@ public class ContractHistoryService {
 	 */
 	public ContractHistoryDTO create(ContractHistoryDTO dto) {
 		ContractHistory entity = historyMapper.toEntity(dto);
+		// Creation must never merge an existing row selected by a client-supplied ID.
+		entity.setId(null);
 		entity = historyRepository.save(entity);
 		return historyMapper.toDTO(entity);
 	}

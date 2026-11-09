@@ -74,6 +74,8 @@ class ContractHistoryServiceTest {
     @Mock
     private ContractHistoryMapper historyMapper;
 
+    @Mock private ContractAccessGuard contractAccessGuard;
+
     @InjectMocks
     private ContractHistoryService historyService;
 
@@ -277,6 +279,7 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+            when(contractAccessGuard.getContractInScope(1L)).thenReturn(entity.getContract());
             when(historyRepository.findByContractIdAndContract_Organization_Id(1L, TENANT)).thenReturn(List.of(entity));
             when(historyMapper.toDTO(entity)).thenReturn(dto);
 
@@ -314,7 +317,7 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(manager));
-            when(historyRepository.findByContractIdAndContract_Organization_Id(1L, TENANT)).thenReturn(List.of(entity));
+            when(contractAccessGuard.getContractInScope(1L)).thenReturn(entity.getContract());
 
             RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(1L));
             assertNotNull(ex);
@@ -351,6 +354,7 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(user));
+            when(contractAccessGuard.getContractInScope(1L)).thenReturn(entity.getContract());
             when(historyRepository.findByContractIdAndContract_Organization_Id(1L, TENANT)).thenReturn(List.of(entity));
             when(historyMapper.toDTO(entity)).thenReturn(dto);
 
@@ -453,7 +457,7 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(historyRepository.findByContractIdAndContract_Organization_Id(1L, TENANT)).thenReturn(List.of(h1));
+            when(contractAccessGuard.getContractInScope(1L)).thenReturn(h1.getContract());
 
             RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(1L));
             assertNotNull(ex);
@@ -684,7 +688,8 @@ class ContractHistoryServiceTest {
             TenantContext.set(2L);
             try {
                 when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-                when(historyRepository.findByContractIdAndContract_Organization_Id(1L, 2L)).thenReturn(List.of(entity));
+                when(contractAccessGuard.getContractInScope(1L)).thenReturn(entity.getContract());
+            when(historyRepository.findByContractIdAndContract_Organization_Id(1L, 2L)).thenReturn(List.of(entity));
                 when(historyMapper.toDTO(entity)).thenReturn(dto);
 
                 List<ContractHistoryDTO> result = historyService.getByContractId(1L);

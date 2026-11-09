@@ -243,6 +243,8 @@ public class ContractService {
         }
         Long orgId = TenantContext.require();
         tierLimitService.enforceContractCreationLimit(orgId);
+        // Creation must never merge an existing row selected by a client-supplied ID.
+        contract.setId(null);
         Organization org = new Organization();
         org.setId(orgId);
         contract.setOrganization(org);
@@ -517,7 +519,7 @@ public class ContractService {
      */
     public void assignManager(Long contractId, Long managerId) {
         Contracts c = findContractInScope(contractId)
-                .orElseThrow(() -> new IllegalArgumentException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
+                .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
 
         Managers m = managerService.getManagerEntity(managerId);
         if (m == null) {

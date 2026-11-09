@@ -121,6 +121,8 @@ public class FinancialValueService {
     public FinancialValueDTO createValue(FinancialValueDTO dto) {
         Long orgId = TenantContext.require();
         FinancialValues value = financialValueMapper.toEntity(dto, orgId);
+        // Creation must never merge an existing row selected by a client-supplied ID.
+        value.setId(null);
         Organization org = new Organization();
         org.setId(orgId);
         value.setOrganization(org);
@@ -147,6 +149,8 @@ public class FinancialValueService {
 
         checkAccessToFinancialValue(value);
 
+        // Authorize the replacement contract before the mapper mutates any fields.
+        contractAccessGuard.checkManagerCanAccess(contractAccessGuard.getContractInScope(dto.contractId()));
         financialValueMapper.updateEntity(value, dto, orgId);
 
         value = financialValuesRepository.save(value);

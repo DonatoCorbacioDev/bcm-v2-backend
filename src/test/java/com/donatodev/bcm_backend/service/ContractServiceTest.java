@@ -1320,8 +1320,8 @@ class ContractServiceTest {
         void shouldThrowWhenAssigningManagerToNonExistentContract() {
             when(contractsRepository.findByIdAndOrganization_Id(999L, TENANT)).thenReturn(Optional.empty());
 
-            IllegalArgumentException ex
-                    = assertThrows(IllegalArgumentException.class,
+            ContractNotFoundException ex
+                    = assertThrows(ContractNotFoundException.class,
                             () -> contractService.assignManager(999L, 5L));
             assertTrue(ex.getMessage().contains("Contratto non trovato"));
         }

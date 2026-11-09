@@ -79,6 +79,8 @@ public class FinancialTypeService {
      */
     public FinancialTypeDTO createType(FinancialTypeDTO dto) {
         FinancialTypes type = financialTypeMapper.toEntity(dto);
+        // Creation must never merge an existing row selected by a client-supplied ID.
+        type.setId(null);
         Long orgId = TenantContext.require();
         Organization org = new Organization();
         org.setId(orgId);

@@ -1137,15 +1137,15 @@ class ContractControllerTest {
 
         @Test
         @Order(38)
-        @DisplayName("Should return 400 when assigning manager to non-existent contract")
+        @DisplayName("Should return 404 when assigning manager to non-existent contract")
         @WithMockUser(roles = "ADMIN")
-        void shouldReturn400WhenAssigningManagerToNonExistentContract() throws Exception {
+        void shouldReturn404WhenAssigningManagerToNonExistentContract() throws Exception {
             mockMvc.perform(patch("/contracts/99999/assign-manager")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"managerId\": 1}")
                     .with(csrf()))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.status").value(400));
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.status").value(404));
         }
 
         @Test

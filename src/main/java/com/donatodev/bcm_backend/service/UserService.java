@@ -136,6 +136,7 @@ public class UserService {
 	 * or if the manager belongs to a different tenant than the caller
 	 */
 	public Users registerUser(UserDTO dto) {
+		Long orgId = TenantContext.require();
 		if (usersRepository.existsByUsername(dto.username())) {
 			throw new IllegalArgumentException("Username già esistente.");
 		}
@@ -145,18 +146,23 @@ public class UserService {
 		}
 
 		Users user = userMapper.toEntity(dto);
+		// Client IDs must never turn account creation into an update of an existing user.
+		user.setId(null);
 		user.setPasswordHash(passwordEncoder.encode(dto.password()));
 		if (user.getManager() != null) {
 			// userMapper.toEntity() resolves the manager by ID without tenant
 			// scoping, so an admin could otherwise attach a manager - and thus
 			// the new user - to a different organization. Reject it here.
-			Long orgId = TenantContext.require();
 			Long managerOrgId = user.getManager().getOrganization() != null
 					? user.getManager().getOrganization().getId() : null;
 			if (!orgId.equals(managerOrgId)) {
 				throw new IllegalArgumentException("ID manager non trovato");
 			}
 			user.setOrganization(user.getManager().getOrganization());
+		} else {
+			Organization org = new Organization();
+			org.setId(orgId);
+			user.setOrganization(org);
 		}
 		return usersRepository.save(user);
 	}

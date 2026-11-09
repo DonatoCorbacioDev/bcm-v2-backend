@@ -78,6 +78,8 @@ public class BusinessAreaService {
      */
     public BusinessAreaDTO createArea(BusinessAreaDTO dto) {
         BusinessAreas area = businessAreaMapper.toEntity(dto);
+        // Creation must never merge an existing row selected by a client-supplied ID.
+        area.setId(null);
         Long orgId = TenantContext.require();
         Organization org = new Organization();
         org.setId(orgId);

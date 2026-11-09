@@ -101,6 +101,35 @@ class FinancialValueServiceTest {
     private FinancialValueService service;
 
     @Test
+    void shouldAuthorizeReplacementContractBeforeMutatingOrSavingValue() {
+        Managers owner = Managers.builder().id(7L).build();
+        Contracts original = Contracts.builder().id(1L).manager(owner).build();
+        Contracts destination = Contracts.builder().id(2L).build();
+        FinancialValues value = FinancialValues.builder().id(1L).contract(original)
+                .month(1).year(2026).financialAmount(500).build();
+        Users caller = Users.builder().username("manager").manager(owner)
+                .role(Roles.builder().role("MANAGER").build()).build();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("manager", null, List.of()));
+        when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(caller));
+        when(valuesRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(value));
+        when(contractAccessGuard.getContractInScope(2L)).thenReturn(destination);
+        doThrow(new AccessDeniedException("non autorizzato ad accedere al contratto"))
+                .when(contractAccessGuard).checkManagerCanAccess(destination);
+        FinancialValueDTO dto = new FinancialValueDTO(null, 2, 2027, 999, 1L, 1L, 2L,
+                null, null, null, FinancialCategory.REVENUE);
+
+        assertThrows(AccessDeniedException.class, () -> service.updateValue(1L, dto));
+
+        assertEquals(500, value.getFinancialAmount());
+        assertEquals(1, value.getMonth());
+        assertEquals(2026, value.getYear());
+        assertEquals(original, value.getContract());
+        verifyNoInteractions(mapper, mlCacheService);
+        verify(valuesRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     void shouldNotReadValuesWhenContractIsOutsideTenant() {
         when(contractAccessGuard.getContractInScope(42L)).thenThrow(
                 new com.donatodev.bcm_backend.exception.ContractNotFoundException("Contratto non trovato"));

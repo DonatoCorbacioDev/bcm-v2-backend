@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import com.donatodev.bcm_backend.config.TenantContext;
@@ -19,7 +20,6 @@ import com.donatodev.bcm_backend.dto.RiskFeedbackRequest;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.RiskFeedback;
 import com.donatodev.bcm_backend.entity.Users;
-import com.donatodev.bcm_backend.exception.AccessDeniedException;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.mapper.RiskFeedbackMapper;

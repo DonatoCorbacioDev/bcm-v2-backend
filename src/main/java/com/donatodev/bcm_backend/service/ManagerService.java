@@ -83,6 +83,8 @@ public class ManagerService {
      */
     public ManagerDTO createManager(ManagerDTO managerDTO) {
         Managers manager = managerMapper.toEntity(managerDTO);
+        // Creation must never merge an existing row selected by a client-supplied ID.
+        manager.setId(null);
         Long orgId = TenantContext.require();
         Organization org = new Organization();
         org.setId(orgId);

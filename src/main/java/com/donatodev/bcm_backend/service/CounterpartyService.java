@@ -120,6 +120,8 @@ public class CounterpartyService {
 
     public CounterpartyDTO createCounterparty(CounterpartyDTO dto) {
         Counterparty counterparty = counterpartyMapper.toEntity(dto);
+        // Creation must never merge an existing row selected by a client-supplied ID.
+        counterparty.setId(null);
         Long orgId = TenantContext.require();
         Organization org = new Organization();
         org.setId(orgId);
