@@ -420,12 +420,169 @@ class BolaAuthorizationMatrixTest {
         body = "{\"id\":" + victimId + "," + body.substring(1);
         var response = mvc.perform(post("/" + resource).header("Authorization", "Bearer " + adminToken)
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andReturn().getResponse();
-        assertThat(response.getStatus()).isIn(201,400);
+        assertThat(response.getStatus()).as(response.getContentAsString()).isEqualTo(201);
         if (response.getStatus() == 201) {
             assertThat(json.readTree(response.getContentAsString()).get("id").asLong()).isNotEqualTo(victimId);
         }
         flushAndClear();
         assertThat(jdbc.queryForMap("SELECT * FROM " + table + " WHERE id = ?", victimId)).isEqualTo(before);
+    }
+
+    // ── Same-tenant child/parent mismatch ──────────────────────────────────
+    // A foreign child under an own contract is refused by the tenant check
+    // alone; only a child of ANOTHER contract of the SAME organization proves
+    // that the child is looked up through its parent.
+
+    @ParameterizedTest(name = "colleague's child under own contract: {0}")
+    @MethodSource("childCases")
+    void childOfAnotherContractInSameTenantIsHidden(Route route) throws Exception {
+        Map<String, List<Map<String, Object>>> before = snapshot();
+        String path = resolve(route.path(), colleague, false).replaceFirst(
+                "/contracts/" + colleague.contract().getId() + "(?=/|$)", "/contracts/" + own.contract().getId());
+        mvc.perform(request(route, path).header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound());
+        flushAndClear();
+        assertThat(snapshot()).isEqualTo(before);
+        verifyNoInteractions(storage, ml);
+    }
+
+    // ── Positive cases on contract-scoped reads ────────────────────────────
+    // Without them an endpoint answering 404 to everybody would pass every
+    // refusal test above.
+
+    static Stream<Arguments> ownContractReadCases() {
+        return contractRoutes().stream().filter(r -> r.method().equals("GET") && r.managerAllowed())
+                .flatMap(r -> Stream.of(Arguments.of(r, false), Arguments.of(r, true)));
+    }
+
+    @ParameterizedTest(name = "own contract {0}, manager={1}")
+    @MethodSource("ownContractReadCases")
+    void ownContractReadsSucceed(Route route, boolean manager) throws Exception {
+        org.mockito.Mockito.when(storage.readDocument(org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn("%PDF-1.7\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        mvc.perform(request(route, own, false).header("Authorization", "Bearer " + (manager ? managerToken : adminToken)))
+                .andExpect(status().is2xxSuccessful());
+    }
+
+    // ── A plain manager and a colleague's own records ──────────────────────
+
+    static Stream<Arguments> colleagueRecordCases() {
+        return Stream.of("GET /financial-values", "PUT /financial-values", "GET /contract-history").map(Arguments::of);
+    }
+
+    @ParameterizedTest(name = "colleague record: {0}")
+    @MethodSource("colleagueRecordCases")
+    void plainManagerCannotReadOrChangeColleagueRecords(String operation) throws Exception {
+        Map<String, List<Map<String, Object>>> before = snapshot();
+        var builder = switch (operation) {
+            case "GET /financial-values" -> get("/financial-values/" + colleague.value().getId());
+            case "PUT /financial-values" -> put("/financial-values/" + colleague.value().getId())
+                    .contentType(MediaType.APPLICATION_JSON).content(financialBody(colleague, colleague, colleague));
+            default -> get("/contract-history/" + colleague.history().getId());
+        };
+        mvc.perform(builder.header("Authorization", "Bearer " + managerToken)).andExpect(status().isForbidden());
+        flushAndClear();
+        assertThat(snapshot()).isEqualTo(before);
+    }
+
+    // ── Aggregates must not move when another organization's data changes ─
+    // A total summed across organizations contains no foreign contract number,
+    // so "does not contain" checks cannot catch it: compare before and after.
+
+    static Stream<Arguments> aggregateCases() {
+        return Stream.of("/contracts/stats", "/contracts/stats/invoicing-summary", "/contracts/stats/by-area",
+                        "/contracts/stats/timeline", "/contracts/stats/top-managers", "/contracts/expiring?days=3650",
+                        "/home/attention", "/financial-values")
+                .flatMap(path -> Stream.of(Arguments.of(path, false), Arguments.of(path, true)));
+    }
+
+    @ParameterizedTest(name = "aggregate {0}, manager={1}")
+    @MethodSource("aggregateCases")
+    void aggregatesIgnoreOtherOrganizations(String path, boolean manager) throws Exception {
+        String token = "Bearer " + (manager ? managerToken : adminToken);
+        String first = mvc.perform(get(path).header("Authorization", token)).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        addForeignActivity();
+        String second = mvc.perform(get(path).header("Authorization", token)).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(second).isEqualTo(first);
+    }
+
+    /** More contracts, values and invoices in the foreign organization, some expiring soon. */
+    private void addForeignActivity() {
+        Organization other = em.find(Organization.class, foreign.org().getId());
+        Data more = data(other);
+        Contracts soon = persist(Contracts.builder().organization(other).manager(more.manager()).businessArea(more.area())
+                .counterparty(more.counterparty()).contractNumber(UUID.randomUUID().toString())
+                .startDate(LocalDate.now().minusMonths(6)).endDate(LocalDate.now().plusDays(10))
+                .status(ContractStatus.ACTIVE).workflowStage(WorkflowStage.DRAFT).build());
+        persist(FinancialValues.builder().organization(other).contract(soon).businessArea(more.area())
+                .financialType(more.type()).month(LocalDate.now().getMonthValue()).year(LocalDate.now().getYear())
+                .financialAmount(999_999).build());
+        persist(ElectronicInvoice.builder().contract(soon).orgId(other.getId()).storagePath(UUID.randomUUID() + ".xml")
+                .fileName("noise.xml").fileSize(1L).contentType("application/xml")
+                .totalAmount(BigDecimal.valueOf(999_999)).build());
+        flushAndClear();
+    }
+
+    // ── Lists of people and activity hold no foreign rows ──────────────────
+
+    static Stream<Arguments> peopleAndActivityLists() {
+        return Stream.of(
+                Arguments.of("/contract-history", false), Arguments.of("/managers", false), Arguments.of("/managers", true),
+                Arguments.of("/managers/search?q=Test", false), Arguments.of("/users", false),
+                Arguments.of("/users/search?q=", false), Arguments.of("/audit-logs", false),
+                Arguments.of("/notifications", false), Arguments.of("/notifications", true),
+                Arguments.of("/risk-feedback", false), Arguments.of("/risk-feedback", true));
+    }
+
+    @ParameterizedTest(name = "list {0}, manager={1}")
+    @MethodSource("peopleAndActivityLists")
+    void peopleAndActivityListsStayInScope(String path, boolean manager) throws Exception {
+        String marker = foreign.contract().getContractNumber();
+        Users foreignUser = em.find(Users.class, foreign.user().getId());
+        Contracts foreignContract = em.find(Contracts.class, foreign.contract().getId());
+        persist(Notification.builder().orgId(foreign.org().getId()).user(foreignUser).title(marker).message(marker).build());
+        persist(RiskFeedback.builder().contract(foreignContract).submittedBy(foreignUser).organizationId(foreign.org().getId())
+                .riskScore(0.9).riskLevel(marker.substring(0, 8)).agree(true).build());
+        persist(AuditLog.builder().action("UPDATE").entityType("Contracts").entityId(foreignContract.getId())
+                .username(foreignUser.getUsername()).orgId(foreign.org().getId()).details(marker).build());
+        flushAndClear();
+
+        String text = mvc.perform(get(path).header("Authorization", "Bearer " + (manager ? managerToken : adminToken)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(text).doesNotContain(marker, marker.substring(0, 8), foreignUser.getUsername());
+    }
+
+    // ── References to another organization in write bodies ─────────────────
+
+    static Stream<Arguments> foreignReferenceWrites() {
+        return Stream.of("create contract with foreign counterparty", "update contract with foreign counterparty",
+                "assign foreign manager", "create user with foreign manager",
+                "instantiate template with foreign counterparty").map(Arguments::of);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("foreignReferenceWrites")
+    void writesCannotReferenceAnotherOrganization(String scenario) throws Exception {
+        Map<String, List<Map<String, Object>>> before = snapshot();
+        String foreignCounterparty = payload("contracts").replace(
+                "\"counterpartyId\":" + own.counterparty().getId(), "\"counterpartyId\":" + foreign.counterparty().getId());
+        var builder = switch (scenario) {
+            case "create contract with foreign counterparty" -> post("/contracts").content(foreignCounterparty);
+            case "update contract with foreign counterparty" -> put("/contracts/" + own.contract().getId()).content(foreignCounterparty);
+            case "assign foreign manager" -> patch("/contracts/" + own.contract().getId() + "/assign-manager")
+                    .content("{\"managerId\":" + foreign.manager().getId() + "}");
+            case "create user with foreign manager" -> post("/users").content("{\"username\":\"" + UUID.randomUUID()
+                    + "\",\"password\":\"ValidPassword123!\",\"managerId\":" + foreign.manager().getId()
+                    + ",\"roleId\":" + admin.getRole().getId() + "}");
+            default -> post("/contract-templates/" + own.template().getId() + "/instantiate").content(foreignCounterparty);
+        };
+        int code = mvc.perform(builder.contentType(MediaType.APPLICATION_JSON).header("Authorization", "Bearer " + adminToken))
+                .andReturn().getResponse().getStatus();
+        assertThat(code).isIn(400, 404);
+        flushAndClear();
+        assertThat(snapshot()).isEqualTo(before);
     }
 
     private AbstractMockHttpServletRequestBuilder<?> request(Route route, Data target, boolean missing) {

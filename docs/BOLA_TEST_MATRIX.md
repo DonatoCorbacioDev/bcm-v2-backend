@@ -41,6 +41,12 @@ the same organization; this does not allow access across organizations.
 | Calendar feed | Explicit capability-token test without a JWT: only the token owner's contracts are present; invalid token is rejected |
 | Global roles | Explicit test preserves globally shared role metadata |
 | Internal organization operations | Ordinary tenant JWT cannot replace the separate internal API key |
+| Child of another contract in the same tenant | Documents, invoices and SEPA batches of a colleague's contract addressed through an own contract: 404 and no side effects (H2, and invoices on real MySQL). A foreign child alone would be refused by the tenant check and would not prove the parent lookup |
+| Positive controls | Own contract-scoped reads succeed for the assigned manager and for an admin, so an endpoint refusing everybody cannot pass the refusal tests |
+| Colleague's own records | A plain manager reading or updating a colleague's financial value, or reading a colleague's history entry: 403 and no side effects |
+| Aggregates | Contract statistics (totals, invoicing summary, by area, timeline, top managers), expiring contracts, home attention and the financial-value list are byte-identical before and after adding another organization's contracts, values and invoices |
+| People and activity lists | Contract history, managers (and search), users (and search), audit logs, notifications and risk feedback never show another organization's rows |
+| Foreign references in write bodies | Creating or updating a contract with a foreign counterparty, assigning a foreign manager, creating a user with a foreign manager and instantiating a template with a foreign counterparty are refused without changes |
 | MySQL | `BolaJwtMySQLIT`: same JWT parent/ownership checks with committed fixtures on the Flyway schema; no surrounding test transaction |
 
 The H2 matrix snapshots business tables before rejected operations and rereads
@@ -81,8 +87,20 @@ unchanged foreign resource; the implementation creates a new resource.
 The extended matrices define 349 H2 cases and 69 MySQL cases, including creation
 with a foreign ID and the separate workflow, calendar and internal-key rules.
 
-This document does not certify a completed BOLA audit or the standalone ML
-service. Production deployment is a separate authorization.
+A review of the matrix on 2026-11-09 found that it only proved part of what
+it claimed: the child/parent test used foreign children, contract-scoped reads
+had no positive control, creation tests also accepted a 400, aggregates and
+several lists were not checked, and some write references were tested only at
+unit level. The cases above close those gaps; with two deliberate code
+mutations (a child looked up by organization only, a statistic counted across
+organizations) the new cases fail, while the earlier ones still passed. The
+creation tests now require 201 with a freshly generated ID. The matrices define
+429 H2 cases and 70 MySQL cases.
+
+The standalone ML service fails closed on its own (bcm-v2-ml: no organization
+in the signed claims means 401, every query is scoped to the organization) and
+reads the database through a SELECT-only account limited to three tables.
+Production deployment is a separate authorization.
 
 ## Validation
 
@@ -90,8 +108,8 @@ Run the targeted matrices first, then `mvn verify` with Docker available, and
 `mvn spotbugs:check`. Do not replace real MySQL integration tests with H2-only
 results or disable failing authorization cases to obtain a green build.
 
-The final full verification on 2026-11-09 passed 2,263 ordinary tests and 126
-integration tests with no failures, errors or skipped tests, including all 349
-H2 matrix cases and all 69 JWT/MySQL cases. All findings documented above have
+The full verification after the review is recorded in the commit that added
+these cases; earlier on 2026-11-09 it passed 2,263 ordinary tests and 126
+integration tests, including the then 349 H2 and 69 JWT/MySQL cases. All findings documented above have
 implemented fixes. This is regression evidence for the covered surfaces, not a
 claim that unrelated OWASP categories or the standalone ML service were audited.

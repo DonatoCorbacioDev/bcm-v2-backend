@@ -39,7 +39,7 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
     @Autowired private JwtUtils jwt;
     @Autowired private PlatformTransactionManager transactions;
 
-    private record Target(Long contractId, Long valueId, Long historyId, Long budgetId) {}
+    private record Target(Long contractId, Long valueId, Long historyId, Long budgetId, Long invoiceId) {}
     private final List<Long> orgIds = new ArrayList<>();
     private Target own;
     private Target colleague;
@@ -71,6 +71,7 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
         for (Long id : orgIds) {
             jdbc.update("DELETE FROM contract_history WHERE contract_id IN (SELECT id FROM contracts WHERE organization_id = ?)", id);
         }
+        for (Long id : orgIds) jdbc.update("DELETE FROM electronic_invoices WHERE org_id = ?", id);
         for (String table : List.of("audit_logs", "financial_values", "budgets", "contracts", "users", "managers",
                 "counterparties", "business_areas", "financial_types", "organizations")) {
             String column = table.equals("organizations") ? "id" : table.equals("audit_logs") ? "org_id" : "organization_id";
@@ -164,6 +165,21 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
         assertThat(jdbc.queryForMap("SELECT * FROM " + table + " WHERE id = ?", victimId)).isEqualTo(before);
     }
 
+    /**
+     * A child (invoice) of another contract of the SAME organization, addressed
+     * through an own contract, must be hidden: a foreign child would be refused
+     * by the tenant check alone and would not prove the parent lookup.
+     */
+    @org.junit.jupiter.api.Test
+    void childOfAnotherContractInSameTenantIsHiddenOnRealMySQL() throws Exception {
+        mvc.perform(get("/contracts/" + own.contractId() + "/invoices/" + own.invoiceId())
+                .header("Authorization", "Bearer " + adminToken)).andExpect(status().isOk());
+        mvc.perform(get("/contracts/" + own.contractId() + "/invoices/" + colleague.invoiceId())
+                .header("Authorization", "Bearer " + adminToken)).andExpect(status().isNotFound());
+        mvc.perform(get("/contracts/" + own.contractId() + "/invoices/" + colleague.invoiceId())
+                .header("Authorization", "Bearer " + managerToken)).andExpect(status().isNotFound());
+    }
+
     private Organization organization() {
         Organization org = save(Organization.builder().name("BOLA MySQL").slug(UUID.randomUUID().toString()).build());
         orgIds.add(org.getId());
@@ -193,7 +209,10 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
                 .previousStatus(ContractStatus.DRAFT).newStatus(ContractStatus.ACTIVE).build());
         Budget budget = save(Budget.builder().organization(org).businessArea(area).category(FinancialCategory.REVENUE)
                 .year(2026).targetAmount(100).build());
-        return new Target(contract.getId(), value.getId(), history.getId(), budget.getId());
+        ElectronicInvoice invoice = save(ElectronicInvoice.builder().contract(contract).orgId(org.getId())
+                .storagePath(name + ".xml").fileName("invoice.xml").fileSize(1L).contentType("application/xml")
+                .totalAmount(java.math.BigDecimal.valueOf(100)).build());
+        return new Target(contract.getId(), value.getId(), history.getId(), budget.getId(), invoice.getId());
     }
 
     private <T> T save(T value) { em.persist(value); return value; }
