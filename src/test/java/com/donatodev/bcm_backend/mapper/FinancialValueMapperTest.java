@@ -49,6 +49,9 @@ class FinancialValueMapperTest {
     /** The organization every request carries (its token's); a test that needs another sets its own. */
     private static final Long TENANT = 1L;
 
+    /**
+     * Enters the test tenant and initializes the mocks before each test.
+     */
     @BeforeEach
     @SuppressWarnings("unused")
     void setUp() {
@@ -73,9 +76,6 @@ class FinancialValueMapperTest {
     @InjectMocks
     private FinancialValueMapper financialValueMapper;
 
-    /**
-     * Initializes mocks before each test.
-     */
     /**
      * Tests that a {@link FinancialValues} entity is correctly converted to
      * {@link FinancialValueDTO}.
