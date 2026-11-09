@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.support.TestTenant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.hamcrest.Matchers.containsString;
@@ -75,6 +77,11 @@ class OrganizationDeletionControllerTest {
 
     private Organization org;
 
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     void setup() {
         clearInvocations(emailService);
@@ -87,15 +94,17 @@ class OrganizationDeletionControllerTest {
 
         org = organizationRepository.save(Organization.builder()
                 .name(ORG_NAME).slug("delete-corp").subscriptionTier(SubscriptionTier.FREE).build());
+
+        TestTenant.use(org.getId());
         Roles admin = rolesRepository.save(Roles.builder().role("ADMIN").build());
         saveAdmin("delete-admin", "admin@delete.test", admin);
         saveAdmin("second-admin", "second@delete.test", admin);
     }
 
     private void saveAdmin(String username, String email, Roles role) {
-        Managers manager = managersRepository.save(Managers.builder()
+        Managers manager = managersRepository.save(Managers.builder().organization(org)
                 .firstName("Admin").lastName(username).email(email).organization(org).build());
-        usersRepository.save(Users.builder().username(username).passwordHash(passwordEncoder.encode(PASSWORD))
+        usersRepository.save(Users.builder().organization(org).username(username).passwordHash(passwordEncoder.encode(PASSWORD))
                 .verified(true).role(role).manager(manager).organization(org).build());
     }
 
@@ -206,7 +215,7 @@ class OrganizationDeletionControllerTest {
         @WithMockUser(username = "no-email-admin", roles = "ADMIN")
         @DisplayName("An admin with no email address can't receive the code")
         void requiresAnEmailAddress() throws Exception {
-            usersRepository.save(Users.builder().username("no-email-admin")
+            usersRepository.save(Users.builder().organization(org).username("no-email-admin")
                     .passwordHash(passwordEncoder.encode(PASSWORD)).verified(true)
                     .role(rolesRepository.findByRole("ADMIN").orElseThrow()).organization(org).build());
 
@@ -218,13 +227,14 @@ class OrganizationDeletionControllerTest {
 
         @Test
         @WithMockUser(username = "orphan-admin", roles = "ADMIN")
-        @DisplayName("A user with no organization gets 404")
+        @DisplayName("A request without an organization is refused")
         void requiresAnOrganization() throws Exception {
-            usersRepository.save(Users.builder().username("orphan-admin")
+            usersRepository.save(Users.builder().organization(org).username("orphan-admin")
                     .passwordHash(passwordEncoder.encode(PASSWORD)).verified(true)
                     .role(rolesRepository.findByRole("ADMIN").orElseThrow()).build());
 
-            requestDeletion(PASSWORD, ORG_NAME).andExpect(status().isNotFound());
+            TestTenant.clear();
+            requestDeletion(PASSWORD, ORG_NAME).andExpect(status().isForbidden());
         }
 
         @Test
@@ -245,7 +255,7 @@ class OrganizationDeletionControllerTest {
         @DisplayName("The right code schedules the deletion 30 days ahead and tells every admin")
         void schedulesDeletion() throws Exception {
             // An admin without an email address is skipped, not a reason to fail.
-            usersRepository.save(Users.builder().username("silent-admin")
+            usersRepository.save(Users.builder().organization(org).username("silent-admin")
                     .passwordHash(passwordEncoder.encode(PASSWORD)).verified(true)
                     .role(rolesRepository.findByRole("ADMIN").orElseThrow()).organization(org).build());
             String code = requestAndCaptureCode();

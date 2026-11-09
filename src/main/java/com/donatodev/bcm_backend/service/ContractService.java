@@ -130,18 +130,14 @@ public class ContractService {
     // tenant-scoped resolvers: another organization's counterparty, type or
     // area would otherwise show up (name, VAT number) on this tenant's contract.
     private Counterparty resolveCounterpartyForUpdate(Long counterpartyId) {
-        Long orgId = TenantContext.get();
-        return (orgId != null
-                ? counterpartiesRepository.findByIdAndOrganizationId(counterpartyId, orgId)
-                : counterpartiesRepository.findById(counterpartyId))
+        Long orgId = TenantContext.require();
+        return counterpartiesRepository.findByIdAndOrganizationId(counterpartyId, orgId)
                 .orElseThrow(() -> new CounterpartyNotFoundException("Controparte non trovata: " + counterpartyId));
     }
 
     private FinancialTypes resolveFinancialTypeForUpdate(Long financialTypeId) {
-        Long orgId = TenantContext.get();
-        return (orgId != null
-                ? financialTypesRepository.findByIdAndOrganizationId(financialTypeId, orgId)
-                : financialTypesRepository.findById(financialTypeId))
+        Long orgId = TenantContext.require();
+        return financialTypesRepository.findByIdAndOrganizationId(financialTypeId, orgId)
                 .orElseThrow(() -> new FinancialTypeNotFoundException("Tipo finanziario non trovato: " + financialTypeId));
     }
 
@@ -173,10 +169,8 @@ public class ContractService {
         logger.info("Authenticated user role: {}", safeRole);
 
         if (ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
-            Long orgId = TenantContext.get();
-            List<Contracts> contracts = (orgId != null)
-                    ? contractsRepository.findByOrganization_Id(orgId)
-                    : contractsRepository.findAll();
+            Long orgId = TenantContext.require();
+            List<Contracts> contracts = contractsRepository.findByOrganization_Id(orgId);
             return contracts.stream()
                     .map(contractMapper::toDTO)
                     .toList();
@@ -211,10 +205,8 @@ public class ContractService {
      * {@link TenantContext} carries an organization ID.
      */
     private Optional<Contracts> findContractInScope(Long id) {
-        Long orgId = TenantContext.get();
-        return (orgId != null)
-                ? contractsRepository.findByIdAndOrganization_Id(id, orgId)
-                : contractsRepository.findById(id);
+        Long orgId = TenantContext.require();
+        return contractsRepository.findByIdAndOrganization_Id(id, orgId);
     }
 
     /**
@@ -224,10 +216,8 @@ public class ContractService {
     public List<ContractDTO> getContractsByStatus(ContractStatus status) {
         AuthCtx auth = getAuthCtx();
         if (ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
-            Long orgId = TenantContext.get();
-            List<Contracts> contracts = (orgId != null)
-                    ? contractsRepository.findByStatusAndOrganization_Id(status, orgId)
-                    : contractsRepository.findByStatus(status);
+            Long orgId = TenantContext.require();
+            List<Contracts> contracts = contractsRepository.findByStatusAndOrganization_Id(status, orgId);
             return contracts.stream()
                     .map(contractMapper::toDTO)
                     .toList();
@@ -247,13 +237,11 @@ public class ContractService {
         if (contract == null) {
             throw new IllegalArgumentException("Dati contratto obbligatori");
         }
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         tierLimitService.enforceContractCreationLimit(orgId);
-        if (orgId != null) {
-            Organization org = new Organization();
-            org.setId(orgId);
-            contract.setOrganization(org);
-        }
+        Organization org = new Organization();
+        org.setId(orgId);
+        contract.setOrganization(org);
         contract = contractsRepository.save(contract);
         generateFinancialValuesIfApplicable(contract);
         return contractMapper.toDTO(contract);
@@ -296,10 +284,8 @@ public class ContractService {
         contractMapper.applyRenewalTerms(contract, contractDTO);
 
         if (contractDTO.areaId() != null) {
-            Long orgId = TenantContext.get();
-            BusinessAreas area = (orgId != null
-                    ? businessAreasRepository.findByIdAndOrganizationId(contractDTO.areaId(), orgId)
-                    : businessAreasRepository.findById(contractDTO.areaId()))
+            Long orgId = TenantContext.require();
+            BusinessAreas area = businessAreasRepository.findByIdAndOrganizationId(contractDTO.areaId(), orgId)
                     .orElseThrow(() -> new BusinessAreaNotFoundException("Area aziendale non trovata: " + contractDTO.areaId()));
             contract.setBusinessArea(area);
         }
@@ -406,20 +392,12 @@ public class ContractService {
             draft    = contractsRepository.countDraftContractsByManager(auth.managerId());
             return new ContractStatsResponse(total, active, expiring, expired, draft);
         }
-        Long orgId = TenantContext.get();
-        if (orgId != null) {
-            total    = contractsRepository.countAllContractsByOrg(orgId);
-            active   = contractsRepository.countActiveContractsByOrg(orgId);
-            expiring = contractsRepository.countExpiringContractsByOrg(thirtyDaysFromNow, orgId);
-            expired  = contractsRepository.countExpiredContractsByOrg(orgId);
-            draft    = contractsRepository.countDraftContractsByOrg(orgId);
-        } else {
-            total    = contractsRepository.countAllContracts();
-            active   = contractsRepository.countActiveContracts();
-            expiring = contractsRepository.countExpiringContracts(thirtyDaysFromNow);
-            expired  = contractsRepository.countExpiredContracts();
-            draft    = contractsRepository.countDraftContracts();
-        }
+        Long orgId = TenantContext.require();
+        total    = contractsRepository.countAllContractsByOrg(orgId);
+        active   = contractsRepository.countActiveContractsByOrg(orgId);
+        expiring = contractsRepository.countExpiringContractsByOrg(thirtyDaysFromNow, orgId);
+        expired  = contractsRepository.countExpiredContractsByOrg(orgId);
+        draft    = contractsRepository.countDraftContractsByOrg(orgId);
         return new ContractStatsResponse(total, active, expiring, expired, draft);
     }
 
@@ -444,14 +422,9 @@ public class ContractService {
             expectedYtd = financialValuesRepository.sumCostByManagerUpToMonth(auth.managerId(), year, month);
             invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByManagerIdAndYear(auth.managerId(), year).doubleValue();
         } else {
-            Long orgId = TenantContext.get();
-            if (orgId != null) {
-                expectedYtd = financialValuesRepository.sumCostByOrgUpToMonth(orgId, year, month);
-                invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByOrgIdAndYear(orgId, year).doubleValue();
-            } else {
-                expectedYtd = financialValuesRepository.sumCostUpToMonth(year, month);
-                invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByYear(year).doubleValue();
-            }
+            Long orgId = TenantContext.require();
+            expectedYtd = financialValuesRepository.sumCostByOrgUpToMonth(orgId, year, month);
+            invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByOrgIdAndYear(orgId, year).doubleValue();
         }
 
         double variance = invoicedYtd - expectedYtd;
@@ -480,10 +453,8 @@ public class ContractService {
                     ? List.of()
                     : contractsRepository.findExpiringContractsByManager(today, futureDate, auth.managerId());
         } else {
-            Long orgId = TenantContext.get();
-            expiring = (orgId != null)
-                    ? contractsRepository.findExpiringContractsByOrg(today, futureDate, orgId)
-                    : contractsRepository.findExpiringContracts(today, futureDate);
+            Long orgId = TenantContext.require();
+            expiring = contractsRepository.findExpiringContractsByOrg(today, futureDate, orgId);
         }
 
         return expiring.stream().map(contractMapper::toDTO).toList();
@@ -501,30 +472,10 @@ public class ContractService {
         AuthCtx auth = getAuthCtx();
 
         Page<Contracts> pageResult = ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))
-                ? searchPagedAdmin(TenantContext.get(), status, hasTerm, term, pageable)
+                ? searchPagedAdminForOrg(TenantContext.require(), status, hasTerm, term, pageable)
                 : searchPagedManager(auth.managerId(), status, hasTerm, term, pageable);
 
         return pageResult.map(contractMapper::toDTO);
-    }
-
-    private Page<Contracts> searchPagedAdmin(Long orgId, ContractStatus status, boolean hasTerm, String term, Pageable pageable) {
-        if (orgId != null) {
-            return searchPagedAdminForOrg(orgId, status, hasTerm, term, pageable);
-        }
-        if (status != null && hasTerm) {
-            // contractNumber OR nome controparte con stesso status
-            return contractsRepository
-                    .findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCounterpartyNameContainingIgnoreCase(
-                            status, term, status, term, pageable);
-        } else if (status != null) {
-            return contractsRepository.findByStatus(status, pageable);
-        } else if (hasTerm) {
-            return contractsRepository
-                    .findByContractNumberContainingIgnoreCaseOrCounterpartyNameContainingIgnoreCase(
-                            term, term, pageable);
-        } else {
-            return contractsRepository.findAllBy(pageable);
-        }
     }
 
     private Page<Contracts> searchPagedAdminForOrg(Long orgId, ContractStatus status, boolean hasTerm, String term, Pageable pageable) {
@@ -611,10 +562,8 @@ public class ContractService {
                     ? List.of()
                     : contractsRepository.countContractsByAreaAndManager(auth.managerId());
         }
-        Long orgId = TenantContext.get();
-        return (orgId != null)
-                ? contractsRepository.countContractsByAreaAndOrg(orgId)
-                : contractsRepository.countContractsByArea();
+        Long orgId = TenantContext.require();
+        return contractsRepository.countContractsByAreaAndOrg(orgId);
     }
 
     /**
@@ -639,10 +588,8 @@ public class ContractService {
                     ? List.of()
                     : contractsRepository.countContractsByMonthAndManager(windowStart, auth.managerId());
         } else {
-            Long orgId = TenantContext.get();
-            results = (orgId != null)
-                    ? contractsRepository.countContractsByMonthAndOrg(windowStart, orgId)
-                    : contractsRepository.countContractsByMonth(windowStart);
+            Long orgId = TenantContext.require();
+            results = contractsRepository.countContractsByMonthAndOrg(windowStart, orgId);
         }
 
         Map<YearMonth, Long> countsByMonth = new LinkedHashMap<>();
@@ -676,10 +623,8 @@ public class ContractService {
                     : contractsRepository.findTopManagerForManager(auth.managerId());
         }
         Pageable topFive = PageRequest.of(0, 5);
-        Long orgId = TenantContext.get();
-        return (orgId != null)
-                ? contractsRepository.findTopManagersByOrg(topFive, orgId)
-                : contractsRepository.findTopManagers(topFive);
+        Long orgId = TenantContext.require();
+        return contractsRepository.findTopManagersByOrg(topFive, orgId);
     }
 
     // -----------------------

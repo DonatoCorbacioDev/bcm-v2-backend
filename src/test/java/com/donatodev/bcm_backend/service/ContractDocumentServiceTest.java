@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.config.TenantContext;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
@@ -47,6 +49,19 @@ import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
 class ContractDocumentServiceTest {
+
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
 
     @Mock private ContractDocumentRepository documentRepository;
     @Mock private ContractAccessGuard contractAccessGuard;

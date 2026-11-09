@@ -1,5 +1,10 @@
 package com.donatodev.bcm_backend.mapper;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.config.TenantContext;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,6 +45,19 @@ import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
  */
 @ActiveProfiles("test")
 class FinancialValueMapperTest {
+
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
 
     @Mock
     private FinancialTypesRepository financialTypesRepository;
@@ -129,24 +147,13 @@ class FinancialValueMapperTest {
     }
 
     @Test
-    @DisplayName("Convert DTO to entity falls back to an unscoped lookup when orgId is null")
+    @DisplayName("Without an organization nothing is resolved: no lookup across organizations")
     void shouldConvertToEntityWithoutOrgScope() {
-        FinancialTypes type = FinancialTypes.builder().id(1L).build();
-        BusinessAreas area = BusinessAreas.builder().id(2L).build();
-        Contracts contract = Contracts.builder().id(3L).build();
-
         FinancialValueDTO dto = new FinancialValueDTO(
                 10L, 5, 2025, 1500.0, 1L, 2L, 3L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
-        when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(type));
-        when(businessAreaRepository.findById(2L)).thenReturn(Optional.of(area));
-        when(contractsRepository.findById(3L)).thenReturn(Optional.of(contract));
-
-        FinancialValues entity = financialValueMapper.toEntity(dto, null);
-
-        assertEquals(type, entity.getFinancialType());
-        assertEquals(area, entity.getBusinessArea());
-        assertEquals(contract, entity.getContract());
+        assertThrows(FinancialTypeNotFoundException.class, () -> financialValueMapper.toEntity(dto, null));
+        verify(financialTypesRepository, never()).findById(any());
     }
 
     /**

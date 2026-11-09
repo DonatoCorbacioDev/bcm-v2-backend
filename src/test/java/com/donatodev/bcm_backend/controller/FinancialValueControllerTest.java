@@ -1,5 +1,9 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.support.TestTenant;
+import com.donatodev.bcm_backend.repository.OrganizationRepository;
+import com.donatodev.bcm_backend.entity.Organization;
 import java.time.LocalDate;
 import java.time.Month;
 
@@ -68,6 +72,12 @@ import tools.jackson.databind.ObjectMapper;
 class FinancialValueControllerTest {
 
     @Autowired
+    private OrganizationRepository organizationRepository;
+
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
+
+    @Autowired
     private MockMvc mockMvc;
 
     @Autowired
@@ -103,10 +113,18 @@ class FinancialValueControllerTest {
     /**
      * Clears the test database before each test run.
      */
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     @SuppressWarnings("unused")
     void cleanDb() {
         testDataCleaner.clean();
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        TestTenant.use(testOrg.getId());
     }
 
     /**
@@ -118,7 +136,7 @@ class FinancialValueControllerTest {
      */
     private Users createAdminWithManager(Managers manager) {
         Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
-        return usersRepository.save(Users.builder()
+        return usersRepository.save(Users.builder().organization(testOrg)
                 .username("admin")
                 .passwordHash("admin")
                 .role(role)
@@ -133,7 +151,7 @@ class FinancialValueControllerTest {
      * @return the persisted manager
      */
     private Managers createManager() {
-        return managersRepository.save(Managers.builder()
+        return managersRepository.save(Managers.builder().organization(testOrg)
                 .firstName("Test")
                 .lastName("Manager")
                 .email("test.manager." + System.currentTimeMillis() + "@example.com")
@@ -149,11 +167,11 @@ class FinancialValueControllerTest {
      * @return the persisted contract
      */
     private Contracts createContract(BusinessAreas area, Managers manager) {
-        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder()
+        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(testOrg)
                 .name("Customer " + System.currentTimeMillis())
                 .type(CounterpartyType.CUSTOMER)
                 .build());
-        return contractsRepository.save(Contracts.builder()
+        return contractsRepository.save(Contracts.builder().organization(testOrg)
                 .counterparty(counterparty)
                 .contractNumber("CONTRACT-" + System.currentTimeMillis())
                 .businessArea(area)
@@ -180,12 +198,12 @@ class FinancialValueControllerTest {
         @DisplayName("The new financial value has been created")
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldCreateFinancialValue() throws Exception {
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Technology")
                     .description("IT Solutions")
                     .build());
 
-            FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder()
+            FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder().organization(testOrg)
                     .name("SALES")
                     .description("Sales Revenue").category(FinancialCategory.REVENUE)
                     .build());
@@ -229,12 +247,12 @@ class FinancialValueControllerTest {
         @DisplayName("The financial value with given ID has been retrieved successfully")
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldGetFinancialValueById() throws Exception {
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Marketing")
                     .description("Marketing Department")
                     .build());
 
-            FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder()
+            FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder().organization(testOrg)
                     .name("COSTS")
                     .description("Operational Costs").category(FinancialCategory.COST)
                     .build());
@@ -243,7 +261,7 @@ class FinancialValueControllerTest {
             Contracts contract = createContract(area, manager);
             createAdminWithManager(manager);
 
-            FinancialValues value = financialValuesRepository.save(FinancialValues.builder()
+            FinancialValues value = financialValuesRepository.save(FinancialValues.builder().organization(testOrg)
                     .month(6)
                     .year(2025)
                     .financialAmount(5000.00)
@@ -268,12 +286,12 @@ class FinancialValueControllerTest {
         @DisplayName("The financial value has been updated successfully")
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldUpdateFinancialValue() throws Exception {
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Finance")
                     .description("Financial Department")
                     .build());
 
-            FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder()
+            FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder().organization(testOrg)
                     .name("INVESTMENTS")
                     .description("Capital Investments").category(FinancialCategory.COST)
                     .build());
@@ -282,7 +300,7 @@ class FinancialValueControllerTest {
             Contracts contract = createContract(area, manager);
             createAdminWithManager(manager);
 
-            FinancialValues original = financialValuesRepository.save(FinancialValues.builder()
+            FinancialValues original = financialValuesRepository.save(FinancialValues.builder().organization(testOrg)
                     .month(7)
                     .year(2025)
                     .financialAmount(2000.00)
@@ -313,12 +331,12 @@ class FinancialValueControllerTest {
         @DisplayName("The financial value has been deleted successfully")
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldDeleteFinancialValue() throws Exception {
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Operations")
                     .description("Operational Activities")
                     .build());
 
-            FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder()
+            FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder().organization(testOrg)
                     .name("EXPENSES")
                     .description("Monthly Expenses").category(FinancialCategory.COST)
                     .build());
@@ -327,7 +345,7 @@ class FinancialValueControllerTest {
             Contracts contract = createContract(area, manager);
             createAdminWithManager(manager);
 
-            FinancialValues toDelete = financialValuesRepository.save(FinancialValues.builder()
+            FinancialValues toDelete = financialValuesRepository.save(FinancialValues.builder().organization(testOrg)
                     .month(9)
                     .year(2025)
                     .financialAmount(1500.00)
@@ -359,12 +377,12 @@ class FinancialValueControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldGetValuesByContract() throws Exception {
             // Create area and type FIRST
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Sales")
                     .description("Sales Department")
                     .build());
 
-            FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder()
+            FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder().organization(testOrg)
                     .name("Revenue")
                     .description("Revenue Type").category(FinancialCategory.REVENUE)
                     .build());
@@ -373,8 +391,8 @@ class FinancialValueControllerTest {
             Managers manager = createManager();
 
             // Create contract with area and manager
-            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Client").type(CounterpartyType.CUSTOMER).build());
-            Contracts contract = contractsRepository.save(Contracts.builder()
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Client").type(CounterpartyType.CUSTOMER).build());
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
                     .counterparty(counterparty)
                     .contractNumber("C123")
                     .wbsCode("WBS")
@@ -387,7 +405,7 @@ class FinancialValueControllerTest {
                     .build());
 
             // Create financial value
-            FinancialValues value = financialValuesRepository.save(FinancialValues.builder()
+            FinancialValues value = financialValuesRepository.save(FinancialValues.builder().organization(testOrg)
                     .contract(contract)
                     .financialType(type)
                     .businessArea(area)

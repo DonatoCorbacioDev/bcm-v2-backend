@@ -105,13 +105,9 @@ public class ContractImportService {
             throw new IllegalArgumentException("Sono supportati solo file .xlsx");
         }
 
-        Long orgId = TenantContext.get();
-        List<BusinessAreas> areas = (orgId != null)
-                ? businessAreasRepository.findAllByOrganizationId(orgId)
-                : businessAreasRepository.findAll();
-        List<Managers> managers = (orgId != null)
-                ? managersRepository.findAllByOrganizationId(orgId)
-                : managersRepository.findAll();
+        Long orgId = TenantContext.require();
+        List<BusinessAreas> areas = businessAreasRepository.findAllByOrganizationId(orgId);
+        List<Managers> managers = managersRepository.findAllByOrganizationId(orgId);
 
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
             if (workbook.getNumberOfSheets() == 0) {

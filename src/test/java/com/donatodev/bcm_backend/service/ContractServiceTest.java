@@ -130,9 +130,13 @@ class ContractServiceTest {
     @InjectMocks
     private ContractService contractService;
 
+    /** The organization every request carries (its token's); tests that need another set their own. */
+    private static final Long TENANT = 1L;
+
     @org.junit.jupiter.api.BeforeEach
     @SuppressWarnings("unused")
     void stubCommonLookups() {
+        TenantContext.set(TENANT);
         // create/updateContract() always check hasFinancialTerms() before
         // deciding whether to generate; none of this file's fixtures set
         // financial terms, so this always returns false unless a specific
@@ -144,7 +148,7 @@ class ContractServiceTest {
         // fixtures across this file all use counterpartyId 1L (see the
         // ContractDTO construction after the Counterparty refactor), so one
         // lenient stub here covers them instead of repeating it per test.
-        org.mockito.Mockito.lenient().when(counterpartiesRepository.findById(org.mockito.ArgumentMatchers.any()))
+        org.mockito.Mockito.lenient().when(counterpartiesRepository.findByIdAndOrganizationId(org.mockito.ArgumentMatchers.any(), eq(TENANT)))
                 .thenAnswer(inv -> Optional.of(com.donatodev.bcm_backend.entity.Counterparty.builder()
                         .id(inv.getArgument(0, Long.class))
                         .name("Any")
@@ -156,6 +160,7 @@ class ContractServiceTest {
     @SuppressWarnings("unused")
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+        TenantContext.clear();
     }
 
     private void mockAuthentication(String username, String role) {
@@ -200,7 +205,7 @@ class ContractServiceTest {
             mockAuthentication("admin", "ADMIN");
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findAll()).thenReturn(List.of(entity));
+            when(contractsRepository.findByOrganization_Id(TENANT)).thenReturn(List.of(entity));
             when(contractMapper.toDTO(entity)).thenReturn(dto);
 
             List<ContractDTO> result = contractService.getAllContracts();
@@ -227,7 +232,7 @@ class ContractServiceTest {
             ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Mario", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "ABC123", "WBS001", "Progetto",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
             ContractDTO result = contractService.getContractById(1L);
@@ -252,7 +257,7 @@ class ContractServiceTest {
             ContractDTO dto = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "Mario", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "ABC123", "WBS001", "Progetto",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 5L, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
             ContractDTO result = contractService.getContractById(1L);
@@ -275,7 +280,7 @@ class ContractServiceTest {
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
 
             Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Mario").type(CounterpartyType.CUSTOMER).build()).manager(otherManager).build();
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
 
             assertThrows(org.springframework.security.access.AccessDeniedException.class,
                     () -> contractService.getContractById(1L));
@@ -293,7 +298,7 @@ class ContractServiceTest {
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
 
             Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Mario").type(CounterpartyType.CUSTOMER).build()).build();
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
 
             assertThrows(org.springframework.security.access.AccessDeniedException.class,
                     () -> contractService.getContractById(1L));
@@ -313,7 +318,7 @@ class ContractServiceTest {
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(managerUser));
 
             Contracts contract = Contracts.builder().id(1L).counterparty(Counterparty.builder().name("Mario").type(CounterpartyType.CUSTOMER).build()).build();
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
 
             assertThrows(org.springframework.security.access.AccessDeniedException.class,
                     () -> contractService.getContractById(1L));
@@ -327,7 +332,7 @@ class ContractServiceTest {
         @Order(3)
         @DisplayName("Get contract by ID throws exception if not found")
         void shouldThrowWhenContractNotFound() {
-            when(contractsRepository.findById(999L)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(999L, TENANT)).thenReturn(Optional.empty());
             ContractNotFoundException ex
                     = assertThrows(ContractNotFoundException.class, () -> contractService.getContractById(999L));
             assertEquals("Contratto ID 999 non trovato", ex.getMessage());
@@ -391,11 +396,11 @@ class ContractServiceTest {
             ContractDTO updateDTO = new ContractDTO(1L, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "UpdatedClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "NEW123", "WBSNEW", "NewProject",
                     ContractStatus.EXPIRED, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(5), 1L, 1L, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(adminUser));
             when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
-            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
+            when(businessAreasRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
 
             ContractDTO result = contractService.updateContract(1L, updateDTO);
 
@@ -422,8 +427,8 @@ class ContractServiceTest {
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(5), null, null, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
-            when(counterpartiesRepository.findById(999L)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
+            when(counterpartiesRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             assertThrows(CounterpartyNotFoundException.class, () -> contractService.updateContract(1L, updateDTO));
         }
@@ -445,8 +450,8 @@ class ContractServiceTest {
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(5), null, null, null, null, null, null, null,
                     999L, 12000.0, com.donatodev.bcm_backend.entity.BillingFrequency.MONTHLY);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
-            when(financialTypesRepository.findById(999L)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
+            when(financialTypesRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             assertThrows(FinancialTypeNotFoundException.class, () -> contractService.updateContract(1L, updateDTO));
         }
@@ -468,9 +473,9 @@ class ContractServiceTest {
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(5), null, null, null, null, null, null, null,
                     7L, 12000.0, com.donatodev.bcm_backend.entity.BillingFrequency.MONTHLY);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
-            when(financialTypesRepository.findById(7L)).thenReturn(Optional.of(
+            when(financialTypesRepository.findByIdAndOrganizationId(7L, TENANT)).thenReturn(Optional.of(
                     com.donatodev.bcm_backend.entity.FinancialTypes.builder().id(7L)
                             .name("Vendite").category(com.donatodev.bcm_backend.entity.FinancialCategory.REVENUE).build()));
             when(contractFinancialGenerationService.hasFinancialTerms(existing)).thenReturn(true);
@@ -505,9 +510,9 @@ class ContractServiceTest {
                     ContractStatus.ACTIVE, start, end, null, null, null, null, null, null, null,
                     7L, 2000.0, com.donatodev.bcm_backend.entity.BillingFrequency.MONTHLY);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
-            when(financialTypesRepository.findById(7L)).thenReturn(Optional.of(financialType));
+            when(financialTypesRepository.findByIdAndOrganizationId(7L, TENANT)).thenReturn(Optional.of(financialType));
 
             contractService.updateContract(1L, updateDTO);
 
@@ -539,9 +544,9 @@ class ContractServiceTest {
                     ContractStatus.ACTIVE, start, end, null, null, null, null, null, null, null,
                     7L, 1000.0, com.donatodev.bcm_backend.entity.BillingFrequency.QUARTERLY);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
-            when(financialTypesRepository.findById(7L)).thenReturn(Optional.of(financialType));
+            when(financialTypesRepository.findByIdAndOrganizationId(7L, TENANT)).thenReturn(Optional.of(financialType));
 
             contractService.updateContract(1L, updateDTO);
 
@@ -568,7 +573,7 @@ class ContractServiceTest {
             ContractDTO updateDTO = new ContractDTO(1L, 1L, null, "CNTR-NOCHANGE", null, "Renamed",
                     ContractStatus.ACTIVE, start, end, null, null, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
 
             contractService.updateContract(1L, updateDTO);
@@ -592,7 +597,7 @@ class ContractServiceTest {
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(20), null, null, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
             when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
             when(contractFinancialGenerationService.hasFinancialTerms(existing)).thenReturn(true);
@@ -619,7 +624,7 @@ class ContractServiceTest {
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(20), null, null, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
             when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
             when(contractFinancialGenerationService.hasFinancialTerms(existing)).thenReturn(true);
@@ -653,7 +658,7 @@ class ContractServiceTest {
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(5), 1L, 1L, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
 
             assertThrows(IllegalArgumentException.class, () -> contractService.updateContract(1L, updateDTO));
             verify(contractsRepository, never()).save(any());
@@ -677,7 +682,7 @@ class ContractServiceTest {
                     ContractStatus.DRAFT, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(5), null, null, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
             when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
 
@@ -714,10 +719,10 @@ class ContractServiceTest {
                     ContractStatus.DRAFT, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
             when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
-            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
+            when(businessAreasRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
 
             contractService.updateContract(1L, updateDTO);
 
@@ -751,10 +756,10 @@ class ContractServiceTest {
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
             when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
-            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
+            when(businessAreasRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
 
             contractService.updateContract(1L, updateDTO);
 
@@ -783,10 +788,10 @@ class ContractServiceTest {
                     ContractStatus.DRAFT, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
             when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
-            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
+            when(businessAreasRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
 
             contractService.updateContract(1L, updateDTO);
 
@@ -818,10 +823,10 @@ class ContractServiceTest {
             Managers newManager = Managers.builder().id(5L).firstName("Mario").lastName("Rossi").build();
             BusinessAreas newArea = BusinessAreas.builder().id(2L).name("Sales").build();
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
             when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
-            when(businessAreasRepository.findById(2L)).thenReturn(Optional.of(newArea));
+            when(businessAreasRepository.findByIdAndOrganizationId(2L, TENANT)).thenReturn(Optional.of(newArea));
             when(managerService.getManagerEntity(5L)).thenReturn(newManager);
 
             contractService.updateContract(1L, updateDTO);
@@ -853,10 +858,10 @@ class ContractServiceTest {
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, null, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
             when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
-            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
+            when(businessAreasRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
 
             contractService.updateContract(1L, updateDTO);
 
@@ -885,8 +890,8 @@ class ContractServiceTest {
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 999L, null, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
-            when(businessAreasRepository.findById(999L)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
+            when(businessAreasRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             assertThrows(BusinessAreaNotFoundException.class, () -> contractService.updateContract(1L, updateDTO));
             verify(contractsRepository, never()).save(any());
@@ -901,7 +906,7 @@ class ContractServiceTest {
         @DisplayName("Delete contract calls repository")
         void shouldDeleteContract() {
             Contracts contract = Contracts.builder().id(1L).build();
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
 
             contractService.deleteContract(1L);
 
@@ -916,7 +921,7 @@ class ContractServiceTest {
         @Order(30)
         @DisplayName("Delete contract throws when contract not found")
         void shouldThrowWhenDeletingMissingContract() {
-            when(contractsRepository.findById(1L)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.empty());
 
             assertThrows(ContractNotFoundException.class, () -> contractService.deleteContract(1L));
         }
@@ -1051,7 +1056,7 @@ class ContractServiceTest {
                             .role(Roles.builder().role("ADMIN").build())
                             .build()));
 
-            when(contractsRepository.findAll()).thenReturn(List.of());
+            when(contractsRepository.findByOrganization_Id(TENANT)).thenReturn(List.of());
 
             List<ContractDTO> result = contractService.getAllContracts();
 
@@ -1124,7 +1129,7 @@ class ContractServiceTest {
             ContractDTO dto = new ContractDTO(contractId, 1L, new com.donatodev.bcm_backend.dto.CounterpartyDTO(1L, "x", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "x", "x", "x",
                     ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(5), 1L, 1L, null, null, null, null);
 
-            when(contractsRepository.findById(contractId)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(contractId, TENANT)).thenReturn(Optional.empty());
 
             ContractNotFoundException ex
                     = assertThrows(ContractNotFoundException.class, () -> contractService.updateContract(contractId, dto));
@@ -1152,7 +1157,7 @@ class ContractServiceTest {
             mockAuthentication("admin", "ADMIN");
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findByStatus(ContractStatus.ACTIVE)).thenReturn(List.of(contract));
+            when(contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, TENANT)).thenReturn(List.of(contract));
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
             List<ContractDTO> result = contractService.getContractsByStatus(ContractStatus.ACTIVE);
@@ -1166,11 +1171,11 @@ class ContractServiceTest {
         @DisplayName("Get contract stats returns correct counts")
         void shouldGetContractStats() {
             mockAdminAuth();
-            when(contractsRepository.countAllContracts()).thenReturn(100);
-            when(contractsRepository.countActiveContracts()).thenReturn(50);
-            when(contractsRepository.countExpiringContracts(any(LocalDate.class))).thenReturn(30);
-            when(contractsRepository.countExpiredContracts()).thenReturn(20);
-            when(contractsRepository.countDraftContracts()).thenReturn(10);
+            when(contractsRepository.countAllContractsByOrg(TENANT)).thenReturn(100);
+            when(contractsRepository.countActiveContractsByOrg(TENANT)).thenReturn(50);
+            when(contractsRepository.countExpiringContractsByOrg(any(LocalDate.class), eq(TENANT))).thenReturn(30);
+            when(contractsRepository.countExpiredContractsByOrg(TENANT)).thenReturn(20);
+            when(contractsRepository.countDraftContractsByOrg(TENANT)).thenReturn(10);
 
             ContractStatsResponse result = contractService.getContractStats();
 
@@ -1211,8 +1216,8 @@ class ContractServiceTest {
         void shouldGetInvoicingSummaryAsAdminWithoutTenant() {
             mockAdminAuth();
             int year = java.time.Year.now().getValue();
-            when(financialValuesRepository.sumCostUpToMonth(year, java.time.LocalDate.now().getMonthValue())).thenReturn(5000.0);
-            when(invoiceRepository.sumConfirmedInvoicedAmountByYear(year)).thenReturn(new java.math.BigDecimal("5000.00"));
+            when(financialValuesRepository.sumCostByOrgUpToMonth(TENANT, year, java.time.LocalDate.now().getMonthValue())).thenReturn(5000.0);
+            when(invoiceRepository.sumConfirmedInvoicedAmountByOrgIdAndYear(TENANT, year)).thenReturn(new java.math.BigDecimal("5000.00"));
 
             com.donatodev.bcm_backend.dto.OrganizationInvoicingSummaryDTO result = contractService.getInvoicingSummary();
 
@@ -1275,7 +1280,7 @@ class ContractServiceTest {
             Contracts contract = Contracts.builder().id(contractId).build();
             Managers manager = Managers.builder().id(managerId).build();
 
-            when(contractsRepository.findById(contractId)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(contractId, TENANT)).thenReturn(Optional.of(contract));
             when(managerService.getManagerEntity(managerId)).thenReturn(manager);
             when(contractsRepository.save(contract)).thenReturn(contract);
 
@@ -1289,7 +1294,7 @@ class ContractServiceTest {
         @Order(20)
         @DisplayName("Assign manager throws when contract not found")
         void shouldThrowWhenAssigningManagerToNonExistentContract() {
-            when(contractsRepository.findById(999L)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(999L, TENANT)).thenReturn(Optional.empty());
 
             IllegalArgumentException ex
                     = assertThrows(IllegalArgumentException.class,
@@ -1303,7 +1308,7 @@ class ContractServiceTest {
         void shouldThrowWhenAssigningNonExistentManager() {
             Contracts contract = Contracts.builder().id(1L).build();
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
             when(managerService.getManagerEntity(999L)).thenReturn(null);
 
             ManagerNotFoundException ex
@@ -1320,7 +1325,7 @@ class ContractServiceTest {
             Contracts contract = Contracts.builder().id(contractId).build();
             List<Long> managerIds = List.of(10L, 20L, 30L);
 
-            when(contractsRepository.findById(contractId)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(contractId, TENANT)).thenReturn(Optional.of(contract));
             when(contractManagerRepository.findManagerIdsByContractId(contractId)).thenReturn(managerIds);
 
             List<Long> result = contractService.getCollaboratorIds(contractId);
@@ -1336,7 +1341,7 @@ class ContractServiceTest {
         @Order(23)
         @DisplayName("Get collaborator IDs throws when contract not found")
         void shouldThrowWhenGettingCollaboratorIdsForNonExistentContract() {
-            when(contractsRepository.findById(999L)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(999L, TENANT)).thenReturn(Optional.empty());
 
             ContractNotFoundException ex
                     = assertThrows(ContractNotFoundException.class,
@@ -1352,7 +1357,7 @@ class ContractServiceTest {
             List<Long> managerIds = List.of(5L, 10L, 15L);
             Contracts contract = Contracts.builder().id(contractId).build();
 
-            when(contractsRepository.findById(contractId)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(contractId, TENANT)).thenReturn(Optional.of(contract));
 
             contractService.setCollaborators(contractId, managerIds);
 
@@ -1369,7 +1374,7 @@ class ContractServiceTest {
             Long contractId = 1L;
             Contracts contract = Contracts.builder().id(contractId).build();
 
-            when(contractsRepository.findById(contractId)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(contractId, TENANT)).thenReturn(Optional.of(contract));
 
             contractService.setCollaborators(contractId, null);
 
@@ -1381,7 +1386,7 @@ class ContractServiceTest {
         @Order(26)
         @DisplayName("Set collaborators throws when contract not found")
         void shouldThrowWhenSettingCollaboratorsForNonExistentContract() {
-            when(contractsRepository.findById(999L)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(999L, TENANT)).thenReturn(Optional.empty());
 
             List<Long> managerIds = List.of(1L, 2L);
 
@@ -1417,15 +1422,13 @@ class ContractServiceTest {
             // Mock repository based on expected method
             switch (expectedRepoMethod) {
                 case "findAllBy" ->
-                    when(contractsRepository.findAllBy(any(Pageable.class))).thenReturn(page);
+                    when(contractsRepository.findByOrganization_Id(eq(TENANT), any(Pageable.class))).thenReturn(page);
                 case "findByStatus" ->
-                    when(contractsRepository.findByStatus(eq(status), any(Pageable.class))).thenReturn(page);
+                    when(contractsRepository.findByStatusAndOrganization_Id(eq(status), eq(TENANT), any(Pageable.class))).thenReturn(page);
                 case "findByTerm" ->
-                    when(contractsRepository.findByContractNumberContainingIgnoreCaseOrCounterpartyNameContainingIgnoreCase(
-                            eq(searchTerm), eq(searchTerm), any(Pageable.class))).thenReturn(page);
+                    when(contractsRepository.findByOrgAndTerm(eq(TENANT), eq(searchTerm), any(Pageable.class))).thenReturn(page);
                 case "findByStatusAndTerm" ->
-                    when(contractsRepository.findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCounterpartyNameContainingIgnoreCase(
-                            eq(status), eq(searchTerm), eq(status), eq(searchTerm), any(Pageable.class))).thenReturn(page);
+                    when(contractsRepository.findByOrgAndStatusAndTerm(eq(TENANT), eq(status), eq(searchTerm), any(Pageable.class))).thenReturn(page);
                 default ->
                     throw new IllegalArgumentException("Unexpected repository method: " + expectedRepoMethod);
             }
@@ -1465,14 +1468,14 @@ class ContractServiceTest {
 
             mockAuthentication("admin", "ADMIN");
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findByStatus(eq(ContractStatus.ACTIVE), any(Pageable.class)))
+            when(contractsRepository.findByStatusAndOrganization_Id(eq(ContractStatus.ACTIVE), eq(TENANT), any(Pageable.class)))
                     .thenReturn(page);
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
             Page<ContractDTO> result = contractService.searchPaged(null, ContractStatus.ACTIVE, 0, 10);
 
             assertEquals(1, result.getTotalElements());
-            verify(contractsRepository).findByStatus(eq(ContractStatus.ACTIVE), any(Pageable.class));
+            verify(contractsRepository).findByStatusAndOrganization_Id(eq(ContractStatus.ACTIVE), eq(TENANT), any(Pageable.class));
         }
 
         @Test
@@ -1492,8 +1495,7 @@ class ContractServiceTest {
 
             mockAuthentication("admin", "ADMIN");
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findByContractNumberContainingIgnoreCaseOrCounterpartyNameContainingIgnoreCase(
-                    eq("test"), eq("test"), any(Pageable.class))).thenReturn(page);
+            when(contractsRepository.findByOrgAndTerm(eq(TENANT), eq("test"), any(Pageable.class))).thenReturn(page);
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
             Page<ContractDTO> result = contractService.searchPaged("test", null, 0, 10);
@@ -1518,8 +1520,7 @@ class ContractServiceTest {
 
             mockAuthentication("admin", "ADMIN");
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCounterpartyNameContainingIgnoreCase(
-                    eq(ContractStatus.ACTIVE), eq("test"), eq(ContractStatus.ACTIVE), eq("test"), any(Pageable.class)))
+            when(contractsRepository.findByOrgAndStatusAndTerm(eq(TENANT), eq(ContractStatus.ACTIVE), eq("test"), any(Pageable.class)))
                     .thenReturn(page);
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
@@ -1713,14 +1714,14 @@ class ContractServiceTest {
 
             mockAuthentication("admin", "ADMIN");
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findAllBy(any(Pageable.class))).thenReturn(page);
+            when(contractsRepository.findByOrganization_Id(eq(TENANT), any(Pageable.class))).thenReturn(page);
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
             // This should trigger the ADMIN branch in getAuthCtx where managerId becomes null
             Page<ContractDTO> result = contractService.searchPaged(null, null, 0, 10);
 
             assertEquals(1, result.getTotalElements());
-            verify(contractsRepository).findAllBy(any(Pageable.class));
+            verify(contractsRepository).findByOrganization_Id(eq(TENANT), any(Pageable.class));
         }
 
         @Test
@@ -1740,14 +1741,14 @@ class ContractServiceTest {
 
             mockAuthentication("admin", "ADMIN");
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findAllBy(any(Pageable.class))).thenReturn(page);
+            when(contractsRepository.findByOrganization_Id(eq(TENANT), any(Pageable.class))).thenReturn(page);
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
             // Testing with blank string (only spaces)
             Page<ContractDTO> result = contractService.searchPaged("   ", null, 0, 10);
 
             assertEquals(1, result.getTotalElements());
-            verify(contractsRepository).findAllBy(any(Pageable.class));
+            verify(contractsRepository).findByOrganization_Id(eq(TENANT), any(Pageable.class));
         }
 
         @Test
@@ -1767,14 +1768,14 @@ class ContractServiceTest {
 
             mockAuthentication("admin", "ADMIN");
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findAllBy(any(Pageable.class))).thenReturn(page);
+            when(contractsRepository.findByOrganization_Id(eq(TENANT), any(Pageable.class))).thenReturn(page);
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
             // Testing with empty string
             Page<ContractDTO> result = contractService.searchPaged("", null, 0, 10);
 
             assertEquals(1, result.getTotalElements());
-            verify(contractsRepository).findAllBy(any(Pageable.class));
+            verify(contractsRepository).findByOrganization_Id(eq(TENANT), any(Pageable.class));
         }
 
         @Test
@@ -1795,7 +1796,7 @@ class ContractServiceTest {
 
             mockAuthentication("admin", "ADMIN");
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findAllBy(any(Pageable.class))).thenReturn(page);
+            when(contractsRepository.findByOrganization_Id(eq(TENANT), any(Pageable.class))).thenReturn(page);
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
             // Call that uses isAdmin() -> true branch
@@ -1839,13 +1840,13 @@ class ContractServiceTest {
 
             mockAuthentication("admin", "ADMIN");
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findAllBy(any(Pageable.class))).thenReturn(page);
+            when(contractsRepository.findByOrganization_Id(eq(TENANT), any(Pageable.class))).thenReturn(page);
             when(contractMapper.toDTO(contract)).thenReturn(dto);
 
             // This forces isAdmin() to be called and return true
             contractService.searchPaged(null, null, 0, 10);
 
-            verify(contractsRepository).findAllBy(any(Pageable.class));
+            verify(contractsRepository).findByOrganization_Id(eq(TENANT), any(Pageable.class));
 
             // Test 2: MANAGER role (non-admin)
             SecurityContextHolder.clearContext();
@@ -1912,10 +1913,10 @@ class ContractServiceTest {
                     ContractStatus.ACTIVE,
                     LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(5), 1L, 1L, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(contractsRepository.save(existing)).thenReturn(existing);
             when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
-            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
+            when(businessAreasRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
 
             ContractDTO result = contractService.updateContract(1L, updateDTO);
 
@@ -1950,9 +1951,9 @@ class ContractServiceTest {
                     ContractStatus.EXPIRED,
                     LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(10), 1L, 1L, null, null, null, null);
 
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(existing));
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
-            when(businessAreasRepository.findById(1L)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
+            when(businessAreasRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(BusinessAreas.builder().id(1L).name("Area").build()));
 
             // Should throw UserNotFoundException when trying to create history
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
@@ -1989,7 +1990,7 @@ class ContractServiceTest {
                     .endDate(today.plusDays(25))
                     .build();
 
-            when(contractsRepository.findExpiringContracts(today, futureDate))
+            when(contractsRepository.findExpiringContractsByOrg(today, futureDate, TENANT))
                     .thenReturn(List.of(expiring1, expiring2));
 
             when(contractMapper.toDTO(expiring1)).thenReturn(
@@ -2022,13 +2023,13 @@ class ContractServiceTest {
             LocalDate today = LocalDate.now(); //NOSONAR S6543 Ã¢â‚¬â€ must match service internal clock
             LocalDate futureDate = today.plusDays(30);
 
-            when(contractsRepository.findExpiringContracts(today, futureDate))
+            when(contractsRepository.findExpiringContractsByOrg(today, futureDate, TENANT))
                     .thenReturn(List.of());
 
             List<ContractDTO> result = contractService.getExpiringContracts(30);
 
             assertTrue(result.isEmpty());
-            verify(contractsRepository, times(1)).findExpiringContracts(today, futureDate);
+            verify(contractsRepository, times(1)).findExpiringContractsByOrg(today, futureDate, TENANT);
         }
 
         @Test
@@ -2047,7 +2048,7 @@ class ContractServiceTest {
                     new Object[]{currentMonth.getYear(), currentMonth.getMonthValue(), 7L}
             );
 
-            when(contractsRepository.countContractsByMonth(any(LocalDate.class)))
+            when(contractsRepository.countContractsByMonthAndOrg(any(LocalDate.class), eq(TENANT)))
                     .thenReturn(mockResults);
 
             List<ContractsTimelineDTO> result = contractService.getContractsTimeline();
@@ -2066,7 +2067,7 @@ class ContractServiceTest {
             assertEquals(threeMonthsAgo.toString(), result.get(8).getMonth());
             assertEquals(7L, result.get(11).getCount());
 
-            verify(contractsRepository, times(1)).countContractsByMonth(any(LocalDate.class));
+            verify(contractsRepository, times(1)).countContractsByMonthAndOrg(any(LocalDate.class), eq(TENANT));
         }
 
         @Test
@@ -2081,7 +2082,7 @@ class ContractServiceTest {
                     new ContractsByAreaDTO("HR", 3L)
             );
 
-            when(contractsRepository.countContractsByArea()).thenReturn(mockResults);
+            when(contractsRepository.countContractsByAreaAndOrg(TENANT)).thenReturn(mockResults);
 
             List<ContractsByAreaDTO> result = contractService.getContractsByArea();
 
@@ -2090,7 +2091,7 @@ class ContractServiceTest {
             assertEquals("IT", result.get(0).getAreaName());
             assertEquals(10L, result.get(0).getCount());
 
-            verify(contractsRepository, times(1)).countContractsByArea();
+            verify(contractsRepository, times(1)).countContractsByAreaAndOrg(TENANT);
         }
 
         @Test
@@ -2105,7 +2106,7 @@ class ContractServiceTest {
                     new TopManagerDTO(3L, "Bob Johnson", 8L)
             );
 
-            when(contractsRepository.findTopManagers(any(Pageable.class)))
+            when(contractsRepository.findTopManagersByOrg(any(Pageable.class), eq(TENANT)))
                     .thenReturn(mockResults);
 
             List<TopManagerDTO> result = contractService.getTopManagers();
@@ -2115,7 +2116,7 @@ class ContractServiceTest {
             assertEquals("John Doe", result.get(0).getManagerName());
             assertEquals(15L, result.get(0).getContractsCount());
 
-            verify(contractsRepository, times(1)).findTopManagers(any(Pageable.class));
+            verify(contractsRepository, times(1)).findTopManagersByOrg(any(Pageable.class), eq(TENANT));
         }
 
         @Test
@@ -2124,7 +2125,7 @@ class ContractServiceTest {
         void shouldReturnEmptyListWhenNoTimelineData() {
             mockAdminAuth();
 
-            when(contractsRepository.countContractsByMonth(any(LocalDate.class)))
+            when(contractsRepository.countContractsByMonthAndOrg(any(LocalDate.class), eq(TENANT)))
                     .thenReturn(List.of());
 
             List<ContractsTimelineDTO> result = contractService.getContractsTimeline();
@@ -2133,7 +2134,7 @@ class ContractServiceTest {
             assertEquals(12, result.size());
             assertTrue(result.stream().allMatch(dto -> dto.getCount() == 0L));
 
-            verify(contractsRepository, times(1)).countContractsByMonth(any(LocalDate.class));
+            verify(contractsRepository, times(1)).countContractsByMonthAndOrg(any(LocalDate.class), eq(TENANT));
         }
 
         @Test
@@ -2346,7 +2347,7 @@ class ContractServiceTest {
             assertEquals(4, result.getTotal());
             assertEquals(3, result.getActive());
             assertEquals(1, result.getExpired());
-            verify(contractsRepository, never()).countAllContracts();
+            verify(contractsRepository, never()).countAllContractsByOrg(TENANT);
             verify(contractsRepository, never()).countAllContractsByOrg(any());
         }
 
@@ -2393,7 +2394,7 @@ class ContractServiceTest {
             List<ContractDTO> result = contractService.getExpiringContracts(30);
 
             assertEquals(1, result.size());
-            verify(contractsRepository, never()).findExpiringContracts(any(), any());
+            verify(contractsRepository, never()).findExpiringContractsByOrg(any(), any(), eq(TENANT));
             verify(contractsRepository, never()).findExpiringContractsByOrg(any(), any(), any());
         }
 
@@ -2416,7 +2417,7 @@ class ContractServiceTest {
             List<ContractsByAreaDTO> result = contractService.getContractsByArea();
 
             assertEquals(1, result.size());
-            verify(contractsRepository, never()).countContractsByArea();
+            verify(contractsRepository, never()).countContractsByAreaAndOrg(TENANT);
             verify(contractsRepository, never()).countContractsByAreaAndOrg(any());
         }
 
@@ -2443,7 +2444,7 @@ class ContractServiceTest {
 
             assertEquals(12, result.size());
             assertEquals(2L, result.get(11).getCount());
-            verify(contractsRepository, never()).countContractsByMonth(any());
+            verify(contractsRepository, never()).countContractsByMonthAndOrg(any(), eq(TENANT));
             verify(contractsRepository, never()).countContractsByMonthAndOrg(any(), any());
         }
 
@@ -2467,7 +2468,7 @@ class ContractServiceTest {
 
             assertEquals(1, result.size());
             assertEquals("Self", result.get(0).getManagerName());
-            verify(contractsRepository, never()).findTopManagers(any());
+            verify(contractsRepository, never()).findTopManagersByOrg(any(), eq(TENANT));
             verify(contractsRepository, never()).findTopManagersByOrg(any(), any());
         }
 
@@ -2612,7 +2613,7 @@ class ContractServiceTest {
 
                 assertEquals(1, result.size());
                 verify(contractsRepository).findByOrganization_Id(20L);
-                verify(contractsRepository, never()).findAll();
+                verify(contractsRepository, never()).findByOrganization_Id(TENANT);
             } finally {
                 TenantContext.clear();
             }
@@ -2643,7 +2644,7 @@ class ContractServiceTest {
 
                 assertEquals(1, result.size());
                 verify(contractsRepository).findByStatusAndOrganization_Id(ContractStatus.ACTIVE, 21L);
-                verify(contractsRepository, never()).findByStatus(any(ContractStatus.class));
+                verify(contractsRepository, never()).findByStatusAndOrganization_Id(any(ContractStatus.class), eq(TENANT));
             } finally {
                 TenantContext.clear();
             }
@@ -2674,7 +2675,7 @@ class ContractServiceTest {
 
                 assertEquals(1, result.getTotalElements());
                 verify(contractsRepository).findByOrganization_Id(eq(22L), any(Pageable.class));
-                verify(contractsRepository, never()).findAllBy(any(Pageable.class));
+                verify(contractsRepository, never()).findByOrganization_Id(eq(TENANT), any(Pageable.class));
             } finally {
                 TenantContext.clear();
             }

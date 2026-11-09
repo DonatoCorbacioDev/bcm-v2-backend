@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static org.mockito.Mockito.verifyNoInteractions;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.List;
@@ -41,6 +42,19 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 
 @ExtendWith(MockitoExtension.class)
 class CalendarFeedServiceTest {
+
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
 
     private static final Long ORG_ID = 5L;
     private static final String USERNAME = "admin";
@@ -142,15 +156,12 @@ class CalendarFeedServiceTest {
         }
 
         @Test
-        @DisplayName("falls back to findByUsername when TenantContext is empty")
+        @DisplayName("refuses to issue a feed link when the request carries no organization")
         void shouldFallBackWhenTenantContextEmpty() {
             authenticateAs(USERNAME);
-            Users user = adminUser(null);
-            when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
+            TenantContext.clear();
 
-            String url = calendarFeedService.getOrCreateFeedUrl();
-
-            assertTrue(url.startsWith(BACKEND_URL + "/calendar/"));
+            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class, () -> calendarFeedService.getOrCreateFeedUrl());
         }
 
         @Test
@@ -192,20 +203,17 @@ class CalendarFeedServiceTest {
         }
 
         @Test
-        @DisplayName("admin with no organization: includes all ACTIVE contracts, unscoped")
+        @DisplayName("admin with no organization: an empty feed, never every organization's contracts")
         void shouldBuildFeedForAdminWithoutOrganization() {
             Roles adminRole = Roles.builder().id(1L).role("ADMIN").build();
             Users user = Users.builder().id(1L).username(USERNAME).role(adminRole)
                     .calendarToken("token-no-org").build();
             when(usersRepository.findByCalendarToken("token-no-org")).thenReturn(Optional.of(user));
-            when(contractsRepository.findByStatus(ContractStatus.ACTIVE))
-                    .thenReturn(List.of(
-                            contract(5L, "CTR-005", "Delta", LocalDate.of(2026, Month.NOVEMBER, 20))));
 
             String ics = calendarFeedService.buildIcsFeed("token-no-org");
 
-            assertTrue(ics.contains("UID:contract-5@bcm\r\n"));
-            verify(contractsRepository, never()).findByStatusAndOrganization_Id(any(), any());
+            assertEquals(-1, ics.indexOf("BEGIN:VEVENT"));
+            verifyNoInteractions(contractsRepository);
         }
 
         @Test

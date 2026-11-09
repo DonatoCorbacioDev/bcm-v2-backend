@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,6 +45,19 @@ import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 @ActiveProfiles("test")
 class FinancialTypeServiceTest {
 
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
+
     @Mock
     private FinancialTypesRepository financialTypesRepository;
 
@@ -71,7 +86,7 @@ class FinancialTypeServiceTest {
             FinancialTypes entity = FinancialTypes.builder().id(1L).name("Capex").description("Capital Expenses").build();
             FinancialTypeDTO dto = new FinancialTypeDTO(1L, "Capex", "Capital Expenses", FinancialCategory.COST);
 
-            when(financialTypesRepository.findAll()).thenReturn(List.of(entity));
+            when(financialTypesRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(entity));
             when(financialTypeMapper.toDTO(entity)).thenReturn(dto);
 
             List<FinancialTypeDTO> result = financialTypeService.getAllTypes();
@@ -90,7 +105,7 @@ class FinancialTypeServiceTest {
             FinancialTypes entity = FinancialTypes.builder().id(1L).name("Opex").description("Operating Expenses").build();
             FinancialTypeDTO dto = new FinancialTypeDTO(1L, "Opex", "Operating Expenses", FinancialCategory.COST);
 
-            when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(financialTypesRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
             when(financialTypeMapper.toDTO(entity)).thenReturn(dto);
 
             FinancialTypeDTO result = financialTypeService.getTypeById(1L);
@@ -105,7 +120,7 @@ class FinancialTypeServiceTest {
         @Order(3)
         @DisplayName("Get type by ID throws if not found")
         void shouldThrowWhenTypeNotFound() {
-            when(financialTypesRepository.findById(999L)).thenReturn(Optional.empty());
+            when(financialTypesRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             FinancialTypeNotFoundException ex =
                 assertThrows(FinancialTypeNotFoundException.class, () -> financialTypeService.getTypeById(999L));
@@ -145,7 +160,7 @@ class FinancialTypeServiceTest {
             FinancialTypeDTO updateDTO = new FinancialTypeDTO(1L, "Updated", "Updated desc", FinancialCategory.COST);
             FinancialTypes updatedEntity = FinancialTypes.builder().id(1L).name("Updated").description("Updated desc").build();
 
-            when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(financialTypesRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(existing));
             when(financialTypesRepository.save(existing)).thenReturn(updatedEntity);
             when(financialTypeMapper.toDTO(updatedEntity)).thenReturn(updateDTO);
 
@@ -163,7 +178,7 @@ class FinancialTypeServiceTest {
         @DisplayName("Delete type calls repository")
         void shouldDeleteType() {
             FinancialTypes type = FinancialTypes.builder().id(1L).build();
-            when(financialTypesRepository.findById(1L)).thenReturn(Optional.of(type));
+            when(financialTypesRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(type));
 
             financialTypeService.deleteType(1L);
 
@@ -177,7 +192,7 @@ class FinancialTypeServiceTest {
         @Order(60)
         @DisplayName("Delete type throws if not found")
         void shouldThrowWhenDeletingMissingType() {
-            when(financialTypesRepository.findById(999L)).thenReturn(Optional.empty());
+            when(financialTypesRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             FinancialTypeNotFoundException ex = assertThrows(FinancialTypeNotFoundException.class,
                     () -> financialTypeService.deleteType(999L));
@@ -195,7 +210,7 @@ class FinancialTypeServiceTest {
         void shouldThrowWhenUpdatingMissingType() {
             FinancialTypeDTO updateDTO = new FinancialTypeDTO(999L, "Missing", "Does not exist", FinancialCategory.COST);
 
-            when(financialTypesRepository.findById(999L)).thenReturn(Optional.empty());
+            when(financialTypesRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             FinancialTypeNotFoundException ex =
                 assertThrows(FinancialTypeNotFoundException.class,

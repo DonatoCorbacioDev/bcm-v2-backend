@@ -29,6 +29,17 @@ import com.donatodev.bcm_backend.security.SecurityConfig;
 @DisplayName("GlobalExceptionHandler")
 class GlobalExceptionHandlerTest {
 
+    // Every request carries an organization (its token's); ids below exist in none.
+    @org.junit.jupiter.api.BeforeEach
+    void enterTenant() {
+        com.donatodev.bcm_backend.support.TestTenant.use(1L);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void leaveTenant() {
+        com.donatodev.bcm_backend.support.TestTenant.clear();
+    }
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -45,6 +56,16 @@ class GlobalExceptionHandlerTest {
                     .andExpect(jsonPath("$.status").value(404))
                     .andExpect(jsonPath("$.message").exists())
                     .andExpect(jsonPath("$.timestamp").exists());
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Fails closed: a request without an organization is refused (403), not widened to every organization")
+        void shouldRefuseRequestWithoutOrganization() throws Exception {
+            com.donatodev.bcm_backend.support.TestTenant.clear();
+            mockMvc.perform(get("/contracts/999999"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.message").value("Accesso negato: organizzazione non definita"));
         }
 
         @Test

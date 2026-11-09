@@ -45,10 +45,8 @@ public class BudgetService {
      * @return a list of {@link BudgetDTO}
      */
     public List<BudgetDTO> getAllBudgets() {
-        Long orgId = TenantContext.get();
-        List<Budget> budgets = (orgId != null)
-                ? budgetRepository.findAllByOrganizationId(orgId)
-                : budgetRepository.findAll();
+        Long orgId = TenantContext.require();
+        List<Budget> budgets = budgetRepository.findAllByOrganizationId(orgId);
         return budgets.stream().map(budget -> budgetMapper.toDTO(budget, orgId)).toList();
     }
 
@@ -60,7 +58,7 @@ public class BudgetService {
      * @throws BudgetNotFoundException if the budget is not found
      */
     public BudgetDTO getBudgetById(Long id) {
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         Budget budget = findBudgetInScope(id)
                 .orElseThrow(() -> new BudgetNotFoundException(BUDGET_ID_PREFIX + id + NOT_FOUND_SUFFIX));
         return budgetMapper.toDTO(budget, orgId);
@@ -71,10 +69,8 @@ public class BudgetService {
      * {@link TenantContext} carries an organization ID.
      */
     private Optional<Budget> findBudgetInScope(Long id) {
-        Long orgId = TenantContext.get();
-        return (orgId != null)
-                ? budgetRepository.findByIdAndOrganizationId(id, orgId)
-                : budgetRepository.findById(id);
+        Long orgId = TenantContext.require();
+        return budgetRepository.findByIdAndOrganizationId(id, orgId);
     }
 
     /**
@@ -85,12 +81,10 @@ public class BudgetService {
      */
     public BudgetDTO createBudget(BudgetDTO dto) {
         Budget budget = budgetMapper.toEntity(dto);
-        Long orgId = TenantContext.get();
-        if (orgId != null) {
-            Organization org = new Organization();
-            org.setId(orgId);
-            budget.setOrganization(org);
-        }
+        Long orgId = TenantContext.require();
+        Organization org = new Organization();
+        org.setId(orgId);
+        budget.setOrganization(org);
         budget = budgetRepository.save(budget);
         return budgetMapper.toDTO(budget, orgId);
     }
@@ -104,7 +98,7 @@ public class BudgetService {
      * @throws BudgetNotFoundException if the budget is not found
      */
     public BudgetDTO updateBudget(Long id, BudgetDTO dto) {
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         Budget budget = findBudgetInScope(id)
                 .orElseThrow(() -> new BudgetNotFoundException(BUDGET_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 

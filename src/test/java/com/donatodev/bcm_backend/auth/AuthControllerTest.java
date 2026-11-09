@@ -96,6 +96,9 @@ class AuthControllerTest {
     private TestDataCleaner testDataCleaner;
 
     @Autowired
+    private com.donatodev.bcm_backend.repository.OrganizationRepository organizationRepository;
+
+    @Autowired
     private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -610,8 +613,13 @@ class AuthControllerTest {
     @Order(32)
     void shouldCompleteTwoStepLoginWithValidTotpCode() throws Exception {
         String secret = com.donatodev.bcm_backend.util.TotpUtil.generateSecret();
+        // The session the second step issues is scoped to the user's organization.
+        com.donatodev.bcm_backend.entity.Organization org = organizationRepository.save(
+                com.donatodev.bcm_backend.entity.Organization.builder()
+                        .name("Totp org").slug("totp-org-" + java.util.UUID.randomUUID()).build());
         usersRepository.save(Users.builder()
                 .username("totpuser").passwordHash(passwordEncoder.encode("mypwd123")).verified(true)
+                .organization(org)
                 .totpEnabled(true).totpSecretEncrypted(totpEncryptionService.encrypt(secret))
                 .manager(managersRepository.findById(managerId).orElseThrow())
                 .role(rolesRepository.findById(roleId).orElseThrow()).build());

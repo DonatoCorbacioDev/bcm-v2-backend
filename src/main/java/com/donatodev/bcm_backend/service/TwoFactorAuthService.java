@@ -135,9 +135,11 @@ public class TwoFactorAuthService {
         String username = jwtUtils.getUsernameFromToken(mfaToken);
         Long orgId = jwtUtils.getOrganizationIdFromToken(mfaToken);
 
-        Users user = (orgId != null
-                ? usersRepository.findByUsernameAndOrganizationId(username, orgId)
-                : usersRepository.findByUsername(username))
+        // Fails closed: a token without an organization identifies nobody.
+        if (orgId == null) {
+            throw new BadCredentialsException(INVALID_MFA_SESSION);
+        }
+        Users user = usersRepository.findByUsernameAndOrganizationId(username, orgId)
                 .orElseThrow(() -> new BadCredentialsException(INVALID_MFA_SESSION));
 
         if (!user.isTotpEnabled() || user.getTotpSecretEncrypted() == null) {

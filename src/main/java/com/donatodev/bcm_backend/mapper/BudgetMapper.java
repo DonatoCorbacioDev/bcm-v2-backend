@@ -108,10 +108,8 @@ public class BudgetMapper {
 
     /** Tenant-scoped like ContractMapper: a budget must not target another organization's area. */
     private BusinessAreas resolveBusinessArea(Long areaId) {
-        Long orgId = TenantContext.get();
-        return (orgId != null
-                ? businessAreasRepository.findByIdAndOrganizationId(areaId, orgId)
-                : businessAreasRepository.findById(areaId))
+        Long orgId = TenantContext.require();
+        return businessAreasRepository.findByIdAndOrganizationId(areaId, orgId)
                 .orElseThrow(() -> new BusinessAreaNotFoundException("Business area ID " + areaId + " not found"));
     }
 }

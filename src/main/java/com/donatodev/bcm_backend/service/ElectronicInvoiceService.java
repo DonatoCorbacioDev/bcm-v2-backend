@@ -76,7 +76,7 @@ public class ElectronicInvoiceService {
         byte[] bytes = file.getBytes();
         FatturaPaInvoiceData parsed = fatturaPaXmlParserService.parse(bytes);
 
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
 
         if (invoiceRepository.existsByOrgIdAndSupplierVatNumberAndInvoiceNumberAndDocumentType(
                 orgId, parsed.supplierVatNumber(), parsed.invoiceNumber(), parsed.documentType())) {

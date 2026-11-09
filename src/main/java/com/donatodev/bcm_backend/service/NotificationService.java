@@ -65,11 +65,9 @@ public class NotificationService {
     @Transactional
     public void createReminderForCurrentUser(Long contractId, String message) {
         Users user = resolveCurrentUser();
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
 
-        Contracts contract = (orgId != null
-                ? contractsRepository.findByIdAndOrganization_Id(contractId, orgId)
-                : contractsRepository.findById(contractId))
+        Contracts contract = contractsRepository.findByIdAndOrganization_Id(contractId, orgId)
                 .orElseThrow(() -> new ContractNotFoundException("Contratto ID " + contractId + " non trovato"));
 
         // Org membership alone isn't enough for a MANAGER: the agent's proposal
@@ -103,7 +101,7 @@ public class NotificationService {
     @Transactional
     public void markAsRead(Long notificationId) {
         Users user = resolveCurrentUser();
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
 
         Notification n = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new NotificationNotFoundException("Notifica non trovata: " + notificationId));
@@ -119,7 +117,7 @@ public class NotificationService {
     @Transactional
     public void markAllAsRead() {
         Users user = resolveCurrentUser();
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
 
         List<Notification> unread = notificationRepository
                 .findByUserIdAndOrgIdOrderByCreatedAtDesc(user.getId(), orgId)
@@ -134,7 +132,7 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public List<NotificationDTO> getForCurrentUser() {
         Users user = resolveCurrentUser();
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
 
         return notificationRepository
                 .findByUserIdAndOrgIdOrderByCreatedAtDesc(user.getId(), orgId)
@@ -146,7 +144,7 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public long getUnreadCount() {
         Users user = resolveCurrentUser();
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         return notificationRepository.countByUserIdAndOrgIdAndReadFalse(user.getId(), orgId);
     }
 

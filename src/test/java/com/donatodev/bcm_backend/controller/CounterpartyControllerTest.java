@@ -1,5 +1,9 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.support.TestTenant;
+import com.donatodev.bcm_backend.repository.OrganizationRepository;
+import com.donatodev.bcm_backend.entity.Organization;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
@@ -46,6 +50,12 @@ import tools.jackson.databind.ObjectMapper;
 class CounterpartyControllerTest {
 
     @Autowired
+    private OrganizationRepository organizationRepository;
+
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
+
+    @Autowired
     private MockMvc mockMvc;
 
     @Autowired
@@ -57,12 +67,20 @@ class CounterpartyControllerTest {
     @Autowired
     private TestDataCleaner testDataCleaner;
 
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     @SuppressWarnings("unused")
     void cleanDb() {
         testDataCleaner.clean();
         // TestDataCleaner predates the counterparties table.
         repository.deleteAll();
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        TestTenant.use(testOrg.getId());
     }
 
     @Nested
@@ -105,8 +123,8 @@ class CounterpartyControllerTest {
         @DisplayName("All counterparties have been recovered successfully")
         @WithMockUser(roles = "ADMIN")
         void shouldGetAllCounterparties() throws Exception {
-            repository.save(Counterparty.builder().name("Alfa Srl").type(CounterpartyType.CUSTOMER).build());
-            repository.save(Counterparty.builder().name("Beta Srl").type(CounterpartyType.SUPPLIER).build());
+            repository.save(Counterparty.builder().organization(testOrg).name("Alfa Srl").type(CounterpartyType.CUSTOMER).build());
+            repository.save(Counterparty.builder().organization(testOrg).name("Beta Srl").type(CounterpartyType.SUPPLIER).build());
 
             mockMvc.perform(get("/counterparties"))
                     .andExpect(status().isOk())
@@ -120,7 +138,7 @@ class CounterpartyControllerTest {
         @DisplayName("The counterparty has been retrieved successfully by ID")
         @WithMockUser(roles = "ADMIN")
         void getCounterpartyById() throws Exception {
-            Counterparty saved = repository.save(Counterparty.builder()
+            Counterparty saved = repository.save(Counterparty.builder().organization(testOrg)
                     .name("Gamma Srl").type(CounterpartyType.BOTH).vatNumber("IT123").build());
 
             mockMvc.perform(get("/counterparties/{id}", saved.getId()))
@@ -137,7 +155,7 @@ class CounterpartyControllerTest {
         @DisplayName("The counterparty has been updated successfully")
         @WithMockUser(roles = "ADMIN")
         void shouldUpdateCounterparty() throws Exception {
-            Counterparty original = repository.save(Counterparty.builder()
+            Counterparty original = repository.save(Counterparty.builder().organization(testOrg)
                     .name("OldName").type(CounterpartyType.CUSTOMER).build());
 
             CounterpartyDTO updatedDTO = new CounterpartyDTO(original.getId(), "NewName", CounterpartyType.SUPPLIER,
@@ -157,7 +175,7 @@ class CounterpartyControllerTest {
         @DisplayName("The counterparty has been deleted successfully")
         @WithMockUser(roles = "ADMIN")
         void shouldDeleteCounterparty() throws Exception {
-            Counterparty toDelete = repository.save(Counterparty.builder()
+            Counterparty toDelete = repository.save(Counterparty.builder().organization(testOrg)
                     .name("ToBeDeleted").type(CounterpartyType.CUSTOMER).build());
 
             mockMvc.perform(delete("/counterparties/{id}", toDelete.getId()))
@@ -199,7 +217,7 @@ class CounterpartyControllerTest {
         @DisplayName("MANAGER cannot delete counterparties (DELETE forbidden)")
         @WithMockUser(roles = "MANAGER")
         void shouldReturnForbiddenForManagerOnDelete() throws Exception {
-            Counterparty counterparty = repository.save(Counterparty.builder()
+            Counterparty counterparty = repository.save(Counterparty.builder().organization(testOrg)
                     .name("ManagerCannotDelete").type(CounterpartyType.CUSTOMER).build());
             mockMvc.perform(delete("/counterparties/{id}", counterparty.getId()))
                     .andExpect(status().isForbidden());
@@ -210,7 +228,7 @@ class CounterpartyControllerTest {
         @DisplayName("Invoicing summary is retrieved successfully by ID")
         @WithMockUser(roles = "ADMIN")
         void shouldGetInvoicingSummary() throws Exception {
-            Counterparty saved = repository.save(Counterparty.builder()
+            Counterparty saved = repository.save(Counterparty.builder().organization(testOrg)
                     .name("Delta Srl").type(CounterpartyType.CUSTOMER).build());
 
             mockMvc.perform(get("/counterparties/{id}/invoicing-summary", saved.getId()))
@@ -226,7 +244,7 @@ class CounterpartyControllerTest {
         @DisplayName("MANAGER can read the invoicing summary (GET allowed)")
         @WithMockUser(roles = "MANAGER")
         void shouldAllowManagerToReadInvoicingSummary() throws Exception {
-            Counterparty saved = repository.save(Counterparty.builder()
+            Counterparty saved = repository.save(Counterparty.builder().organization(testOrg)
                     .name("Epsilon Srl").type(CounterpartyType.CUSTOMER).build());
 
             mockMvc.perform(get("/counterparties/{id}/invoicing-summary", saved.getId()))
@@ -238,7 +256,7 @@ class CounterpartyControllerTest {
         @DisplayName("ADMIN can confirm a counterparty's verified IBAN")
         @WithMockUser(roles = "ADMIN")
         void shouldConfirmVerifiedIban() throws Exception {
-            Counterparty saved = repository.save(Counterparty.builder()
+            Counterparty saved = repository.save(Counterparty.builder().organization(testOrg)
                     .name("Zeta Srl").type(CounterpartyType.SUPPLIER).build());
             VerifyCounterpartyIbanRequest request =
                     new VerifyCounterpartyIbanRequest("IT60X0542811101000000123456", "COBADEFFXXX");
@@ -256,7 +274,7 @@ class CounterpartyControllerTest {
         @DisplayName("Confirming an invalid IBAN is rejected")
         @WithMockUser(roles = "ADMIN")
         void shouldRejectInvalidVerifiedIban() throws Exception {
-            Counterparty saved = repository.save(Counterparty.builder()
+            Counterparty saved = repository.save(Counterparty.builder().organization(testOrg)
                     .name("Eta Srl").type(CounterpartyType.SUPPLIER).build());
             VerifyCounterpartyIbanRequest request = new VerifyCounterpartyIbanRequest("NOTANIBAN", null);
 
@@ -271,7 +289,7 @@ class CounterpartyControllerTest {
         @DisplayName("MANAGER cannot confirm a verified IBAN (PATCH forbidden)")
         @WithMockUser(roles = "MANAGER")
         void shouldReturnForbiddenForManagerOnVerifiedIban() throws Exception {
-            Counterparty saved = repository.save(Counterparty.builder()
+            Counterparty saved = repository.save(Counterparty.builder().organization(testOrg)
                     .name("Theta Srl").type(CounterpartyType.SUPPLIER).build());
             VerifyCounterpartyIbanRequest request =
                     new VerifyCounterpartyIbanRequest("IT60X0542811101000000123456", null);

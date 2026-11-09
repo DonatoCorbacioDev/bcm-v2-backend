@@ -1,5 +1,9 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.support.TestTenant;
+import com.donatodev.bcm_backend.repository.OrganizationRepository;
+import com.donatodev.bcm_backend.entity.Organization;
 import java.time.Instant;
 
 import static org.hamcrest.Matchers.hasSize;
@@ -30,14 +34,28 @@ import com.donatodev.bcm_backend.repository.AuditLogRepository;
 class AuditLogControllerTest {
 
     @Autowired
+    private OrganizationRepository organizationRepository;
+
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
+
+    @Autowired
     private MockMvc mockMvc;
 
     @Autowired
     private AuditLogRepository auditLogRepository;
 
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     void setup() {
         auditLogRepository.deleteAll();
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        TestTenant.use(testOrg.getId());
     }
 
     @Nested
@@ -53,7 +71,7 @@ class AuditLogControllerTest {
         void shouldReturnAuditLogsForAdmin() throws Exception {
             auditLogRepository.save(AuditLog.builder()
                     .action("CREATE").entityType("Contract").entityId(1L)
-                    .username("admin").orgId(1L).timestamp(Instant.parse("2027-01-15T12:00:00Z"))
+                    .username("admin").orgId(testOrg.getId()).timestamp(Instant.parse("2027-01-15T12:00:00Z"))
                     .details("ContractService.createContract").build());
 
             mockMvc.perform(get("/audit-logs"))
@@ -99,7 +117,7 @@ class AuditLogControllerTest {
             for (int i = 1; i <= 5; i++) {
                 auditLogRepository.save(AuditLog.builder()
                         .action("DELETE").entityType("Manager").entityId((long) i)
-                        .username("admin").orgId(1L).timestamp(Instant.parse("2027-01-15T12:00:00Z"))
+                        .username("admin").orgId(testOrg.getId()).timestamp(Instant.parse("2027-01-15T12:00:00Z"))
                         .details("ManagerService.deleteManager").build());
             }
 

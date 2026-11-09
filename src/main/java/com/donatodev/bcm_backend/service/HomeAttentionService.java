@@ -62,10 +62,7 @@ public class HomeAttentionService {
 
     @Transactional(readOnly = true)
     public HomeAttentionDTO getAttention() {
-        Long orgId = TenantContext.get();
-        if (orgId == null) {
-            return new HomeAttentionDTO(0, 0, 0, WINDOW_DAYS, List.of());
-        }
+        Long orgId = TenantContext.require();
         Users user = currentUserResolver.resolve();
         boolean admin = "ADMIN".equals(user.getRole().getRole());
         Long managerId = user.getManager() != null ? user.getManager().getId() : null;

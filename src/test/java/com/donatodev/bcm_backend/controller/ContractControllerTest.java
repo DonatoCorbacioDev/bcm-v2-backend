@@ -1,5 +1,9 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.support.TestTenant;
+import com.donatodev.bcm_backend.repository.OrganizationRepository;
+import com.donatodev.bcm_backend.entity.Organization;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
@@ -82,6 +86,12 @@ import org.openpdf.text.DocumentException;
 class ContractControllerTest {
 
     @Autowired
+    private OrganizationRepository organizationRepository;
+
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
+
+    @Autowired
     private MockMvc mockMvc;
 
     @Autowired
@@ -120,17 +130,25 @@ class ContractControllerTest {
     /**
      * Clean database before each test to ensure a fresh state.
      */
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     @SuppressWarnings("unused")
     void cleanDb() {
         testDataCleaner.clean();
         // TestDataCleaner predates the counterparties table.
         counterpartiesRepository.deleteAll();
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        TestTenant.use(testOrg.getId());
     }
 
     private Users createUser(String username, String roleName, Managers manager) {
         Roles role = rolesRepository.save(Roles.builder().role(roleName).build());
-        Users user = Users.builder()
+        Users user = Users.builder().organization(testOrg)
                 .username(username)
                 .passwordHash("password")
                 .verified(true)
@@ -141,7 +159,7 @@ class ContractControllerTest {
     }
 
     private Managers createManager(String firstName, String lastName, String email) {
-        return managersRepository.save(Managers.builder()
+        return managersRepository.save(Managers.builder().organization(testOrg)
                 .firstName(firstName)
                 .lastName(lastName)
                 .email(email)
@@ -167,14 +185,14 @@ class ContractControllerTest {
         @DisplayName("The new contract has been created")
         @WithMockUser(roles = "ADMIN")
         void shouldCreateContract() throws Exception {
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Luca").lastName("Verdi").email("luca@example.com")
                     .phoneNumber("123456").department("Sales").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Operations").description("Ops").build());
             Counterparty counterparty = counterpartiesRepository.save(
-                    Counterparty.builder().name("Client 1").type(CounterpartyType.CUSTOMER).build());
+                    Counterparty.builder().organization(testOrg).name("Client 1").type(CounterpartyType.CUSTOMER).build());
 
             ContractDTO dto = new ContractDTO(null, counterparty.getId(), null, "CNTR-TEST-1", "WBS-001", "Project X",
                     ContractStatus.ACTIVE, LocalDate.of(2025, Month.MAY, 1), LocalDate.of(2026, Month.MAY, 1),
@@ -195,7 +213,7 @@ class ContractControllerTest {
         @DisplayName("All contracts have been retrieved successfully")
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldGetAllContracts() throws Exception {
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Mario")
                     .lastName("Rossi")
                     .email("mario.rossi@example.com")
@@ -205,7 +223,7 @@ class ContractControllerTest {
 
             Roles role = Roles.builder().role("ADMIN").build();
             rolesRepository.save(role);
-            Users user = Users.builder()
+            Users user = Users.builder().organization(testOrg)
                     .username("admin")
                     .passwordHash("admin")
                     .verified(true)
@@ -213,10 +231,10 @@ class ContractControllerTest {
                     .build();
             usersRepository.save(user);
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Dev Area").description("Development").build());
             Counterparty counterparty = counterpartiesRepository.save(
-                    Counterparty.builder().name("Client A").type(CounterpartyType.CUSTOMER).build());
+                    Counterparty.builder().organization(testOrg).name("Client A").type(CounterpartyType.CUSTOMER).build());
 
             ContractDTO dto = new ContractDTO(null, counterparty.getId(), null, "CNTR-GET-ALL", "WBS-GET",
                     "Project Get", ContractStatus.ACTIVE,
@@ -241,17 +259,17 @@ class ContractControllerTest {
         @DisplayName("The contract has been retrieved successfully by ID")
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldGetContractById() throws Exception {
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Giulia").lastName("Rossi").email("giulia@example.com")
                     .phoneNumber("222333").department("Marketing").build());
 
             createUser("admin", "ADMIN", null);
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Marketing").description("Promo").build());
 
-            Contracts contract = contractsRepository.save(Contracts.builder()
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Client B").type(CounterpartyType.CUSTOMER).build())).contractNumber("CNTR-TEST-3").wbsCode("WBS-003")
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Client B").type(CounterpartyType.CUSTOMER).build())).contractNumber("CNTR-TEST-3").wbsCode("WBS-003")
                     .projectName("Project B").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2025, Month.JULY, 1)).endDate(LocalDate.of(2026, Month.JULY, 1))
                     .status(ContractStatus.ACTIVE).build());
@@ -269,30 +287,30 @@ class ContractControllerTest {
         @DisplayName("The contract has been updated successfully")
         @WithMockUser(roles = "ADMIN")
         void shouldUpdateContract() throws Exception {
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Laura").lastName("Bianchi").email("laura@example.com")
                     .phoneNumber("987654").department("Finance").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Finance").description("Money").build());
 
             // Create user in DB for history tracking (needed when status changes)
             Roles adminRole = rolesRepository.save(Roles.builder().role("ADMIN").build());
-            Users adminUser = usersRepository.save(Users.builder()
+            Users adminUser = usersRepository.save(Users.builder().organization(testOrg)
                     .username("user") // Must match @WithMockUser default username
                     .passwordHash("password")
                     .verified(true)
                     .role(adminRole)
                     .build());
 
-            Contracts original = contractsRepository.save(Contracts.builder()
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Client Old").type(CounterpartyType.CUSTOMER).build())).contractNumber("CNTR-TEST-4").wbsCode("WBS-OLD")
+            Contracts original = contractsRepository.save(Contracts.builder().organization(testOrg)
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Client Old").type(CounterpartyType.CUSTOMER).build())).contractNumber("CNTR-TEST-4").wbsCode("WBS-OLD")
                     .projectName("Old Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2025, Month.JANUARY, 1)).endDate(LocalDate.of(2025, Month.DECEMBER, 31))
                     .status(ContractStatus.ACTIVE).build());
 
             Counterparty updatedCounterparty = counterpartiesRepository.save(
-                    Counterparty.builder().name("Client Updated").type(CounterpartyType.CUSTOMER).build());
+                    Counterparty.builder().organization(testOrg).name("Client Updated").type(CounterpartyType.CUSTOMER).build());
             ContractDTO updated = new ContractDTO(original.getId(), updatedCounterparty.getId(), null, "CNTR-TEST-4", "WBS-NEW",
                     "Updated Project", ContractStatus.EXPIRED,
                     LocalDate.of(2025, Month.FEBRUARY, 1), LocalDate.of(2025, Month.NOVEMBER, 30),
@@ -314,15 +332,15 @@ class ContractControllerTest {
         @DisplayName("The contract has been deleted successfully")
         @WithMockUser(roles = "ADMIN")
         void shouldDeleteContract() throws Exception {
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Anna").lastName("Marroni").email("anna@example.com")
                     .phoneNumber("000111").department("Legal").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Legal").description("Law").build());
 
-            Contracts contract = contractsRepository.save(Contracts.builder()
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("To Delete").type(CounterpartyType.CUSTOMER).build())).contractNumber("CNTR-TEST-5").wbsCode("WBS-DEL")
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("To Delete").type(CounterpartyType.CUSTOMER).build())).contractNumber("CNTR-TEST-5").wbsCode("WBS-DEL")
                     .projectName("To be deleted").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2025, Month.MARCH, 1)).endDate(LocalDate.of(2025, Month.SEPTEMBER, 30))
                     .status(ContractStatus.CANCELLED).build());
@@ -355,17 +373,17 @@ class ContractControllerTest {
             Roles role = rolesRepository.save(Roles.builder()
                     .role("ADMIN").build());
 
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Paolo").lastName("Neri").email("paolo@example.com").department("Ops").build());
 
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(testOrg)
                     .username("admin").passwordHash("admin").role(role).manager(manager).verified(true).build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Ops").description("Operational").build());
 
-            contractsRepository.save(Contracts.builder()
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Client Z").type(CounterpartyType.CUSTOMER).build())).contractNumber("CNTR-STATUS").wbsCode("WBS-STATUS")
+            contractsRepository.save(Contracts.builder().organization(testOrg)
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Client Z").type(CounterpartyType.CUSTOMER).build())).contractNumber("CNTR-STATUS").wbsCode("WBS-STATUS")
                     .projectName("Status Test").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -399,16 +417,16 @@ class ContractControllerTest {
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldGetContractStats() throws Exception {
             createUser("admin", "ADMIN", null);
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Test").lastName("Manager").email("test@example.com")
                     .phoneNumber("123456").department("Test").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Test Area").description("Test").build());
 
             // Create some test contracts
-            contractsRepository.save(Contracts.builder()
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Client 1").type(CounterpartyType.CUSTOMER).build())).contractNumber("STATS-1").wbsCode("WBS-S1")
+            contractsRepository.save(Contracts.builder().organization(testOrg)
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Client 1").type(CounterpartyType.CUSTOMER).build())).contractNumber("STATS-1").wbsCode("WBS-S1")
                     .projectName("Stats Test 1").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(60))
                     .status(ContractStatus.ACTIVE).build());
@@ -443,18 +461,18 @@ class ContractControllerTest {
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldSearchContracts() throws Exception {
             Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Search").lastName("Manager").email("search@example.com")
                     .phoneNumber("123456").department("Search").build());
 
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(testOrg)
                     .username("admin").passwordHash("admin").role(role).verified(true).build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Search Area").description("Search").build());
 
-            contractsRepository.save(Contracts.builder()
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("SearchClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("SEARCH-1").wbsCode("WBS-SEARCH")
+            contractsRepository.save(Contracts.builder().organization(testOrg)
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("SearchClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("SEARCH-1").wbsCode("WBS-SEARCH")
                     .projectName("Search Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -476,18 +494,18 @@ class ContractControllerTest {
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldSearchContractsWithStatus() throws Exception {
             Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Filter").lastName("Manager").email("filter@example.com")
                     .phoneNumber("123456").department("Filter").build());
 
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(testOrg)
                     .username("admin").passwordHash("admin").role(role).verified(true).build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Filter Area").description("Filter").build());
 
-            contractsRepository.save(Contracts.builder()
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("FilterClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("FILTER-1").wbsCode("WBS-FILTER")
+            contractsRepository.save(Contracts.builder().organization(testOrg)
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("FilterClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("FILTER-1").wbsCode("WBS-FILTER")
                     .projectName("Filter Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.EXPIRED).build());
@@ -508,19 +526,19 @@ class ContractControllerTest {
         @DisplayName("Should assign manager to contract")
         @WithMockUser(roles = "ADMIN")
         void shouldAssignManager() throws Exception {
-            Managers manager1 = managersRepository.save(Managers.builder()
+            Managers manager1 = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Manager1").lastName("One").email("manager1@example.com")
                     .phoneNumber("111111").department("Dept1").build());
 
-            Managers manager2 = managersRepository.save(Managers.builder()
+            Managers manager2 = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Manager2").lastName("Two").email("manager2@example.com")
                     .phoneNumber("222222").department("Dept2").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Assign Area").description("Assign").build());
 
-            Contracts contract = contractsRepository.save(Contracts.builder()
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Assign Client").type(CounterpartyType.CUSTOMER).build())).contractNumber("ASSIGN-1").wbsCode("WBS-ASSIGN")
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Assign Client").type(CounterpartyType.CUSTOMER).build())).contractNumber("ASSIGN-1").wbsCode("WBS-ASSIGN")
                     .projectName("Assign Project").businessArea(area).manager(manager1)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -542,15 +560,15 @@ class ContractControllerTest {
         @DisplayName("Should get collaborators for contract")
         @WithMockUser(roles = "ADMIN")
         void shouldGetCollaborators() throws Exception {
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Collab").lastName("Manager").email("collab@example.com")
                     .phoneNumber("123456").department("Collab").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Collab Area").description("Collab").build());
 
-            Contracts contract = contractsRepository.save(Contracts.builder()
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Collab Client").type(CounterpartyType.CUSTOMER).build())).contractNumber("COLLAB-1").wbsCode("WBS-COLLAB")
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Collab Client").type(CounterpartyType.CUSTOMER).build())).contractNumber("COLLAB-1").wbsCode("WBS-COLLAB")
                     .projectName("Collab Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -568,19 +586,19 @@ class ContractControllerTest {
         @DisplayName("Should set collaborators for contract")
         @WithMockUser(roles = "ADMIN")
         void shouldSetCollaborators() throws Exception {
-            Managers manager1 = managersRepository.save(Managers.builder()
+            Managers manager1 = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Set1").lastName("Manager").email("set1@example.com")
                     .phoneNumber("111111").department("Set").build());
 
-            Managers manager2 = managersRepository.save(Managers.builder()
+            Managers manager2 = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Set2").lastName("Manager").email("set2@example.com")
                     .phoneNumber("222222").department("Set").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Set Area").description("Set").build());
 
-            Contracts contract = contractsRepository.save(Contracts.builder()
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Set Client").type(CounterpartyType.CUSTOMER).build())).contractNumber("SET-1").wbsCode("WBS-SET")
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Set Client").type(CounterpartyType.CUSTOMER).build())).contractNumber("SET-1").wbsCode("WBS-SET")
                     .projectName("Set Project").businessArea(area).manager(manager1)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -621,11 +639,11 @@ class ContractControllerTest {
         @WithMockUser(username = "manager1", roles = "MANAGER")
         void shouldAllowSearchForManager() throws Exception {
             Roles role = rolesRepository.save(Roles.builder().role("MANAGER").build());
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Manager").lastName("Test").email("mgr@example.com")
                     .phoneNumber("123456").department("Test").build());
 
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(testOrg)
                     .username("manager1").passwordHash("pass").role(role)
                     .manager(manager).verified(true).build());
 
@@ -645,18 +663,18 @@ class ContractControllerTest {
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldIgnoreInvalidStatusInSearch() throws Exception {
             Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Test").lastName("Manager").email("test@example.com")
                     .phoneNumber("123456").department("Test").build());
 
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(testOrg)
                     .username("admin").passwordHash("admin").role(role).verified(true).build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Test Area").description("Test").build());
 
-            contractsRepository.save(Contracts.builder()
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("TestClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("TEST-1").wbsCode("WBS-TEST")
+            contractsRepository.save(Contracts.builder().organization(testOrg)
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("TestClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("TEST-1").wbsCode("WBS-TEST")
                     .projectName("Test Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -679,18 +697,18 @@ class ContractControllerTest {
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldTreatBlankStatusAsNull() throws Exception {
             Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Blank").lastName("Manager").email("blank@example.com")
                     .phoneNumber("123456").department("Blank").build());
 
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(testOrg)
                     .username("admin").passwordHash("admin").role(role).verified(true).build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Blank Area").description("Blank").build());
 
-            contractsRepository.save(Contracts.builder()
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("BlankClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("BLANK-1").wbsCode("WBS-BLANK")
+            contractsRepository.save(Contracts.builder().organization(testOrg)
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("BlankClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("BLANK-1").wbsCode("WBS-BLANK")
                     .projectName("Blank Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -714,18 +732,18 @@ class ContractControllerTest {
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldReturnAllContractsWhenStatusIsAll() throws Exception {
             Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("All").lastName("Manager").email("all@example.com")
                     .phoneNumber("123456").department("All").build());
 
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(testOrg)
                     .username("admin").passwordHash("admin").role(role).verified(true).build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("All Area").description("All").build());
 
-            contractsRepository.save(Contracts.builder()
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().name("AllClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("ALL-1").wbsCode("WBS-ALL")
+            contractsRepository.save(Contracts.builder().organization(testOrg)
+                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("AllClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("ALL-1").wbsCode("WBS-ALL")
                     .projectName("All Project").businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
                     .status(ContractStatus.ACTIVE).build());
@@ -747,11 +765,11 @@ class ContractControllerTest {
             createUser("admin", "ADMIN", null);
 
             BusinessAreas area = businessAreasRepository.save(
-                    BusinessAreas.builder().name("IT").description("IT Department").build()
+                    BusinessAreas.builder().organization(testOrg).name("IT").description("IT Department").build()
             );
 
             Managers manager = managersRepository.save(
-                    Managers.builder()
+                    Managers.builder().organization(testOrg)
                             .firstName("John")
                             .lastName("Doe")
                             .email("john@test.com")
@@ -763,9 +781,9 @@ class ContractControllerTest {
             // Create ACTIVE contract expiring in 10 days
             LocalDate today = LocalDate.now(); //NOSONAR S6543 - must match service's real clock
             Contracts expiringContract = contractsRepository.save(
-                    Contracts.builder()
+                    Contracts.builder().organization(testOrg)
                             .contractNumber("CNT-EXP-001")
-                            .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Expiring Corp").type(CounterpartyType.CUSTOMER).build()))
+                            .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Expiring Corp").type(CounterpartyType.CUSTOMER).build()))
                             .wbsCode("WBS-EXP")
                             .projectName("Expiring Project")
                             .status(ContractStatus.ACTIVE)
@@ -778,9 +796,9 @@ class ContractControllerTest {
 
             // Create ACTIVE contract expiring in 25 days
             Contracts expiringContract2 = contractsRepository.save(
-                    Contracts.builder()
+                    Contracts.builder().organization(testOrg)
                             .contractNumber("CNT-EXP-002")
-                            .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Almost Expired Inc").type(CounterpartyType.CUSTOMER).build()))
+                            .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Almost Expired Inc").type(CounterpartyType.CUSTOMER).build()))
                             .wbsCode("WBS-EXP2")
                             .projectName("Almost Expired Project")
                             .status(ContractStatus.ACTIVE)
@@ -793,9 +811,9 @@ class ContractControllerTest {
 
             // Create ACTIVE contract NOT expiring (60 days away)
             contractsRepository.save(
-                    Contracts.builder()
+                    Contracts.builder().organization(testOrg)
                             .contractNumber("CNT-SAFE-001")
-                            .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Safe Corp").type(CounterpartyType.CUSTOMER).build()))
+                            .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Safe Corp").type(CounterpartyType.CUSTOMER).build()))
                             .wbsCode("WBS-SAFE")
                             .projectName("Safe Project")
                             .status(ContractStatus.ACTIVE)
@@ -844,11 +862,11 @@ class ContractControllerTest {
             createUser("admin", "ADMIN", null);
 
             BusinessAreas area = businessAreasRepository.save(
-                    BusinessAreas.builder().name("IT").description("IT Department").build()
+                    BusinessAreas.builder().organization(testOrg).name("IT").description("IT Department").build()
             );
 
             Managers manager = managersRepository.save(
-                    Managers.builder()
+                    Managers.builder().organization(testOrg)
                             .firstName("Jane")
                             .lastName("Smith")
                             .email("jane@test.com")
@@ -859,9 +877,9 @@ class ContractControllerTest {
 
             LocalDate today = LocalDate.now(); //NOSONAR S6543 - must match service's real clock
             contractsRepository.save(
-                    Contracts.builder()
+                    Contracts.builder().organization(testOrg)
                             .contractNumber("CNT-DEFAULT-001")
-                            .counterparty(counterpartiesRepository.save(Counterparty.builder().name("Default Test Corp").type(CounterpartyType.CUSTOMER).build()))
+                            .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Default Test Corp").type(CounterpartyType.CUSTOMER).build()))
                             .wbsCode("WBS-DEF")
                             .projectName("Default Test Project")
                             .status(ContractStatus.ACTIVE)
@@ -976,7 +994,7 @@ class ContractControllerTest {
         void shouldReturn500_WhenExcelExportFails() throws Exception {
 
             Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(testOrg)
                     .username("admin")
                     .passwordHash("admin")
                     .verified(true)
@@ -996,7 +1014,7 @@ class ContractControllerTest {
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldReturn500_WhenPDFExportFails() throws Exception {
             Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(testOrg)
                     .username("admin")
                     .passwordHash("admin")
                     .verified(true)
@@ -1095,10 +1113,10 @@ class ContractControllerTest {
         @DisplayName("Should return 409 when contract number already exists")
         @WithMockUser(roles = "ADMIN")
         void shouldReturn409WhenContractNumberIsDuplicate() throws Exception {
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Area-Dup").description("Dup").build());
             Counterparty counterparty = counterpartiesRepository.save(
-                    Counterparty.builder().name("Client Dup").type(CounterpartyType.CUSTOMER).build());
+                    Counterparty.builder().organization(testOrg).name("Client Dup").type(CounterpartyType.CUSTOMER).build());
 
             ContractDTO dto = new ContractDTO(null, counterparty.getId(), null, "CNTR-DUP-001", "WBS", "Proj",
                     ContractStatus.ACTIVE, LocalDate.of(2025, Month.JANUARY, 1), LocalDate.of(2026, Month.JANUARY, 1),
@@ -1134,14 +1152,14 @@ class ContractControllerTest {
         @DisplayName("Should regenerate financial values for a contract that has financial terms")
         @WithMockUser(roles = "ADMIN")
         void shouldRegenerateFinancialValues() throws Exception {
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Area-Regen").description("Regen").build());
             Counterparty counterparty = counterpartiesRepository.save(
-                    Counterparty.builder().name("Client Regen").type(CounterpartyType.CUSTOMER).build());
+                    Counterparty.builder().organization(testOrg).name("Client Regen").type(CounterpartyType.CUSTOMER).build());
             FinancialTypes financialType = financialTypesRepository.save(
-                    FinancialTypes.builder().name("Vendite-Regen").category(FinancialCategory.REVENUE).build());
+                    FinancialTypes.builder().organization(testOrg).name("Vendite-Regen").category(FinancialCategory.REVENUE).build());
 
-            Contracts contract = contractsRepository.save(Contracts.builder()
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
                     .counterparty(counterparty).contractNumber("CNTR-REGEN-1").wbsCode("WBS-REGEN")
                     .projectName("Project Regen").businessArea(area)
                     .startDate(LocalDate.of(2027, Month.JANUARY, 1)).endDate(LocalDate.of(2027, Month.DECEMBER, 31))
@@ -1160,12 +1178,12 @@ class ContractControllerTest {
         @DisplayName("Should return 400 when regenerating financial values for a contract without financial terms")
         @WithMockUser(roles = "ADMIN")
         void shouldReturn400WhenRegeneratingWithoutFinancialTerms() throws Exception {
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Area-NoTerms").description("NoTerms").build());
             Counterparty counterparty = counterpartiesRepository.save(
-                    Counterparty.builder().name("Client NoTerms").type(CounterpartyType.CUSTOMER).build());
+                    Counterparty.builder().organization(testOrg).name("Client NoTerms").type(CounterpartyType.CUSTOMER).build());
 
-            Contracts contract = contractsRepository.save(Contracts.builder()
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
                     .counterparty(counterparty).contractNumber("CNTR-NOTERMS-1").wbsCode("WBS-NOTERMS")
                     .projectName("Project NoTerms").businessArea(area)
                     .startDate(LocalDate.of(2027, Month.JANUARY, 1)).endDate(LocalDate.of(2027, Month.DECEMBER, 31))
@@ -1235,7 +1253,7 @@ class ContractControllerTest {
         @DisplayName("Should import a valid contract from an uploaded Excel file")
         @WithMockUser(roles = "ADMIN")
         void shouldImportContractsFromExcel() throws Exception {
-            businessAreasRepository.save(BusinessAreas.builder().name("Import-Area").description("d").build());
+            businessAreasRepository.save(BusinessAreas.builder().organization(testOrg).name("Import-Area").description("d").build());
 
             byte[] bytes = buildImportWorkbook("CNTR-IMPORT-1", "Import-Area", null);
             MockMultipartFile file = new MockMultipartFile("file", "import.xlsx",

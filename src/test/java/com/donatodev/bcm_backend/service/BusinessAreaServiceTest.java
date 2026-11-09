@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -51,6 +53,19 @@ import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 @ActiveProfiles("test")
 class BusinessAreaServiceTest {
 
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
+
     @Mock
     private BusinessAreasRepository repository;
 
@@ -82,7 +97,7 @@ class BusinessAreaServiceTest {
             BusinessAreaDTO dto1 = new BusinessAreaDTO(1L, "Finance", "Budgeting");
             BusinessAreaDTO dto2 = new BusinessAreaDTO(2L, "HR", "Hiring");
 
-            when(repository.findAll()).thenReturn(Arrays.asList(entity1, entity2));
+            when(repository.findAllByOrganizationId(TENANT)).thenReturn(Arrays.asList(entity1, entity2));
             when(mapper.toDTO(entity1)).thenReturn(dto1);
             when(mapper.toDTO(entity2)).thenReturn(dto2);
 
@@ -103,7 +118,7 @@ class BusinessAreaServiceTest {
             BusinessAreas entity = BusinessAreas.builder().id(1L).name("IT").description("Infra").build();
             BusinessAreaDTO dto = new BusinessAreaDTO(1L, "IT", "Infra");
 
-            when(repository.findById(1L)).thenReturn(Optional.of(entity));
+            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
             when(mapper.toDTO(entity)).thenReturn(dto);
 
             BusinessAreaDTO result = service.getAreaById(1L);
@@ -119,7 +134,7 @@ class BusinessAreaServiceTest {
         @Order(3)
         @DisplayName("Get area by ID throws exception if not found")
         void shouldThrowExceptionWhenAreaNotFound() {
-            when(repository.findById(999L)).thenReturn(Optional.empty());
+            when(repository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             BusinessAreaNotFoundException ex =
                 assertThrows(BusinessAreaNotFoundException.class, () -> service.getAreaById(999L));
@@ -158,7 +173,7 @@ class BusinessAreaServiceTest {
             BusinessAreas existing = BusinessAreas.builder().id(1L).name("Old").description("Old Desc").build();
             BusinessAreaDTO updatedDTO = new BusinessAreaDTO(1L, "Updated", "Updated Desc");
 
-            when(repository.findById(1L)).thenReturn(Optional.of(existing));
+            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(existing));
             when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
             when(mapper.toDTO(any())).thenReturn(updatedDTO);
 
@@ -176,7 +191,7 @@ class BusinessAreaServiceTest {
         @DisplayName("Update area throws exception if not found")
         void shouldThrowExceptionWhenUpdatingMissingArea() {
             BusinessAreaDTO updatedDTO = new BusinessAreaDTO(1L, "Updated", "Updated Desc");
-            when(repository.findById(1L)).thenReturn(Optional.empty());
+            when(repository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.empty());
 
             BusinessAreaNotFoundException ex =
                 assertThrows(BusinessAreaNotFoundException.class, () -> service.updateArea(1L, updatedDTO));
@@ -193,7 +208,7 @@ class BusinessAreaServiceTest {
         void shouldDeleteArea() {
             Long id = 1L;
             BusinessAreas area = BusinessAreas.builder().id(id).build();
-            when(repository.findById(id)).thenReturn(Optional.of(area));
+            when(repository.findByIdAndOrganizationId(id, TENANT)).thenReturn(Optional.of(area));
 
             service.deleteArea(id);
 
@@ -207,7 +222,7 @@ class BusinessAreaServiceTest {
         @Order(8)
         @DisplayName("Delete area throws if area doesn't exist")
         void shouldThrowWhenDeletingNonExistentArea() {
-            when(repository.findById(999L)).thenReturn(Optional.empty());
+            when(repository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             BusinessAreaNotFoundException ex = assertThrows(BusinessAreaNotFoundException.class,
                     () -> service.deleteArea(999L));

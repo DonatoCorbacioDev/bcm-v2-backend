@@ -88,7 +88,7 @@ public class MlProxyService {
     // ── Cache-aware public methods (called from HTTP requests) ──────────────
 
     public ResponseEntity<String> getForecast(int months) {
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         tierLimitService.requireMlAccess(orgId);
         Long managerId = resolveManagerId();
         String key = "FORECAST_" + months + cacheKeySuffix(managerId);
@@ -97,7 +97,7 @@ public class MlProxyService {
     }
 
     public ResponseEntity<String> getAgentInsights(int months) {
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         tierLimitService.requireMlAccess(orgId);
         Long managerId = resolveManagerId();
         String key = "AGENT_INSIGHTS_" + months + cacheKeySuffix(managerId);
@@ -106,7 +106,7 @@ public class MlProxyService {
     }
 
     public ResponseEntity<String> getAnomalies() {
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         tierLimitService.requireMlAccess(orgId);
         Long managerId = resolveManagerId();
         String key = "ANOMALIES" + cacheKeySuffix(managerId);
@@ -115,7 +115,7 @@ public class MlProxyService {
     }
 
     public ResponseEntity<String> getRiskScores() {
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         tierLimitService.requireMlAccess(orgId);
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/risk-scores");
         return callMl(uriBuilder, orgId, resolveManagerId(), "risk-scores");
@@ -133,13 +133,11 @@ public class MlProxyService {
     }
 
     public ResponseEntity<String> askAgent(String question) {
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         tierLimitService.requireMlAccess(orgId);
         Long managerId = resolveManagerId();
-        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/agent/ask");
-        if (orgId != null) {
-            uriBuilder.queryParam("org_id", orgId);
-        }
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/agent/ask")
+                .queryParam("org_id", orgId);
         if (managerId != null) {
             uriBuilder.queryParam("manager_id", managerId);
         }

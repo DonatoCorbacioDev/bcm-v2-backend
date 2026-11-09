@@ -51,6 +51,19 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 @ActiveProfiles("test")
 class NotificationServiceTest {
 
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 10L; // = ORG_ID: the organization these tests run in
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
+
     @Mock private NotificationRepository notificationRepository;
     @Mock private UsersRepository usersRepository;
     @Mock private ContractsRepository contractsRepository;
@@ -308,19 +321,14 @@ class NotificationServiceTest {
 
         @Test
         @Order(15)
-        @DisplayName("Should fall back to an unscoped contract lookup when TenantContext is empty")
+        @DisplayName("Refuses a reminder when the request carries no organization")
         void shouldCreateReminderWhenOrgContextIsAbsent() {
             TenantContext.clear();
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("ADMIN")).build();
-            Contracts contract = Contracts.builder().id(7L).counterparty(Counterparty.builder().name("Beta").type(CounterpartyType.CUSTOMER).build()).build();
+            org.mockito.Mockito.lenient().when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
 
-            when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(contractsRepository.findById(7L)).thenReturn(Optional.of(contract));
-
-            notificationService.createReminderForCurrentUser(7L, "hi");
-
-            verify(notificationRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
-                    "Promemoria: Beta".equals(saved.getTitle()) && saved.getOrgId() == null));
+            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class, () -> notificationService.createReminderForCurrentUser(7L, "hi"));
+            verify(notificationRepository, never()).save(any());
         }
 
         // Regression tests for B1: a MANAGER confirming an agent-proposed

@@ -83,16 +83,12 @@ public class ContractHistoryMapper {
     public ContractHistory toEntity(ContractHistoryDTO dto) {
         // Tenant-scoped: an admin must not write history onto another
         // organization's contract, nor sign it with another tenant's user.
-        Long orgId = TenantContext.get();
-        Contracts contract = (orgId != null
-                ? contractsRepository.findByIdAndOrganization_Id(dto.contractId(), orgId)
-                : contractsRepository.findById(dto.contractId()))
+        Long orgId = TenantContext.require();
+        Contracts contract = contractsRepository.findByIdAndOrganization_Id(dto.contractId(), orgId)
                 .orElseThrow(() -> new ContractNotFoundException("Contract not found"));
         Users modifiedBy = null;
         if (dto.modifiedById() != null) {
-            modifiedBy = (orgId != null
-                    ? usersRepository.findByIdAndOrganizationId(dto.modifiedById(), orgId)
-                    : usersRepository.findById(dto.modifiedById()))
+            modifiedBy = usersRepository.findByIdAndOrganizationId(dto.modifiedById(), orgId)
                     .orElseThrow(() -> new UserNotFoundException("User not found"));
         }
         return ContractHistory.builder()

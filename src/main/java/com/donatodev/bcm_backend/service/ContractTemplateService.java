@@ -47,7 +47,7 @@ public class ContractTemplateService {
 
     @Transactional(readOnly = true)
     public List<ContractTemplateDTO> getTemplates() {
-        Long orgId = requireOrgId();
+        Long orgId = TenantContext.require();
         return templateRepository.findAllByOrgIdOrderByCreatedAtDesc(orgId)
                 .stream()
                 .map(this::toDTO)
@@ -56,13 +56,13 @@ public class ContractTemplateService {
 
     @Transactional(readOnly = true)
     public ContractTemplateDTO getTemplate(Long id) {
-        Long orgId = requireOrgId();
+        Long orgId = TenantContext.require();
         return toDTO(findInScope(id, orgId));
     }
 
     @Transactional
     public ContractTemplateDTO createTemplate(ContractTemplateDTO dto) {
-        Long orgId = requireOrgId();
+        Long orgId = TenantContext.require();
         ContractTemplate template = ContractTemplate.builder()
                 .name(dto.name())
                 .description(dto.description())
@@ -78,7 +78,7 @@ public class ContractTemplateService {
 
     @Transactional
     public ContractTemplateDTO updateTemplate(Long id, ContractTemplateDTO dto) {
-        Long orgId = requireOrgId();
+        Long orgId = TenantContext.require();
         ContractTemplate template = findInScope(id, orgId);
         template.setName(dto.name());
         template.setDescription(dto.description());
@@ -92,13 +92,13 @@ public class ContractTemplateService {
 
     @Transactional
     public void deleteTemplate(Long id) {
-        Long orgId = requireOrgId();
+        Long orgId = TenantContext.require();
         templateRepository.delete(findInScope(id, orgId));
     }
 
     @Transactional
     public ContractDTO instantiateTemplate(Long templateId, InstantiateTemplateDTO req) {
-        Long orgId = requireOrgId();
+        Long orgId = TenantContext.require();
         ContractTemplate template = findInScope(templateId, orgId);
 
         Long areaId = req.businessAreaId();
@@ -155,14 +155,6 @@ public class ContractTemplateService {
     private ContractTemplate findInScope(Long id, Long orgId) {
         return templateRepository.findByIdAndOrgId(id, orgId)
                 .orElseThrow(() -> new ContractNotFoundException("Modello di contratto non trovato: " + id));
-    }
-
-    private Long requireOrgId() {
-        Long orgId = TenantContext.get();
-        if (orgId == null) {
-            throw new IllegalStateException("No organization context for contract template operation");
-        }
-        return orgId;
     }
 
     private ContractTemplateDTO toDTO(ContractTemplate t) {

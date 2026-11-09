@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,6 +44,19 @@ import com.donatodev.bcm_backend.repository.BudgetRepository;
 @ActiveProfiles("test")
 class BudgetServiceTest {
 
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
+
     @Mock
     private BudgetRepository budgetRepository;
 
@@ -64,8 +79,8 @@ class BudgetServiceTest {
             Budget entity = Budget.builder().id(1L).category(FinancialCategory.COST).year(2025).targetAmount(1000.0).build();
             BudgetDTO dto = new BudgetDTO(1L, 2L, "IT", FinancialCategory.COST, 2025, 1000.0, 400.0, 40.0);
 
-            when(budgetRepository.findAll()).thenReturn(List.of(entity));
-            when(budgetMapper.toDTO(entity, null)).thenReturn(dto);
+            when(budgetRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(entity));
+            when(budgetMapper.toDTO(entity, TENANT)).thenReturn(dto);
 
             List<BudgetDTO> result = budgetService.getAllBudgets();
 
@@ -80,8 +95,8 @@ class BudgetServiceTest {
             Budget entity = Budget.builder().id(1L).category(FinancialCategory.REVENUE).year(2025).targetAmount(500.0).build();
             BudgetDTO dto = new BudgetDTO(1L, 2L, "Sales", FinancialCategory.REVENUE, 2025, 500.0, 250.0, 50.0);
 
-            when(budgetRepository.findById(1L)).thenReturn(Optional.of(entity));
-            when(budgetMapper.toDTO(entity, null)).thenReturn(dto);
+            when(budgetRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
+            when(budgetMapper.toDTO(entity, TENANT)).thenReturn(dto);
 
             BudgetDTO result = budgetService.getBudgetById(1L);
 
@@ -92,7 +107,7 @@ class BudgetServiceTest {
         @Order(3)
         @DisplayName("Get budget by ID throws if not found")
         void shouldThrowWhenBudgetNotFound() {
-            when(budgetRepository.findById(999L)).thenReturn(Optional.empty());
+            when(budgetRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             BudgetNotFoundException ex =
                 assertThrows(BudgetNotFoundException.class, () -> budgetService.getBudgetById(999L));
@@ -110,7 +125,7 @@ class BudgetServiceTest {
 
             when(budgetMapper.toEntity(dto)).thenReturn(entity);
             when(budgetRepository.save(entity)).thenReturn(saved);
-            when(budgetMapper.toDTO(saved, null)).thenReturn(savedDTO);
+            when(budgetMapper.toDTO(saved, TENANT)).thenReturn(savedDTO);
 
             BudgetDTO result = budgetService.createBudget(dto);
 
@@ -126,9 +141,9 @@ class BudgetServiceTest {
             BudgetDTO updateDTO = new BudgetDTO(1L, 2L, "IT", FinancialCategory.COST, 2025, 1500.0, 0, 0);
             Budget updatedEntity = Budget.builder().id(1L).category(FinancialCategory.COST).year(2025).targetAmount(1500.0).build();
 
-            when(budgetRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(budgetRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(existing));
             when(budgetRepository.save(existing)).thenReturn(updatedEntity);
-            when(budgetMapper.toDTO(updatedEntity, null)).thenReturn(updateDTO);
+            when(budgetMapper.toDTO(updatedEntity, TENANT)).thenReturn(updateDTO);
 
             BudgetDTO result = budgetService.updateBudget(1L, updateDTO);
 
@@ -142,7 +157,7 @@ class BudgetServiceTest {
         @DisplayName("Update budget throws if not found")
         void shouldThrowWhenUpdatingMissingBudget() {
             BudgetDTO updateDTO = new BudgetDTO(999L, 2L, "IT", FinancialCategory.COST, 2025, 100.0, 0, 0);
-            when(budgetRepository.findById(999L)).thenReturn(Optional.empty());
+            when(budgetRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             BudgetNotFoundException ex =
                 assertThrows(BudgetNotFoundException.class, () -> budgetService.updateBudget(999L, updateDTO));
@@ -154,7 +169,7 @@ class BudgetServiceTest {
         @DisplayName("Delete budget calls repository")
         void shouldDeleteBudget() {
             Budget entity = Budget.builder().id(1L).build();
-            when(budgetRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(budgetRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
 
             budgetService.deleteBudget(1L);
 
@@ -165,7 +180,7 @@ class BudgetServiceTest {
         @Order(8)
         @DisplayName("Delete budget throws if not found")
         void shouldThrowWhenDeletingMissingBudget() {
-            when(budgetRepository.findById(999L)).thenReturn(Optional.empty());
+            when(budgetRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             BudgetNotFoundException ex = assertThrows(BudgetNotFoundException.class,
                     () -> budgetService.deleteBudget(999L));

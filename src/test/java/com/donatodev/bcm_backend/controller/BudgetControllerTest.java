@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.support.TestTenant;
 import java.time.LocalDate;
 import java.time.Month;
 
@@ -64,6 +66,9 @@ import tools.jackson.databind.ObjectMapper;
 @ActiveProfiles("test")
 class BudgetControllerTest {
 
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -106,14 +111,22 @@ class BudgetControllerTest {
     @Autowired
     private TestDataCleaner testDataCleaner;
 
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     @SuppressWarnings("unused")
     void cleanDb() {
         testDataCleaner.clean();
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        TestTenant.use(testOrg.getId());
     }
 
     private Managers createManager() {
-        return managersRepository.save(Managers.builder()
+        return managersRepository.save(Managers.builder().organization(testOrg)
                 .firstName("Test")
                 .lastName("Manager")
                 .email("test.manager." + System.currentTimeMillis() + "@example.com")
@@ -122,11 +135,11 @@ class BudgetControllerTest {
     }
 
     private Contracts createContract(BusinessAreas area, Managers manager) {
-        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder()
+        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(testOrg)
                 .name("Customer " + System.currentTimeMillis())
                 .type(CounterpartyType.CUSTOMER)
                 .build());
-        return contractsRepository.save(Contracts.builder()
+        return contractsRepository.save(Contracts.builder().organization(testOrg)
                 .counterparty(counterparty)
                 .contractNumber("CONTRACT-" + System.currentTimeMillis())
                 .businessArea(area)
@@ -147,7 +160,7 @@ class BudgetControllerTest {
         @DisplayName("The new budget has been created")
         @WithMockUser(roles = "ADMIN")
         void shouldCreateBudget() throws Exception {
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Operations")
                     .description("Ops")
                     .build());
@@ -170,9 +183,9 @@ class BudgetControllerTest {
         @DisplayName("All budgets have been recovered successfully")
         @WithMockUser(roles = "ADMIN")
         void shouldGetAllBudgets() throws Exception {
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("IT").description("IT dept").build());
-            budgetRepository.save(com.donatodev.bcm_backend.entity.Budget.builder()
+            budgetRepository.save(com.donatodev.bcm_backend.entity.Budget.builder().organization(testOrg)
                     .businessArea(area).category(FinancialCategory.REVENUE).year(2025).targetAmount(1000.0).build());
 
             mockMvc.perform(get("/budgets"))
@@ -187,10 +200,10 @@ class BudgetControllerTest {
         @DisplayName("The budget with given ID has been retrieved successfully")
         @WithMockUser(roles = "ADMIN")
         void shouldGetBudgetById() throws Exception {
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Finance").description("Finance dept").build());
             com.donatodev.bcm_backend.entity.Budget saved = budgetRepository.save(
-                    com.donatodev.bcm_backend.entity.Budget.builder()
+                    com.donatodev.bcm_backend.entity.Budget.builder().organization(testOrg)
                             .businessArea(area).category(FinancialCategory.COST).year(2026).targetAmount(2000.0).build());
 
             mockMvc.perform(get("/budgets/{id}", saved.getId()))
@@ -206,7 +219,7 @@ class BudgetControllerTest {
             Organization org = organizationRepository.save(
                     Organization.builder().name("Budget Test Org").slug("budget-test-org").build());
             Roles adminRole = rolesRepository.save(Roles.builder().role("ADMIN").build());
-            Users admin = usersRepository.save(Users.builder()
+            Users admin = usersRepository.save(Users.builder().organization(testOrg)
                     .username("budget-admin")
                     .passwordHash("irrelevant")
                     .verified(true)
@@ -215,22 +228,22 @@ class BudgetControllerTest {
                     .build());
             String token = jwtUtils.generateTokenFromUser(admin);
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Sales").description("Sales dept").organization(org).build());
-            FinancialTypes revenueType = financialTypesRepository.save(FinancialTypes.builder()
+            FinancialTypes revenueType = financialTypesRepository.save(FinancialTypes.builder().organization(testOrg)
                     .name("Contract revenue").category(FinancialCategory.REVENUE).organization(org).build());
             Managers manager = createManager();
             Contracts contract = createContract(area, manager);
 
-            financialValuesRepository.save(FinancialValues.builder()
+            financialValuesRepository.save(FinancialValues.builder().organization(testOrg)
                     .month(3).year(2025).financialAmount(3000.0)
                     .financialType(revenueType).businessArea(area).contract(contract).organization(org).build());
-            financialValuesRepository.save(FinancialValues.builder()
+            financialValuesRepository.save(FinancialValues.builder().organization(testOrg)
                     .month(6).year(2025).financialAmount(2000.0)
                     .financialType(revenueType).businessArea(area).contract(contract).organization(org).build());
 
             com.donatodev.bcm_backend.entity.Budget budget = budgetRepository.save(
-                    com.donatodev.bcm_backend.entity.Budget.builder()
+                    com.donatodev.bcm_backend.entity.Budget.builder().organization(testOrg)
                             .businessArea(area).category(FinancialCategory.REVENUE).year(2025)
                             .targetAmount(10000.0).organization(org).build());
 
@@ -246,12 +259,12 @@ class BudgetControllerTest {
         @DisplayName("The budget has been updated successfully")
         @WithMockUser(roles = "ADMIN")
         void shouldUpdateBudget() throws Exception {
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Legal").description("Legal dept").build());
-            BusinessAreas newArea = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas newArea = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("HR").description("HR dept").build());
             com.donatodev.bcm_backend.entity.Budget original = budgetRepository.save(
-                    com.donatodev.bcm_backend.entity.Budget.builder()
+                    com.donatodev.bcm_backend.entity.Budget.builder().organization(testOrg)
                             .businessArea(area).category(FinancialCategory.COST).year(2025).targetAmount(1000.0).build());
 
             BudgetDTO updatedDTO = new BudgetDTO(original.getId(), newArea.getId(), null, FinancialCategory.REVENUE, 2026, 9999.0, 0, 0);
@@ -271,10 +284,10 @@ class BudgetControllerTest {
         @DisplayName("The budget has been deleted successfully")
         @WithMockUser(roles = "ADMIN")
         void shouldDeleteBudget() throws Exception {
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Temp").description("Temp dept").build());
             com.donatodev.bcm_backend.entity.Budget toDelete = budgetRepository.save(
-                    com.donatodev.bcm_backend.entity.Budget.builder()
+                    com.donatodev.bcm_backend.entity.Budget.builder().organization(testOrg)
                             .businessArea(area).category(FinancialCategory.COST).year(2025).targetAmount(1.0).build());
 
             mockMvc.perform(delete("/budgets/{id}", toDelete.getId()))
@@ -295,7 +308,7 @@ class BudgetControllerTest {
         @DisplayName("Manager can read budgets but not create them")
         @WithMockUser(roles = "MANAGER")
         void managerCannotCreateBudget() throws Exception {
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Restricted").description("Restricted dept").build());
             BudgetDTO dto = new BudgetDTO(null, area.getId(), null, FinancialCategory.COST, 2025, 100.0, 0, 0);
 

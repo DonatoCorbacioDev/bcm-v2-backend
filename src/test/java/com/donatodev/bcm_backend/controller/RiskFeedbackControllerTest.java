@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.support.TestTenant;
 import java.time.LocalDate;
 import java.time.Month;
 
@@ -50,6 +52,9 @@ import tools.jackson.databind.ObjectMapper;
 @ActiveProfiles("test")
 class RiskFeedbackControllerTest {
 
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -80,10 +85,18 @@ class RiskFeedbackControllerTest {
     @Autowired
     private TestDataCleaner testDataCleaner;
 
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     @SuppressWarnings("unused")
     void cleanDb() {
         testDataCleaner.clean();
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        TestTenant.use(testOrg.getId());
     }
 
     @Nested
@@ -99,15 +112,16 @@ class RiskFeedbackControllerTest {
         void shouldCreateFeedback() throws Exception {
             Organization organization = organizationRepository.save(Organization.builder()
                     .name("Acme Legal").slug("acme-legal").build());
+            TestTenant.use(organization.getId());
 
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(organization)
                     .firstName("Marco").lastName("Rossi").email("marco.rossi@example.com").department("Legal").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(organization)
                     .name("Legal Area").description("Handles legal affairs").build());
 
-            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Cliente Uno").type(CounterpartyType.CUSTOMER).build());
-            Contracts contract = contractsRepository.save(Contracts.builder()
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(organization).name("Cliente Uno").type(CounterpartyType.CUSTOMER).build());
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(organization)
                     .counterparty(counterparty).contractNumber("RF001").projectName("Legal Project")
                     .businessArea(area).manager(manager).organization(organization)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(365))
@@ -115,7 +129,7 @@ class RiskFeedbackControllerTest {
 
             Roles savedRole = rolesRepository.save(Roles.builder().role("ADMIN").build());
 
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(organization)
                     .username("admin").passwordHash("hashedpassword").manager(manager).role(savedRole).build());
 
             RiskFeedbackRequest request = new RiskFeedbackRequest(0.82, "HIGH", 0.7, "HIGH", true);
@@ -136,15 +150,16 @@ class RiskFeedbackControllerTest {
         void shouldGetFeedbackList() throws Exception {
             Organization organization = organizationRepository.save(Organization.builder()
                     .name("Acme HR").slug("acme-hr").build());
+            TestTenant.use(organization.getId());
 
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(organization)
                     .firstName("Elena").lastName("Bianchi").email("elena.bianchi@example.com").department("HR").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(organization)
                     .name("HR Area").description("Handles human resources").build());
 
-            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Client Beta").type(CounterpartyType.CUSTOMER).build());
-            Contracts contract = contractsRepository.save(Contracts.builder()
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(organization).name("Client Beta").type(CounterpartyType.CUSTOMER).build());
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(organization)
                     .counterparty(counterparty).contractNumber("RF002").projectName("HR Project")
                     .businessArea(area).manager(manager).organization(organization)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusMonths(6))
@@ -153,7 +168,7 @@ class RiskFeedbackControllerTest {
             Roles savedRole = rolesRepository.findByRole("ADMIN")
                     .orElseGet(() -> rolesRepository.save(Roles.builder().role("ADMIN").build()));
 
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(organization)
                     .username("elena.hr").passwordHash("passwordhr").manager(manager).role(savedRole).build());
 
             RiskFeedbackRequest firstAnswer = new RiskFeedbackRequest(0.3, "LOW", null, null, false);
@@ -180,14 +195,14 @@ class RiskFeedbackControllerTest {
         @DisplayName("Feedback submission is rejected without a level")
         @WithMockUser(username = "giorgio.neri", roles = "ADMIN")
         void shouldRejectInvalidPayload() throws Exception {
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Giorgio").lastName("Neri").email("giorgio.neri@example.com").department("Finance").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Finance Area").description("Finance operations").build());
 
-            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Finance Corp").type(CounterpartyType.CUSTOMER).build());
-            Contracts contract = contractsRepository.save(Contracts.builder()
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Finance Corp").type(CounterpartyType.CUSTOMER).build());
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
                     .counterparty(counterparty).contractNumber("RF003").projectName("Finance Project")
                     .businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusMonths(12))
@@ -196,7 +211,7 @@ class RiskFeedbackControllerTest {
             Roles savedRole = rolesRepository.findByRole("ADMIN")
                     .orElseGet(() -> rolesRepository.save(Roles.builder().role("ADMIN").build()));
 
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(testOrg)
                     .username("giorgio.neri").passwordHash("passwordfinance").manager(manager).role(savedRole).build());
 
             String invalidJson = "{\"riskScore\":0.5,\"agree\":true}";
@@ -215,10 +230,10 @@ class RiskFeedbackControllerTest {
             Roles savedRole = rolesRepository.findByRole("ADMIN")
                     .orElseGet(() -> rolesRepository.save(Roles.builder().role("ADMIN").build()));
 
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Anna").lastName("Verdi").email("anna.verdi@example.com").department("Operations").build());
 
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(testOrg)
                     .username("anna.verdi").passwordHash("securepass").manager(manager).role(savedRole).build());
 
             RiskFeedbackRequest request = new RiskFeedbackRequest(0.5, "MEDIUM", null, null, true);

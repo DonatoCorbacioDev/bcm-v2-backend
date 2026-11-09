@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import org.junit.jupiter.api.BeforeEach;
+import com.donatodev.bcm_backend.config.TenantContext;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -65,6 +67,19 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 @ActiveProfiles("test")
 class FinancialValueServiceTest {
 
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
+
     private static final String TEST_PASSWORD = "pwd";
 
     @Mock
@@ -117,7 +132,7 @@ class FinancialValueServiceTest {
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(valuesRepository.findAll()).thenReturn(List.of(entity));
+            when(valuesRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(entity));
             when(mapper.toDTO(entity)).thenReturn(dto);
 
             List<FinancialValueDTO> result = service.getAllValues();
@@ -153,7 +168,7 @@ class FinancialValueServiceTest {
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(valuesRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
             when(mapper.toDTO(entity)).thenReturn(dto);
 
             FinancialValueDTO result = service.getValueById(1L);
@@ -186,7 +201,7 @@ class FinancialValueServiceTest {
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(valuesRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
 
             service.deleteValue(1L);
 
@@ -202,7 +217,7 @@ class FinancialValueServiceTest {
         @ValueSource(longs = {999L, 1000L})
         @DisplayName("Delete should throw FinancialValueNotFoundException for missing IDs")
         void shouldThrowWhenDeletingMissing(long id) {
-            when(valuesRepository.findById(id)).thenReturn(Optional.empty());
+            when(valuesRepository.findByIdAndOrganizationId(id, TENANT)).thenReturn(Optional.empty());
             FinancialValueNotFoundException ex
                     = assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(id));
             assertEquals("ID valore finanziario " + id + " non trovato", ex.getMessage());
@@ -220,7 +235,7 @@ class FinancialValueServiceTest {
             FinancialValues saved = FinancialValues.builder().id(1L).build();
             FinancialValueDTO savedDTO = new FinancialValueDTO(1L, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
-            when(mapper.toEntity(dto, null)).thenReturn(entity);
+            when(mapper.toEntity(dto, TENANT)).thenReturn(entity);
             when(valuesRepository.save(entity)).thenReturn(saved);
             when(mapper.toDTO(saved)).thenReturn(savedDTO);
 
@@ -255,7 +270,7 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(contractManager).build())
                     .build();
 
-            when(mapper.toEntity(dto, null)).thenReturn(entity);
+            when(mapper.toEntity(dto, TENANT)).thenReturn(entity);
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
 
             assertThrows(AccessDeniedException.class, () -> service.createValue(dto));
@@ -334,7 +349,7 @@ class FinancialValueServiceTest {
             );
 
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
-            when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(valuesRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
 
             AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.getValueById(1L));
             assertTrue(ex.getMessage().contains("non sei assegnato"));
@@ -371,7 +386,7 @@ class FinancialValueServiceTest {
             );
 
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
-            when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(valuesRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
 
             AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.getValueById(1L));
             assertTrue(ex.getMessage().contains("non sei assegnato"));
@@ -404,7 +419,7 @@ class FinancialValueServiceTest {
             );
 
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
-            when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(valuesRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
             when(mapper.toDTO(entity)).thenReturn(dto);
 
             FinancialValueDTO result = service.getValueById(1L);
@@ -468,7 +483,7 @@ class FinancialValueServiceTest {
         @Order(11)
         @DisplayName("getValueById should throw if value not found")
         void shouldThrowIfValueNotFound() {
-            when(valuesRepository.findById(999L)).thenReturn(Optional.empty());
+            when(valuesRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             FinancialValueNotFoundException ex
                     = assertThrows(FinancialValueNotFoundException.class, () -> service.getValueById(999L));
@@ -505,7 +520,7 @@ class FinancialValueServiceTest {
             );
 
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
-            when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(valuesRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
 
             AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.deleteValue(1L));
             assertTrue(ex.getMessage().contains("non sei assegnato"));
@@ -587,13 +602,13 @@ class FinancialValueServiceTest {
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(valuesRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
             when(valuesRepository.save(entity)).thenReturn(saved);
             when(mapper.toDTO(saved)).thenReturn(savedDTO);
 
             FinancialValueDTO result = service.updateValue(1L, dto);
 
-            verify(mapper).updateEntity(entity, dto, null);
+            verify(mapper).updateEntity(entity, dto, TENANT);
             verify(valuesRepository).save(entity);
             assertEquals(2L, result.financialTypeId());
             assertEquals(750.0, result.financialAmount());
@@ -631,7 +646,7 @@ class FinancialValueServiceTest {
             );
 
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
-            when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(valuesRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
 
             AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.updateValue(1L, dto));
             assertTrue(ex.getMessage().contains("non sei assegnato"));
@@ -645,7 +660,7 @@ class FinancialValueServiceTest {
         @Order(17)
         @DisplayName("updateValue should throw FinancialValueNotFoundException if ID not found")
         void shouldThrowFinancialValueNotFoundException() {
-            when(valuesRepository.findById(999L)).thenReturn(Optional.empty());
+            when(valuesRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             FinancialValueDTO dto = new FinancialValueDTO(999L, 1, 2024, 100.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
@@ -662,7 +677,7 @@ class FinancialValueServiceTest {
         @Order(18)
         @DisplayName("deleteValue should throw FinancialValueNotFoundException if ID not found")
         void shouldThrowWhenDeletingNonexistentValue() {
-            when(valuesRepository.findById(999L)).thenReturn(Optional.empty());
+            when(valuesRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             FinancialValueNotFoundException ex
                     = assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(999L));
@@ -1079,7 +1094,7 @@ class FinancialValueServiceTest {
             FinancialValueDTO dto = new FinancialValueDTO(null, 1, 2024, 300.0, 1L, 1L, 1L, "Type", "Area", "Contract", FinancialCategory.REVENUE);
             FinancialValues entity = FinancialValues.builder().build();
 
-            when(mapper.toEntity(dto, null)).thenReturn(entity);
+            when(mapper.toEntity(dto, TENANT)).thenReturn(entity);
             when(valuesRepository.save(entity)).thenThrow(new RuntimeException("db unavailable"));
 
             assertThrows(RuntimeException.class, () -> service.createValue(dto));
@@ -1096,7 +1111,7 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(Managers.builder().id(1L).build()).build())
                     .build();
 
-            when(valuesRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(valuesRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
             doThrow(new RuntimeException("db unavailable")).when(valuesRepository).delete(entity);
 
             assertThrows(RuntimeException.class, () -> service.deleteValue(1L));
@@ -1129,7 +1144,7 @@ class FinancialValueServiceTest {
                     .contract(Contracts.builder().manager(contractManager).build())
                     .build();
 
-            when(mapper.toEntity(dto, null)).thenReturn(entity);
+            when(mapper.toEntity(dto, TENANT)).thenReturn(entity);
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
 
             assertThrows(AccessDeniedException.class, () -> service.createValue(dto));
@@ -1142,7 +1157,7 @@ class FinancialValueServiceTest {
         @Order(37)
         @DisplayName("deleteValue does NOT evict the ML cache when the value lookup fails before the write")
         void shouldNotEvictCacheWhenDeleteNotFound() {
-            when(valuesRepository.findById(999L)).thenReturn(Optional.empty());
+            when(valuesRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(999L));
 

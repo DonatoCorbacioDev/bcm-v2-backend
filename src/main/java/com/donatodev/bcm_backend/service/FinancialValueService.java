@@ -68,12 +68,10 @@ public class FinancialValueService {
         Users user = usersRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("Utente" + NOT_FOUND_SUFFIX));
 
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
 
         if ("ADMIN".equals(user.getRole().getRole())) {
-            List<FinancialValues> values = (orgId != null)
-                    ? financialValuesRepository.findAllByOrganizationId(orgId)
-                    : financialValuesRepository.findAll();
+            List<FinancialValues> values = financialValuesRepository.findAllByOrganizationId(orgId);
             return values.stream().map(financialValueMapper::toDTO).toList();
         } else {
             Long managerId = user.getManager().getId();
@@ -107,10 +105,8 @@ public class FinancialValueService {
      * {@link TenantContext} carries an organization ID.
      */
     private Optional<FinancialValues> findValueInScope(Long id) {
-        Long orgId = TenantContext.get();
-        return (orgId != null)
-                ? financialValuesRepository.findByIdAndOrganizationId(id, orgId)
-                : financialValuesRepository.findById(id);
+        Long orgId = TenantContext.require();
+        return financialValuesRepository.findByIdAndOrganizationId(id, orgId);
     }
 
     /**
@@ -120,13 +116,11 @@ public class FinancialValueService {
      * @return the created {@link FinancialValueDTO}
      */
     public FinancialValueDTO createValue(FinancialValueDTO dto) {
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         FinancialValues value = financialValueMapper.toEntity(dto, orgId);
-        if (orgId != null) {
-            Organization org = new Organization();
-            org.setId(orgId);
-            value.setOrganization(org);
-        }
+        Organization org = new Organization();
+        org.setId(orgId);
+        value.setOrganization(org);
         checkAccessToFinancialValue(value);
         value = financialValuesRepository.save(value);
         mlCacheService.evictAllForOrg(orgId);
@@ -144,7 +138,7 @@ public class FinancialValueService {
      * @throws SecurityException if access is denied
      */
     public FinancialValueDTO updateValue(Long id, FinancialValueDTO dto) {
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         FinancialValues value = findValueInScope(id)
                 .orElseThrow(() -> new FinancialValueNotFoundException(FINANCIAL_VALUE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
@@ -166,7 +160,7 @@ public class FinancialValueService {
      * @throws SecurityException if access is denied
      */
     public void deleteValue(Long id) {
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         FinancialValues value = findValueInScope(id)
                 .orElseThrow(() -> new FinancialValueNotFoundException(FINANCIAL_VALUE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
@@ -231,10 +225,8 @@ public class FinancialValueService {
      * @return a list of {@link FinancialValueDTO}
      */
     public List<FinancialValueDTO> getValuesByContractId(Long contractId) {
-        Long orgId = TenantContext.get();
-        List<FinancialValues> values = (orgId != null)
-                ? financialValuesRepository.findByContractIdAndOrganizationId(contractId, orgId)
-                : financialValuesRepository.findByContractId(contractId);
+        Long orgId = TenantContext.require();
+        List<FinancialValues> values = financialValuesRepository.findByContractIdAndOrganizationId(contractId, orgId);
         return values.stream().map(financialValueMapper::toDTO).toList();
     }
 }

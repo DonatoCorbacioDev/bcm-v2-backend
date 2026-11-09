@@ -62,10 +62,8 @@ public class CounterpartyService {
     }
 
     public List<CounterpartyDTO> getAllCounterparties() {
-        Long orgId = TenantContext.get();
-        List<Counterparty> counterparties = (orgId != null)
-                ? counterpartiesRepository.findAllByOrganizationId(orgId)
-                : counterpartiesRepository.findAll();
+        Long orgId = TenantContext.require();
+        List<Counterparty> counterparties = counterpartiesRepository.findAllByOrganizationId(orgId);
         return counterparties.stream().map(counterpartyMapper::toDTO).toList();
     }
 
@@ -116,20 +114,16 @@ public class CounterpartyService {
      * {@link TenantContext} carries an organization ID.
      */
     Optional<Counterparty> findCounterpartyInScope(Long id) {
-        Long orgId = TenantContext.get();
-        return (orgId != null)
-                ? counterpartiesRepository.findByIdAndOrganizationId(id, orgId)
-                : counterpartiesRepository.findById(id);
+        Long orgId = TenantContext.require();
+        return counterpartiesRepository.findByIdAndOrganizationId(id, orgId);
     }
 
     public CounterpartyDTO createCounterparty(CounterpartyDTO dto) {
         Counterparty counterparty = counterpartyMapper.toEntity(dto);
-        Long orgId = TenantContext.get();
-        if (orgId != null) {
-            Organization org = new Organization();
-            org.setId(orgId);
-            counterparty.setOrganization(org);
-        }
+        Long orgId = TenantContext.require();
+        Organization org = new Organization();
+        org.setId(orgId);
+        counterparty.setOrganization(org);
         counterparty = counterpartiesRepository.save(counterparty);
         return counterpartyMapper.toDTO(counterparty);
     }
@@ -187,7 +181,7 @@ public class CounterpartyService {
         String action = previousIban == null ? "set" : "changed";
         String details = "Verified IBAN for counterparty " + id + " " + action
                 + " (" + IbanValidator.mask(previousIban) + " -> " + IbanValidator.mask(normalizedIban) + ")";
-        auditLogService.save("VERIFIED_IBAN_CONFIRMED", "Counterparty", id, username, TenantContext.get(), details);
+        auditLogService.save("VERIFIED_IBAN_CONFIRMED", "Counterparty", id, username, TenantContext.require(), details);
 
         return counterpartyMapper.toDTO(counterparty);
     }
@@ -205,10 +199,8 @@ public class CounterpartyService {
      * force the user to pre-create every counterparty by hand first.
      */
     public Counterparty resolveOrCreateByName(String name) {
-        Long orgId = TenantContext.get();
-        Optional<Counterparty> existing = (orgId != null)
-                ? counterpartiesRepository.findByNameIgnoreCaseAndOrganizationId(name, orgId)
-                : Optional.empty();
+        Long orgId = TenantContext.require();
+        Optional<Counterparty> existing = counterpartiesRepository.findByNameIgnoreCaseAndOrganizationId(name, orgId);
         if (existing.isPresent()) {
             return existing.get();
         }
@@ -217,11 +209,9 @@ public class CounterpartyService {
                 .name(name)
                 .type(CounterpartyType.CUSTOMER)
                 .build();
-        if (orgId != null) {
-            Organization org = new Organization();
-            org.setId(orgId);
-            counterparty.setOrganization(org);
-        }
+        Organization org = new Organization();
+        org.setId(orgId);
+        counterparty.setOrganization(org);
         return counterpartiesRepository.save(counterparty);
     }
 }

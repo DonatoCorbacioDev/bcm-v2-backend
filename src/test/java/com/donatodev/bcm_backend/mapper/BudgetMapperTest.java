@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.mapper;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.config.TenantContext;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,6 +33,19 @@ import com.donatodev.bcm_backend.repository.FinancialValuesRepository;
  */
 @ActiveProfiles("test")
 class BudgetMapperTest {
+
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
 
     @Mock
     private BusinessAreasRepository businessAreasRepository;
@@ -100,7 +115,7 @@ class BudgetMapperTest {
             BusinessAreas area = BusinessAreas.builder().id(2L).name("IT").build();
             BudgetDTO dto = new BudgetDTO(10L, 2L, "IT", FinancialCategory.REVENUE, 2025, 5000.0, 0, 0);
 
-            when(businessAreasRepository.findById(2L)).thenReturn(Optional.of(area));
+            when(businessAreasRepository.findByIdAndOrganizationId(2L, TENANT)).thenReturn(Optional.of(area));
 
             Budget entity = budgetMapper.toEntity(dto);
 
@@ -116,7 +131,7 @@ class BudgetMapperTest {
         void shouldThrowIfBusinessAreaNotFound() {
             BudgetDTO dto = new BudgetDTO(null, 99L, null, FinancialCategory.COST, 2025, 100.0, 0, 0);
 
-            when(businessAreasRepository.findById(99L)).thenReturn(Optional.empty());
+            when(businessAreasRepository.findByIdAndOrganizationId(99L, TENANT)).thenReturn(Optional.empty());
 
             assertThrows(BusinessAreaNotFoundException.class, () -> budgetMapper.toEntity(dto));
         }
@@ -131,7 +146,7 @@ class BudgetMapperTest {
 
             BudgetDTO dto = new BudgetDTO(1L, 2L, "New", FinancialCategory.REVENUE, 2025, 200.0, 0, 0);
 
-            when(businessAreasRepository.findById(2L)).thenReturn(Optional.of(newArea));
+            when(businessAreasRepository.findByIdAndOrganizationId(2L, TENANT)).thenReturn(Optional.of(newArea));
 
             budgetMapper.updateEntity(existing, dto);
 
@@ -147,7 +162,7 @@ class BudgetMapperTest {
             Budget existing = Budget.builder().id(1L).build();
             BudgetDTO dto = new BudgetDTO(1L, 99L, null, FinancialCategory.COST, 2025, 100.0, 0, 0);
 
-            when(businessAreasRepository.findById(99L)).thenReturn(Optional.empty());
+            when(businessAreasRepository.findByIdAndOrganizationId(99L, TENANT)).thenReturn(Optional.empty());
 
             assertThrows(BusinessAreaNotFoundException.class, () -> budgetMapper.updateEntity(existing, dto));
         }

@@ -28,12 +28,8 @@ public class CurrentUserResolver {
 
     public Users resolve() {
         String username = AuthenticatedUserUtils.getUsernameOrThrow();
-        Long orgId = TenantContext.get();
-        if (orgId != null) {
-            return usersRepository.findByUsernameAndOrganizationId(username, orgId)
-                    .orElseThrow(() -> new UserNotFoundException("Utente non trovato"));
-        }
-        return usersRepository.findByUsername(username)
+        Long orgId = TenantContext.require();
+        return usersRepository.findByUsernameAndOrganizationId(username, orgId)
                 .orElseThrow(() -> new UserNotFoundException("Utente non trovato"));
     }
 }

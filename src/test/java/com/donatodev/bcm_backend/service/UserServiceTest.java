@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.List;
@@ -85,6 +86,19 @@ import jakarta.persistence.criteria.Root;
 @ActiveProfiles("test")
 class UserServiceTest {
 
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
+
     @Mock
     private UsersRepository usersRepository;
 
@@ -135,7 +149,7 @@ class UserServiceTest {
             Users user = Users.builder().id(1L).username("admin").build();
             UserDTO dto = new UserDTO(1L, "admin", "pass", 1L, 1L, null, null);
 
-            when(usersRepository.findAll()).thenReturn(List.of(user));
+            when(usersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(user));
             when(userMapper.toDTO(user)).thenReturn(dto);
 
             List<UserDTO> result = userService.getAllUsers();
@@ -155,7 +169,7 @@ class UserServiceTest {
             Users user = Users.builder().id(1L).username("admin").build();
             UserDTO dto = new UserDTO(1L, "admin", "pass", 1L, 1L, null, null);
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(userMapper.toDTO(user)).thenReturn(dto);
 
             UserDTO result = userService.getUserById(1L);
@@ -170,7 +184,7 @@ class UserServiceTest {
         @Order(3)
         @DisplayName("Get user by ID throws if not found")
         void shouldThrowIfUserNotFound() {
-            when(usersRepository.findById(999L)).thenReturn(Optional.empty());
+            when(usersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
             UserNotFoundException ex
                     = assertThrows(UserNotFoundException.class, () -> userService.getUserById(999L));
             assertEquals("Utente ID 999 non trovato", ex.getMessage());
@@ -210,7 +224,7 @@ class UserServiceTest {
         @Order(16)
         @DisplayName("Create user sets organization from manager")
         void shouldSetOrganizationFromManagerOnCreate() {
-            Organization organization = Organization.builder().id(9L).name("Acme").build();
+            Organization organization = Organization.builder().id(TENANT).name("Acme").build();
             Managers manager = Managers.builder().id(1L).organization(organization).build();
             UserDTO dto = new UserDTO(null, "user1", "plainpass", 1L, 1L, null, null);
             Users user = Users.builder().username("user1").manager(manager).build();
@@ -308,9 +322,9 @@ class UserServiceTest {
             UserDTO dto = new UserDTO(1L, "updatedUser", "newpass", 2L, 3L, null, null);
             UserDTO resultDTO = new UserDTO(1L, "updatedUser", null, 2L, 3L, null, null);
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(passwordEncoder.encode("newpass")).thenReturn("encodedpass");
-            when(managersRepository.findById(2L)).thenReturn(Optional.of(manager));
+            when(managersRepository.findByIdAndOrganizationId(2L, TENANT)).thenReturn(Optional.of(manager));
             when(rolesRepository.findById(3L)).thenReturn(Optional.of(role));
             when(usersRepository.save(user)).thenReturn(user);
             when(userMapper.toDTO(user)).thenReturn(resultDTO);
@@ -330,7 +344,7 @@ class UserServiceTest {
         @DisplayName("Delete user by ID")
         void shouldDeleteUser() {
             Users user = Users.builder().id(1L).username("admin").build();
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
 
             userService.deleteUser(1L);
 
@@ -344,7 +358,7 @@ class UserServiceTest {
         @Order(60)
         @DisplayName("Delete user throws if not found")
         void shouldThrowWhenDeletingMissingUser() {
-            when(usersRepository.findById(999L)).thenReturn(Optional.empty());
+            when(usersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
                     () -> userService.deleteUser(999L));
@@ -560,9 +574,9 @@ class UserServiceTest {
             UserDTO dto = new UserDTO(1L, "user", "pass", 10L, 1L, null, null);
             Users user = Users.builder().id(1L).build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(passwordEncoder.encode("pass")).thenReturn("encoded");
-            when(managersRepository.findById(10L)).thenReturn(Optional.empty());
+            when(managersRepository.findByIdAndOrganizationId(10L, TENANT)).thenReturn(Optional.empty());
 
             IllegalArgumentException ex
                     = assertThrows(IllegalArgumentException.class, () -> userService.updateUser(1L, dto));
@@ -580,9 +594,9 @@ class UserServiceTest {
             Users user = Users.builder().id(1L).build();
             Managers manager = Managers.builder().id(1L).build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(passwordEncoder.encode("pass")).thenReturn("encoded");
-            when(managersRepository.findById(1L)).thenReturn(Optional.of(manager));
+            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(manager));
             when(rolesRepository.findById(20L)).thenReturn(Optional.empty());
 
             IllegalArgumentException ex
@@ -680,7 +694,7 @@ class UserServiceTest {
         @DisplayName("Get user by ID throws with correct message")
         void shouldThrowUserNotFoundWithCorrectMessage() {
             long userId = 123L;
-            when(usersRepository.findById(userId)).thenReturn(Optional.empty());
+            when(usersRepository.findByIdAndOrganizationId(userId, TENANT)).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> userService.getUserById(userId));
             assertEquals("Utente ID 123 non trovato", ex.getMessage());
@@ -697,7 +711,7 @@ class UserServiceTest {
             long userId = 999L;
             UserDTO dto = new UserDTO(userId, "updatedUser", "pass", 1L, 1L, null, null);
 
-            when(usersRepository.findById(userId)).thenReturn(Optional.empty());
+            when(usersRepository.findByIdAndOrganizationId(userId, TENANT)).thenReturn(Optional.empty());
 
             UserNotFoundException exception = assertThrows(UserNotFoundException.class, () -> userService.updateUser(userId, dto));
 
@@ -715,7 +729,7 @@ class UserServiceTest {
             Managers manager = Managers.builder().id(1L).email("manager@company.com").build();
 
             when(usersRepository.existsByUsername("newmanager")).thenReturn(false);
-            when(managersRepository.findById(1L)).thenReturn(Optional.of(manager));
+            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(manager));
 
             String result = userService.inviteUser("newmanager", "MANAGER", 1L);
 
@@ -760,7 +774,7 @@ class UserServiceTest {
         @DisplayName("Invite user fails if manager not found")
         void shouldThrowIfManagerNotFoundDuringInvite() {
             when(usersRepository.existsByUsername("user")).thenReturn(false);
-            when(managersRepository.findById(999L)).thenReturn(Optional.empty());
+            when(managersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("user", "MANAGER", 999L));
 
@@ -925,7 +939,7 @@ class UserServiceTest {
                     .passwordHash("oldpass")
                     .build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.existsByUsername("newusername")).thenReturn(false);
             when(usersRepository.save(user)).thenReturn(user);
 
@@ -947,7 +961,7 @@ class UserServiceTest {
                     .username("olduser")
                     .build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.existsByUsername("existinguser")).thenReturn(true);
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
@@ -968,7 +982,7 @@ class UserServiceTest {
                     .username("sameuser")
                     .build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.save(user)).thenReturn(user);
 
             Users result = userService.updateUserPartial(1L, "sameuser", null, null, null);
@@ -987,7 +1001,7 @@ class UserServiceTest {
             Users user = Users.builder().id(1L).username("user").build();
             Roles role = Roles.builder().id(2L).role("ADMIN").build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.of(role));
             when(usersRepository.save(user)).thenReturn(user);
 
@@ -1006,7 +1020,7 @@ class UserServiceTest {
         void shouldThrowIfRoleNotFoundInPartialUpdate() {
             Users user = Users.builder().id(1L).username("user").build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(rolesRepository.findByRole("INVALIDROLE")).thenReturn(Optional.empty());
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
@@ -1025,8 +1039,8 @@ class UserServiceTest {
             Users user = Users.builder().id(1L).username("user").build();
             Managers manager = Managers.builder().id(5L).build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
-            when(managersRepository.findById(5L)).thenReturn(Optional.of(manager));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(managersRepository.findByIdAndOrganizationId(5L, TENANT)).thenReturn(Optional.of(manager));
             when(usersRepository.save(user)).thenReturn(user);
 
             Users result = userService.updateUserPartial(1L, null, null, 5L, null);
@@ -1044,8 +1058,8 @@ class UserServiceTest {
         void shouldThrowIfManagerNotFoundInPartialUpdate() {
             Users user = Users.builder().id(1L).username("user").build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
-            when(managersRepository.findById(999L)).thenReturn(Optional.empty());
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
+            when(managersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.updateUserPartial(1L, null, null, 999L, null));
@@ -1062,7 +1076,7 @@ class UserServiceTest {
         void shouldUpdatePasswordOnlyInPartialUpdate() {
             Users user = Users.builder().id(1L).username("user").build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(passwordEncoder.encode("newpassword")).thenReturn("encodednewpass");
             when(usersRepository.save(user)).thenReturn(user);
 
@@ -1079,7 +1093,7 @@ class UserServiceTest {
         @Order(41)
         @DisplayName("Update user partial - fails if user not found")
         void shouldThrowIfUserNotFoundInPartialUpdate() {
-            when(usersRepository.findById(999L)).thenReturn(Optional.empty());
+            when(usersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
                     () -> userService.updateUserPartial(999L, "newname", null, null, null));
@@ -1096,7 +1110,7 @@ class UserServiceTest {
         void shouldSkipUsernameIfNull() {
             Users user = Users.builder().id(1L).username("original").build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.save(user)).thenReturn(user);
 
             Users result = userService.updateUserPartial(1L, null, null, null, null);
@@ -1113,7 +1127,7 @@ class UserServiceTest {
         void shouldSkipUsernameIfBlank() {
             Users user = Users.builder().id(1L).username("original").build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.save(user)).thenReturn(user);
 
             Users result = userService.updateUserPartial(1L, "   ", null, null, null);
@@ -1130,7 +1144,7 @@ class UserServiceTest {
         void shouldSkipRoleIfBlank() {
             Users user = Users.builder().id(1L).username("user").build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.save(user)).thenReturn(user);
 
             userService.updateUserPartial(1L, null, "  ", null, null);
@@ -1147,7 +1161,7 @@ class UserServiceTest {
         void shouldSkipPasswordIfBlank() {
             Users user = Users.builder().id(1L).username("user").build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.save(user)).thenReturn(user);
 
             userService.updateUserPartial(1L, null, null, null, "   ");
@@ -1166,10 +1180,10 @@ class UserServiceTest {
             Roles role = Roles.builder().id(2L).role("MANAGER").build();
             Managers manager = Managers.builder().id(3L).build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.existsByUsername("newuser")).thenReturn(false);
             when(rolesRepository.findByRole("MANAGER")).thenReturn(Optional.of(role));
-            when(managersRepository.findById(3L)).thenReturn(Optional.of(manager));
+            when(managersRepository.findByIdAndOrganizationId(3L, TENANT)).thenReturn(Optional.of(manager));
             when(passwordEncoder.encode("newpass")).thenReturn("encodedpass");
             when(usersRepository.save(user)).thenReturn(user);
 
@@ -1199,7 +1213,7 @@ class UserServiceTest {
                     .token("reset-token-123")
                     .build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(passwordResetTokenService.createToken(user)).thenReturn(token);
 
             userService.sendResetLink(1L);
@@ -1228,7 +1242,7 @@ class UserServiceTest {
                     .token("reset-token-456")
                     .build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(passwordResetTokenService.createToken(user)).thenReturn(token);
 
             userService.sendResetLink(1L);
@@ -1257,7 +1271,7 @@ class UserServiceTest {
                     .token("reset-token-789")
                     .build();
 
-            when(usersRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(usersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(user));
             when(passwordResetTokenService.createToken(user)).thenReturn(token);
 
             userService.sendResetLink(1L);
@@ -1275,7 +1289,7 @@ class UserServiceTest {
         @Order(50)
         @DisplayName("Send reset link fails if user not found")
         void shouldThrowIfUserNotFoundForResetLink() {
-            when(usersRepository.findById(999L)).thenReturn(Optional.empty());
+            when(usersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
                     () -> userService.sendResetLink(999L));

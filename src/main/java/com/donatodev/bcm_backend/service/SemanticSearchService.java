@@ -92,7 +92,7 @@ public class SemanticSearchService {
         if (query == null || query.isBlank()) {
             return List.of();
         }
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         List<ContractDocument> candidates = visibleToCurrentUser(
                 documentRepository.findByOrgIdAndEmbeddingIsNotNull(orgId));
         if (candidates.isEmpty()) {

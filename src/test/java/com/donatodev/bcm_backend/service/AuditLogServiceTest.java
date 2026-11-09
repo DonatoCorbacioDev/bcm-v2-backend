@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import java.time.Instant;
 import java.util.List;
 
@@ -33,6 +35,19 @@ import com.donatodev.bcm_backend.repository.AuditLogRepository;
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
 class AuditLogServiceTest {
+
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
 
     @Mock
     private AuditLogRepository auditLogRepository;
@@ -78,7 +93,7 @@ class AuditLogServiceTest {
                     .details("ManagerService.updateManager").build();
 
             Pageable pageable = PageRequest.of(0, 20);
-            when(auditLogRepository.findAllByOrderByTimestampDesc(pageable))
+            when(auditLogRepository.findAllByOrgIdOrderByTimestampDesc(TENANT, pageable))
                     .thenReturn(new PageImpl<>(List.of(log)));
 
             Page<AuditLogDTO> result = auditLogService.findAll(pageable);

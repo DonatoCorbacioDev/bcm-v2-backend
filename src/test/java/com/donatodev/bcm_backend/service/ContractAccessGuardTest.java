@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -43,6 +45,19 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
 class ContractAccessGuardTest {
+
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
 
     @Mock private ContractsRepository contractsRepository;
     @Mock private UsersRepository usersRepository;
@@ -87,23 +102,20 @@ class ContractAccessGuardTest {
 
         @Test
         @Order(2)
-        @DisplayName("falls back to unscoped lookup when TenantContext has no organization ID")
-        void fallsBackToUnscopedLookupWithoutTenantContext() {
-            Contracts contract = fakeContract();
+        @DisplayName("refuses a lookup without an organization instead of searching every one")
+        void refusesLookupWithoutTenant() {
+            TenantContext.clear();
 
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
-
-            Contracts result = contractAccessGuard.getContractInScope(CONTRACT_ID);
-
-            assertEquals(contract, result);
-            verify(contractsRepository).findById(CONTRACT_ID);
+            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class,
+                    () -> contractAccessGuard.getContractInScope(1L));
+            verify(contractsRepository, never()).findById(1L);
         }
 
         @Test
         @Order(3)
         @DisplayName("throws ContractNotFoundException when the contract does not exist")
         void throwsWhenContractMissing() {
-            when(contractsRepository.findById(CONTRACT_ID)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(CONTRACT_ID, TENANT)).thenReturn(Optional.empty());
 
             assertThrows(ContractNotFoundException.class,
                     () -> contractAccessGuard.getContractInScope(CONTRACT_ID));
@@ -118,44 +130,45 @@ class ContractAccessGuardTest {
 
         @Test
         @Order(1)
-        @DisplayName("does nothing when there is no authentication context")
-        void skipsCheckWhenUnauthenticated() {
-            assertDoesNotThrow(() -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
+        @DisplayName("refuses when there is no authentication context (fails closed)")
+        void refusesWithoutAuthentication() {
+            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
         }
 
         @Test
         @Order(2)
-        @DisplayName("does nothing for an unauthenticated (but non-null) authentication")
-        void skipsCheckWhenNotAuthenticated() {
+        @DisplayName("refuses an unauthenticated (but non-null) authentication")
+        void refusesUnauthenticatedAuthentication() {
             User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
             UsernamePasswordAuthenticationToken auth =
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
             auth.setAuthenticated(false);
             SecurityContextHolder.getContext().setAuthentication(auth);
 
-            assertDoesNotThrow(() -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
+            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
         }
 
         @Test
         @Order(3)
-        @DisplayName("does nothing for the anonymous user")
-        void skipsCheckForAnonymousUser() {
+        @DisplayName("refuses the anonymous user")
+        void refusesAnonymousUser() {
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken("anonymousUser", null,
                             List.of(() -> "ROLE_ANONYMOUS")));
 
-            assertDoesNotThrow(() -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
+            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
         }
 
         @Test
         @Order(4)
-        @DisplayName("does nothing when TenantContext has no organization ID")
-        void skipsCheckWithoutTenantContext() {
+        @DisplayName("refuses when the request carries no organization")
+        void refusesWithoutTenantContext() {
             User principal = new User("mgr", "x", List.of(() -> "ROLE_MANAGER"));
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
 
-            assertDoesNotThrow(() -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
+            TenantContext.clear();
+            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
         }
 
         @Test
@@ -229,8 +242,8 @@ class ContractAccessGuardTest {
 
         @Test
         @Order(8)
-        @DisplayName("does nothing when the authenticated principal has no matching user record")
-        void skipsCheckWhenUserNotFound() {
+        @DisplayName("refuses a user who is not in the organization")
+        void refusesUserNotInOrganization() {
             User principal = new User("ghost", "x", List.of(() -> "ROLE_MANAGER"));
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
@@ -238,7 +251,7 @@ class ContractAccessGuardTest {
 
             when(usersRepository.findByUsernameAndOrganizationId("ghost", 1L)).thenReturn(Optional.empty());
 
-            assertDoesNotThrow(() -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
+            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
         }
 
         @Test

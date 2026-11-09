@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.controller;
 
+import com.donatodev.bcm_backend.support.TestTenant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.matchesPattern;
@@ -161,6 +162,11 @@ class OrganizationExportControllerTest {
         organizationRepository.deleteAll();
     }
 
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     void setup() {
         cleanDatabase();
@@ -168,23 +174,25 @@ class OrganizationExportControllerTest {
         org = organizationRepository.save(Organization.builder()
                 .name("Export Corp").slug("export-corp").subscriptionTier(SubscriptionTier.FREE)
                 .iban("IT60X0542811101000000123456").build());
-        Managers manager = managersRepository.save(Managers.builder()
+
+        TestTenant.use(org.getId());
+        Managers manager = managersRepository.save(Managers.builder().organization(org)
                 .firstName("Admin").lastName("User").email("admin@export.test").organization(org).build());
         adminRole = rolesRepository.save(Roles.builder().role("ADMIN").build());
-        usersRepository.save(Users.builder()
+        usersRepository.save(Users.builder().organization(org)
                 .username("export-admin").passwordHash("pwd").verified(true)
                 .role(adminRole).manager(manager).organization(org).build());
     }
 
     /** One row in every table the export covers, with {@code marker} in the text fields. */
     private void seedOneOfEverything(Organization o, Users u, Managers m, String marker) {
-        BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+        BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(org)
                 .name(marker + " area").organization(o).build());
-        FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder()
+        FinancialTypes type = financialTypesRepository.save(FinancialTypes.builder().organization(org)
                 .name(marker + " type").category(FinancialCategory.REVENUE).organization(o).build());
-        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder()
+        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(org)
                 .name(marker + " counterparty").type(CounterpartyType.CUSTOMER).organization(o).build());
-        Contracts contract = contractsRepository.save(Contracts.builder()
+        Contracts contract = contractsRepository.save(Contracts.builder().organization(org)
                 .contractNumber(marker + "-CNT").projectName(marker + " project").counterparty(counterparty)
                 .businessArea(area).manager(m).financialType(type).startDate(LocalDate.of(2026, Month.JANUARY, 1))
                 .status(ContractStatus.ACTIVE).organization(o).build());
@@ -193,10 +201,10 @@ class OrganizationExportControllerTest {
                 .previousStatus(ContractStatus.ACTIVE).newStatus(ContractStatus.EXPIRED).build());
         workflowEventRepository.save(ContractWorkflowEvent.builder().contract(contract).actor(u)
                 .toStage(WorkflowStage.IN_REVIEW).action(WorkflowAction.SUBMIT).comment(marker + " comment").build());
-        FinancialValues value = financialValuesRepository.save(FinancialValues.builder()
+        FinancialValues value = financialValuesRepository.save(FinancialValues.builder().organization(org)
                 .month(1).year(2026).financialAmount(100).financialType(type).businessArea(area)
                 .contract(contract).organization(o).build());
-        budgetRepository.save(Budget.builder().businessArea(area).category(FinancialCategory.REVENUE)
+        budgetRepository.save(Budget.builder().organization(org).businessArea(area).category(FinancialCategory.REVENUE)
                 .year(2026).targetAmount(1000).organization(o).build());
         contractDocumentRepository.save(ContractDocument.builder().contract(contract).orgId(o.getId())
                 .storagePath(marker + "/doc.pdf").fileName(marker + "-doc.pdf").fileSize(10L)
@@ -212,7 +220,7 @@ class OrganizationExportControllerTest {
         invoice.getLineItems().add(InvoiceLineItem.builder().invoice(invoice).lineNumber(1)
                 .description(marker + " line").build());
         electronicInvoiceRepository.save(invoice);
-        contractTemplateRepository.save(ContractTemplate.builder().name(marker + " template")
+        contractTemplateRepository.save(ContractTemplate.builder().orgId(org.getId()).name(marker + " template")
                 .businessArea(area).defaultManager(m).orgId(o.getId()).build());
         riskFeedbackRepository.save(RiskFeedback.builder().contract(contract).submittedBy(u)
                 .organizationId(o.getId()).riskScore(0.5).riskLevel("MEDIUM").agree(true).build());
@@ -232,9 +240,9 @@ class OrganizationExportControllerTest {
     private Users seedOtherOrganization() {
         Organization other = organizationRepository.save(Organization.builder()
                 .name("theirs Corp").slug("theirs-corp").subscriptionTier(SubscriptionTier.FREE).build());
-        Managers manager = managersRepository.save(Managers.builder()
+        Managers manager = managersRepository.save(Managers.builder().organization(org)
                 .firstName("theirs").lastName("Admin").email("admin@theirs.test").organization(other).build());
-        return usersRepository.save(Users.builder()
+        return usersRepository.save(Users.builder().organization(org)
                 .username("theirs-admin").passwordHash("pwd").verified(true)
                 .role(adminRole).manager(manager).organization(other).build());
     }

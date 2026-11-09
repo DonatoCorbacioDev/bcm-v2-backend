@@ -124,33 +124,25 @@ public class FinancialValueMapper {
                 .build();
     }
 
-    // orgId is null only outside a real HTTP request (e.g. tests using
-    // @WithMockUser without the JWT filter) — same fallback convention used
-    // throughout the service layer (see ContractService.findContractInScope).
-    // Whenever orgId is present, the lookup MUST be scoped: these three IDs
+    // The lookups are always scoped, never by plain findById (a null orgId
+    // simply finds nothing): these three IDs
     // come straight from client input, and an unscoped findById would let a
     // caller attach another organization's contract/type/area to their own
     // financial value (real, exploitable cross-tenant leak — see the
     // anomaly-detection join in bcm-v2-ml, which trusts this association).
 
     private Contracts resolveContract(Long id, Long orgId) {
-        return (orgId != null
-                ? contractsRepository.findByIdAndOrganization_Id(id, orgId)
-                : contractsRepository.findById(id))
+        return contractsRepository.findByIdAndOrganization_Id(id, orgId)
                 .orElseThrow(() -> new ContractNotFoundException("Contratto ID " + id + " non trovato"));
     }
 
     private FinancialTypes resolveFinancialType(Long id, Long orgId) {
-        return (orgId != null
-                ? financialTypesRepository.findByIdAndOrganizationId(id, orgId)
-                : financialTypesRepository.findById(id))
+        return financialTypesRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new FinancialTypeNotFoundException("Tipo finanziario ID " + id + " non trovato"));
     }
 
     private BusinessAreas resolveBusinessArea(Long id, Long orgId) {
-        return (orgId != null
-                ? businessAreaRepository.findByIdAndOrganizationId(id, orgId)
-                : businessAreaRepository.findById(id))
+        return businessAreaRepository.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new BusinessAreaNotFoundException("Area di business ID " + id + " non trovata"));
     }
 }

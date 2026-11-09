@@ -89,10 +89,8 @@ public class UserService {
 	 * @return list of {@link UserDTO}
 	 */
 	public List<UserDTO> getAllUsers() {
-		Long orgId = TenantContext.get();
-		List<Users> users = (orgId != null)
-				? usersRepository.findAllByOrganizationId(orgId)
-				: usersRepository.findAll();
+		Long orgId = TenantContext.require();
+		List<Users> users = usersRepository.findAllByOrganizationId(orgId);
 		return users.stream()
 				.map(userMapper::toDTO)
 				.toList();
@@ -116,10 +114,8 @@ public class UserService {
 	 * {@link TenantContext} carries an organization ID.
 	 */
 	private Optional<Users> findUserInScope(Long id) {
-		Long orgId = TenantContext.get();
-		return (orgId != null)
-				? usersRepository.findByIdAndOrganizationId(id, orgId)
-				: usersRepository.findById(id);
+		Long orgId = TenantContext.require();
+		return usersRepository.findByIdAndOrganizationId(id, orgId);
 	}
 
 	/**
@@ -127,10 +123,8 @@ public class UserService {
 	 * {@link TenantContext} carries an organization ID.
 	 */
 	private Optional<Managers> findManagerInScope(Long managerId) {
-		Long orgId = TenantContext.get();
-		return (orgId != null)
-				? managersRepository.findByIdAndOrganizationId(managerId, orgId)
-				: managersRepository.findById(managerId);
+		Long orgId = TenantContext.require();
+		return managersRepository.findByIdAndOrganizationId(managerId, orgId);
 	}
 
 	/**
@@ -156,10 +150,10 @@ public class UserService {
 			// userMapper.toEntity() resolves the manager by ID without tenant
 			// scoping, so an admin could otherwise attach a manager - and thus
 			// the new user - to a different organization. Reject it here.
-			Long orgId = TenantContext.get();
+			Long orgId = TenantContext.require();
 			Long managerOrgId = user.getManager().getOrganization() != null
 					? user.getManager().getOrganization().getId() : null;
-			if (orgId != null && !orgId.equals(managerOrgId)) {
+			if (!orgId.equals(managerOrgId)) {
 				throw new IllegalArgumentException("ID manager non trovato");
 			}
 			user.setOrganization(user.getManager().getOrganization());
@@ -303,10 +297,8 @@ public class UserService {
 		// Scoped to the inviting admin's organization: completeInvite() puts
 		// the new user in the manager's organization, so another tenant's
 		// manager id would let an admin plant a user in that tenant.
-		Long orgId = TenantContext.get();
-		Managers manager = (orgId != null
-				? managersRepository.findByIdAndOrganizationId(managerId, orgId)
-				: managersRepository.findById(managerId))
+		Long orgId = TenantContext.require();
+		Managers manager = managersRepository.findByIdAndOrganizationId(managerId, orgId)
 				.orElseThrow(() -> new IllegalArgumentException("Manager non trovato"));
 
 		String token = UUID.randomUUID().toString();
@@ -409,12 +401,10 @@ public class UserService {
 	public Page<Users> searchUsers(String q, String role, Boolean verified, Pageable pageable) {
 		Specification<Users> spec = Specification.allOf();
 
-		Long orgId = TenantContext.get();
-		if (orgId != null) {
-			spec = spec.and((root, query, cb) ->
-				cb.equal(root.get("organization").get("id"), orgId)
-			);
-		}
+		Long orgId = TenantContext.require();
+		spec = spec.and((root, query, cb) ->
+			cb.equal(root.get("organization").get("id"), orgId)
+		);
 
 		if (q != null && !q.isBlank()) {
 			spec = spec.and((root, query, cb) ->

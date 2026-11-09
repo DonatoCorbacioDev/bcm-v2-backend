@@ -62,10 +62,8 @@ public class ContractHistoryService {
 				.orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG));
 
 		if (user.getRole().getRole().equals(ADMIN_ROLE)) {
-			Long orgId = TenantContext.get();
-			List<ContractHistory> all = (orgId != null)
-					? historyRepository.findByContract_Organization_Id(orgId)
-					: historyRepository.findAll();
+			Long orgId = TenantContext.require();
+			List<ContractHistory> all = historyRepository.findByContract_Organization_Id(orgId);
 			return all.stream()
 					.map(historyMapper::toDTO)
 					.toList();
@@ -119,10 +117,8 @@ public class ContractHistoryService {
 		Users user = usersRepository.findByUsername(username)
 				.orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND_MSG));
 
-		Long orgId = TenantContext.get();
-		List<ContractHistory> all = (orgId != null)
-				? historyRepository.findByContractIdAndContract_Organization_Id(contractId, orgId)
-				: historyRepository.findByContractId(contractId);
+		Long orgId = TenantContext.require();
+		List<ContractHistory> all = historyRepository.findByContractIdAndContract_Organization_Id(contractId, orgId);
 
 		if (user.getRole().getRole().equals(ADMIN_ROLE)) {
 			return all.stream()
@@ -172,9 +168,7 @@ public class ContractHistoryService {
 	 * {@link TenantContext} carries an organization ID.
 	 */
 	private Optional<ContractHistory> findHistoryInScope(Long id) {
-		Long orgId = TenantContext.get();
-		return (orgId != null)
-				? historyRepository.findByIdAndContract_Organization_Id(id, orgId)
-				: historyRepository.findById(id);
+		Long orgId = TenantContext.require();
+		return historyRepository.findByIdAndContract_Organization_Id(id, orgId);
 	}
 }

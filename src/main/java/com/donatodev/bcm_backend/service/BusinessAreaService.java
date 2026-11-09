@@ -43,10 +43,8 @@ public class BusinessAreaService {
      * @return a list of all {@link BusinessAreaDTO}
      */
     public List<BusinessAreaDTO> getAllAreas() {
-        Long orgId = TenantContext.get();
-        List<BusinessAreas> areas = (orgId != null)
-                ? businessAreasRepository.findAllByOrganizationId(orgId)
-                : businessAreasRepository.findAll();
+        Long orgId = TenantContext.require();
+        List<BusinessAreas> areas = businessAreasRepository.findAllByOrganizationId(orgId);
         return areas.stream().map(businessAreaMapper::toDTO).toList();
     }
 
@@ -68,10 +66,8 @@ public class BusinessAreaService {
      * {@link TenantContext} carries an organization ID.
      */
     private Optional<BusinessAreas> findAreaInScope(Long id) {
-        Long orgId = TenantContext.get();
-        return (orgId != null)
-                ? businessAreasRepository.findByIdAndOrganizationId(id, orgId)
-                : businessAreasRepository.findById(id);
+        Long orgId = TenantContext.require();
+        return businessAreasRepository.findByIdAndOrganizationId(id, orgId);
     }
 
     /**
@@ -82,12 +78,10 @@ public class BusinessAreaService {
      */
     public BusinessAreaDTO createArea(BusinessAreaDTO dto) {
         BusinessAreas area = businessAreaMapper.toEntity(dto);
-        Long orgId = TenantContext.get();
-        if (orgId != null) {
-            Organization org = new Organization();
-            org.setId(orgId);
-            area.setOrganization(org);
-        }
+        Long orgId = TenantContext.require();
+        Organization org = new Organization();
+        org.setId(orgId);
+        area.setOrganization(org);
         area = businessAreasRepository.save(area);
         return businessAreaMapper.toDTO(area);
     }

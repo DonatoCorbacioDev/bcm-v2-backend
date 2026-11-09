@@ -27,6 +27,19 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 @ExtendWith(MockitoExtension.class)
 class CurrentUserResolverTest {
 
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
+
     private static final Long ORG_ID = 5L;
     private static final String USERNAME = "admin";
 
@@ -81,7 +94,7 @@ class CurrentUserResolverTest {
         @DisplayName("falls back to a tenant-agnostic lookup by username")
         void shouldResolveWithoutTenant() {
             Users user = Users.builder().id(1L).username(USERNAME).build();
-            when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
+            when(usersRepository.findByUsernameAndOrganizationId(USERNAME, TENANT)).thenReturn(Optional.of(user));
 
             assertSame(user, resolver.resolve());
         }
@@ -89,7 +102,7 @@ class CurrentUserResolverTest {
         @Test
         @DisplayName("throws when no user matches the username")
         void shouldThrowWhenNotFoundWithoutTenant() {
-            when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.empty());
+            when(usersRepository.findByUsernameAndOrganizationId(USERNAME, TENANT)).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> resolver.resolve());
             assertEquals("Utente non trovato", ex.getMessage());

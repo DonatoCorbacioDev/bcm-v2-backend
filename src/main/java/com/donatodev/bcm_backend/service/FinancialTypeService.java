@@ -44,10 +44,8 @@ public class FinancialTypeService {
      * @return list of {@link FinancialTypeDTO}
      */
     public List<FinancialTypeDTO> getAllTypes() {
-        Long orgId = TenantContext.get();
-        List<FinancialTypes> types = (orgId != null)
-                ? financialTypesRepository.findAllByOrganizationId(orgId)
-                : financialTypesRepository.findAll();
+        Long orgId = TenantContext.require();
+        List<FinancialTypes> types = financialTypesRepository.findAllByOrganizationId(orgId);
         return types.stream().map(financialTypeMapper::toDTO).toList();
     }
 
@@ -69,10 +67,8 @@ public class FinancialTypeService {
      * {@link TenantContext} carries an organization ID.
      */
     private Optional<FinancialTypes> findTypeInScope(Long id) {
-        Long orgId = TenantContext.get();
-        return (orgId != null)
-                ? financialTypesRepository.findByIdAndOrganizationId(id, orgId)
-                : financialTypesRepository.findById(id);
+        Long orgId = TenantContext.require();
+        return financialTypesRepository.findByIdAndOrganizationId(id, orgId);
     }
 
     /**
@@ -83,12 +79,10 @@ public class FinancialTypeService {
      */
     public FinancialTypeDTO createType(FinancialTypeDTO dto) {
         FinancialTypes type = financialTypeMapper.toEntity(dto);
-        Long orgId = TenantContext.get();
-        if (orgId != null) {
-            Organization org = new Organization();
-            org.setId(orgId);
-            type.setOrganization(org);
-        }
+        Long orgId = TenantContext.require();
+        Organization org = new Organization();
+        org.setId(orgId);
+        type.setOrganization(org);
         type = financialTypesRepository.save(type);
         return financialTypeMapper.toDTO(type);
     }

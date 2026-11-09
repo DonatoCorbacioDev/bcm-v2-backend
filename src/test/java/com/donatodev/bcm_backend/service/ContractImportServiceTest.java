@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.Month;
@@ -45,6 +46,19 @@ import com.donatodev.bcm_backend.repository.ManagersRepository;
  */
 @ExtendWith(MockitoExtension.class)
 class ContractImportServiceTest {
+
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
 
     @Mock
     private ContractsRepository contractsRepository;
@@ -117,8 +131,8 @@ class ContractImportServiceTest {
         @DisplayName("imports valid rows and calls createContract for each")
         void importsValidRows() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of(manager));
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(manager));
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
@@ -137,8 +151,8 @@ class ContractImportServiceTest {
         @DisplayName("defaults status to ACTIVE when the cell is blank")
         void defaultsStatusToActive() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
@@ -156,8 +170,8 @@ class ContractImportServiceTest {
         @DisplayName("skips fully blank rows without counting or erroring")
         void skipsBlankRows() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
@@ -174,8 +188,8 @@ class ContractImportServiceTest {
         @DisplayName("reports missing contract number as a row error")
         void missingContractNumber() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{null, "Cliente A", null, null, "01/01/2024", "31/12/2024", null, "IT"});
@@ -191,8 +205,8 @@ class ContractImportServiceTest {
         @DisplayName("reports unknown business area")
         void unknownBusinessArea() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "01/01/2024", "31/12/2024", null, "Finance"});
@@ -207,8 +221,8 @@ class ContractImportServiceTest {
         @DisplayName("reports unknown manager")
         void unknownManager() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of(manager));
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(manager));
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "01/01/2024", "31/12/2024", "Luigi Verdi", "IT"});
@@ -223,8 +237,8 @@ class ContractImportServiceTest {
         @DisplayName("reports invalid status value")
         void invalidStatus() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, "PENDING", "01/01/2024", "31/12/2024", null, "IT"});
@@ -239,8 +253,8 @@ class ContractImportServiceTest {
         @DisplayName("reports unparseable date")
         void invalidDate() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "not-a-date", "31/12/2024", null, "IT"});
@@ -255,8 +269,8 @@ class ContractImportServiceTest {
         @DisplayName("reports missing end date")
         void missingEndDate() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "01/01/2024", null, null, "IT"});
@@ -271,8 +285,8 @@ class ContractImportServiceTest {
         @DisplayName("reports duplicate contract number within the same file")
         void duplicateWithinFile() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
@@ -291,8 +305,8 @@ class ContractImportServiceTest {
         @DisplayName("reports contract number that already exists in the database")
         void existingInDatabase() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber("C-1")).thenReturn(true);
 
             byte[] bytes = buildWorkbook(HEADER,
@@ -308,8 +322,8 @@ class ContractImportServiceTest {
         @DisplayName("reports missing business area as a row error")
         void missingBusinessArea() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "01/01/2024", "31/12/2024", null, null});
@@ -325,8 +339,8 @@ class ContractImportServiceTest {
         void resolvesManagerPastNullEmailEntry() throws Exception {
             setupImportService();
             Managers noEmailManager = Managers.builder().id(3L).firstName("Anna").lastName("Bianchi").email(null).build();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of(noEmailManager, manager));
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(noEmailManager, manager));
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
@@ -341,8 +355,8 @@ class ContractImportServiceTest {
         @DisplayName("skips a row entirely absent from the sheet (gap between rows)")
         void skipsMissingRow() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes;
@@ -375,8 +389,8 @@ class ContractImportServiceTest {
         @DisplayName("parses a real Excel date-formatted cell for the start date")
         void parsesRealExcelDateCell() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes;
@@ -411,8 +425,8 @@ class ContractImportServiceTest {
         @DisplayName("stringifies non-string cell types (numeric, boolean, formula) for optional text fields")
         void stringifiesMixedCellTypes() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes;
@@ -444,8 +458,8 @@ class ContractImportServiceTest {
         @DisplayName("stringifies a formula cell for an optional text field")
         void stringifiesFormulaCell() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes;
@@ -477,8 +491,8 @@ class ContractImportServiceTest {
         @DisplayName("stringifies a boolean cell for an optional text field")
         void stringifiesBooleanCell() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes;
@@ -510,8 +524,8 @@ class ContractImportServiceTest {
         @DisplayName("stringifies a date-formatted numeric cell used in a non-date optional field")
         void stringifiesDateFormattedCellInNonDateField() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes;
@@ -547,8 +561,8 @@ class ContractImportServiceTest {
         @DisplayName("stringifies an error cell as blank for optional fields")
         void treatsErrorCellAsBlankForOptionalField() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes;
@@ -580,8 +594,8 @@ class ContractImportServiceTest {
         @DisplayName("treats a whitespace-only cell as blank for optional fields")
         void treatsWhitespaceOnlyCellAsBlankForOptionalField() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
@@ -598,8 +612,8 @@ class ContractImportServiceTest {
         @DisplayName("treats an explicitly created but empty cell as blank")
         void treatsExplicitBlankCellAsBlank() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes;
@@ -631,8 +645,8 @@ class ContractImportServiceTest {
         @DisplayName("treats a whitespace-only cell as blank for required fields")
         void treatsWhitespaceOnlyCellAsBlank() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"   ", "Cliente A", null, null, "01/01/2024", "31/12/2024", null, "IT"});
@@ -661,8 +675,8 @@ class ContractImportServiceTest {
         @DisplayName("rejects a date column holding a plain (non-date-formatted) number")
         void rejectsNonDateFormattedNumericDateCell() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
 
             byte[] bytes;
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -691,8 +705,8 @@ class ContractImportServiceTest {
         @DisplayName("rejects a date column that is a whitespace-only string")
         void rejectsWhitespaceOnlyDateCell() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "   ", "31/12/2024", null, "IT"});
@@ -707,8 +721,8 @@ class ContractImportServiceTest {
         @DisplayName("rejects a date column that is an error-type cell (cellToString returns null)")
         void rejectsErrorTypeDateCell() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
 
             byte[] bytes;
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -737,8 +751,8 @@ class ContractImportServiceTest {
         @DisplayName("rejects a date column that is an explicitly created but empty cell")
         void rejectsExplicitBlankDateCell() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
 
             byte[] bytes;
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -768,8 +782,8 @@ class ContractImportServiceTest {
         void skipsAreasWithNullNameWhenResolving() throws Exception {
             setupImportService();
             BusinessAreas unnamed = BusinessAreas.builder().id(99L).name(null).build();
-            when(businessAreasRepository.findAll()).thenReturn(List.of(unnamed, area));
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(unnamed, area));
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
             when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
@@ -814,8 +828,8 @@ class ContractImportServiceTest {
         @DisplayName("rejects a workbook with no sheets")
         void rejectsWorkbookWithNoSheets() throws Exception {
             setupImportService();
-            when(businessAreasRepository.findAll()).thenReturn(List.of());
-            when(managersRepository.findAll()).thenReturn(List.of());
+            when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
+            when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
 
             byte[] bytes;
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -865,7 +879,7 @@ class ContractImportServiceTest {
 
             verify(businessAreasRepository).findAllByOrganizationId(9L);
             verify(managersRepository).findAllByOrganizationId(9L);
-            verify(businessAreasRepository, never()).findAll();
+            verify(businessAreasRepository, never()).findAllByOrganizationId(TENANT);
         }
     }
 

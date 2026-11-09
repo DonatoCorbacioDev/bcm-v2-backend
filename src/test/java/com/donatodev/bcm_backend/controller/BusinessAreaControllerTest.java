@@ -1,5 +1,9 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.support.TestTenant;
+import com.donatodev.bcm_backend.repository.OrganizationRepository;
+import com.donatodev.bcm_backend.entity.Organization;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
@@ -41,6 +45,12 @@ import tools.jackson.databind.ObjectMapper;
 @ActiveProfiles("test")
 @Import(SecurityConfig.class)
 class BusinessAreaControllerTest {
+
+    @Autowired
+    private OrganizationRepository organizationRepository;
+
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
 	
 	@Autowired
     private MockMvc mockMvc;
@@ -57,10 +67,18 @@ class BusinessAreaControllerTest {
     /**
      * Cleans database before each test to ensure isolated test environment.
      */
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     @SuppressWarnings("unused")
     void cleanDb() {
         testDataCleaner.clean();
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        TestTenant.use(testOrg.getId());
     }
 
     /**
@@ -96,12 +114,12 @@ class BusinessAreaControllerTest {
         @DisplayName("All areas have been recovered successfully")
         @WithMockUser(roles = "ADMIN")
         void shouldGetAllBusinessAreas() throws Exception {
-            BusinessAreas area1 = BusinessAreas.builder()
+            BusinessAreas area1 = BusinessAreas.builder().organization(testOrg)
                     .name("Finance")
                     .description("Handles budgets")
                     .build();
 
-            BusinessAreas area2 = BusinessAreas.builder()
+            BusinessAreas area2 = BusinessAreas.builder().organization(testOrg)
                     .name("IT")
                     .description("Manages infrastructure")
                     .build();
@@ -125,7 +143,7 @@ class BusinessAreaControllerTest {
        @WithMockUser(roles = "ADMIN")
        void getBusinessAreaById() throws Exception {
            BusinessAreas savedEntity = repository.save(
-                    BusinessAreas.builder()
+                    BusinessAreas.builder().organization(testOrg)
                    .name("Marketing")
                    .description("Area marketing")
                    .build()
@@ -147,7 +165,7 @@ class BusinessAreaControllerTest {
         @DisplayName("The area has been updated successfully")
         @WithMockUser(roles = "ADMIN")
         void shouldUpdateBusinessArea() throws Exception {
-            BusinessAreas original = repository.save(BusinessAreas.builder()
+            BusinessAreas original = repository.save(BusinessAreas.builder().organization(testOrg)
                     .name("OldName")
                     .description("Old description")
                     .build());
@@ -170,7 +188,7 @@ class BusinessAreaControllerTest {
         @DisplayName("The area has been deleted successfully")
         @WithMockUser(roles = "ADMIN")
         void shouldDeleteBusinessArea() throws Exception {
-            BusinessAreas areaToDelete = repository.save(BusinessAreas.builder()
+            BusinessAreas areaToDelete = repository.save(BusinessAreas.builder().organization(testOrg)
                     .name("ToBeDeleted")
                     .description("Temporary")
                     .build());
@@ -217,7 +235,7 @@ class BusinessAreaControllerTest {
         @DisplayName("MANAGER cannot delete business areas (DELETE forbidden)")
         @WithMockUser(roles = "MANAGER")
         void shouldReturnForbiddenForManagerOnDelete() throws Exception {
-            BusinessAreas area = repository.save(BusinessAreas.builder()
+            BusinessAreas area = repository.save(BusinessAreas.builder().organization(testOrg)
                     .name("ManagerCannotDelete")
                     .description("Desc")
                     .build());

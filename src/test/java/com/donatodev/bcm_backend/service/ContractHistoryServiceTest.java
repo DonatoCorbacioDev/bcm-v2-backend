@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.List;
@@ -51,6 +52,19 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 @ActiveProfiles("test")
 class ContractHistoryServiceTest {
 
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
+
     @Mock
     private ContractHistoryRepository historyRepository;
 
@@ -99,7 +113,7 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(historyRepository.findAll()).thenReturn(List.of(entity));
+            when(historyRepository.findByContract_Organization_Id(TENANT)).thenReturn(List.of(entity));
             when(historyMapper.toDTO(entity)).thenReturn(dto);
 
             List<ContractHistoryDTO> result = historyService.getAll();
@@ -132,7 +146,7 @@ class ContractHistoryServiceTest {
                     )
             );
 
-            when(historyRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(historyRepository.findByIdAndContract_Organization_Id(1L, TENANT)).thenReturn(Optional.of(entity));
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
             when(historyMapper.toDTO(entity)).thenReturn(dto);
 
@@ -166,7 +180,7 @@ class ContractHistoryServiceTest {
                     new UsernamePasswordAuthenticationToken(new User("manager1", "pwd", List.of()), null)
             );
 
-            when(historyRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(historyRepository.findByIdAndContract_Organization_Id(1L, TENANT)).thenReturn(Optional.of(entity));
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(manager));
 
             RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getById(1L));
@@ -214,7 +228,7 @@ class ContractHistoryServiceTest {
         @DisplayName("Delete history removes record")
         void shouldDeleteHistory() {
             ContractHistory entity = ContractHistory.builder().id(1L).build();
-            when(historyRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(historyRepository.findByIdAndContract_Organization_Id(1L, TENANT)).thenReturn(Optional.of(entity));
             historyService.delete(1L);
             verify(historyRepository).delete(entity);
         }
@@ -226,7 +240,7 @@ class ContractHistoryServiceTest {
         @Order(6)
         @DisplayName("Delete history throws if not found")
         void shouldThrowWhenDeletingNonExistent() {
-            when(historyRepository.findById(999L)).thenReturn(Optional.empty());
+            when(historyRepository.findByIdAndContract_Organization_Id(999L, TENANT)).thenReturn(Optional.empty());
             ContractHistoryNotFoundException ex = assertThrows(ContractHistoryNotFoundException.class, () -> historyService.delete(999L));
             assertNotNull(ex);
         }
@@ -263,7 +277,7 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(historyRepository.findByContractId(1L)).thenReturn(List.of(entity));
+            when(historyRepository.findByContractIdAndContract_Organization_Id(1L, TENANT)).thenReturn(List.of(entity));
             when(historyMapper.toDTO(entity)).thenReturn(dto);
 
             List<ContractHistoryDTO> result = historyService.getByContractId(1L);
@@ -300,7 +314,7 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(manager));
-            when(historyRepository.findByContractId(1L)).thenReturn(List.of(entity));
+            when(historyRepository.findByContractIdAndContract_Organization_Id(1L, TENANT)).thenReturn(List.of(entity));
 
             RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(1L));
             assertNotNull(ex);
@@ -337,7 +351,7 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(user));
-            when(historyRepository.findByContractId(1L)).thenReturn(List.of(entity));
+            when(historyRepository.findByContractIdAndContract_Organization_Id(1L, TENANT)).thenReturn(List.of(entity));
             when(historyMapper.toDTO(entity)).thenReturn(dto);
 
             List<ContractHistoryDTO> result = historyService.getByContractId(1L);
@@ -407,7 +421,7 @@ class ContractHistoryServiceTest {
                     new UsernamePasswordAuthenticationToken("manager", null, List.of(() -> "ROLE_MANAGER"))
             );
 
-            when(historyRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(historyRepository.findByIdAndContract_Organization_Id(1L, TENANT)).thenReturn(Optional.of(entity));
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
             when(historyMapper.toDTO(entity)).thenReturn(dto);
 
@@ -439,7 +453,7 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(historyRepository.findByContractId(1L)).thenReturn(List.of(h1));
+            when(historyRepository.findByContractIdAndContract_Organization_Id(1L, TENANT)).thenReturn(List.of(h1));
 
             RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(1L));
             assertNotNull(ex);
@@ -489,7 +503,7 @@ class ContractHistoryServiceTest {
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(user));
-            when(historyRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(historyRepository.findByIdAndContract_Organization_Id(1L, TENANT)).thenReturn(Optional.of(entity));
 
             RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getById(1L));
             assertNotNull(ex);
@@ -531,7 +545,7 @@ class ContractHistoryServiceTest {
                     new UsernamePasswordAuthenticationToken("ghost", null, List.of(() -> "ROLE_MANAGER"))
             );
 
-            when(historyRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(historyRepository.findByIdAndContract_Organization_Id(1L, TENANT)).thenReturn(Optional.of(entity));
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
             UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getById(1L));

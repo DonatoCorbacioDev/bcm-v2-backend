@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.mapper;
 
+import org.junit.jupiter.api.AfterEach;
 import java.time.LocalDate;
 import java.time.Month;
 
@@ -46,6 +47,9 @@ import com.donatodev.bcm_backend.util.TestDataCleaner;
 @ActiveProfiles("test")
 class ContractMapperTest {
 
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
+
     @Autowired
     private ContractManagerRepository contractManagerRepository;
 
@@ -81,6 +85,11 @@ class ContractMapperTest {
      * Cleans the test database and sets up common test data before each test.
      */
     @SuppressWarnings("unused")
+    @AfterEach
+    void leaveTestTenant() {
+        TenantContext.clear();
+    }
+
     @BeforeEach
     void setup() {
         cleaner.clean();
@@ -98,14 +107,20 @@ class ContractMapperTest {
         financialTypesRepository.deleteAll();
         organizationRepository.deleteAll();
 
-        savedArea = businessAreasRepository.save(BusinessAreas.builder()
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        // The mapper is called directly here, not through MockMvc: the
+        // request's organization has to be set by hand.
+        TenantContext.set(testOrg.getId());
+
+        savedArea = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                 .name("IT").build());
 
-        savedManager = managersRepository.save(Managers.builder()
+        savedManager = managersRepository.save(Managers.builder().organization(testOrg)
                 .firstName("Donato").lastName("Dev").email("dev@mail.com")
                 .department("IT").phoneNumber("123456789").build());
 
-        savedCounterparty = counterpartiesRepository.save(Counterparty.builder()
+        savedCounterparty = counterpartiesRepository.save(Counterparty.builder().organization(testOrg)
                 .name("Client").type(CounterpartyType.CUSTOMER).build());
     }
 
@@ -114,9 +129,9 @@ class ContractMapperTest {
      */
     @Test
     void shouldMapToDTOWithNulls() {
-        Contracts contract = Contracts.builder()
+        Contracts contract = Contracts.builder().organization(testOrg)
                 .id(1L)
-                .counterparty(Counterparty.builder().id(1L).name("ACME").type(CounterpartyType.CUSTOMER).build())
+                .counterparty(Counterparty.builder().organization(testOrg).id(1L).name("ACME").type(CounterpartyType.CUSTOMER).build())
                 .contractNumber("CN-001")
                 .wbsCode("WBS-001")
                 .projectName("Progetto")
@@ -139,9 +154,9 @@ class ContractMapperTest {
      */
     @Test
     void shouldMapToDTOWithValues() {
-        Contracts contract = Contracts.builder()
+        Contracts contract = Contracts.builder().organization(testOrg)
                 .id(2L)
-                .counterparty(Counterparty.builder().id(2L).name("Company").type(CounterpartyType.CUSTOMER).build())
+                .counterparty(Counterparty.builder().organization(testOrg).id(2L).name("Company").type(CounterpartyType.CUSTOMER).build())
                 .contractNumber("CN-002")
                 .wbsCode("WBS-002")
                 .projectName("Project")
@@ -242,13 +257,13 @@ class ContractMapperTest {
     void shouldMapToEntityWithManagerInOwnOrganization() {
         Organization org = organizationRepository.save(Organization.builder().name("Org A").slug("org-a").build());
         BusinessAreas scopedArea = businessAreasRepository.save(
-                BusinessAreas.builder().name("Scoped Area").organization(org).build());
-        Managers scopedManager = managersRepository.save(Managers.builder()
+                BusinessAreas.builder().organization(testOrg).name("Scoped Area").organization(org).build());
+        Managers scopedManager = managersRepository.save(Managers.builder().organization(testOrg)
                 .firstName("Scoped").lastName("Manager").email("scoped@mail.com")
                 .organization(org).build());
 
         Counterparty scopedCounterparty = counterpartiesRepository.save(
-                Counterparty.builder().name("Scoped Client").type(CounterpartyType.CUSTOMER).organization(org).build());
+                Counterparty.builder().organization(testOrg).name("Scoped Client").type(CounterpartyType.CUSTOMER).organization(org).build());
 
         TenantContext.set(org.getId());
         try {
@@ -275,13 +290,13 @@ class ContractMapperTest {
         Organization callerOrg = organizationRepository.save(Organization.builder().name("Caller Org").slug("caller-org").build());
         Organization otherOrg = organizationRepository.save(Organization.builder().name("Other Org").slug("other-org").build());
         BusinessAreas callerOrgArea = businessAreasRepository.save(
-                BusinessAreas.builder().name("Caller Org Area").organization(callerOrg).build());
-        Managers otherOrgManager = managersRepository.save(Managers.builder()
+                BusinessAreas.builder().organization(testOrg).name("Caller Org Area").organization(callerOrg).build());
+        Managers otherOrgManager = managersRepository.save(Managers.builder().organization(testOrg)
                 .firstName("Other").lastName("Manager").email("other@mail.com")
                 .organization(otherOrg).build());
 
         Counterparty callerOrgCounterparty = counterpartiesRepository.save(
-                Counterparty.builder().name("Caller Org Client").type(CounterpartyType.CUSTOMER).organization(callerOrg).build());
+                Counterparty.builder().organization(testOrg).name("Caller Org Client").type(CounterpartyType.CUSTOMER).organization(callerOrg).build());
 
         TenantContext.set(callerOrg.getId());
         try {
@@ -307,10 +322,10 @@ class ContractMapperTest {
         Organization callerOrg = organizationRepository.save(Organization.builder().name("Caller Org 2").slug("caller-org-2").build());
         Organization otherOrg = organizationRepository.save(Organization.builder().name("Other Org 2").slug("other-org-2").build());
         BusinessAreas otherOrgArea = businessAreasRepository.save(
-                BusinessAreas.builder().name("Other Org Area").organization(otherOrg).build());
+                BusinessAreas.builder().organization(testOrg).name("Other Org Area").organization(otherOrg).build());
 
         Counterparty callerOrgCounterparty = counterpartiesRepository.save(
-                Counterparty.builder().name("Caller Org 2 Client").type(CounterpartyType.CUSTOMER).organization(callerOrg).build());
+                Counterparty.builder().organization(testOrg).name("Caller Org 2 Client").type(CounterpartyType.CUSTOMER).organization(callerOrg).build());
 
         TenantContext.set(callerOrg.getId());
         try {
@@ -331,7 +346,7 @@ class ContractMapperTest {
      */
     @Test
     void shouldMapToDTOWithoutCounterparty() {
-        Contracts contract = Contracts.builder()
+        Contracts contract = Contracts.builder().organization(testOrg)
                 .id(20L)
                 .contractNumber("CN-020")
                 .wbsCode("WBS-020")
@@ -353,9 +368,9 @@ class ContractMapperTest {
     @Test
     void shouldMapToDTOWithFinancialType() {
         FinancialTypes financialType = financialTypesRepository.save(
-                FinancialTypes.builder().name("Vendite-Mapper").category(FinancialCategory.REVENUE).build());
+                FinancialTypes.builder().organization(testOrg).name("Vendite-Mapper").category(FinancialCategory.REVENUE).build());
 
-        Contracts contract = Contracts.builder()
+        Contracts contract = Contracts.builder().organization(testOrg)
                 .id(21L)
                 .counterparty(savedCounterparty)
                 .contractNumber("CN-021")
@@ -382,7 +397,7 @@ class ContractMapperTest {
     @Test
     void shouldMapToEntityWithFinancialType() {
         FinancialTypes financialType = financialTypesRepository.save(
-                FinancialTypes.builder().name("Costi-Mapper").category(FinancialCategory.COST).build());
+                FinancialTypes.builder().organization(testOrg).name("Costi-Mapper").category(FinancialCategory.COST).build());
 
         ContractDTO dto = new ContractDTO(
                 22L, savedCounterparty.getId(), null, "CN-022", "WBS-022", "WithFinancialType", ContractStatus.ACTIVE,
@@ -405,9 +420,9 @@ class ContractMapperTest {
     void shouldMapToEntityWithFinancialTypeInOwnOrganization() {
         Organization org = organizationRepository.save(Organization.builder().name("Org FT").slug("org-ft").build());
         FinancialTypes scopedFinancialType = financialTypesRepository.save(
-                FinancialTypes.builder().name("Scoped Financial Type").category(FinancialCategory.REVENUE).organization(org).build());
+                FinancialTypes.builder().organization(testOrg).name("Scoped Financial Type").category(FinancialCategory.REVENUE).organization(org).build());
         Counterparty scopedCounterparty = counterpartiesRepository.save(
-                Counterparty.builder().name("Scoped FT Client").type(CounterpartyType.CUSTOMER).organization(org).build());
+                Counterparty.builder().organization(testOrg).name("Scoped FT Client").type(CounterpartyType.CUSTOMER).organization(org).build());
 
         TenantContext.set(org.getId());
         try {
@@ -435,9 +450,9 @@ class ContractMapperTest {
         Organization callerOrg = organizationRepository.save(Organization.builder().name("Caller Org FT").slug("caller-org-ft").build());
         Organization otherOrg = organizationRepository.save(Organization.builder().name("Other Org FT").slug("other-org-ft").build());
         FinancialTypes otherOrgFinancialType = financialTypesRepository.save(
-                FinancialTypes.builder().name("Other Org Financial Type").category(FinancialCategory.REVENUE).organization(otherOrg).build());
+                FinancialTypes.builder().organization(testOrg).name("Other Org Financial Type").category(FinancialCategory.REVENUE).organization(otherOrg).build());
         Counterparty callerOrgCounterparty = counterpartiesRepository.save(
-                Counterparty.builder().name("Caller Org FT Client").type(CounterpartyType.CUSTOMER).organization(callerOrg).build());
+                Counterparty.builder().organization(testOrg).name("Caller Org FT Client").type(CounterpartyType.CUSTOMER).organization(callerOrg).build());
 
         TenantContext.set(callerOrg.getId());
         try {
@@ -500,10 +515,10 @@ class ContractMapperTest {
     @DisplayName("toDTO should set daysUntilExpiry to null for ACTIVE contract with null endDate")
     void shouldSetDaysUntilExpiryToNullWhenActiveContractHasNullEndDate() {
         // Arrange
-        Contracts contract = Contracts.builder()
+        Contracts contract = Contracts.builder().organization(testOrg)
                 .id(10L)
                 .contractNumber("CNT-NULL-DATE")
-                .counterparty(Counterparty.builder().id(10L).name("Null Date Corp").type(CounterpartyType.CUSTOMER).build())
+                .counterparty(Counterparty.builder().organization(testOrg).id(10L).name("Null Date Corp").type(CounterpartyType.CUSTOMER).build())
                 .wbsCode("WBS-NULL")
                 .projectName("Null Date Project")
                 .status(ContractStatus.ACTIVE)
@@ -526,10 +541,10 @@ class ContractMapperTest {
         // Arrange
         LocalDate futureDate = LocalDate.of(2027, Month.JUNE, 15).plusDays(15);
 
-        Contracts expiredContract = Contracts.builder()
+        Contracts expiredContract = Contracts.builder().organization(testOrg)
                 .id(11L)
                 .contractNumber("CNT-EXPIRED")
-                .counterparty(Counterparty.builder().id(11L).name("Expired Corp").type(CounterpartyType.CUSTOMER).build())
+                .counterparty(Counterparty.builder().organization(testOrg).id(11L).name("Expired Corp").type(CounterpartyType.CUSTOMER).build())
                 .wbsCode("WBS-EXP")
                 .projectName("Expired Project")
                 .status(ContractStatus.EXPIRED)
@@ -537,10 +552,10 @@ class ContractMapperTest {
                 .endDate(futureDate) // Has endDate but is EXPIRED
                 .build();
 
-        Contracts cancelledContract = Contracts.builder()
+        Contracts cancelledContract = Contracts.builder().organization(testOrg)
                 .id(12L)
                 .contractNumber("CNT-CANCELLED")
-                .counterparty(Counterparty.builder().id(12L).name("Cancelled Corp").type(CounterpartyType.CUSTOMER).build())
+                .counterparty(Counterparty.builder().organization(testOrg).id(12L).name("Cancelled Corp").type(CounterpartyType.CUSTOMER).build())
                 .wbsCode("WBS-CAN")
                 .projectName("Cancelled Project")
                 .status(ContractStatus.CANCELLED)

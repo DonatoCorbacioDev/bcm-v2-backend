@@ -122,10 +122,11 @@ public class CalendarFeedService {
     private List<Contracts> resolveContracts(Users user) {
         String role = user.getRole().getRole();
         if (ROLE_ADMIN.equals(role)) {
-            Long orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
-            return orgId != null
-                    ? contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, orgId)
-                    : contractsRepository.findByStatus(ContractStatus.ACTIVE);
+            // Fails closed: without an organization the feed is empty, never every one's.
+            if (user.getOrganization() == null) {
+                return List.of();
+            }
+            return contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, user.getOrganization().getId());
         }
         if (user.getManager() != null) {
             return contractsRepository.findByManagerIdAndStatus(user.getManager().getId(), ContractStatus.ACTIVE);

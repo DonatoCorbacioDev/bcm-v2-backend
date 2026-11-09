@@ -41,10 +41,8 @@ public class AuditLogService {
     }
 
     public Page<AuditLogDTO> findAll(Pageable pageable) {
-        Long orgId = TenantContext.get();
-        Page<AuditLog> logs = (orgId != null)
-                ? auditLogRepository.findAllByOrgIdOrderByTimestampDesc(orgId, pageable)
-                : auditLogRepository.findAllByOrderByTimestampDesc(pageable);
+        Long orgId = TenantContext.require();
+        Page<AuditLog> logs = auditLogRepository.findAllByOrgIdOrderByTimestampDesc(orgId, pageable);
         return logs
                 .map(log -> new AuditLogDTO(
                         log.getId(),

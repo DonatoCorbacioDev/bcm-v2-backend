@@ -42,28 +42,25 @@ public class ContractAccessGuard {
      * cross-tenant access to a contract's documents/invoices by ID.
      */
     public Contracts getContractInScope(Long contractId) {
-        Long orgId = TenantContext.get();
-        Optional<Contracts> contract = (orgId != null)
-                ? contractsRepository.findByIdAndOrganization_Id(contractId, orgId)
-                : contractsRepository.findById(contractId);
+        Long orgId = TenantContext.require();
+        Optional<Contracts> contract = contractsRepository.findByIdAndOrganization_Id(contractId, orgId);
         return contract.orElseThrow(() -> new ContractNotFoundException("Contratto ID " + contractId + " non trovato"));
     }
 
     /**
-     * Throws {@link AccessDeniedException} when the authenticated user is a MANAGER
-     * not assigned to the given contract. Skips the check when no auth context is present.
+     * Throws {@link AccessDeniedException} when the caller is a MANAGER not
+     * assigned to the given contract. Fails closed: no authenticated user, no
+     * organization or no such user in it is refused too, never waved through.
      */
     public void checkManagerCanAccess(Contracts contract) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            return;
+            throw new AccessDeniedException("non autenticato");
         }
-        Long orgId = TenantContext.get();
-        if (orgId == null) {
-            return;
-        }
-        Users user = usersRepository.findByUsernameAndOrganizationId(auth.getName(), orgId).orElse(null);
-        if (user == null || !"MANAGER".equals(user.getRole().getRole())) {
+        Long orgId = TenantContext.require();
+        Users user = usersRepository.findByUsernameAndOrganizationId(auth.getName(), orgId)
+                .orElseThrow(() -> new AccessDeniedException("utente non trovato nell'organizzazione"));
+        if (!"MANAGER".equals(user.getRole().getRole())) {
             return;
         }
         Long managerId = user.getManager() != null ? user.getManager().getId() : null;

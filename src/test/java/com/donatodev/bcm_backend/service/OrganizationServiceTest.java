@@ -1,5 +1,8 @@
 package com.donatodev.bcm_backend.service;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import com.donatodev.bcm_backend.config.TenantContext;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.List;
@@ -54,6 +57,19 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
 class OrganizationServiceTest {
+
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
 
     @Mock private OrganizationRepository organizationRepository;
     @Mock private UsersRepository usersRepository;
@@ -365,58 +381,10 @@ class OrganizationServiceTest {
 
         @Test
         @Order(11)
-        @DisplayName("getMyOrganization via SecurityContext fallback returns org")
+        @DisplayName("getMyOrganization refuses a request without an organization, whoever is logged in")
         void shouldGetMyOrganizationViaSecurityContextFallback() {
-            // TenantContext is null → fallback to SecurityContextHolder
-            Organization org = Organization.builder().id(1L).name("Test").slug("test")
-                    .subscriptionTier(SubscriptionTier.FREE).build();
-            Users user = Users.builder().username("admin").organization(org).build();
-
-            SecurityContextHolder.getContext().setAuthentication(
-                    new UsernamePasswordAuthenticationToken("admin", null, java.util.List.of()));
-            try {
-                when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(user));
-
-                OrganizationDTO result = organizationService.getMyOrganization();
-
-                assertEquals("Test", result.name());
-            } finally {
-                SecurityContextHolder.clearContext();
-            }
-        }
-
-        @Test
-        @Order(12)
-        @DisplayName("getMyOrganization via SecurityContext throws when user has no org")
-        void shouldThrowWhenUserHasNoOrganizationInFallback() {
-            Users userWithoutOrg = Users.builder().username("noorg").build();
-
-            SecurityContextHolder.getContext().setAuthentication(
-                    new UsernamePasswordAuthenticationToken("noorg", null, java.util.List.of()));
-            try {
-                when(usersRepository.findByUsername("noorg")).thenReturn(Optional.of(userWithoutOrg));
-
-                assertThrows(OrganizationNotFoundException.class,
-                        () -> organizationService.getMyOrganization());
-            } finally {
-                SecurityContextHolder.clearContext();
-            }
-        }
-
-        @Test
-        @Order(13)
-        @DisplayName("getMyOrganization via SecurityContext throws when user not found")
-        void shouldThrowWhenAuthenticatedUserNotFoundInFallback() {
-            SecurityContextHolder.getContext().setAuthentication(
-                    new UsernamePasswordAuthenticationToken("ghost", null, java.util.List.of()));
-            try {
-                when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
-
-                assertThrows(OrganizationNotFoundException.class,
-                        () -> organizationService.getMyOrganization());
-            } finally {
-                SecurityContextHolder.clearContext();
-            }
+            TenantContext.clear();
+            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class, () -> organizationService.getMyOrganization());
         }
 
         @Test

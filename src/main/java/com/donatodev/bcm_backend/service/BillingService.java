@@ -127,8 +127,8 @@ public class BillingService {
         if (secretKey.isBlank()) {
             throw notConfigured();
         }
-        Long orgId = TenantContext.get();
-        Organization org = orgId == null ? null : organizationRepository.findById(orgId).orElse(null);
+        Long orgId = TenantContext.require();
+        Organization org = organizationRepository.findById(orgId).orElse(null);
         if (org == null) {
             throw new OrganizationNotFoundException("Organizzazione non trovata");
         }

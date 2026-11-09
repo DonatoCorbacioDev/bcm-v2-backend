@@ -1,5 +1,8 @@
 package com.donatodev.bcm_backend.controller;
 
+import com.donatodev.bcm_backend.support.TestTenant;
+import com.donatodev.bcm_backend.repository.OrganizationRepository;
+import com.donatodev.bcm_backend.entity.Organization;
 import java.time.LocalDate;
 import java.time.Month;
 
@@ -47,6 +50,12 @@ import com.donatodev.bcm_backend.util.TestDataCleaner;
 @ActiveProfiles("test")
 class ContractWorkflowControllerTest {
 
+    @Autowired
+    private OrganizationRepository organizationRepository;
+
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
+
     @Autowired private MockMvc mockMvc;
     @Autowired private ContractsRepository contractsRepository;
     @Autowired private CounterpartiesRepository counterpartiesRepository;
@@ -59,30 +68,38 @@ class ContractWorkflowControllerTest {
     // Also after each test: approvals and rejections write contract_history
     // rows pointing at users, which broke test classes that only delete users
     // (AuthControllerTest) whenever they happened to run right after this one.
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     @AfterEach
     void cleanDb() {
         testDataCleaner.clean();
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        TestTenant.use(testOrg.getId());
     }
 
     private Managers createManager(String email) {
-        return managersRepository.save(Managers.builder()
+        return managersRepository.save(Managers.builder().organization(testOrg)
                 .firstName("Mario").lastName("Rossi").email(email)
                 .phoneNumber("123456").department("Legal").build());
     }
 
     private void createUser(String username, String roleName, Managers manager, boolean canApprove) {
         Roles role = rolesRepository.findByRole(roleName).orElseGet(() -> rolesRepository.save(Roles.builder().role(roleName).build()));
-        usersRepository.save(Users.builder()
+        usersRepository.save(Users.builder().organization(testOrg)
                 .username(username).passwordHash("password").verified(true)
                 .role(role).manager(manager).canApproveContracts(canApprove)
                 .build());
     }
 
     private Contracts createDraftContract(Managers manager) {
-        BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().name("WF-Area-" + System.nanoTime()).description("d").build());
-        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Client WF").type(CounterpartyType.CUSTOMER).build());
-        return contractsRepository.save(Contracts.builder()
+        BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg).name("WF-Area-" + System.nanoTime()).description("d").build());
+        Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Client WF").type(CounterpartyType.CUSTOMER).build());
+        return contractsRepository.save(Contracts.builder().organization(testOrg)
                 .counterparty(counterparty).contractNumber("WF-" + System.nanoTime())
                 .status(ContractStatus.DRAFT).workflowStage(WorkflowStage.DRAFT)
                 .startDate(LocalDate.of(2025, Month.JANUARY, 1)).endDate(LocalDate.of(2026, Month.JANUARY, 1))

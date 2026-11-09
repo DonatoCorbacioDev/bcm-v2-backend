@@ -48,12 +48,9 @@ public class ManagerService {
      * @return a list of {@link ManagerDTO}
      */
     public List<ManagerDTO> getAllManagers() {
-        Long orgId = TenantContext.get();
-        if (orgId != null) {
-            return managersRepository.findByOrganizationId(orgId, Pageable.unpaged())
-                    .stream().map(managerMapper::toDTO).toList();
-        }
-        return managersRepository.findAll().stream().map(managerMapper::toDTO).toList();
+        Long orgId = TenantContext.require();
+        return managersRepository.findByOrganizationId(orgId, Pageable.unpaged())
+                .stream().map(managerMapper::toDTO).toList();
     }
 
     /**
@@ -74,10 +71,8 @@ public class ManagerService {
      * {@link TenantContext} carries an organization ID.
      */
     private Optional<Managers> findManagerInScope(Long id) {
-        Long orgId = TenantContext.get();
-        return (orgId != null)
-                ? managersRepository.findByIdAndOrganizationId(id, orgId)
-                : managersRepository.findById(id);
+        Long orgId = TenantContext.require();
+        return managersRepository.findByIdAndOrganizationId(id, orgId);
     }
 
     /**
@@ -88,12 +83,10 @@ public class ManagerService {
      */
     public ManagerDTO createManager(ManagerDTO managerDTO) {
         Managers manager = managerMapper.toEntity(managerDTO);
-        Long orgId = TenantContext.get();
-        if (orgId != null) {
-            Organization org = new Organization();
-            org.setId(orgId);
-            manager.setOrganization(org);
-        }
+        Long orgId = TenantContext.require();
+        Organization org = new Organization();
+        org.setId(orgId);
+        manager.setOrganization(org);
         manager = managersRepository.save(manager);
         return managerMapper.toDTO(manager);
     }
@@ -134,21 +127,15 @@ public class ManagerService {
     
     public Page<ManagerDTO> searchManagers(String q, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         Page<Managers> result;
         if (q == null || q.isBlank()) {
-            result = (orgId != null)
-                    ? managersRepository.findByOrganizationId(orgId, pageable)
-                    : managersRepository.findAll(pageable);
+            result = managersRepository.findByOrganizationId(orgId, pageable);
         } else {
             String term = q.trim();
-            result = (orgId != null)
-                    ? managersRepository
-                        .findByOrganizationIdAndFirstNameContainingIgnoreCaseOrOrganizationIdAndLastNameContainingIgnoreCaseOrOrganizationIdAndEmailContainingIgnoreCase(
-                            orgId, term, orgId, term, orgId, term, pageable)
-                    : managersRepository
-                        .findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
-                            term, term, term, pageable);
+            result = managersRepository
+                    .findByOrganizationIdAndFirstNameContainingIgnoreCaseOrOrganizationIdAndLastNameContainingIgnoreCaseOrOrganizationIdAndEmailContainingIgnoreCase(
+                            orgId, term, orgId, term, orgId, term, pageable);
         }
         return result.map(managerMapper::toDTO);
    }

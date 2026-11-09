@@ -1,5 +1,9 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.support.TestTenant;
+import com.donatodev.bcm_backend.repository.OrganizationRepository;
+import com.donatodev.bcm_backend.entity.Organization;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -48,6 +52,12 @@ import tools.jackson.databind.ObjectMapper;
 class ManagerControllerTest {
 
     @Autowired
+    private OrganizationRepository organizationRepository;
+
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
+
+    @Autowired
     private MockMvc mockMvc;
 
     @Autowired
@@ -62,10 +72,18 @@ class ManagerControllerTest {
     /**
      * Cleans the database before each test case to ensure test isolation.
      */
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     @SuppressWarnings("unused")
     void cleanDb() {
         testDataCleaner.clean();
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        TestTenant.use(testOrg.getId());
     }
 
     /**
@@ -107,8 +125,8 @@ class ManagerControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldGetAllManagers() throws Exception {
             repository.saveAll(List.of(
-                    Managers.builder().firstName("Marco").lastName("Bianchi").email("marco@example.com").phoneNumber("123").department("Finance").build(),
-                    Managers.builder().firstName("Lucia").lastName("Verdi").email("lucia@example.com").phoneNumber("456").department("HR").build()
+                    Managers.builder().organization(testOrg).firstName("Marco").lastName("Bianchi").email("marco@example.com").phoneNumber("123").department("Finance").build(),
+                    Managers.builder().organization(testOrg).firstName("Lucia").lastName("Verdi").email("lucia@example.com").phoneNumber("456").department("HR").build()
             ));
 
             mockMvc.perform(get("/managers"))
@@ -129,7 +147,7 @@ class ManagerControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldGetManagerById() throws Exception {
             Managers m = repository.save(
-                    Managers.builder().firstName("Lucio").lastName("Gialli").email("lucio@example.com").phoneNumber("789").department("HR").build()
+                    Managers.builder().organization(testOrg).firstName("Lucio").lastName("Gialli").email("lucio@example.com").phoneNumber("789").department("HR").build()
             );
 
             mockMvc.perform(get("/managers/{id}", m.getId()))
@@ -149,7 +167,7 @@ class ManagerControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldUpdateManager() throws Exception {
             Managers original = repository.save(
-                    Managers.builder().firstName("Paola").lastName("Rossi").email("paola@example.com").phoneNumber("000").department("Finance").build()
+                    Managers.builder().organization(testOrg).firstName("Paola").lastName("Rossi").email("paola@example.com").phoneNumber("000").department("Finance").build()
             );
 
             ManagerDTO updatedDTO = new ManagerDTO(original.getId(), "Marco", "Verdi", "marco@example.com", "999", "Marketing");
@@ -173,7 +191,7 @@ class ManagerControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldDeleteManager() throws Exception {
             Managers m = repository.save(
-                    Managers.builder().firstName("Andrea").lastName("Bianchi").email("andrea@example.com").phoneNumber("777").department("HR").build()
+                    Managers.builder().organization(testOrg).firstName("Andrea").lastName("Bianchi").email("andrea@example.com").phoneNumber("777").department("HR").build()
             );
 
             mockMvc.perform(delete("/managers/{id}", m.getId()))
@@ -203,9 +221,9 @@ class ManagerControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldSearchManagers() throws Exception {
             repository.saveAll(List.of(
-                    Managers.builder().firstName("John").lastName("Doe").email("john@example.com")
+                    Managers.builder().organization(testOrg).firstName("John").lastName("Doe").email("john@example.com")
                             .phoneNumber("111").department("IT").build(),
-                    Managers.builder().firstName("Jane").lastName("Smith").email("jane@example.com")
+                    Managers.builder().organization(testOrg).firstName("Jane").lastName("Smith").email("jane@example.com")
                             .phoneNumber("222").department("HR").build()
             ));
 
@@ -226,7 +244,7 @@ class ManagerControllerTest {
         @DisplayName("Should search managers without query parameter")
         @WithMockUser(roles = "ADMIN")
         void shouldSearchManagersWithoutQuery() throws Exception {
-            repository.save(Managers.builder().firstName("Test").lastName("Manager")
+            repository.save(Managers.builder().organization(testOrg).firstName("Test").lastName("Manager")
                     .email("test@example.com").phoneNumber("333").department("Sales").build());
 
             mockMvc.perform(get("/managers/search")
@@ -245,7 +263,7 @@ class ManagerControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldPatchManager() throws Exception {
             Managers original = repository.save(
-                    Managers.builder().firstName("OldName").lastName("OldLast")
+                    Managers.builder().organization(testOrg).firstName("OldName").lastName("OldLast")
                             .email("old@example.com").phoneNumber("000").department("OldDept").build()
             );
 
@@ -271,7 +289,7 @@ class ManagerControllerTest {
         @DisplayName("A MANAGER can list managers")
         @WithMockUser(roles = "MANAGER")
         void shouldAllowManagerRoleToListManagers() throws Exception {
-            repository.save(Managers.builder().firstName("Chiara").lastName("Neri")
+            repository.save(Managers.builder().organization(testOrg).firstName("Chiara").lastName("Neri")
                     .email("chiara@example.com").phoneNumber("222").department("Ops").build());
 
             mockMvc.perform(get("/managers"))

@@ -1,5 +1,9 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.support.TestTenant;
+import com.donatodev.bcm_backend.repository.OrganizationRepository;
+import com.donatodev.bcm_backend.entity.Organization;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -52,6 +56,12 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class ContractHistoryControllerTest {
+
+    @Autowired
+    private OrganizationRepository organizationRepository;
+
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
 	
 	@Autowired 
     private MockMvc mockMvc;
@@ -83,12 +93,20 @@ class ContractHistoryControllerTest {
     /**
      * Cleans the database before each test to ensure a clean state.
      */
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     @SuppressWarnings("unused")
     void cleanDb() {
         testDataCleaner.clean();
         // TestDataCleaner predates the counterparties table.
         counterpartiesRepository.deleteAll();
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        TestTenant.use(testOrg.getId());
     }
 
     /**
@@ -108,15 +126,15 @@ class ContractHistoryControllerTest {
         @DisplayName("The new contract history has been created")
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldCreateContractHistory() throws Exception {
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Marco").lastName("Rossi").email("marco.rossi@example.com").department("Legal").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Legal Area").description("Handles legal affairs").build());
 
-            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Cliente Uno").type(CounterpartyType.CUSTOMER).build());
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Cliente Uno").type(CounterpartyType.CUSTOMER).build());
 
-            Contracts contract = contractsRepository.save(Contracts.builder()
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
                     .counterparty(counterparty).contractNumber("CH001").wbsCode("WBS001").projectName("Legal Project")
                     .businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(365))
@@ -124,7 +142,7 @@ class ContractHistoryControllerTest {
 
             Roles savedRole = rolesRepository.save(Roles.builder().role("ADMIN").build());
 
-            Users user = usersRepository.save(Users.builder()
+            Users user = usersRepository.save(Users.builder().organization(testOrg)
                     .username("admin").passwordHash("hashedpassword").manager(manager).role(savedRole).build());
 
             ContractHistoryDTO dto = new ContractHistoryDTO(null, contract.getId(), user.getId(),
@@ -146,15 +164,15 @@ class ContractHistoryControllerTest {
         @DisplayName("The contract history has been retrieved successfully")
         @WithMockUser(username = "elena.hr", roles = "ADMIN")
         void shouldGetContractHistoryById() throws Exception {
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Elena").lastName("Bianchi").email("elena.bianchi@example.com").department("HR").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("HR Area").description("Handles human resources").build());
 
-            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Client Beta").type(CounterpartyType.CUSTOMER).build());
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Client Beta").type(CounterpartyType.CUSTOMER).build());
 
-            Contracts contract = contractsRepository.save(Contracts.builder()
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
                     .counterparty(counterparty).contractNumber("CH002").wbsCode("WBS002").projectName("HR Project")
                     .businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusMonths(6))
@@ -163,7 +181,7 @@ class ContractHistoryControllerTest {
             Roles savedRole = rolesRepository.findByRole("ADMIN")
                     .orElseGet(() -> rolesRepository.save(Roles.builder().role("ADMIN").build()));
 
-            Users user = usersRepository.save(Users.builder()
+            Users user = usersRepository.save(Users.builder().organization(testOrg)
                     .username("elena.hr").passwordHash("passwordhr").manager(manager).role(savedRole).build());
 
             ContractHistoryDTO dto = new ContractHistoryDTO(null, contract.getId(), user.getId(),
@@ -192,15 +210,15 @@ class ContractHistoryControllerTest {
         @DisplayName("All contract histories have been retrieved successfully for a specific contract")
         @WithMockUser(username = "anna.verdi", roles = "ADMIN")
         void shouldGetAllContractHistoriesByContractId() throws Exception {
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Anna").lastName("Verdi").email("anna.verdi@example.com").department("Operations").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Operations Area").description("Operations details").build());
 
-            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Big Client").type(CounterpartyType.CUSTOMER).build());
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Big Client").type(CounterpartyType.CUSTOMER).build());
 
-            Contracts contract = contractsRepository.save(Contracts.builder()
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
                     .counterparty(counterparty).contractNumber("CH003").wbsCode("WBS003").projectName("Operations Project")
                     .businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusMonths(6))
@@ -209,7 +227,7 @@ class ContractHistoryControllerTest {
             Roles savedRole = rolesRepository.findByRole("ADMIN")
                     .orElseGet(() -> rolesRepository.save(Roles.builder().role("ADMIN").build()));
 
-            Users user = usersRepository.save(Users.builder()
+            Users user = usersRepository.save(Users.builder().organization(testOrg)
                     .username("anna.verdi").passwordHash("securepass").manager(manager).role(savedRole).build());
 
             ContractHistoryDTO history1 = new ContractHistoryDTO(null, contract.getId(), user.getId(),
@@ -240,15 +258,15 @@ class ContractHistoryControllerTest {
         @DisplayName("The contract history has been deleted successfully")
         @WithMockUser(username = "giorgio.neri", roles = "ADMIN")
         void shouldDeleteContractHistory() throws Exception {
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Giorgio").lastName("Neri").email("giorgio.neri@example.com").department("Finance").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                     .name("Finance Area").description("Finance operations").build());
 
-            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Finance Corp").type(CounterpartyType.CUSTOMER).build());
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Finance Corp").type(CounterpartyType.CUSTOMER).build());
 
-            Contracts contract = contractsRepository.save(Contracts.builder()
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
                     .counterparty(counterparty).contractNumber("CH004").projectName("Finance Project")
                     .businessArea(area).manager(manager)
                     .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusMonths(12))
@@ -257,7 +275,7 @@ class ContractHistoryControllerTest {
             Roles savedRole = rolesRepository.findByRole("ADMIN")
                     .orElseGet(() -> rolesRepository.save(Roles.builder().role("ADMIN").build()));
 
-            Users user = usersRepository.save(Users.builder()
+            Users user = usersRepository.save(Users.builder().organization(testOrg)
                     .username("giorgio.neri").passwordHash("passwordfinance").manager(manager).role(savedRole).build());
 
             ContractHistoryDTO history = new ContractHistoryDTO(null, contract.getId(), user.getId(),
@@ -286,15 +304,15 @@ class ContractHistoryControllerTest {
         @DisplayName("All contract histories have been retrieved successfully")
         @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldGetAllContractHistories() throws Exception {
-            Managers manager = managersRepository.save(Managers.builder()
+            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                 .firstName("Test").lastName("User").email("test@example.com").department("TestDept").build());
 
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder()
+            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
                 .name("Test Area").description("Test").build());
 
-            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().name("Test Client").type(CounterpartyType.CUSTOMER).build());
+            Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Test Client").type(CounterpartyType.CUSTOMER).build());
 
-            Contracts contract = contractsRepository.save(Contracts.builder()
+            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
                 .counterparty(counterparty).contractNumber("CH999").wbsCode("WBS999")
                 .projectName("Test Project").businessArea(area).manager(manager)
                 .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(10))
@@ -302,7 +320,7 @@ class ContractHistoryControllerTest {
 
             Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
 
-            Users user = usersRepository.save(Users.builder()
+            Users user = usersRepository.save(Users.builder().organization(testOrg)
                 .username("admin").passwordHash("pwd").manager(manager).role(role).build());
 
             ContractHistoryDTO dto = new ContractHistoryDTO(null, contract.getId(), user.getId(),

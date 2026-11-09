@@ -101,17 +101,14 @@ public class RiskFeedbackService {
 
         List<RiskFeedback> all;
         if (isAdmin(user)) {
-            Long orgId = TenantContext.get();
-            all = (orgId != null)
-                    ? riskFeedbackRepository.findByOrganizationIdOrderByCreatedAtDescIdDesc(orgId)
-                    : riskFeedbackRepository.findAll();
+            Long orgId = TenantContext.require();
+            all = riskFeedbackRepository.findByOrganizationIdOrderByCreatedAtDescIdDesc(orgId);
         } else {
             all = riskFeedbackRepository.findByContractManagerIdOrderByCreatedAtDescIdDesc(user.getManager().getId());
         }
 
-        // Sort in Java rather than trusting the repository's ORDER BY alone: the
-        // no-tenant-context fallback above uses plain findAll(), which has no
-        // defined order. Id is a tiebreaker for rows sharing the same createdAt
+        // Sort in Java too, so the dedupe below never depends on the query's
+        // ORDER BY. Id is a tiebreaker for rows sharing the same createdAt
         // (two submissions can land in the same clock tick).
         List<RiskFeedback> mostRecentFirst = all.stream()
                 .sorted(Comparator.comparing(RiskFeedback::getCreatedAt)
@@ -137,10 +134,8 @@ public class RiskFeedbackService {
     }
 
     private Optional<Contracts> findContractInScope(Long contractId) {
-        Long orgId = TenantContext.get();
-        return (orgId != null)
-                ? contractsRepository.findByIdAndOrganization_Id(contractId, orgId)
-                : contractsRepository.findById(contractId);
+        Long orgId = TenantContext.require();
+        return contractsRepository.findByIdAndOrganization_Id(contractId, orgId);
     }
 
     private Users getAuthenticatedUser() {

@@ -45,6 +45,19 @@ import com.donatodev.bcm_backend.repository.ManagersRepository;
 @ActiveProfiles("test")
 class ContractTemplateServiceTest {
 
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
+
     @Mock private ContractTemplateRepository templateRepository;
     @Mock private BusinessAreasRepository businessAreasRepository;
     @Mock private ManagersRepository managersRepository;
@@ -349,11 +362,10 @@ class ContractTemplateServiceTest {
 
         @Test
         @Order(15)
-        @DisplayName("requireOrgId throws when TenantContext is null")
+        @DisplayName("refuses every template operation without an organization")
         void shouldThrowWhenNoOrgContext() {
             TenantContext.clear();
-            assertThrows(IllegalStateException.class,
-                    () -> templateService.getTemplates());
+            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class, () -> templateService.getTemplates());
         }
 
         @Test

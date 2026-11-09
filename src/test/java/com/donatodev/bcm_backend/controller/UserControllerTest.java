@@ -1,5 +1,9 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.support.TestTenant;
+import com.donatodev.bcm_backend.repository.OrganizationRepository;
+import com.donatodev.bcm_backend.entity.Organization;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
@@ -53,6 +57,12 @@ import tools.jackson.databind.ObjectMapper;
 class UserControllerTest {
 
     @Autowired
+    private OrganizationRepository organizationRepository;
+
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
+
+    @Autowired
     private MockMvc mockMvc;
 
     @Autowired
@@ -73,10 +83,18 @@ class UserControllerTest {
     /**
      * Cleans the test database before each test to guarantee isolation.
      */
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     @SuppressWarnings("unused")
     void cleanDb() {
         testDataCleaner.clean();
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        TestTenant.use(testOrg.getId());
     }
 
     /**
@@ -97,7 +115,7 @@ class UserControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldCreateUser() throws Exception {
             Managers manager = managersRepository.save(
-                    Managers.builder()
+                    Managers.builder().organization(testOrg)
                             .firstName("Mario")
                             .lastName("Rossi")
                             .email("mario.rossi@example.com")
@@ -136,7 +154,7 @@ class UserControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldGetAllUsers() throws Exception {
             Managers manager = managersRepository.save(
-                    Managers.builder()
+                    Managers.builder().organization(testOrg)
                             .firstName("Lucia")
                             .lastName("Ferrari")
                             .email("lucia.ferrari@example.com")
@@ -149,7 +167,7 @@ class UserControllerTest {
                             .build());
 
             usersRepository.save(
-                    Users.builder()
+                    Users.builder().organization(testOrg)
                             .username("lucia.ferrari")
                             .passwordHash("hashedpw")
                             .manager(manager)
@@ -171,7 +189,7 @@ class UserControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldGetUserById() throws Exception {
             Managers manager = managersRepository.save(
-                    Managers.builder()
+                    Managers.builder().organization(testOrg)
                             .firstName("Laura")
                             .lastName("Bianchi")
                             .email("laura.bianchi@example.com")
@@ -184,7 +202,7 @@ class UserControllerTest {
                             .build());
 
             Users user = usersRepository.save(
-                    Users.builder()
+                    Users.builder().organization(testOrg)
                             .username("laura.bianchi")
                             .passwordHash("password")
                             .manager(manager)
@@ -206,7 +224,7 @@ class UserControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldUpdateUser() throws Exception {
             Managers manager = managersRepository.save(
-                    Managers.builder()
+                    Managers.builder().organization(testOrg)
                             .firstName("Giovanni")
                             .lastName("Verdi")
                             .email("giovanni.verdi@example.com")
@@ -219,7 +237,7 @@ class UserControllerTest {
                             .build());
 
             Users originalUser = usersRepository.save(
-                    Users.builder()
+                    Users.builder().organization(testOrg)
                             .username("giovanni.verdi")
                             .passwordHash("password")
                             .manager(manager)
@@ -253,7 +271,7 @@ class UserControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldDeleteUser() throws Exception {
             Managers manager = managersRepository.save(
-                    Managers.builder()
+                    Managers.builder().organization(testOrg)
                             .firstName("Franco")
                             .lastName("Neri")
                             .email("franco.neri@example.com")
@@ -266,7 +284,7 @@ class UserControllerTest {
                             .build());
 
             Users userToDelete = usersRepository.save(
-                    Users.builder()
+                    Users.builder().organization(testOrg)
                             .username("franco.neri")
                             .passwordHash("password")
                             .manager(manager)
@@ -299,7 +317,7 @@ class UserControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldInviteUser() throws Exception {
             Managers manager = managersRepository.save(
-                    Managers.builder()
+                    Managers.builder().organization(testOrg)
                             .firstName("Invite")
                             .lastName("Manager")
                             .email("invite@example.com")
@@ -334,7 +352,7 @@ class UserControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldPatchUser() throws Exception {
             Managers manager = managersRepository.save(
-                    Managers.builder()
+                    Managers.builder().organization(testOrg)
                             .firstName("Patch")
                             .lastName("Manager")
                             .email("patch@example.com")
@@ -347,7 +365,7 @@ class UserControllerTest {
                             .build());
 
             Users existingUser = usersRepository.save(
-                    Users.builder()
+                    Users.builder().organization(testOrg)
                             .username("patch.user")
                             .passwordHash("oldpass")
                             .manager(manager)
@@ -377,7 +395,7 @@ class UserControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldForceResetPassword() throws Exception {
             Managers manager = managersRepository.save(
-                    Managers.builder()
+                    Managers.builder().organization(testOrg)
                             .firstName("Reset")
                             .lastName("Manager")
                             .email("reset@example.com")
@@ -390,7 +408,7 @@ class UserControllerTest {
                             .build());
 
             Users user = usersRepository.save(
-                    Users.builder()
+                    Users.builder().organization(testOrg)
                             .username("reset.user")
                             .passwordHash("oldpass")
                             .manager(manager)
@@ -412,7 +430,7 @@ class UserControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldSearchUsers() throws Exception {
             Managers manager1 = managersRepository.save(
-                    Managers.builder()
+                    Managers.builder().organization(testOrg)
                             .firstName("Search")
                             .lastName("Manager1")
                             .email("search1@example.com")
@@ -420,7 +438,7 @@ class UserControllerTest {
                             .build());
 
             Managers manager2 = managersRepository.save(
-                    Managers.builder()
+                    Managers.builder().organization(testOrg)
                             .firstName("Search")
                             .lastName("Manager2")
                             .email("search2@example.com")
@@ -433,7 +451,7 @@ class UserControllerTest {
                             .build());
 
             usersRepository.save(
-                    Users.builder()
+                    Users.builder().organization(testOrg)
                             .username("search.user1")
                             .passwordHash("pass")
                             .manager(manager1) // manager1
@@ -442,7 +460,7 @@ class UserControllerTest {
                             .build());
 
             usersRepository.save(
-                    Users.builder()
+                    Users.builder().organization(testOrg)
                             .username("search.user2")
                             .passwordHash("pass")
                             .manager(manager2) // manager2
@@ -470,7 +488,7 @@ class UserControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldSearchUsersWithoutFilters() throws Exception {
             Managers manager = managersRepository.save(
-                    Managers.builder()
+                    Managers.builder().organization(testOrg)
                             .firstName("All")
                             .lastName("Manager")
                             .email("all@example.com")
@@ -483,7 +501,7 @@ class UserControllerTest {
                             .build());
 
             usersRepository.save(
-                    Users.builder()
+                    Users.builder().organization(testOrg)
                             .username("user.one")
                             .passwordHash("pass")
                             .manager(manager)

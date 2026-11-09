@@ -280,21 +280,8 @@ public class OrganizationService {
     }
 
     private Organization resolveCurrentOrganization() {
-        Long orgId = TenantContext.get();
-        if (orgId != null) {
-            return organizationRepository.findById(orgId)
-                    .orElseThrow(() -> new OrganizationNotFoundException(ORGANIZATION_NOT_FOUND));
-        }
-        // Fallback when TenantContext is absent (e.g. test context with @WithMockUser)
-        String username = AuthenticatedUserUtils.getUsernameOrThrow();
-        return usersRepository.findByUsername(username)
-                .map(u -> {
-                    if (u.getOrganization() == null) {
-                        throw new OrganizationNotFoundException("L'utente non ha un'organizzazione");
-                    }
-                    return u.getOrganization();
-                })
-                .orElseThrow(() -> new OrganizationNotFoundException("Utente autenticato non trovato"));
+        return organizationRepository.findById(TenantContext.require())
+                .orElseThrow(() -> new OrganizationNotFoundException(ORGANIZATION_NOT_FOUND));
     }
 
     private String generateUniqueSlug(String name) {

@@ -95,7 +95,7 @@ public class SepaPaymentService {
             throw new IllegalArgumentException("Una o più fatture non sono state trovate per questo contratto");
         }
 
-        Organization organization = resolveOrganization(contract);
+        Organization organization = resolveOrganization();
         if (organization.getIban() == null || organization.getIban().isBlank()) {
             throw new IllegalArgumentException("L'organizzazione non ha un IBAN configurato per i pagamenti SEPA");
         }
@@ -135,7 +135,7 @@ public class SepaPaymentService {
         String messageId = "MSG" + UUID.randomUUID().toString().replace("-", "").substring(0, 28).toUpperCase(Locale.ROOT);
         byte[] xmlBytes = buildXml(organization, invoices, currency, executionDate, messageId, totalAmount);
 
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         String storagePath = localStorageService.storeSepaPayment(orgId, contractId, xmlBytes);
         String fileName = "sepa-" + contractId + "-" + executionDate + ".xml";
 
@@ -229,7 +229,7 @@ public class SepaPaymentService {
         String details = "Verified IBAN for counterparty " + counterparty.getId()
                 + " auto-learned from first SEPA payment (" + IbanValidator.mask(iban) + ")";
         auditLogService.save("VERIFIED_IBAN_LEARNED", "Counterparty", counterparty.getId(), username,
-                TenantContext.get(), details);
+                TenantContext.require(), details);
     }
 
     private void logIbanMismatchBlocked(Counterparty counterparty, ElectronicInvoice invoice,
@@ -239,19 +239,13 @@ public class SepaPaymentService {
                 + IbanValidator.mask(invoiceIban) + ") does not match verified IBAN ("
                 + IbanValidator.mask(verifiedIban) + ") for counterparty " + counterparty.getId();
         auditLogService.save("SEPA_IBAN_MISMATCH_BLOCKED", "Counterparty", counterparty.getId(), username,
-                TenantContext.get(), details);
+                TenantContext.require(), details);
     }
 
-    private Organization resolveOrganization(Contracts contract) {
-        Long orgId = TenantContext.get();
-        if (orgId != null) {
-            return organizationRepository.findById(orgId)
-                    .orElseThrow(() -> new IllegalArgumentException("Organizzazione non trovata"));
-        }
-        if (contract.getOrganization() != null) {
-            return contract.getOrganization();
-        }
-        throw new IllegalArgumentException("Il contratto non ha un'organizzazione da cui risolvere un conto debitore");
+    private Organization resolveOrganization() {
+        Long orgId = TenantContext.require();
+        return organizationRepository.findById(orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Organizzazione non trovata"));
     }
 
     private String resolveCurrency(List<ElectronicInvoice> invoices) {

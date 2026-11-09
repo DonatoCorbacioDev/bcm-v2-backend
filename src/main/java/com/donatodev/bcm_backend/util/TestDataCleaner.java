@@ -17,6 +17,7 @@ import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.repository.FinancialValuesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
+import com.donatodev.bcm_backend.repository.NotificationRepository;
 import com.donatodev.bcm_backend.repository.PasswordResetTokenRepository;
 import com.donatodev.bcm_backend.repository.RiskFeedbackRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
@@ -51,6 +52,7 @@ public class TestDataCleaner {
     private final BusinessAreasRepository businessAreasRepository;
     private final FinancialTypesRepository financialTypesRepository;
     private final BudgetRepository budgetRepository;
+    private final NotificationRepository notificationRepository;
 
     public TestDataCleaner(
             VerificationTokenRepository verificationTokenRepository,
@@ -69,7 +71,8 @@ public class TestDataCleaner {
             RolesRepository rolesRepository,
             BusinessAreasRepository businessAreasRepository,
             FinancialTypesRepository financialTypesRepository,
-            BudgetRepository budgetRepository
+            BudgetRepository budgetRepository,
+            NotificationRepository notificationRepository
     ) {
         this.verificationTokenRepository = verificationTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
@@ -88,6 +91,7 @@ public class TestDataCleaner {
         this.businessAreasRepository = businessAreasRepository;
         this.financialTypesRepository = financialTypesRepository;
         this.budgetRepository = budgetRepository;
+        this.notificationRepository = notificationRepository;
     }
 
     /**
@@ -100,6 +104,7 @@ public class TestDataCleaner {
         verificationTokenRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
         totpRecoveryCodeRepository.deleteAll(); // References users - delete before them
+        notificationRepository.deleteAll(); // References users - delete before them
         contractHistoryRepository.deleteAll();
         contractWorkflowEventRepository.deleteAll(); // References contracts and users - delete before them
         riskFeedbackRepository.deleteAll(); // References contracts - delete before them

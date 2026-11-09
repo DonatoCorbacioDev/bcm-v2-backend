@@ -195,10 +195,8 @@ public class ContractMapper {
         if (managerId == null) {
             return null;
         }
-        Long orgId = TenantContext.get();
-        return (orgId != null
-                ? managersRepository.findByIdAndOrganizationId(managerId, orgId)
-                : managersRepository.findById(managerId))
+        Long orgId = TenantContext.require();
+        return managersRepository.findByIdAndOrganizationId(managerId, orgId)
                 .orElseThrow(() -> new ManagerNotFoundException("Manager not found: " + managerId));
     }
 
@@ -209,10 +207,8 @@ public class ContractMapper {
      * different organization.
      */
     private BusinessAreas resolveBusinessArea(Long areaId) {
-        Long orgId = TenantContext.get();
-        return (orgId != null
-                ? businessAreasRepository.findByIdAndOrganizationId(areaId, orgId)
-                : businessAreasRepository.findById(areaId))
+        Long orgId = TenantContext.require();
+        return businessAreasRepository.findByIdAndOrganizationId(areaId, orgId)
                 .orElseThrow(() -> new BusinessAreaNotFoundException("Business area not found: " + areaId));
     }
 
@@ -223,10 +219,8 @@ public class ContractMapper {
      * different organization.
      */
     private Counterparty resolveCounterparty(Long counterpartyId) {
-        Long orgId = TenantContext.get();
-        return (orgId != null
-                ? counterpartiesRepository.findByIdAndOrganizationId(counterpartyId, orgId)
-                : counterpartiesRepository.findById(counterpartyId))
+        Long orgId = TenantContext.require();
+        return counterpartiesRepository.findByIdAndOrganizationId(counterpartyId, orgId)
                 .orElseThrow(() -> new CounterpartyNotFoundException("Counterparty not found: " + counterpartyId));
     }
 
@@ -237,10 +231,8 @@ public class ContractMapper {
      * resolve helpers above.
      */
     private FinancialTypes resolveFinancialType(Long financialTypeId) {
-        Long orgId = TenantContext.get();
-        return (orgId != null
-                ? financialTypesRepository.findByIdAndOrganizationId(financialTypeId, orgId)
-                : financialTypesRepository.findById(financialTypeId))
+        Long orgId = TenantContext.require();
+        return financialTypesRepository.findByIdAndOrganizationId(financialTypeId, orgId)
                 .orElseThrow(() -> new FinancialTypeNotFoundException("Financial type not found: " + financialTypeId));
     }
 }

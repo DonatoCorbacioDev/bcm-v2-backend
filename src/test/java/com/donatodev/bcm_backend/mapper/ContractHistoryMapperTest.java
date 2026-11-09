@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.mapper;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.config.TenantContext;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.Optional;
@@ -26,6 +28,19 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 
 @ExtendWith(MockitoExtension.class)
 class ContractHistoryMapperTest {
+
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
 
     @Mock
     private ContractsRepository contractsRepository;
@@ -76,8 +91,8 @@ class ContractHistoryMapperTest {
                 ContractStatus.ACTIVE
         );
 
-        when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
-        when(usersRepository.findById(2L)).thenReturn(Optional.of(user));
+        when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
+        when(usersRepository.findByIdAndOrganizationId(2L, TENANT)).thenReturn(Optional.of(user));
 
         ContractHistory entity = mapper.toEntity(dto);
 
@@ -98,8 +113,8 @@ class ContractHistoryMapperTest {
                 ContractStatus.ACTIVE
         );
 
-        when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
-        when(usersRepository.findById(2L)).thenReturn(Optional.of(user));
+        when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
+        when(usersRepository.findByIdAndOrganizationId(2L, TENANT)).thenReturn(Optional.of(user));
 
         ContractHistory entity = mapper.toEntity(dto);
 
@@ -158,7 +173,7 @@ class ContractHistoryMapperTest {
                 ContractStatus.ACTIVE
         );
 
-        when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+        when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
 
         ContractHistory entity = mapper.toEntity(dto);
 
@@ -174,7 +189,7 @@ class ContractHistoryMapperTest {
                 ContractStatus.ACTIVE
         );
 
-        when(contractsRepository.findById(99L)).thenReturn(Optional.empty());
+        when(contractsRepository.findByIdAndOrganization_Id(99L, TENANT)).thenReturn(Optional.empty());
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> mapper.toEntity(dto));
         assertEquals("Contract not found", ex.getMessage());
@@ -189,8 +204,8 @@ class ContractHistoryMapperTest {
                 ContractStatus.ACTIVE
         );
 
-        when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
-        when(usersRepository.findById(99L)).thenReturn(Optional.empty());
+        when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
+        when(usersRepository.findByIdAndOrganizationId(99L, TENANT)).thenReturn(Optional.empty());
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> mapper.toEntity(dto));
         assertEquals("User not found", ex.getMessage());

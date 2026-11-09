@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.support.TestTenant;
 import static org.hamcrest.Matchers.containsString;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -72,6 +74,9 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class OrganizationControllerTest {
 
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
+
     @Autowired private MockMvc mockMvc;
     @Autowired private OrganizationRepository organizationRepository;
     @Autowired private UsersRepository usersRepository;
@@ -92,6 +97,11 @@ class OrganizationControllerTest {
     private static final String ME_URL = "/organizations/me";
 
 
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     void setup() {
         clearInvocations(dummyEmailService);
@@ -105,6 +115,9 @@ class OrganizationControllerTest {
         organizationRepository.deleteAll();
         rolesRepository.save(Roles.builder().role("ADMIN").build());
         rolesRepository.save(Roles.builder().role("MANAGER").build());
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        TestTenant.use(testOrg.getId());
     }
 
     private static String registration(String orgName, String username, String email, String termsVersion,
@@ -441,11 +454,12 @@ class OrganizationControllerTest {
             Organization org = organizationRepository.save(
                     Organization.builder().name("My Corp").slug("my-corp")
                             .subscriptionTier(SubscriptionTier.FREE).build());
+            TestTenant.use(org.getId());
             Managers manager = managersRepository.save(
-                    Managers.builder().firstName("Admin").lastName("User")
+                    Managers.builder().organization(org).firstName("Admin").lastName("User")
                             .email("admin@mycorp.com").organization(org).build());
             Roles role = rolesRepository.findByRole("ADMIN").orElseThrow();
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(org)
                     .username("org-admin").passwordHash("pwd").verified(true)
                     .role(role).manager(manager).organization(org).build());
         }
@@ -483,14 +497,16 @@ class OrganizationControllerTest {
         @Test
         @Order(4)
         @WithMockUser(username = "no-org-user", roles = "ADMIN")
-        @DisplayName("Admin without organization returns 404")
-        void shouldReturn404WhenUserHasNoOrg() throws Exception {
+        @DisplayName("A request without an organization is refused (403)")
+        void shouldRefuseRequestWithoutOrganization() throws Exception {
             Roles role = rolesRepository.findByRole("ADMIN").orElseThrow();
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(testOrg)
                     .username("no-org-user").passwordHash("pwd").verified(true)
                     .role(role).build());
+            // No organization on the request: refused, not resolved some other way.
+            TestTenant.clear();
             mockMvc.perform(get(ME_URL))
-                    .andExpect(status().isNotFound());
+                    .andExpect(status().isForbidden());
         }
     }
 
@@ -504,11 +520,12 @@ class OrganizationControllerTest {
             Organization org = organizationRepository.save(
                     Organization.builder().name("Usage Corp").slug("usage-corp")
                             .subscriptionTier(tier).build());
+            TestTenant.use(org.getId());
             Managers manager = managersRepository.save(
-                    Managers.builder().firstName("Admin").lastName("User")
+                    Managers.builder().organization(org).firstName("Admin").lastName("User")
                             .email("admin@usagecorp.com").organization(org).build());
             Roles role = rolesRepository.findByRole("ADMIN").orElseThrow();
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(org)
                     .username("usage-admin").passwordHash("pwd").verified(true)
                     .role(role).manager(manager).organization(org).build());
         }
@@ -557,11 +574,12 @@ class OrganizationControllerTest {
             Organization org = organizationRepository.save(
                     Organization.builder().name("Old Name").slug("old-name")
                             .subscriptionTier(SubscriptionTier.FREE).build());
+            TestTenant.use(org.getId());
             Managers manager = managersRepository.save(
-                    Managers.builder().firstName("Admin").lastName("User")
+                    Managers.builder().organization(org).firstName("Admin").lastName("User")
                             .email("admin@update.com").organization(org).build());
             Roles role = rolesRepository.findByRole("ADMIN").orElseThrow();
-            usersRepository.save(Users.builder()
+            usersRepository.save(Users.builder().organization(org)
                     .username("update-admin").passwordHash("pwd").verified(true)
                     .role(role).manager(manager).organization(org).build());
         }

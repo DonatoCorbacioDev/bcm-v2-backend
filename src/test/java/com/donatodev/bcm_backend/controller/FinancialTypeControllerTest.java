@@ -1,5 +1,9 @@
 package com.donatodev.bcm_backend.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import com.donatodev.bcm_backend.support.TestTenant;
+import com.donatodev.bcm_backend.repository.OrganizationRepository;
+import com.donatodev.bcm_backend.entity.Organization;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +53,12 @@ import tools.jackson.databind.ObjectMapper;
 class FinancialTypeControllerTest {
 
     @Autowired
+    private OrganizationRepository organizationRepository;
+
+    /** The organization this class's requests and fixtures belong to, as a real token's would. */
+    private Organization testOrg;
+
+    @Autowired
     private MockMvc mockMvc;
 
     @Autowired
@@ -63,10 +73,18 @@ class FinancialTypeControllerTest {
     /**
      * Cleans the test database before each test execution to ensure test isolation.
      */
+    @AfterEach
+    void leaveTestTenant() {
+        TestTenant.clear();
+    }
+
     @BeforeEach
     @SuppressWarnings("unused")
     void cleanDb() {
         testDataCleaner.clean();
+        testOrg = organizationRepository.save(Organization.builder()
+                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+        TestTenant.use(testOrg.getId());
     }
 
     /**
@@ -113,8 +131,8 @@ class FinancialTypeControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldGetAllFinancialTypes() throws Exception {
             repository.saveAll(List.of(
-                    FinancialTypes.builder().name("OPEX").description("Operational Expenditure").category(FinancialCategory.COST).build(),
-                    FinancialTypes.builder().name("INVESTMENT").description("Investment Type").category(FinancialCategory.COST).build()
+                    FinancialTypes.builder().organization(testOrg).name("OPEX").description("Operational Expenditure").category(FinancialCategory.COST).build(),
+                    FinancialTypes.builder().organization(testOrg).name("INVESTMENT").description("Investment Type").category(FinancialCategory.COST).build()
             ));
 
             mockMvc.perform(get("/financial-types"))
@@ -136,7 +154,7 @@ class FinancialTypeControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldGetFinancialTypeById() throws Exception {
             FinancialTypes savedEntity = repository.save(
-                    FinancialTypes.builder()
+                    FinancialTypes.builder().organization(testOrg)
                             .name("R&D")
                             .description("Research and Development")
                             .category(FinancialCategory.COST)
@@ -160,7 +178,7 @@ class FinancialTypeControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldUpdateFinancialType() throws Exception {
             FinancialTypes original = repository.save(
-                    FinancialTypes.builder()
+                    FinancialTypes.builder().organization(testOrg)
                             .name("OLD_TYPE")
                             .description("Old description")
                             .category(FinancialCategory.COST)
@@ -191,7 +209,7 @@ class FinancialTypeControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldDeleteFinancialType() throws Exception {
             FinancialTypes typeToDelete = repository.save(
-                    FinancialTypes.builder()
+                    FinancialTypes.builder().organization(testOrg)
                             .name("DELETE_TYPE")
                             .description("Temporary type")
                             .category(FinancialCategory.COST)

@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -40,6 +41,19 @@ import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Home: what needs attention")
 class HomeAttentionServiceTest {
+
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
 
     private static final Long ORG = 3L;
     private static final String VERIFIED_IBAN = "IT17M0503411701000062194812";
@@ -234,13 +248,11 @@ class HomeAttentionServiceTest {
     }
 
     @Test
-    @DisplayName("Returns nothing, without querying, when the request carries no organization")
+    @DisplayName("Refuses, without querying, a request that carries no organization")
     void failsClosedWithoutTenant() {
         TenantContext.clear();
 
-        HomeAttentionDTO home = service.getAttention();
-
-        assertEquals(List.of(), home.items());
+        assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class, () -> service.getAttention());
         verifyNoInteractions(contractsRepository, invoiceRepository, currentUserResolver);
     }
 

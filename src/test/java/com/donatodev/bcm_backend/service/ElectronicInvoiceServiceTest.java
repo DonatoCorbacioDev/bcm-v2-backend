@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import com.donatodev.bcm_backend.config.TenantContext;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -59,6 +60,19 @@ import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
 class ElectronicInvoiceServiceTest {
+
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
 
     @Mock private ElectronicInvoiceRepository invoiceRepository;
     @Mock private ContractAccessGuard contractAccessGuard;

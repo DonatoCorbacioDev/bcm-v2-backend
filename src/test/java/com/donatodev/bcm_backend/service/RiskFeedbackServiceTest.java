@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import static org.mockito.Mockito.verifyNoInteractions;
+import org.junit.jupiter.api.BeforeEach;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.List;
@@ -48,6 +50,19 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 @ActiveProfiles("test")
 class RiskFeedbackServiceTest {
 
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
+
     @Mock
     private RiskFeedbackRepository riskFeedbackRepository;
 
@@ -95,7 +110,7 @@ class RiskFeedbackServiceTest {
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
             when(riskFeedbackRepository.save(org.mockito.ArgumentMatchers.any(RiskFeedback.class))).thenReturn(saved);
             when(riskFeedbackMapper.toDTO(saved)).thenReturn(dto);
 
@@ -121,7 +136,7 @@ class RiskFeedbackServiceTest {
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
             when(riskFeedbackRepository.save(org.mockito.ArgumentMatchers.any(RiskFeedback.class))).thenReturn(saved);
             when(riskFeedbackMapper.toDTO(saved)).thenReturn(dto);
 
@@ -146,7 +161,7 @@ class RiskFeedbackServiceTest {
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
 
             assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(1L, request));
         }
@@ -165,7 +180,7 @@ class RiskFeedbackServiceTest {
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
 
             assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(1L, request));
         }
@@ -184,7 +199,7 @@ class RiskFeedbackServiceTest {
             );
 
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
-            when(contractsRepository.findById(1L)).thenReturn(Optional.of(contract));
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT)).thenReturn(Optional.of(contract));
 
             assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(1L, request));
         }
@@ -201,7 +216,7 @@ class RiskFeedbackServiceTest {
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findById(999L)).thenReturn(Optional.empty());
+            when(contractsRepository.findByIdAndOrganization_Id(999L, TENANT)).thenReturn(Optional.empty());
 
             assertThrows(ContractNotFoundException.class, () -> riskFeedbackService.create(999L, request));
         }
@@ -283,23 +298,16 @@ class RiskFeedbackServiceTest {
 
         @Test
         @Order(10)
-        @DisplayName("getFeedbackForCurrentUser as ADMIN without TenantContext falls back to findAll")
+        @DisplayName("getFeedbackForCurrentUser as ADMIN without an organization is refused")
         void shouldGetFeedbackAsAdminWithoutTenant() {
+            TenantContext.clear();
             Users admin = Users.builder().username("admin").role(Roles.builder().role("ADMIN").build()).build();
-            RiskFeedback entity = RiskFeedback.builder().id(1L).contract(Contracts.builder().id(1L).build()).build();
-            RiskFeedbackDTO dto = new RiskFeedbackDTO(1L, 1L, 0.8, "HIGH", null, null, true, LocalDateTime.of(2027, Month.JUNE, 1, 0, 0));
-
             SecurityContextHolder.getContext().setAuthentication(
-                    new UsernamePasswordAuthenticationToken("admin", null, List.of(() -> "ROLE_ADMIN"))
-            );
-
+                    new UsernamePasswordAuthenticationToken("admin", null, List.of(() -> "ROLE_ADMIN")));
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(riskFeedbackRepository.findAll()).thenReturn(List.of(entity));
-            when(riskFeedbackMapper.toDTO(entity)).thenReturn(dto);
 
-            List<RiskFeedbackDTO> result = riskFeedbackService.getFeedbackForCurrentUser();
-
-            assertEquals(1, result.size());
+            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class, () -> riskFeedbackService.getFeedbackForCurrentUser());
+            verifyNoInteractions(riskFeedbackRepository);
         }
 
         @Test
@@ -342,9 +350,10 @@ class RiskFeedbackServiceTest {
             );
 
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            // findAll() has no defined order; the service must sort by createdAt/id
-            // itself, so feed it the entries in a deliberately non-sorted order.
-            when(riskFeedbackRepository.findAll()).thenReturn(List.of(older, newer));
+            // The service must not rely on the query's ORDER BY: feed it the
+            // entries in a deliberately non-sorted order.
+            when(riskFeedbackRepository.findByOrganizationIdOrderByCreatedAtDescIdDesc(TENANT))
+                    .thenReturn(List.of(older, newer));
             when(riskFeedbackMapper.toDTO(newer)).thenReturn(newerDto);
 
             List<RiskFeedbackDTO> result = riskFeedbackService.getFeedbackForCurrentUser();

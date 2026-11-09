@@ -1,5 +1,6 @@
 package com.donatodev.bcm_backend.service;
 
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -45,6 +46,19 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 @ExtendWith(MockitoExtension.class)
 class MlProxyServiceTest {
+
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
 
     @Mock
     private RestTemplate restTemplate;
@@ -435,16 +449,12 @@ class MlProxyServiceTest {
 
         @Test
         @Order(5)
-        @DisplayName("Omits org_id when TenantContext is empty")
+        @DisplayName("Refuses to call the ML service without an organization")
         void shouldNotAppendOrgIdWhenTenantContextEmpty() {
-            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
-                    .thenReturn(ResponseEntity.ok("[]"));
+            TenantContext.clear();
 
-            mlProxyService.getRiskScores();
-
-            verify(restTemplate).exchange(
-                    eq(FASTAPI_URL + "/risk-scores"), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class));
+            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class, () -> mlProxyService.getRiskScores());
+            verifyNoInteractions(restTemplate);
         }
 
         @Test
@@ -624,16 +634,12 @@ class MlProxyServiceTest {
 
         @Test
         @Order(2)
-        @DisplayName("Omits org_id when TenantContext is empty")
+        @DisplayName("Refuses to call the ML service without an organization")
         void shouldOmitOrgIdWhenTenantContextEmpty() {
-            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
-                    .thenReturn(ResponseEntity.ok("{}"));
+            TenantContext.clear();
 
-            mlProxyService.askAgent("Any question");
-
-            verify(restTemplate).exchange(
-                    eq(FASTAPI_URL + "/agent/ask"), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
+            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class, () -> mlProxyService.askAgent("Any question"));
+            verifyNoInteractions(restTemplate);
         }
 
         @Test

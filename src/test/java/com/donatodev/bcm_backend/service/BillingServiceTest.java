@@ -45,6 +45,19 @@ import com.stripe.exception.ApiConnectionException;
 @ExtendWith(MockitoExtension.class)
 class BillingServiceTest {
 
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
+
     private static final String WEBHOOK_SECRET = "whsec_test_secret";
     private static final String FRONTEND = "http://localhost:3000";
 

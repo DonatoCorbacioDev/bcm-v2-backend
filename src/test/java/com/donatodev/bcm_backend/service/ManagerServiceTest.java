@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.service;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import java.util.List;
 import java.util.Optional;
 
@@ -56,6 +58,19 @@ import com.donatodev.bcm_backend.repository.ManagersRepository;
 @ActiveProfiles("test")
 class ManagerServiceTest {
 
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 1L;
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
+
     @Mock
     private ManagersRepository managersRepository;
 
@@ -82,7 +97,7 @@ class ManagerServiceTest {
             Managers entity = Managers.builder().id(1L).firstName("Mario").lastName("Rossi").build();
             ManagerDTO dto = new ManagerDTO(1L, "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
 
-            when(managersRepository.findAll()).thenReturn(List.of(entity));
+            when(managersRepository.findByOrganizationId(TENANT, Pageable.unpaged())).thenReturn(new PageImpl<>(List.of(entity)));
             when(managerMapper.toDTO(entity)).thenReturn(dto);
 
             List<ManagerDTO> result = managerService.getAllManagers();
@@ -101,7 +116,7 @@ class ManagerServiceTest {
             Managers entity = Managers.builder().id(1L).firstName("Luca").lastName("Bianchi").build();
             ManagerDTO dto = new ManagerDTO(1L, "Luca", "Bianchi", "luca@example.com", "0987654321", "HR");
 
-            when(managersRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
             when(managerMapper.toDTO(entity)).thenReturn(dto);
 
             ManagerDTO result = managerService.getManagerById(1L);
@@ -118,7 +133,7 @@ class ManagerServiceTest {
         @Order(3)
         @DisplayName("Get manager by ID throws exception if not found")
         void shouldThrowIfManagerNotFound() {
-            when(managersRepository.findById(999L)).thenReturn(Optional.empty());
+            when(managersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
             ManagerNotFoundException ex
                     = assertThrows(ManagerNotFoundException.class, () -> managerService.getManagerById(999L));
             assertEquals("ID manager 999 non trovato", ex.getMessage());
@@ -158,7 +173,7 @@ class ManagerServiceTest {
             ManagerDTO updateDTO = new ManagerDTO(1L, "Paolo", "Neri", "paolo@example.com", "444555666", "Marketing");
             ManagerDTO updatedDTO = new ManagerDTO(1L, "Paolo", "Neri", "paolo@example.com", "444555666", "Marketing");
 
-            when(managersRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(existing));
             when(managersRepository.save(existing)).thenReturn(existing);
             when(managerMapper.toDTO(existing)).thenReturn(updatedDTO);
 
@@ -178,7 +193,7 @@ class ManagerServiceTest {
         @DisplayName("Update manager throws exception if not found")
         void shouldThrowWhenUpdatingMissingManager() {
             ManagerDTO dto = new ManagerDTO(1L, "Giulia", "Moretti", "giulia@example.com", "777888999", "Sales");
-            when(managersRepository.findById(1L)).thenReturn(Optional.empty());
+            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.empty());
 
             ManagerNotFoundException ex
                     = assertThrows(ManagerNotFoundException.class, () -> managerService.updateManager(1L, dto));
@@ -194,7 +209,7 @@ class ManagerServiceTest {
         @DisplayName("Delete manager calls repository")
         void shouldDeleteManager() {
             Managers manager = Managers.builder().id(1L).build();
-            when(managersRepository.findById(1L)).thenReturn(Optional.of(manager));
+            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(manager));
 
             managerService.deleteManager(1L);
 
@@ -205,7 +220,7 @@ class ManagerServiceTest {
         @Order(70)
         @DisplayName("Delete manager throws if not found")
         void shouldThrowWhenDeletingMissingManager() {
-            when(managersRepository.findById(999L)).thenReturn(Optional.empty());
+            when(managersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             ManagerNotFoundException ex = assertThrows(ManagerNotFoundException.class,
                     () -> managerService.deleteManager(999L));
@@ -224,14 +239,14 @@ class ManagerServiceTest {
             Page<Managers> page = new PageImpl<>(List.of(entity));
             Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
 
-            when(managersRepository.findAll(pageable)).thenReturn(page);
+            when(managersRepository.findByOrganizationId(TENANT, pageable)).thenReturn(page);
             when(managerMapper.toDTO(entity)).thenReturn(dto);
 
             Page<ManagerDTO> result = managerService.searchManagers(null, 0, 10);
 
             assertEquals(1, result.getTotalElements());
             assertEquals("Mario", result.getContent().get(0).firstName());
-            verify(managersRepository, times(1)).findAll(pageable);
+            verify(managersRepository, times(1)).findByOrganizationId(TENANT, pageable);
         }
 
         @Test
@@ -244,14 +259,14 @@ class ManagerServiceTest {
             Page<Managers> page = new PageImpl<>(List.of(entity));
             Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
 
-            when(managersRepository.findAll(pageable)).thenReturn(page);
+            when(managersRepository.findByOrganizationId(TENANT, pageable)).thenReturn(page);
             when(managerMapper.toDTO(entity)).thenReturn(dto);
 
             Page<ManagerDTO> result = managerService.searchManagers("   ", 0, 10);
 
             assertEquals(1, result.getTotalElements());
             assertEquals("Mario", result.getContent().get(0).firstName());
-            verify(managersRepository, times(1)).findAll(pageable);
+            verify(managersRepository, times(1)).findByOrganizationId(TENANT, pageable);
         }
 
         @Test
@@ -264,16 +279,18 @@ class ManagerServiceTest {
             Page<Managers> page = new PageImpl<>(List.of(entity));
             Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
 
-            when(managersRepository.findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
-                    "Mario", "Mario", "Mario", pageable)).thenReturn(page);
+            when(managersRepository
+                    .findByOrganizationIdAndFirstNameContainingIgnoreCaseOrOrganizationIdAndLastNameContainingIgnoreCaseOrOrganizationIdAndEmailContainingIgnoreCase(
+                            TENANT, "Mario", TENANT, "Mario", TENANT, "Mario", pageable)).thenReturn(page);
             when(managerMapper.toDTO(entity)).thenReturn(dto);
 
             Page<ManagerDTO> result = managerService.searchManagers("Mario", 0, 10);
 
             assertEquals(1, result.getTotalElements());
             assertEquals("Mario", result.getContent().get(0).firstName());
-            verify(managersRepository, times(1)).findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
-                    "Mario", "Mario", "Mario", pageable);
+            verify(managersRepository, times(1))
+                    .findByOrganizationIdAndFirstNameContainingIgnoreCaseOrOrganizationIdAndLastNameContainingIgnoreCaseOrOrganizationIdAndEmailContainingIgnoreCase(
+                            TENANT, "Mario", TENANT, "Mario", TENANT, "Mario", pageable);
         }
 
         @Test
@@ -282,7 +299,7 @@ class ManagerServiceTest {
         void shouldGetManagerEntity() {
             Managers entity = Managers.builder().id(1L).firstName("Mario").lastName("Rossi").build();
 
-            when(managersRepository.findById(1L)).thenReturn(Optional.of(entity));
+            when(managersRepository.findByIdAndOrganizationId(1L, TENANT)).thenReturn(Optional.of(entity));
 
             Managers result = managerService.getManagerEntity(1L);
 
@@ -294,7 +311,7 @@ class ManagerServiceTest {
         @Order(12)
         @DisplayName("Get manager entity throws exception when not found")
         void shouldThrowWhenGetManagerEntityNotFound() {
-            when(managersRepository.findById(999L)).thenReturn(Optional.empty());
+            when(managersRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
             ManagerNotFoundException ex = assertThrows(
                     ManagerNotFoundException.class,

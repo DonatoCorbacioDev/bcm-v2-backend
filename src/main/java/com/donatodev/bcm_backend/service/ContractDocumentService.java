@@ -77,7 +77,7 @@ public class ContractDocumentService {
         contractAccessGuard.checkManagerCanAccess(contract);
         validateFile(file);
 
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         ContractDocument doc = saveNewVersion(contract, orgId, file, null, 1);
         return toDTO(doc, 1);
     }
@@ -98,7 +98,7 @@ public class ContractDocumentService {
                 ? existing.getVersionNumber() + 1
                 : siblings.get(0).getVersionNumber() + 1;
 
-        Long orgId = TenantContext.get();
+        Long orgId = TenantContext.require();
         ContractDocument doc = saveNewVersion(contract, orgId, file, existing.getVersionGroupId(), nextVersion);
         return toDTO(doc, siblings.size() + 1);
     }

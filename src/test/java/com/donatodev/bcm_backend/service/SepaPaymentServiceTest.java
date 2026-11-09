@@ -63,6 +63,19 @@ import com.donatodev.bcm_backend.repository.SepaPaymentBatchRepository;
 @ExtendWith(MockitoExtension.class)
 class SepaPaymentServiceTest {
 
+    /** The organization every request carries (its token's); a test that needs another sets its own. */
+    private static final Long TENANT = 5L; // = ORG_ID: the organization these tests run in
+
+    @BeforeEach
+    void enterTenant() {
+        TenantContext.set(TENANT);
+    }
+
+    @AfterEach
+    void leaveTenant() {
+        TenantContext.clear();
+    }
+
     private static final Long CONTRACT_ID = 1L;
     private static final Long ORG_ID = 5L;
 
@@ -302,39 +315,18 @@ class SepaPaymentServiceTest {
         }
 
         @Test
-        @DisplayName("resolves the debtor organization from the contract when there is no tenant context")
-        void shouldResolveOrganizationFromContractWhenNoTenantContext() throws Exception {
-            TenantContext.clear();
-            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
-            Contracts contract = fakeContract();
-            contract.setOrganization(org);
-            ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
-            List<Long> invoiceIds = List.of(10L);
-
-            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
-            when(localStorageService.storeSepaPayment(eq(null), eq(CONTRACT_ID), any())).thenReturn("sepa/0/1/uuid.xml");
-            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
-
-            FileDownload result = sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null);
-
-            assertTrue(xmlContains(parse(result.bytes()), "IBAN", "DE89370400440532013000"));
-            verify(organizationRepository, never()).findById(any());
-        }
-
-        @Test
-        @DisplayName("throws when there is no tenant context and the contract has no organization")
+        @DisplayName("refuses a payment when the request carries no organization")
         void shouldThrowWhenNoTenantContextAndContractHasNoOrganization() {
             TenantContext.clear();
-            Contracts contract = fakeContract();
             ElectronicInvoice invoice = fakeInvoice(10L, "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(10L))).thenReturn(List.of(invoice));
+            LocalDate tomorrow = LocalDate.now().plusDays(1);
             List<Long> invoiceIds = List.of(10L);
 
-            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
-            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
-
-            assertThrows(IllegalArgumentException.class,
-                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
+            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class,
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, tomorrow));
+            verify(organizationRepository, never()).findById(any());
         }
 
         @Test
