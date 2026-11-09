@@ -81,7 +81,7 @@ public class DevDataSeeder implements ApplicationRunner {
             return;
         }
 
-        Organization org = organizationRepository.findFirstByOrderByIdAsc().orElse(null);
+        Organization org = organizationRepository.findFirstByOrderByCreatedAtAsc().orElse(null);
         Roles adminRole = rolesRepository.findByRole(ADMIN_ROLE).orElse(null);
         if (org == null || adminRole == null) {
             // Reference data (V2/V7) isn't there yet for some reason — skip

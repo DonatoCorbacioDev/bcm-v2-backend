@@ -53,14 +53,14 @@ class DevDataSeederTest {
             devDataSeeder.run(null);
 
             verify(usersRepository, never()).save(any());
-            verify(organizationRepository, never()).findFirstByOrderByIdAsc();
+            verify(organizationRepository, never()).findFirstByOrderByCreatedAtAsc();
         }
 
         @Test
         @DisplayName("does nothing when there is no organization to attach the account to")
         void skipsWhenOrgMissing() {
             when(usersRepository.findByUsername(DevDataSeeder.DEMO_USERNAME)).thenReturn(Optional.empty());
-            when(organizationRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.empty());
+            when(organizationRepository.findFirstByOrderByCreatedAtAsc()).thenReturn(Optional.empty());
             when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.of(new Roles()));
 
             devDataSeeder.run(null);
@@ -72,7 +72,7 @@ class DevDataSeederTest {
         @DisplayName("does nothing when the ADMIN role is missing")
         void skipsWhenRoleMissing() {
             when(usersRepository.findByUsername(DevDataSeeder.DEMO_USERNAME)).thenReturn(Optional.empty());
-            when(organizationRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(new Organization()));
+            when(organizationRepository.findFirstByOrderByCreatedAtAsc()).thenReturn(Optional.of(new Organization()));
             when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.empty());
 
             devDataSeeder.run(null);
@@ -88,7 +88,7 @@ class DevDataSeederTest {
             Managers savedManager = Managers.builder().id(1L).firstName("Demo").lastName("Admin").build();
 
             when(usersRepository.findByUsername(DevDataSeeder.DEMO_USERNAME)).thenReturn(Optional.empty());
-            when(organizationRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(defaultOrg));
+            when(organizationRepository.findFirstByOrderByCreatedAtAsc()).thenReturn(Optional.of(defaultOrg));
             when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.of(adminRole));
             when(managersRepository.save(any(Managers.class))).thenReturn(savedManager);
             when(passwordEncoder.encode(DevDataSeeder.DEMO_PASSWORD)).thenReturn("hashed-password");

@@ -44,6 +44,29 @@ class GlobalExceptionHandlerTest {
     private MockMvc mockMvc;
 
     @Nested
+    @DisplayName("400 for malformed parameters (not forwarded to /error, where security would answer 401)")
+    class BadParameters {
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("an identifier that is not one answers 400, naming the parameter")
+        void shouldReturn400ForMalformedId() throws Exception {
+            mockMvc.perform(get("/contracts/not-an-id"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("Parametro non valido: id"));
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("a missing required query parameter answers 400, naming it")
+        void shouldReturn400ForMissingParameter() throws Exception {
+            mockMvc.perform(get("/contracts/filter"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("Parametro obbligatorio mancante: status"));
+        }
+    }
+
+    @Nested
     @DisplayName("404 Not Found handlers")
     class NotFoundHandlers {
 
