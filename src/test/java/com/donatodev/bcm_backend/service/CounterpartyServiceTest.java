@@ -66,12 +66,16 @@ class CounterpartyServiceTest {
     private static final Long TENANT = 1L;
 
     @BeforeEach
-    void enterTenant() {
+    void setup() {
         TenantContext.set(TENANT);
+        SecurityContext ctx = SecurityContextHolder.createEmptyContext();
+        ctx.setAuthentication(new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList()));
+        SecurityContextHolder.setContext(ctx);
     }
 
     @AfterEach
-    void leaveTenant() {
+    void clearContext() {
+        SecurityContextHolder.clearContext();
         TenantContext.clear();
     }
 
@@ -95,18 +99,6 @@ class CounterpartyServiceTest {
 
     @InjectMocks
     private CounterpartyService service;
-
-    @BeforeEach
-    void setup() {
-        SecurityContext ctx = SecurityContextHolder.createEmptyContext();
-        ctx.setAuthentication(new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList()));
-        SecurityContextHolder.setContext(ctx);
-    }
-
-    @AfterEach
-    void clearContext() {
-        SecurityContextHolder.clearContext();
-    }
 
     @Nested
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -387,7 +379,7 @@ class CounterpartyServiceTest {
             assertEquals(5000.0, result.contractedValue());
             assertEquals(0.0, result.variancePercent());
             assertEquals(0.0, result.invoicedYtd());
-            org.mockito.Mockito.verifyNoInteractions(financialValuesRepository);
+            verifyNoInteractions(financialValuesRepository);
         }
 
         @Test

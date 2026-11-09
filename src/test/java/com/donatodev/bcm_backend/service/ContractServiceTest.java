@@ -1407,8 +1407,9 @@ class ContractServiceTest {
             when(managerService.getManagerEntity(5L)).thenReturn(Managers.builder().id(5L).build());
             when(managerService.getManagerEntity(10L)).thenThrow(new ManagerNotFoundException("Responsabile non trovato"));
 
+            List<Long> managerIds = List.of(5L, 10L);
             assertThrows(ManagerNotFoundException.class,
-                    () -> contractService.setCollaborators(1L, List.of(5L, 10L)));
+                    () -> contractService.setCollaborators(1L, managerIds));
             org.mockito.Mockito.verifyNoInteractions(contractManagerRepository);
         }
 

@@ -65,12 +65,21 @@ class ElectronicInvoiceServiceTest {
     private static final Long TENANT = 1L;
 
     @BeforeEach
-    void enterTenant() {
+    void setup() {
         TenantContext.set(TENANT);
+        electronicInvoiceService = new ElectronicInvoiceService(
+                invoiceRepository, contractAccessGuard, localStorageService, fatturaPaXmlParserService,
+                invoiceMatchingService);
+        ReflectionTestUtils.setField(electronicInvoiceService, "backendBaseUrl", BACKEND_URL);
+
+        SecurityContext ctx = SecurityContextHolder.createEmptyContext();
+        ctx.setAuthentication(new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList()));
+        SecurityContextHolder.setContext(ctx);
     }
 
     @AfterEach
-    void leaveTenant() {
+    void clearContext() {
+        SecurityContextHolder.clearContext();
         TenantContext.clear();
     }
 
@@ -86,23 +95,6 @@ class ElectronicInvoiceServiceTest {
     private static final long CONTRACT_ID = 1L;
     private static final long INVOICE_ID = 10L;
     private static final String BACKEND_URL = "http://localhost:8090/api/v1";
-
-    @BeforeEach
-    void setup() {
-        electronicInvoiceService = new ElectronicInvoiceService(
-                invoiceRepository, contractAccessGuard, localStorageService, fatturaPaXmlParserService,
-                invoiceMatchingService);
-        ReflectionTestUtils.setField(electronicInvoiceService, "backendBaseUrl", BACKEND_URL);
-
-        SecurityContext ctx = SecurityContextHolder.createEmptyContext();
-        ctx.setAuthentication(new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList()));
-        SecurityContextHolder.setContext(ctx);
-    }
-
-    @AfterEach
-    void clearContext() {
-        SecurityContextHolder.clearContext();
-    }
 
     private Contracts fakeContract() {
         Contracts c = new Contracts();

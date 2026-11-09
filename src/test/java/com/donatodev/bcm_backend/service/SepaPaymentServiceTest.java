@@ -63,17 +63,19 @@ import com.donatodev.bcm_backend.repository.SepaPaymentBatchRepository;
 @ExtendWith(MockitoExtension.class)
 class SepaPaymentServiceTest {
 
-    /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 5L; // = ORG_ID: the organization these tests run in
 
     @BeforeEach
-    void enterTenant() {
-        TenantContext.set(TENANT);
+    void setup() {
+        TenantContext.set(ORG_ID);
+        SecurityContext ctx = SecurityContextHolder.createEmptyContext();
+        ctx.setAuthentication(new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList()));
+        SecurityContextHolder.setContext(ctx);
     }
 
     @AfterEach
     void leaveTenant() {
         TenantContext.clear();
+        SecurityContextHolder.clearContext();
     }
 
     private static final Long CONTRACT_ID = 1L;
@@ -89,20 +91,6 @@ class SepaPaymentServiceTest {
 
     @InjectMocks
     private SepaPaymentService sepaPaymentService;
-
-    @BeforeEach
-    void setup() {
-        TenantContext.set(ORG_ID);
-        SecurityContext ctx = SecurityContextHolder.createEmptyContext();
-        ctx.setAuthentication(new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList()));
-        SecurityContextHolder.setContext(ctx);
-    }
-
-    @AfterEach
-    void tearDown() {
-        TenantContext.clear();
-        SecurityContextHolder.clearContext();
-    }
 
     private Contracts fakeContract() {
         Contracts c = new Contracts();

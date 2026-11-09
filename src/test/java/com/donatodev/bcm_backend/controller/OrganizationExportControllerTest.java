@@ -160,10 +160,6 @@ class OrganizationExportControllerTest {
         auditLogRepository.deleteAll();
         termsAcceptanceRepository.deleteAll();
         organizationRepository.deleteAll();
-    }
-
-    @AfterEach
-    void leaveTestTenant() {
         TestTenant.clear();
     }
 

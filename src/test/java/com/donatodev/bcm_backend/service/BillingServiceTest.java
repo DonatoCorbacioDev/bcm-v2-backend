@@ -49,8 +49,9 @@ class BillingServiceTest {
     private static final Long TENANT = 1L;
 
     @BeforeEach
-    void enterTenant() {
+    void setup() {
         TenantContext.set(TENANT);
+        billingService = service("sk_test_x", "price_x", WEBHOOK_SECRET);
     }
 
     @AfterEach
@@ -66,16 +67,6 @@ class BillingServiceTest {
     @Mock private OrganizationRepository organizationRepository;
 
     private BillingService billingService;
-
-    @BeforeEach
-    void setup() {
-        billingService = service("sk_test_x", "price_x", WEBHOOK_SECRET);
-    }
-
-    @AfterEach
-    void clearTenant() {
-        TenantContext.clear();
-    }
 
     private BillingService service(String secretKey, String priceId, String webhookSecret) {
         return new BillingService(checkoutGateway, organizationService, organizationRepository,

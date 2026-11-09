@@ -31,13 +31,16 @@ class CurrentUserResolverTest {
     private static final Long TENANT = 1L;
 
     @BeforeEach
-    void enterTenant() {
+    void setup() {
         TenantContext.set(TENANT);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(USERNAME, null, List.of()));
     }
 
     @AfterEach
     void leaveTenant() {
         TenantContext.clear();
+        SecurityContextHolder.clearContext();
     }
 
     private static final Long ORG_ID = 5L;
@@ -48,18 +51,6 @@ class CurrentUserResolverTest {
 
     @InjectMocks
     private CurrentUserResolver resolver;
-
-    @BeforeEach
-    void setup() {
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(USERNAME, null, List.of()));
-    }
-
-    @AfterEach
-    void tearDown() {
-        TenantContext.clear();
-        SecurityContextHolder.clearContext();
-    }
 
     @Nested
     @DisplayName("resolve: with a tenant set")

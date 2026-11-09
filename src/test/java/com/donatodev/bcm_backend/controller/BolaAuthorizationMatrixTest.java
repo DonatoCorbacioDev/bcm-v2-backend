@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.controller;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Stream;
@@ -353,7 +354,7 @@ class BolaAuthorizationMatrixTest {
         Data source = scenario.equals("foreign") ? foreign : scenario.equals("colleague") ? colleague : own;
         Contracts empty = persist(Contracts.builder().organization(source.org()).businessArea(source.area())
                 .counterparty(source.counterparty()).manager(scenario.equals("unassigned") ? null : source.manager())
-                .contractNumber(UUID.randomUUID().toString()).startDate(LocalDate.of(2026,1,1)).status(ContractStatus.ACTIVE).build());
+                .contractNumber(UUID.randomUUID().toString()).startDate(LocalDate.of(2026, Month.JANUARY,1)).status(ContractStatus.ACTIVE).build());
         if (scenario.equals("noManagerProfile")) em.find(Users.class, own.user().getId()).setManager(null);
         flushAndClear();
         int expected = scenario.equals("own") ? 200 : scenario.equals("foreign") ? 404 : 403;
@@ -361,7 +362,7 @@ class BolaAuthorizationMatrixTest {
                 .andExpect(status().is(expected));
         if (scenario.equals("unassigned") || scenario.equals("noManagerProfile")) {
             ContractHistory history = persist(ContractHistory.builder().contract(em.find(Contracts.class, empty.getId()))
-                    .modificationDate(LocalDateTime.of(2026,1,1,0,0)).previousStatus(ContractStatus.DRAFT).newStatus(ContractStatus.ACTIVE).build());
+                    .modificationDate(LocalDateTime.of(2026, Month.JANUARY,1,0,0)).previousStatus(ContractStatus.DRAFT).newStatus(ContractStatus.ACTIVE).build());
             flushAndClear();
             mvc.perform(get("/contract-history/" + history.getId()).header("Authorization", "Bearer " + managerToken))
                     .andExpect(status().isForbidden());
@@ -500,12 +501,12 @@ class BolaAuthorizationMatrixTest {
         Counterparty cp = persist(Counterparty.builder().organization(org).name(name).type(CounterpartyType.CUSTOMER).build());
         FinancialTypes type = persist(FinancialTypes.builder().organization(org).name(name).category(FinancialCategory.REVENUE).build());
         Contracts contract = persist(Contracts.builder().organization(org).manager(manager).businessArea(area).counterparty(cp)
-                .contractNumber(name).startDate(LocalDate.of(2026,1,1)).endDate(LocalDate.of(2027,1,1))
+                .contractNumber(name).startDate(LocalDate.of(2026, Month.JANUARY,1)).endDate(LocalDate.of(2027, Month.JANUARY,1))
                 .status(ContractStatus.ACTIVE).workflowStage(WorkflowStage.DRAFT).build());
         FinancialValues value = persist(FinancialValues.builder().organization(org).contract(contract).businessArea(area).financialType(type)
                 .month(1).year(2026).financialAmount(100).build());
         ContractHistory history = persist(ContractHistory.builder().contract(contract).modifiedBy(user)
-                .modificationDate(LocalDateTime.of(2026,1,1,0,0)).previousStatus(ContractStatus.DRAFT).newStatus(ContractStatus.ACTIVE).build());
+                .modificationDate(LocalDateTime.of(2026, Month.JANUARY,1,0,0)).previousStatus(ContractStatus.DRAFT).newStatus(ContractStatus.ACTIVE).build());
         ContractTemplate template = persist(ContractTemplate.builder().orgId(org.getId()).name(name).businessArea(area).defaultManager(manager).build());
         Budget budget = persist(Budget.builder().organization(org).businessArea(area).category(FinancialCategory.REVENUE).year(2026).targetAmount(100).build());
         ContractDocument document = persist(ContractDocument.builder().contract(contract).orgId(org.getId()).storagePath(name + ".pdf")
@@ -514,7 +515,7 @@ class BolaAuthorizationMatrixTest {
         ElectronicInvoice invoice = persist(ElectronicInvoice.builder().contract(contract).orgId(org.getId()).storagePath(name + ".xml")
                 .fileName("test.xml").fileSize(1L).contentType("application/xml").totalAmount(BigDecimal.valueOf(100)).build());
         SepaPaymentBatch batch = persist(SepaPaymentBatch.builder().contract(contract).orgId(org.getId()).messageId(name.substring(0,30))
-                .executionDate(LocalDate.of(2027,1,1)).totalAmount(BigDecimal.valueOf(100)).currency("EUR").numberOfTransactions(1)
+                .executionDate(LocalDate.of(2027, Month.JANUARY,1)).totalAmount(BigDecimal.valueOf(100)).currency("EUR").numberOfTransactions(1)
                 .storagePath(name + "-sepa.xml").fileName("sepa.xml").build());
         return new Data(org,area,manager,user,cp,type,contract,value,history,template,budget,document,invoice,batch);
     }

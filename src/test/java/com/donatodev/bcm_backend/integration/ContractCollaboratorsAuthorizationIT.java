@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.integration;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -185,8 +186,9 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
             throw new DataIntegrityViolationException("Simulated failure on second collaborator insert");
         }).when(collaborators).insertIgnore(contract.getId(), secondReplacement.getId());
 
-        assertThatThrownBy(() -> contractService.setCollaborators(contract.getId(),
-                List.of(replacement.getId(), secondReplacement.getId())))
+        Long contractId = contract.getId();
+        List<Long> replacementIds = List.of(replacement.getId(), secondReplacement.getId());
+        assertThatThrownBy(() -> contractService.setCollaborators(contractId, replacementIds))
                 .isInstanceOf(DataIntegrityViolationException.class);
 
         assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
@@ -232,6 +234,6 @@ class ContractCollaboratorsAuthorizationIT extends AbstractMySQLIntegrationTest 
                 .name("IT Customer").type(CounterpartyType.CUSTOMER).build());
         return contracts.save(Contracts.builder().organization(organization).manager(manager).businessArea(area)
                 .counterparty(counterparty).contractNumber(UUID.randomUUID().toString())
-                .startDate(LocalDate.of(2026, 1, 1)).status(ContractStatus.ACTIVE).build());
+                .startDate(LocalDate.of(2026, Month.JANUARY, 1)).status(ContractStatus.ACTIVE).build());
     }
 }

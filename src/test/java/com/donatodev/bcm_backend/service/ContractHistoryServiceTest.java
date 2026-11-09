@@ -61,7 +61,9 @@ class ContractHistoryServiceTest {
     }
 
     @AfterEach
-    void leaveTenant() {
+    @SuppressWarnings("unused")
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
         TenantContext.clear();
     }
 
@@ -78,12 +80,6 @@ class ContractHistoryServiceTest {
 
     @InjectMocks
     private ContractHistoryService historyService;
-
-    @AfterEach
-    @SuppressWarnings("unused")
-    void clearSecurityContext() {
-        SecurityContextHolder.clearContext();
-    }
 
     @Nested
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -397,6 +393,23 @@ class ContractHistoryServiceTest {
             List<ContractHistoryDTO> result = historyService.getAll();
             assertEquals(1, result.size());
             assertEquals(1L, result.get(0).id());
+        }
+
+        @Test
+        @Order(10)
+        @DisplayName("Get all histories as MANAGER without a manager profile returns an empty list")
+        void shouldReturnEmptyHistoryForManagerWithoutProfile() {
+            Users managerUser = Users.builder()
+                    .username("manager")
+                    .role(Roles.builder().role("MANAGER").build())
+                    .build();
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken("manager", null, List.of(() -> "ROLE_MANAGER"))
+            );
+            when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
+
+            assertEquals(List.of(), historyService.getAll());
+            org.mockito.Mockito.verifyNoInteractions(historyRepository);
         }
 
         /**

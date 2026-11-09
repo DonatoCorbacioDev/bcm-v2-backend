@@ -41,7 +41,6 @@ import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.PasswordResetToken;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
-import com.donatodev.bcm_backend.entity.VerificationToken;
 import com.donatodev.bcm_backend.repository.InviteTokenRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.PasswordResetTokenRepository;

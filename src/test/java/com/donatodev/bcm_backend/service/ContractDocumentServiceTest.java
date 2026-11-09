@@ -54,8 +54,9 @@ class ContractDocumentServiceTest {
     private static final Long TENANT = 1L;
 
     @BeforeEach
-    void enterTenant() {
+    void setup() {
         TenantContext.set(TENANT);
+        ReflectionTestUtils.setField(contractDocumentService, "backendBaseUrl", BACKEND_URL);
     }
 
     @AfterEach
@@ -80,11 +81,6 @@ class ContractDocumentServiceTest {
     private static final long CONTRACT_ID = 1L;
     private static final long DOC_ID = 10L;
     private static final String BACKEND_URL = "http://localhost:8090/api/v1";
-
-    @BeforeEach
-    void setup() {
-        ReflectionTestUtils.setField(contractDocumentService, "backendBaseUrl", BACKEND_URL);
-    }
 
     private Contracts fakeContract() {
         Contracts c = new Contracts();

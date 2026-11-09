@@ -637,7 +637,7 @@ class InvoiceMatchingServiceTest {
         void rejectsSuggestedValueOutsideTenantBeforeReadingOtherInvoices() {
             Contracts contract = contract(counterparty());
             ElectronicInvoice invoice = invoice(contract, "Supplier", "IT12345678901",
-                    BigDecimal.TEN, LocalDate.of(2026, 1, 10));
+                    BigDecimal.TEN, LocalDate.of(2026, Month.JANUARY, 10));
             FinancialValues candidate = financialValue(999L, contract, 1, 2026, 10);
             invoice.setMatchedFinancialValue(candidate);
             invoice.setMatchStatus(InvoiceMatchStatus.SUGGESTED);

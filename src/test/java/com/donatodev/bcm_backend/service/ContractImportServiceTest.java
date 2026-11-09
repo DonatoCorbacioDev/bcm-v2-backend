@@ -81,11 +81,6 @@ class ContractImportServiceTest {
     private final Managers manager = Managers.builder()
             .id(2L).firstName("Mario").lastName("Rossi").email("mario.rossi@example.com").build();
 
-    @AfterEach
-    void tearDown() {
-        TenantContext.clear();
-    }
-
     private void setupImportService() {
         importService = new ContractImportService(
                 contractsRepository, businessAreasRepository, managersRepository, contractService, counterpartyService);

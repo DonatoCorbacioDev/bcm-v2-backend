@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.integration;
 
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -181,7 +182,7 @@ class ContractImportTenantIsolationIT extends AbstractMySQLIntegrationTest {
         Counterparty counterparty = counterparties.save(Counterparty.builder().organization(owner)
                 .name(UUID.randomUUID().toString()).type(CounterpartyType.CUSTOMER).build());
         return contracts.saveAndFlush(Contracts.builder().organization(owner).businessArea(businessArea)
-                .counterparty(counterparty).contractNumber(number).startDate(LocalDate.of(2026, 1, 1))
+                .counterparty(counterparty).contractNumber(number).startDate(LocalDate.of(2026, Month.JANUARY, 1))
                 .status(ContractStatus.ACTIVE).build());
     }
 }

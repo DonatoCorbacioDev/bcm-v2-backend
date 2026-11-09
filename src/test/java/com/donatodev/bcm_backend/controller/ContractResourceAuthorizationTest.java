@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -119,7 +120,7 @@ class ContractResourceAuthorizationTest {
                 .name("Counterparty").type(CounterpartyType.CUSTOMER).build());
         Contracts contract = contracts.save(Contracts.builder().organization(contractOrg)
                 .contractNumber(UUID.randomUUID().toString()).counterparty(counterparty)
-                .businessArea(area).manager(assigned).startDate(LocalDate.of(2026, 1, 1))
+                .businessArea(area).manager(assigned).startDate(LocalDate.of(2026, Month.JANUARY, 1))
                 .status(ContractStatus.ACTIVE).build());
         if (!scenario.equals("empty")) {
             FinancialTypes type = types.save(FinancialTypes.builder().organization(contractOrg)

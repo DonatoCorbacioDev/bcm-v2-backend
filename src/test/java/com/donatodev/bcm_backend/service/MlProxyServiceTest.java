@@ -51,13 +51,17 @@ class MlProxyServiceTest {
     private static final Long TENANT = 1L;
 
     @BeforeEach
-    void enterTenant() {
+    @SuppressWarnings("unused")
+    void setup() {
         TenantContext.set(TENANT);
+        meterRegistry = new SimpleMeterRegistry();
+        mlProxyService = new MlProxyService(restTemplate, mlCacheService, meterRegistry, usersRepository, mlClaimsSigner, tierLimitService);
     }
 
     @AfterEach
     void leaveTenant() {
         TenantContext.clear();
+        SecurityContextHolder.clearContext();
     }
 
     @Mock
@@ -79,19 +83,6 @@ class MlProxyServiceTest {
     private MlProxyService mlProxyService;
 
     private static final String FASTAPI_URL = "http://localhost:8000";
-
-    @BeforeEach
-    @SuppressWarnings("unused")
-    void setup() {
-        meterRegistry = new SimpleMeterRegistry();
-        mlProxyService = new MlProxyService(restTemplate, mlCacheService, meterRegistry, usersRepository, mlClaimsSigner, tierLimitService);
-    }
-
-    @AfterEach
-    void clearTenant() {
-        TenantContext.clear();
-        SecurityContextHolder.clearContext();
-    }
 
     /** Authenticates as a MANAGER assigned to the given managerId, so resolveManagerId() picks it up. */
     private void authenticateAsManager(Long managerId) {

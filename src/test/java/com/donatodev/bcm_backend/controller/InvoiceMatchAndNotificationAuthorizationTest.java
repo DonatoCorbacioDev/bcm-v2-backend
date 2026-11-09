@@ -3,6 +3,7 @@ package com.donatodev.bcm_backend.controller;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -240,7 +241,7 @@ class InvoiceMatchAndNotificationAuthorizationTest {
         Counterparty counterparty = counterparties.save(Counterparty.builder().organization(org)
                 .name("Counterparty").type(CounterpartyType.CUSTOMER).build());
         return contracts.save(Contracts.builder().organization(org).businessArea(area).counterparty(counterparty)
-                .contractNumber(UUID.randomUUID().toString()).startDate(LocalDate.of(2026, 1, 1))
+                .contractNumber(UUID.randomUUID().toString()).startDate(LocalDate.of(2026, Month.JANUARY, 1))
                 .status(ContractStatus.ACTIVE).build());
     }
 

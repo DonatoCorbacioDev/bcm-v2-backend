@@ -69,13 +69,9 @@ class ContractWorkflowControllerTest {
     // rows pointing at users, which broke test classes that only delete users
     // (AuthControllerTest) whenever they happened to run right after this one.
     @AfterEach
+    @BeforeEach
     void leaveTestTenant() {
         TestTenant.clear();
-    }
-
-    @BeforeEach
-    @AfterEach
-    void cleanDb() {
         testDataCleaner.clean();
         testOrg = organizationRepository.save(Organization.builder()
                 .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());

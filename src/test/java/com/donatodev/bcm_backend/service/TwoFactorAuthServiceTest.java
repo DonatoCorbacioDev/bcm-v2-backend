@@ -50,13 +50,23 @@ class TwoFactorAuthServiceTest {
     private static final Long TENANT = 1L;
 
     @BeforeEach
-    void enterTenant() {
+    void setup() {
         TenantContext.set(TENANT);
+        twoFactorAuthService = new TwoFactorAuthService(
+                usersRepository, recoveryCodeRepository, totpEncryptionService,
+                passwordEncoder, jwtUtils, refreshTokenService, new CurrentUserResolver(usersRepository));
+        // pass-through "encryption" so plaintext secrets can be asserted on directly
+        lenient().when(totpEncryptionService.encrypt(anyString())).thenAnswer(inv -> "ENC(" + inv.getArgument(0) + ")");
+        lenient().when(totpEncryptionService.decrypt(anyString())).thenAnswer(inv -> {
+            String value = inv.getArgument(0);
+            return value.substring(4, value.length() - 1);
+        });
     }
 
     @AfterEach
     void leaveTenant() {
         TenantContext.clear();
+        SecurityContextHolder.clearContext();
     }
 
     private static final String USERNAME = "admin";
@@ -70,25 +80,6 @@ class TwoFactorAuthServiceTest {
     @Mock private RefreshTokenService refreshTokenService;
 
     private TwoFactorAuthService twoFactorAuthService;
-
-    @BeforeEach
-    void setup() {
-        twoFactorAuthService = new TwoFactorAuthService(
-                usersRepository, recoveryCodeRepository, totpEncryptionService,
-                passwordEncoder, jwtUtils, refreshTokenService, new CurrentUserResolver(usersRepository));
-        // pass-through "encryption" so plaintext secrets can be asserted on directly
-        lenient().when(totpEncryptionService.encrypt(anyString())).thenAnswer(inv -> "ENC(" + inv.getArgument(0) + ")");
-        lenient().when(totpEncryptionService.decrypt(anyString())).thenAnswer(inv -> {
-            String value = inv.getArgument(0);
-            return value.substring(4, value.length() - 1);
-        });
-    }
-
-    @AfterEach
-    void tearDown() {
-        TenantContext.clear();
-        SecurityContextHolder.clearContext();
-    }
 
     private void authenticateAs(String username) {
         SecurityContextHolder.getContext().setAuthentication(

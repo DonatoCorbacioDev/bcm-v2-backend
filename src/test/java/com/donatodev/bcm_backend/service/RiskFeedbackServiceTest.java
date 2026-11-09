@@ -59,7 +59,10 @@ class RiskFeedbackServiceTest {
     }
 
     @AfterEach
+    @SuppressWarnings("unused")
     void leaveTenant() {
+        TenantContext.clear();
+        SecurityContextHolder.clearContext();
         TenantContext.clear();
     }
 
@@ -77,13 +80,6 @@ class RiskFeedbackServiceTest {
 
     @InjectMocks
     private RiskFeedbackService riskFeedbackService;
-
-    @AfterEach
-    @SuppressWarnings("unused")
-    void clearContext() {
-        SecurityContextHolder.clearContext();
-        TenantContext.clear();
-    }
 
     @Nested
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)

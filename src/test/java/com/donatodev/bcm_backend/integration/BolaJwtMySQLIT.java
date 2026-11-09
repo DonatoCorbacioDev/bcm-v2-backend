@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.integration;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Stream;
@@ -185,10 +186,10 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
         Counterparty cp = save(Counterparty.builder().organization(org).name(name).type(CounterpartyType.CUSTOMER).build());
         FinancialTypes type = save(FinancialTypes.builder().organization(org).name(name).category(FinancialCategory.REVENUE).build());
         Contracts contract = save(Contracts.builder().organization(org).businessArea(area).counterparty(cp).manager(owner.getManager())
-                .contractNumber(name).startDate(LocalDate.of(2026,1,1)).status(ContractStatus.ACTIVE).build());
+                .contractNumber(name).startDate(LocalDate.of(2026, Month.JANUARY,1)).status(ContractStatus.ACTIVE).build());
         FinancialValues value = save(FinancialValues.builder().organization(org).contract(contract).financialType(type).businessArea(area)
                 .month(1).year(2026).financialAmount(100).build());
-        ContractHistory history = save(ContractHistory.builder().contract(contract).modifiedBy(owner).modificationDate(LocalDateTime.of(2026,1,1,0,0))
+        ContractHistory history = save(ContractHistory.builder().contract(contract).modifiedBy(owner).modificationDate(LocalDateTime.of(2026, Month.JANUARY,1,0,0))
                 .previousStatus(ContractStatus.DRAFT).newStatus(ContractStatus.ACTIVE).build());
         Budget budget = save(Budget.builder().organization(org).businessArea(area).category(FinancialCategory.REVENUE)
                 .year(2026).targetAmount(100).build());

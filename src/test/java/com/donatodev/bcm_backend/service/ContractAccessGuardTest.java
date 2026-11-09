@@ -57,6 +57,7 @@ class ContractAccessGuardTest {
     @AfterEach
     void leaveTenant() {
         TenantContext.clear();
+        SecurityContextHolder.clearContext();
     }
 
     @Mock private ContractsRepository contractsRepository;
@@ -71,12 +72,6 @@ class ContractAccessGuardTest {
         Contracts c = new Contracts();
         c.setId(CONTRACT_ID);
         return c;
-    }
-
-    @AfterEach
-    void cleanup() {
-        TenantContext.clear();
-        SecurityContextHolder.clearContext();
     }
 
     @Nested
@@ -132,7 +127,8 @@ class ContractAccessGuardTest {
         @Order(1)
         @DisplayName("refuses when there is no authentication context (fails closed)")
         void refusesWithoutAuthentication() {
-            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
+            Contracts contract = fakeContract();
+            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(contract));
         }
 
         @Test
@@ -145,7 +141,8 @@ class ContractAccessGuardTest {
             auth.setAuthenticated(false);
             SecurityContextHolder.getContext().setAuthentication(auth);
 
-            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
+            Contracts contract = fakeContract();
+            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(contract));
         }
 
         @Test
@@ -156,7 +153,8 @@ class ContractAccessGuardTest {
                     new UsernamePasswordAuthenticationToken("anonymousUser", null,
                             List.of(() -> "ROLE_ANONYMOUS")));
 
-            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
+            Contracts contract = fakeContract();
+            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(contract));
         }
 
         @Test
@@ -168,7 +166,8 @@ class ContractAccessGuardTest {
                     new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
 
             TenantContext.clear();
-            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
+            Contracts contract = fakeContract();
+            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(contract));
         }
 
         @Test
@@ -251,7 +250,8 @@ class ContractAccessGuardTest {
 
             when(usersRepository.findByUsernameAndOrganizationId("ghost", 1L)).thenReturn(Optional.empty());
 
-            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(fakeContract()));
+            Contracts contract = fakeContract();
+            assertThrows(AccessDeniedException.class, () -> contractAccessGuard.checkManagerCanAccess(contract));
         }
 
         @Test

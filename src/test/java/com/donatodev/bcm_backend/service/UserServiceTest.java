@@ -95,7 +95,9 @@ class UserServiceTest {
     }
 
     @AfterEach
-    void leaveTenant() {
+    @SuppressWarnings("unused")
+    void clearContext() {
+        SecurityContextHolder.clearContext();
         TenantContext.clear();
     }
 
@@ -125,12 +127,6 @@ class UserServiceTest {
 
     @InjectMocks
     private UserService userService;
-
-    @AfterEach
-    @SuppressWarnings("unused")
-    void clearContext() {
-        SecurityContextHolder.clearContext();
-    }
 
     @Nested
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -306,6 +302,44 @@ class UserServiceTest {
             }
 
             verify(usersRepository).save(user);
+        }
+
+        @Test
+        @Order(18)
+        @DisplayName("Create user rejects a manager that belongs to no organization")
+        void shouldRejectCreateUserWithManagerWithoutOrganization() {
+            Managers orphan = Managers.builder().id(3L).build();
+            UserDTO dto = new UserDTO(null, "user3", "plainpass", 3L, 1L, null, null);
+            Users user = Users.builder().username("user3").manager(orphan).build();
+
+            when(usersRepository.existsByUsername("user3")).thenReturn(false);
+            when(userMapper.toEntity(dto)).thenReturn(user);
+            when(passwordEncoder.encode("plainpass")).thenReturn("encodedpass");
+
+            assertThrows(IllegalArgumentException.class, () -> userService.createUser(dto));
+            verify(usersRepository, never()).save(any(Users.class));
+        }
+
+        @Test
+        @Order(18)
+        @DisplayName("Create user without a manager joins the caller's organization and ignores a client-supplied id")
+        void shouldCreateUserWithoutManagerInCallerOrganization() {
+            UserDTO dto = new UserDTO(99L, "user2", "plainpass", null, 1L, null, null);
+            Users user = Users.builder().id(99L).username("user2").build();
+            UserDTO savedDTO = new UserDTO(2L, "user2", null, null, 1L, null, null);
+
+            when(usersRepository.existsByUsername("user2")).thenReturn(false);
+            when(userMapper.toEntity(dto)).thenReturn(user);
+            when(passwordEncoder.encode("plainpass")).thenReturn("encodedpass");
+            when(usersRepository.save(user)).thenReturn(user);
+            when(userMapper.toDTO(user)).thenReturn(savedDTO);
+
+            userService.createUser(dto);
+
+            ArgumentCaptor<Users> saved = ArgumentCaptor.forClass(Users.class);
+            verify(usersRepository).save(saved.capture());
+            assertNull(saved.getValue().getId());
+            assertEquals(TENANT, saved.getValue().getOrganization().getId());
         }
 
         /**

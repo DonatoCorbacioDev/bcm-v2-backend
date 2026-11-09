@@ -50,8 +50,10 @@ class FinancialValueMapperTest {
     private static final Long TENANT = 1L;
 
     @BeforeEach
-    void enterTenant() {
+    @SuppressWarnings("unused")
+    void setUp() {
         TenantContext.set(TENANT);
+        MockitoAnnotations.openMocks(this);
     }
 
     @AfterEach
@@ -74,12 +76,6 @@ class FinancialValueMapperTest {
     /**
      * Initializes mocks before each test.
      */
-    @BeforeEach
-    @SuppressWarnings("unused")
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
-
     /**
      * Tests that a {@link FinancialValues} entity is correctly converted to
      * {@link FinancialValueDTO}.

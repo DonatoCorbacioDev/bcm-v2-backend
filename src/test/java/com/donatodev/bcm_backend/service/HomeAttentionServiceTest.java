@@ -42,12 +42,10 @@ import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 @DisplayName("Home: what needs attention")
 class HomeAttentionServiceTest {
 
-    /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
 
     @BeforeEach
     void enterTenant() {
-        TenantContext.set(TENANT);
+        TenantContext.set(ORG);
     }
 
     @AfterEach
@@ -67,16 +65,6 @@ class HomeAttentionServiceTest {
     private final Organization org = Organization.builder().id(ORG).name("Nortiva").build();
     private final Managers marco = manager(4L, "Marco", "Bellini");
     private final Managers anna = manager(5L, "Anna", "Verdi");
-
-    @BeforeEach
-    void setTenant() {
-        TenantContext.set(ORG);
-    }
-
-    @AfterEach
-    void clearTenant() {
-        TenantContext.clear();
-    }
 
     private static Managers manager(Long id, String first, String last) {
         Managers m = new Managers();

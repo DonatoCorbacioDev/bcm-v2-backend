@@ -33,8 +33,11 @@ class ContractHistoryMapperTest {
     private static final Long TENANT = 1L;
 
     @BeforeEach
-    void enterTenant() {
+    @SuppressWarnings("unused")
+    void setUp() {
         TenantContext.set(TENANT);
+        contract = Contracts.builder().id(1L).build();
+        user = Users.builder().id(2L).build();
     }
 
     @AfterEach
@@ -53,13 +56,6 @@ class ContractHistoryMapperTest {
 
     private Contracts contract;
     private Users user;
-
-    @BeforeEach
-    @SuppressWarnings("unused")
-    void setUp() {
-        contract = Contracts.builder().id(1L).build();
-        user = Users.builder().id(2L).build();
-    }
 
     @Test
     void shouldConvertToDTO() {

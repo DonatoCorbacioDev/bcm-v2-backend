@@ -76,7 +76,9 @@ class FinancialValueServiceTest {
     }
 
     @AfterEach
-    void leaveTenant() {
+    @SuppressWarnings("unused")
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
         TenantContext.clear();
     }
 
@@ -148,12 +150,6 @@ class FinancialValueServiceTest {
 
         assertThrows(AccessDeniedException.class, () -> service.getValuesByContractId(42L));
         verifyNoInteractions(valuesRepository, mapper);
-    }
-
-    @AfterEach
-    @SuppressWarnings("unused")
-    void clearSecurityContext() {
-        SecurityContextHolder.clearContext();
     }
 
     @Nested

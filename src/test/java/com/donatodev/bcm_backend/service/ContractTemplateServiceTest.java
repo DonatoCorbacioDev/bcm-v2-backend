@@ -45,12 +45,10 @@ import com.donatodev.bcm_backend.repository.ManagersRepository;
 @ActiveProfiles("test")
 class ContractTemplateServiceTest {
 
-    /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 1L;
 
     @BeforeEach
     void enterTenant() {
-        TenantContext.set(TENANT);
+        TenantContext.set(ORG_ID);
     }
 
     @AfterEach
@@ -68,16 +66,6 @@ class ContractTemplateServiceTest {
 
     private static final Long ORG_ID = 10L;
     private static final Long TEMPLATE_ID = 1L;
-
-    @BeforeEach
-    void setup() {
-        TenantContext.set(ORG_ID);
-    }
-
-    @AfterEach
-    void cleanup() {
-        TenantContext.clear();
-    }
 
     private ContractTemplate fakeTemplate() {
         return ContractTemplate.builder()

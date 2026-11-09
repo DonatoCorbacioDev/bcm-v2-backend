@@ -231,10 +231,9 @@ public class MlProxyService {
         return response;
     }
 
+    /** orgId is never null: HTTP callers pass TenantContext.require(), the nightly refreshers one organization at a time. */
     private ResponseEntity<String> callMl(UriComponentsBuilder uriBuilder, Long orgId, Long managerId, String endpoint) {
-        if (orgId != null) {
-            uriBuilder.queryParam("org_id", orgId);
-        }
+        uriBuilder.queryParam("org_id", orgId);
         if (managerId != null) {
             uriBuilder.queryParam("manager_id", managerId);
         }

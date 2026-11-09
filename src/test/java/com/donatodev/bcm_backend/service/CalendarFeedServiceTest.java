@@ -47,13 +47,17 @@ class CalendarFeedServiceTest {
     private static final Long TENANT = 1L;
 
     @BeforeEach
-    void enterTenant() {
+    void setup() {
         TenantContext.set(TENANT);
+        calendarFeedService = new CalendarFeedService(
+                usersRepository, contractsRepository, new CurrentUserResolver(usersRepository));
+        ReflectionTestUtils.setField(calendarFeedService, "backendBaseUrl", BACKEND_URL);
     }
 
     @AfterEach
     void leaveTenant() {
         TenantContext.clear();
+        SecurityContextHolder.clearContext();
     }
 
     private static final Long ORG_ID = 5L;
@@ -64,19 +68,6 @@ class CalendarFeedServiceTest {
     @Mock private ContractsRepository contractsRepository;
 
     private CalendarFeedService calendarFeedService;
-
-    @BeforeEach
-    void setup() {
-        calendarFeedService = new CalendarFeedService(
-                usersRepository, contractsRepository, new CurrentUserResolver(usersRepository));
-        ReflectionTestUtils.setField(calendarFeedService, "backendBaseUrl", BACKEND_URL);
-    }
-
-    @AfterEach
-    void tearDown() {
-        TenantContext.clear();
-        SecurityContextHolder.clearContext();
-    }
 
     private void authenticateAs(String username) {
         SecurityContextHolder.getContext().setAuthentication(

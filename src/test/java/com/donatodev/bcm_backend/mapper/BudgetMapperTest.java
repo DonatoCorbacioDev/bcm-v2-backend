@@ -38,8 +38,10 @@ class BudgetMapperTest {
     private static final Long TENANT = 1L;
 
     @BeforeEach
-    void enterTenant() {
+    @SuppressWarnings("unused")
+    void setUp() {
         TenantContext.set(TENANT);
+        MockitoAnnotations.openMocks(this);
     }
 
     @AfterEach
@@ -55,12 +57,6 @@ class BudgetMapperTest {
 
     @InjectMocks
     private BudgetMapper budgetMapper;
-
-    @BeforeEach
-    @SuppressWarnings("unused")
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
 
     @Nested
     class ToDTOTests {

@@ -50,16 +50,19 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 @ActiveProfiles("test")
 class NotificationServiceTest {
 
-    /** The organization every request carries (its token's); a test that needs another sets its own. */
-    private static final Long TENANT = 10L; // = ORG_ID: the organization these tests run in
 
     @BeforeEach
-    void enterTenant() {
-        TenantContext.set(TENANT);
+    void setupContext() {
+        SecurityContext ctx = SecurityContextHolder.createEmptyContext();
+        ctx.setAuthentication(new UsernamePasswordAuthenticationToken(USERNAME, null, Collections.emptyList()));
+        SecurityContextHolder.setContext(ctx);
+        TenantContext.set(ORG_ID);
     }
 
     @AfterEach
     void leaveTenant() {
+        TenantContext.clear();
+        SecurityContextHolder.clearContext();
         TenantContext.clear();
     }
 
@@ -77,20 +80,6 @@ class NotificationServiceTest {
         Roles role = new Roles();
         role.setRole(name);
         return role;
-    }
-
-    @BeforeEach
-    void setupContext() {
-        SecurityContext ctx = SecurityContextHolder.createEmptyContext();
-        ctx.setAuthentication(new UsernamePasswordAuthenticationToken(USERNAME, null, Collections.emptyList()));
-        SecurityContextHolder.setContext(ctx);
-        TenantContext.set(ORG_ID);
-    }
-
-    @AfterEach
-    void clearContext() {
-        SecurityContextHolder.clearContext();
-        TenantContext.clear();
     }
 
     @Nested
