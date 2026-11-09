@@ -40,13 +40,14 @@ public interface ContractsRepository extends JpaRepository<Contracts, Long> {
 
     /**
      * Checks whether a contract with the given contract number already
-     * exists. Used by bulk import to reject duplicate rows before hitting
+     * exists in the specified organization. Used by bulk import to reject duplicate rows before hitting
      * the database's unique constraint.
      *
      * @param contractNumber the contract number to check
-     * @return {@code true} if a contract with this number already exists
+     * @param organizationId the organization to search
+     * @return {@code true} if this organization already has a contract with this number
      */
-    boolean existsByContractNumber(String contractNumber);
+    boolean existsByContractNumberAndOrganizationId(String contractNumber, Long organizationId);
 
     /**
      * Finds all contracts belonging to the given organization. Used to scope

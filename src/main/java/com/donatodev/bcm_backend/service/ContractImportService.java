@@ -133,7 +133,7 @@ public class ContractImportService {
                 totalRows++;
                 int excelRowNumber = rowIdx + 1;
                 try {
-                    ContractDTO dto = parseRow(row, areas, managers, seenContractNumbers);
+                    ContractDTO dto = parseRow(row, areas, managers, seenContractNumbers, orgId);
                     contractService.createContract(dto);
                     imported++;
                 } catch (ContractImportRowException e) {
@@ -204,7 +204,7 @@ public class ContractImportService {
     }
 
     private ContractDTO parseRow(Row row, List<BusinessAreas> areas, List<Managers> managers,
-            Set<String> seenContractNumbers) {
+            Set<String> seenContractNumbers, Long orgId) {
         String contractNumber = getRequiredString(row, COL_CONTRACT_NUMBER, "Numero contratto");
         String counterpartyName = getRequiredString(row, COL_COUNTERPARTY, "Controparte");
         String projectName = getOptionalString(row, COL_PROJECT);
@@ -218,7 +218,8 @@ public class ContractImportService {
         // company migrating from spreadsheets rarely has a clean anagraphic yet.
         Long counterpartyId = counterpartyService.resolveOrCreateByName(counterpartyName).getId();
 
-        if (!seenContractNumbers.add(contractNumber) || contractsRepository.existsByContractNumber(contractNumber)) {
+        if (!seenContractNumbers.add(contractNumber)
+                || contractsRepository.existsByContractNumberAndOrganizationId(contractNumber, orgId)) {
             throw new ContractImportRowException("Numero contratto gia' esistente: " + contractNumber);
         }
 

@@ -1266,7 +1266,7 @@ class ContractControllerTest {
                     .andExpect(jsonPath("$.importedCount").value(1))
                     .andExpect(jsonPath("$.errorCount").value(0));
 
-            assertTrue(contractsRepository.existsByContractNumber("CNTR-IMPORT-1"));
+            assertTrue(contractsRepository.existsByContractNumberAndOrganizationId("CNTR-IMPORT-1", testOrg.getId()));
         }
 
         @Test

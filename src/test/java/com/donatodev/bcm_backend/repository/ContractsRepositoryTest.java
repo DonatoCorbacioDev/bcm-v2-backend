@@ -6,6 +6,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -20,6 +23,7 @@ import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Managers;
+import com.donatodev.bcm_backend.entity.Organization;
 
 @DataJpaTest
 @ActiveProfiles("test")
@@ -38,6 +42,9 @@ class ContractsRepositoryTest {
 
     @Autowired
     private CounterpartiesRepository counterpartiesRepository;
+
+    @Autowired
+    private OrganizationRepository organizationRepository;
 
     private BusinessAreas area;
     private Managers manager;
@@ -82,6 +89,39 @@ class ContractsRepositoryTest {
                 .endDate(end)
                 .status(status)
                 .build();
+    }
+
+    @Test
+    void shouldAllowSameNumberInDifferentOrganizations() {
+        Organization orgA = organizationRepository.save(Organization.builder().name("A").slug("number-test-a").build());
+        Organization orgB = organizationRepository.save(Organization.builder().name("B").slug("number-test-b").build());
+        contractsRepository.saveAndFlush(tenantContract("SAME-NUMBER", orgA));
+
+        assertTrue(contractsRepository.existsByContractNumberAndOrganizationId("SAME-NUMBER", orgA.getId()));
+        assertFalse(
+                contractsRepository.existsByContractNumberAndOrganizationId("SAME-NUMBER", orgB.getId()));
+
+        contractsRepository.saveAndFlush(tenantContract("SAME-NUMBER", orgB));
+        assertTrue(contractsRepository.existsByContractNumberAndOrganizationId("SAME-NUMBER", orgB.getId()));
+    }
+
+    @Test
+    void shouldRejectSameNumberWithinOrganization() {
+        Organization org = organizationRepository.save(Organization.builder().name("A").slug("number-test-a").build());
+        contractsRepository.saveAndFlush(tenantContract("SAME-NUMBER", org));
+        Contracts duplicate = tenantContract("SAME-NUMBER", org);
+
+        assertThrows(DataIntegrityViolationException.class,
+                () -> contractsRepository.saveAndFlush(duplicate));
+    }
+
+    private Contracts tenantContract(String number, Organization org) {
+        BusinessAreas tenantArea = businessAreasRepository.save(BusinessAreas.builder().organization(org)
+                .name(java.util.UUID.randomUUID().toString()).build());
+        Counterparty tenantCounterparty = counterpartiesRepository.save(Counterparty.builder().organization(org)
+                .name("Tenant customer").type(CounterpartyType.CUSTOMER).build());
+        return Contracts.builder().organization(org).businessArea(tenantArea).counterparty(tenantCounterparty)
+                .contractNumber(number).startDate(TODAY).status(ContractStatus.ACTIVE).build();
     }
 
     @Nested

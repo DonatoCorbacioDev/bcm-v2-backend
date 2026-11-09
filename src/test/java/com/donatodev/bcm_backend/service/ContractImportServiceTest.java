@@ -133,7 +133,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(manager));
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", "Progetto A", "ACTIVE", "01/01/2024", "31/12/2024", "Mario Rossi", "IT"},
@@ -153,7 +153,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "01/01/2024", "31/12/2024", null, "IT"});
@@ -172,7 +172,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "01/01/2024", "31/12/2024", null, "IT"},
@@ -287,7 +287,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "01/01/2024", "31/12/2024", null, "IT"},
@@ -307,7 +307,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber("C-1")).thenReturn(true);
+            when(contractsRepository.existsByContractNumberAndOrganizationId("C-1", TENANT)).thenReturn(true);
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "01/01/2024", "31/12/2024", null, "IT"});
@@ -341,7 +341,7 @@ class ContractImportServiceTest {
             Managers noEmailManager = Managers.builder().id(3L).firstName("Anna").lastName("Bianchi").email(null).build();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(noEmailManager, manager));
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "01/01/2024", "31/12/2024", "Mario Rossi", "IT"});
@@ -357,7 +357,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes;
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -391,7 +391,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes;
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -427,7 +427,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes;
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -460,7 +460,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes;
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -493,7 +493,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes;
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -526,7 +526,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes;
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -563,7 +563,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes;
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -596,7 +596,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", "   ", null, "01/01/2024", "31/12/2024", null, "IT"});
@@ -614,7 +614,7 @@ class ContractImportServiceTest {
             setupImportService();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes;
             try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -784,7 +784,7 @@ class ContractImportServiceTest {
             BusinessAreas unnamed = BusinessAreas.builder().id(99L).name(null).build();
             when(businessAreasRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(unnamed, area));
             when(managersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of());
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(TENANT))).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "01/01/2024", "31/12/2024", null, "IT"});
@@ -870,7 +870,7 @@ class ContractImportServiceTest {
             TenantContext.set(9L);
             when(businessAreasRepository.findAllByOrganizationId(9L)).thenReturn(List.of(area));
             when(managersRepository.findAllByOrganizationId(9L)).thenReturn(List.of(manager));
-            when(contractsRepository.existsByContractNumber(any())).thenReturn(false);
+            when(contractsRepository.existsByContractNumberAndOrganizationId(any(), org.mockito.ArgumentMatchers.eq(9L))).thenReturn(false);
 
             byte[] bytes = buildWorkbook(HEADER,
                     new String[]{"C-1", "Cliente A", null, null, "01/01/2024", "31/12/2024", null, "IT"});
@@ -879,7 +879,21 @@ class ContractImportServiceTest {
 
             verify(businessAreasRepository).findAllByOrganizationId(9L);
             verify(managersRepository).findAllByOrganizationId(9L);
+            verify(contractsRepository).existsByContractNumberAndOrganizationId("C-1", 9L);
             verify(businessAreasRepository, never()).findAllByOrganizationId(TENANT);
+        }
+
+        @Test
+        void rejectsMissingTenantBeforeLookingUpOrCreatingData() {
+            setupImportService();
+            TenantContext.clear();
+            MockMultipartFile file = toFile(buildWorkbook(HEADER,
+                    new String[]{"C-1", "Cliente A", null, null, "01/01/2024", "31/12/2024", null, "IT"}));
+
+            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class,
+                    () -> importService.importFromExcel(file));
+            org.mockito.Mockito.verifyNoInteractions(contractsRepository, businessAreasRepository,
+                    managersRepository, contractService, counterpartyService);
         }
     }
 

@@ -30,7 +30,8 @@ import lombok.*;
     }
 )
 @Entity
-@Table(name = "contracts")
+@Table(name = "contracts", uniqueConstraints = @UniqueConstraint(
+        name = "uq_ctr_num_org", columnNames = {"contract_number", "organization_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -56,9 +57,9 @@ public class Contracts {
 
     /**
      * Unique identifier number for the contract.
-     * Must be unique and not null.
+     * Must be unique within its organization and not null.
      */
-    @Column(name = "contract_number", nullable = false, unique = true)
+    @Column(name = "contract_number", nullable = false)
     private String contractNumber;
 
     /**
