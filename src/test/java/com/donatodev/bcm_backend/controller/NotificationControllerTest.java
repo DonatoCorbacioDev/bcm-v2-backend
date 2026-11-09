@@ -124,14 +124,14 @@ class NotificationControllerTest {
 
         @Test
         @Order(3)
-        @DisplayName("Should return 403 when access denied")
+        @DisplayName("Should return 404 when notification belongs to another user")
         @WithMockUser(roles = "ADMIN")
-        void shouldReturn403WhenAccessDenied() throws Exception {
-            doThrow(new org.springframework.security.access.AccessDeniedException("Not authorized"))
+        void shouldReturn404ForAnotherUsersNotification() throws Exception {
+            doThrow(new NotificationNotFoundException("Notifica non trovata: 5"))
                     .when(notificationService).markAsRead(5L);
 
             mockMvc.perform(patch("/notifications/5/read"))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isNotFound());
         }
 
         @Test

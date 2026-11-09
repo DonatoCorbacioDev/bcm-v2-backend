@@ -18,6 +18,9 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.donatodev.bcm_backend.config.TenantContext;
+import com.donatodev.bcm_backend.exception.FinancialValueNotFoundException;
+
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
@@ -127,18 +130,23 @@ public class InvoiceMatchingService {
      * Confirms a match — either the one already suggested ({@code financialValueIdOrNull == null})
      * or a manual override of it. Rejects if the target row is already
      * confirmed against a different invoice, or belongs to a different
-     * contract than the invoice.
+     * contract than the invoice. Both suggested and manual candidates are
+     * reloaded in the current tenant before any business validation or write.
      */
     @Transactional
     public ElectronicInvoice confirmMatch(ElectronicInvoice invoice, Long financialValueIdOrNull, String username) {
-        FinancialValues target = financialValueIdOrNull != null
-                ? financialValuesRepository.findById(financialValueIdOrNull)
-                        .orElseThrow(() -> new IllegalArgumentException(
-                                "Valore finanziario non trovato: " + financialValueIdOrNull))
-                : invoice.getMatchedFinancialValue();
-        if (target == null) {
+        Long orgId = TenantContext.require();
+        Long targetId = financialValueIdOrNull;
+        if (targetId == null && invoice.getMatchedFinancialValue() != null) {
+            targetId = invoice.getMatchedFinancialValue().getId();
+        }
+        if (targetId == null) {
             throw new IllegalArgumentException("Nessun abbinamento da confermare per la fattura " + invoice.getId());
         }
+        Long financialValueId = targetId;
+        FinancialValues target = financialValuesRepository.findByIdAndOrganizationId(financialValueId, orgId)
+                .orElseThrow(() -> new FinancialValueNotFoundException(
+                        "Valore finanziario non trovato: " + financialValueId));
         if (!target.getContract().getId().equals(invoice.getContract().getId())) {
             throw new IllegalArgumentException(
                     "Il valore finanziario non appartiene allo stesso contratto della fattura");

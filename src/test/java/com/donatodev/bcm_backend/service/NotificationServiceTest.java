@@ -24,7 +24,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -169,7 +168,7 @@ class NotificationServiceTest {
                     .type(NotificationType.INFO).read(false).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(notificationRepository.findById(1L)).thenReturn(Optional.of(n));
+            when(notificationRepository.findByIdAndUserIdAndOrgId(1L, USER_ID, ORG_ID)).thenReturn(Optional.of(n));
 
             notificationService.markAsRead(1L);
 
@@ -183,7 +182,7 @@ class NotificationServiceTest {
         void shouldThrowWhenNotificationNotFound() {
             Users user = Users.builder().id(USER_ID).username(USERNAME).build();
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(notificationRepository.findById(99L)).thenReturn(Optional.empty());
+            when(notificationRepository.findByIdAndUserIdAndOrgId(99L, USER_ID, ORG_ID)).thenReturn(Optional.empty());
 
             assertThrows(NotificationNotFoundException.class,
                     () -> notificationService.markAsRead(99L));
@@ -191,7 +190,7 @@ class NotificationServiceTest {
 
         @Test
         @Order(7)
-        @DisplayName("Should throw AccessDeniedException for wrong user")
+        @DisplayName("Should hide another user's notification as not found")
         void shouldThrowWhenNotificationBelongsToAnotherUser() {
             Users owner = Users.builder().id(2L).username("otheruser").build();
             Users requester = Users.builder().id(USER_ID).username(USERNAME).build();
@@ -200,10 +199,12 @@ class NotificationServiceTest {
                     .type(NotificationType.INFO).read(false).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(requester));
-            when(notificationRepository.findById(1L)).thenReturn(Optional.of(n));
+            when(notificationRepository.findByIdAndUserIdAndOrgId(1L, USER_ID, ORG_ID)).thenReturn(Optional.empty());
 
-            assertThrows(AccessDeniedException.class,
+            assertThrows(NotificationNotFoundException.class,
                     () -> notificationService.markAsRead(1L));
+            verify(notificationRepository, never()).save(any());
+            assertEquals(false, n.isRead());
         }
 
         @Test
@@ -254,7 +255,7 @@ class NotificationServiceTest {
 
         @Test
         @Order(11)
-        @DisplayName("Should throw AccessDeniedException when user matches but org does not")
+        @DisplayName("Should hide a notification outside the current organization as not found")
         void shouldThrowWhenOrgDoesNotMatch() {
             Users owner = Users.builder().id(USER_ID).username(USERNAME).build();
             Notification n = Notification.builder()
@@ -262,10 +263,12 @@ class NotificationServiceTest {
                     .title("T").message("M").type(NotificationType.INFO).read(false).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(owner));
-            when(notificationRepository.findById(1L)).thenReturn(Optional.of(n));
+            when(notificationRepository.findByIdAndUserIdAndOrgId(1L, USER_ID, ORG_ID)).thenReturn(Optional.empty());
 
-            assertThrows(AccessDeniedException.class,
+            assertThrows(NotificationNotFoundException.class,
                     () -> notificationService.markAsRead(1L));
+            verify(notificationRepository, never()).save(any());
+            assertEquals(false, n.isRead());
         }
 
         @Test

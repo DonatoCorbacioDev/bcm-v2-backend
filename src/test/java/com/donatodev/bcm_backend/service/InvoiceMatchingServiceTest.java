@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
@@ -37,6 +38,8 @@ import com.donatodev.bcm_backend.entity.ElectronicInvoice;
 import com.donatodev.bcm_backend.entity.FinancialValues;
 import com.donatodev.bcm_backend.entity.InvoiceMatchStatus;
 import com.donatodev.bcm_backend.entity.Users;
+import com.donatodev.bcm_backend.config.TenantContext;
+import com.donatodev.bcm_backend.exception.FinancialValueNotFoundException;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.donatodev.bcm_backend.repository.FinancialValuesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
@@ -51,12 +54,19 @@ class InvoiceMatchingServiceTest {
     private InvoiceMatchingService invoiceMatchingService;
 
     private static final long CONTRACT_ID = 1L;
+    private static final long TENANT = 1L;
 
     @BeforeEach
     void setup() {
+        TenantContext.set(TENANT);
         invoiceMatchingService = new InvoiceMatchingService(invoiceRepository, financialValuesRepository, usersRepository);
         // Unstubbed by default in most tests: no invoice is already CONFIRMED against any candidate.
         lenientNoOtherConfirmedMatch();
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContext.clear();
     }
 
     private void lenientNoOtherConfirmedMatch() {
@@ -501,6 +511,7 @@ class InvoiceMatchingServiceTest {
             invoice.setMatchStatus(InvoiceMatchStatus.SUGGESTED);
             invoice.setMatchedFinancialValue(candidate);
             invoice.setMatchConfidence(1.0);
+            when(financialValuesRepository.findByIdAndOrganizationId(100L, TENANT)).thenReturn(Optional.of(candidate));
 
             Users user = new Users();
             user.setUsername("admin");
@@ -526,7 +537,7 @@ class InvoiceMatchingServiceTest {
             invoice.setMatchStatus(InvoiceMatchStatus.SUGGESTED);
             invoice.setMatchedFinancialValue(suggested);
 
-            when(financialValuesRepository.findById(101L)).thenReturn(Optional.of(override));
+            when(financialValuesRepository.findByIdAndOrganizationId(101L, TENANT)).thenReturn(Optional.of(override));
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(new Users()));
             when(invoiceRepository.save(any(ElectronicInvoice.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -558,7 +569,7 @@ class InvoiceMatchingServiceTest {
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
 
-            when(financialValuesRepository.findById(200L)).thenReturn(Optional.of(foreign));
+            when(financialValuesRepository.findByIdAndOrganizationId(200L, TENANT)).thenReturn(Optional.of(foreign));
 
             assertThrows(IllegalArgumentException.class,
                     () -> invoiceMatchingService.confirmMatch(invoice, 200L, "admin"));
@@ -574,6 +585,7 @@ class InvoiceMatchingServiceTest {
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
             invoice.setId(10L);
             invoice.setMatchedFinancialValue(candidate);
+            when(financialValuesRepository.findByIdAndOrganizationId(100L, TENANT)).thenReturn(Optional.of(candidate));
 
             ElectronicInvoice otherInvoice = new ElectronicInvoice();
             otherInvoice.setId(20L);
@@ -594,6 +606,7 @@ class InvoiceMatchingServiceTest {
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
             invoice.setId(10L);
             invoice.setMatchedFinancialValue(candidate);
+            when(financialValuesRepository.findByIdAndOrganizationId(100L, TENANT)).thenReturn(Optional.of(candidate));
 
             when(invoiceRepository.findByMatchedFinancialValue_IdAndMatchStatus(100L, InvoiceMatchStatus.CONFIRMED))
                     .thenReturn(Optional.of(invoice));
@@ -613,10 +626,41 @@ class InvoiceMatchingServiceTest {
             ElectronicInvoice invoice = invoice(contract, "Vertice Legal S.r.l.", "IT12345678901",
                     new BigDecimal("15000.00"), LocalDate.of(2026, Month.JANUARY, 10));
 
-            when(financialValuesRepository.findById(999L)).thenReturn(Optional.empty());
+            when(financialValuesRepository.findByIdAndOrganizationId(999L, TENANT)).thenReturn(Optional.empty());
 
-            assertThrows(IllegalArgumentException.class,
+            assertThrows(FinancialValueNotFoundException.class,
                     () -> invoiceMatchingService.confirmMatch(invoice, 999L, "admin"));
+            verifyNoInteractions(invoiceRepository, usersRepository);
+        }
+
+        @Test
+        void rejectsSuggestedValueOutsideTenantBeforeReadingOtherInvoices() {
+            Contracts contract = contract(counterparty());
+            ElectronicInvoice invoice = invoice(contract, "Supplier", "IT12345678901",
+                    BigDecimal.TEN, LocalDate.of(2026, 1, 10));
+            FinancialValues candidate = financialValue(999L, contract, 1, 2026, 10);
+            invoice.setMatchedFinancialValue(candidate);
+            invoice.setMatchStatus(InvoiceMatchStatus.SUGGESTED);
+
+            assertThrows(FinancialValueNotFoundException.class,
+                    () -> invoiceMatchingService.confirmMatch(invoice, null, "admin"));
+
+            verify(financialValuesRepository).findByIdAndOrganizationId(999L, TENANT);
+            verifyNoInteractions(invoiceRepository, usersRepository);
+            assertEquals(InvoiceMatchStatus.SUGGESTED, invoice.getMatchStatus());
+            assertEquals(candidate, invoice.getMatchedFinancialValue());
+            assertNull(invoice.getMatchedAt());
+        }
+
+        @Test
+        void refusesMissingTenantBeforeLookingUpFinancialValues() {
+            TenantContext.clear();
+            ElectronicInvoice invoice = new ElectronicInvoice();
+
+            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class,
+                    () -> invoiceMatchingService.confirmMatch(invoice, 999L, "admin"));
+
+            verifyNoInteractions(financialValuesRepository, invoiceRepository, usersRepository);
         }
     }
 

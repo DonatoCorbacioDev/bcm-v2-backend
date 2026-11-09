@@ -7,7 +7,6 @@ package com.donatodev.bcm_backend.service;
 
 import java.util.List;
 
-import org.springframework.security.access.AccessDeniedException;
 import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -103,12 +102,8 @@ public class NotificationService {
         Users user = resolveCurrentUser();
         Long orgId = TenantContext.require();
 
-        Notification n = notificationRepository.findById(notificationId)
+        Notification n = notificationRepository.findByIdAndUserIdAndOrgId(notificationId, user.getId(), orgId)
                 .orElseThrow(() -> new NotificationNotFoundException("Notifica non trovata: " + notificationId));
-
-        if (!n.getUser().getId().equals(user.getId()) || !n.getOrgId().equals(orgId)) {
-            throw new AccessDeniedException("non autorizzato ad accedere alla notifica: " + notificationId);
-        }
 
         n.setRead(true);
         notificationRepository.save(n);
