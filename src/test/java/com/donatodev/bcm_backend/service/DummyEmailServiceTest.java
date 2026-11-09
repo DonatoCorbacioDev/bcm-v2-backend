@@ -25,14 +25,6 @@ class DummyEmailServiceTest {
     private DummyEmailService dummyEmailService;
 
     @Test
-    @DisplayName("Should log verification email without throwing exceptions")
-    void shouldLogVerificationEmail() {
-        assertDoesNotThrow(()
-                -> dummyEmailService.sendVerificationEmail("test@example.com", "http://verify-link")
-        );
-    }
-
-    @Test
     @DisplayName("Should log reset password email without throwing exceptions")
     void shouldLogResetPasswordEmail() {
         assertDoesNotThrow(()
@@ -58,7 +50,6 @@ class DummyEmailServiceTest {
     void shouldHandleNullParameters() {
         assertDoesNotThrow(() -> {
             dummyEmailService.sendEmail(null, null, null);
-            dummyEmailService.sendVerificationEmail(null, null);
             dummyEmailService.sendResetPasswordEmail(null, null);
         });
     }
@@ -68,7 +59,6 @@ class DummyEmailServiceTest {
     void shouldHandleEmptyStrings() {
         assertDoesNotThrow(() -> {
             dummyEmailService.sendEmail("", "", "");
-            dummyEmailService.sendVerificationEmail("", "");
             dummyEmailService.sendResetPasswordEmail("", "");
         });
     }
@@ -82,7 +72,6 @@ class DummyEmailServiceTest {
         logger.setLevel(ch.qos.logback.classic.Level.WARN);
         try {
             assertDoesNotThrow(() -> {
-                dummyEmailService.sendVerificationEmail("a@b.com", "http://link");
                 dummyEmailService.sendResetPasswordEmail("a@b.com", "http://reset");
                 dummyEmailService.sendEmail("a@b.com", "Subject", "Body");
                 dummyEmailService.sendRegistrationCode("a@b.com", "123456", 15);

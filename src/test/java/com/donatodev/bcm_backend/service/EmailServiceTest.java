@@ -59,19 +59,9 @@ class EmailServiceTest {
         EmailService withoutFrom = new EmailService(mailSender, null, "smtp-user@bcm.test");
         when(mailSender.createMimeMessage()).thenReturn(message);
 
-        withoutFrom.sendVerificationEmail(RECIPIENT, "http://verify-link");
+        withoutFrom.sendResetPasswordEmail(RECIPIENT, "http://reset-link");
 
         assertThat(message.getFrom()[0].toString()).contains("smtp-user@bcm.test");
-    }
-
-    @Test
-    @DisplayName("sends the verification email")
-    void shouldSendVerificationEmail() {
-        when(mailSender.createMimeMessage()).thenReturn(message);
-
-        assertDoesNotThrow(() -> emailService.sendVerificationEmail(RECIPIENT, "http://verify-link"));
-
-        verify(mailSender).send(message);
     }
 
     @Test
@@ -181,20 +171,6 @@ class EmailServiceTest {
                 () -> emailService.sendRegistrationCode(RECIPIENT, "000000", 15));
 
         assertTrue(ex.getMessage().contains("Error sending registration code email"));
-    }
-
-    @Test
-    @DisplayName("wraps a verification email failure")
-    void shouldThrowExceptionOnVerificationEmailFailure() {
-        when(mailSender.createMimeMessage()).thenReturn(message);
-        doAnswer(invocation -> {
-            throw new MessagingException("boom");
-        }).when(mailSender).send(message);
-
-        RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> emailService.sendVerificationEmail(RECIPIENT, "http://fail"));
-
-        assertTrue(ex.getMessage().contains("Error sending verification email"));
     }
 
     @Test

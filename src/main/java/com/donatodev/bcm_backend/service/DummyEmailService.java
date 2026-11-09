@@ -35,20 +35,6 @@ public class DummyEmailService implements IEmailService {
     }
 
     /**
-     * Simulates sending a verification email by logging to the console.
-     *
-     * @param to the recipient email address
-     * @param verificationLink the verification link to include in the email
-     */
-    @Override
-    public void sendVerificationEmail(String to, String verificationLink) {
-        if (logger.isInfoEnabled()) {
-            logger.info("[TEST] Fake verification email sent to: {} with link: {}",
-                    sanitize(to), sanitize(verificationLink));
-        }
-    }
-
-    /**
      * Simulates sending a password reset email by logging to the console.
      *
      * @param to the recipient email address

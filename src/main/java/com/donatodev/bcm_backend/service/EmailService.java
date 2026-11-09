@@ -73,14 +73,6 @@ public class EmailService implements IEmailService {
     }
 
     @Override
-    public void sendVerificationEmail(String to, String verificationLink) {
-        send(to, "Verifica il tuo account BCM",
-                "<p>Ciao!</p><p>Clicca sul link qui sotto per verificare il tuo indirizzo email:</p>"
-                + "<p><a href=\"" + verificationLink + "\">Verifica email</a></p>",
-                "Error sending verification email");
-    }
-
-    @Override
     public void sendResetPasswordEmail(String to, String resetLink) {
         send(to, "Reimposta la tua password BCM",
                 "<p>Ciao!</p><p>Clicca sul link qui sotto per reimpostare la password:</p>"

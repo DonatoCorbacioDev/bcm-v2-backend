@@ -10,17 +10,10 @@ import java.time.LocalDate;
 /**
  * Interface defining email service operations.
  * <p>
- * Provides methods to send verification and password reset emails.
+ * Provides methods to send the transactional emails BCM needs (password reset,
+ * registration code, invitations, notifications).
  */
 public interface IEmailService {
-
-    /**
-     * Sends an account verification email.
-     *
-     * @param to the recipient's email address
-     * @param verificationLink the verification link to be included in the email
-     */
-    void sendVerificationEmail(String to, String verificationLink);
 
     /**
      * Sends a password reset email.
