@@ -6,10 +6,13 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -94,6 +97,7 @@ class JwtAuthenticationFilterTest {
             .withUsername(user.getUsername()).password(DUMMY_PASSWORD_ENCODED).roles("MANAGER").build());
         when(jwtUtils.validateToken(eq(token), any())).thenReturn(true);
         when(jwtUtils.getUsernameFromToken(token)).thenReturn("jwtuser");
+        when(jwtUtils.getOrganizationIdFromToken(token)).thenReturn(7L);
     }
 
     /**
@@ -172,6 +176,19 @@ class JwtAuthenticationFilterTest {
             .header("Authorization", "Bearer " + token))
             .andExpect(status().isOk())
             .andExpect(content().string(org.hamcrest.Matchers.containsString("jwtuser")));
+    }
+
+    @Test
+    @DisplayName("Fails closed: a valid token without an organization authenticates nobody")
+    void shouldNotAuthenticateTokenWithoutOrganization() throws Exception {
+        // Every data lookup is scoped by the token's organization: without
+        // one, the request must not get past authentication at all.
+        when(jwtUtils.getOrganizationIdFromToken(token)).thenReturn(null);
+
+        mockMvc.perform(get("/auth/me")
+            .header("Authorization", "Bearer " + token))
+            .andExpect(status().isUnauthorized());
+        verify(userDetailsService, never()).loadUserByUsername(anyString(), nullable(Long.class));
     }
 
     @Test

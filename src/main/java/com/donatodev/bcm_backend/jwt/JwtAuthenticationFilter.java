@@ -62,8 +62,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
                 try {
                     Long orgId = jwtUtils.getOrganizationIdFromToken(token);
-                    UserDetails userDetails = userDetailsService.loadUserByUsername(username, orgId);
-                    if (jwtUtils.validateToken(token, userDetails)) {
+                    // Fails closed: every lookup is scoped by the token's
+                    // organization, so a token without one authenticates nobody
+                    // (OWASP API1, BOLA). Tokens always carry it since V8.
+                    UserDetails userDetails = orgId == null ? null
+                            : userDetailsService.loadUserByUsername(username, orgId);
+                    if (userDetails != null && jwtUtils.validateToken(token, userDetails)) {
                         UsernamePasswordAuthenticationToken authToken =
                                 new UsernamePasswordAuthenticationToken(
                                         userDetails,
