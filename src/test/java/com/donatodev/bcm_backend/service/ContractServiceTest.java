@@ -1383,6 +1383,9 @@ class ContractServiceTest {
             Contracts contract = Contracts.builder().id(contractId).build();
 
             when(contractsRepository.findByIdAndOrganization_Id(contractId, TENANT)).thenReturn(Optional.of(contract));
+            for (Long managerId : managerIds) {
+                when(managerService.getManagerEntity(managerId)).thenReturn(Managers.builder().id(managerId).build());
+            }
 
             contractService.setCollaborators(contractId, managerIds);
 
@@ -1390,6 +1393,33 @@ class ContractServiceTest {
             verify(contractManagerRepository).insertIgnore(contractId, 5L);
             verify(contractManagerRepository).insertIgnore(contractId, 10L);
             verify(contractManagerRepository).insertIgnore(contractId, 15L);
+            var order = org.mockito.Mockito.inOrder(managerService, contractManagerRepository);
+            order.verify(managerService).getManagerEntity(5L);
+            order.verify(managerService).getManagerEntity(10L);
+            order.verify(managerService).getManagerEntity(15L);
+            order.verify(contractManagerRepository).deleteAllByContractId(contractId);
+        }
+
+        @Test
+        void shouldNotChangeCollaboratorsWhenAnyManagerIsOutsideTenant() {
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT))
+                    .thenReturn(Optional.of(Contracts.builder().id(1L).build()));
+            when(managerService.getManagerEntity(5L)).thenReturn(Managers.builder().id(5L).build());
+            when(managerService.getManagerEntity(10L)).thenThrow(new ManagerNotFoundException("Responsabile non trovato"));
+
+            assertThrows(ManagerNotFoundException.class,
+                    () -> contractService.setCollaborators(1L, List.of(5L, 10L)));
+            org.mockito.Mockito.verifyNoInteractions(contractManagerRepository);
+        }
+
+        @Test
+        void shouldRejectNullManagerIdBeforeChangingCollaborators() {
+            when(contractsRepository.findByIdAndOrganization_Id(1L, TENANT))
+                    .thenReturn(Optional.of(Contracts.builder().id(1L).build()));
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> contractService.setCollaborators(1L, java.util.Collections.singletonList(null)));
+            org.mockito.Mockito.verifyNoInteractions(contractManagerRepository, managerService);
         }
 
         @Test

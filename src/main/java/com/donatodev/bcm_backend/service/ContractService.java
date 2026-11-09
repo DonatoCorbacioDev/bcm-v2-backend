@@ -29,6 +29,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractDTO;
@@ -537,11 +538,22 @@ public class ContractService {
     }
 
     /**
-     * Sets collaborators for a contract.
+     * Replaces collaborators atomically after validating every manager in the
+     * current tenant. A rejected ID must not remove existing assignments.
      */
+    @Transactional
     public void setCollaborators(Long contractId, List<Long> managerIds) {
         findContractInScope(contractId)
                 .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
+
+        if (managerIds != null) {
+            for (Long managerId : managerIds) {
+                if (managerId == null) {
+                    throw new IllegalArgumentException("L'ID del responsabile non può essere nullo");
+                }
+                managerService.getManagerEntity(managerId);
+            }
+        }
 
         contractManagerRepository.deleteAllByContractId(contractId);
 
