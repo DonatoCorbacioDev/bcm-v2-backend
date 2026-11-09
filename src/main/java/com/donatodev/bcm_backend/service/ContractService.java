@@ -95,6 +95,7 @@ public class ContractService {
     private final ElectronicInvoiceRepository invoiceRepository;
     private final FinancialValuesRepository financialValuesRepository;
     private final TierLimitService tierLimitService;
+    private final ContractAccessGuard contractAccessGuard;
 
     public ContractService(
             ContractsRepository contractsRepository,
@@ -109,7 +110,8 @@ public class ContractService {
             ContractFinancialGenerationService contractFinancialGenerationService,
             ElectronicInvoiceRepository invoiceRepository,
             FinancialValuesRepository financialValuesRepository,
-            TierLimitService tierLimitService
+            TierLimitService tierLimitService,
+            ContractAccessGuard contractAccessGuard
     ) {
         this.contractsRepository = contractsRepository;
         this.contractMapper = contractMapper;
@@ -124,6 +126,7 @@ public class ContractService {
         this.invoiceRepository = invoiceRepository;
         this.financialValuesRepository = financialValuesRepository;
         this.tierLimitService = tierLimitService;
+        this.contractAccessGuard = contractAccessGuard;
     }
 
     // The update path doesn't go through ContractMapper, so these mirror its
@@ -525,11 +528,11 @@ public class ContractService {
     }
 
     /**
-     * Gets collaborator manager IDs for a contract.
+     * Gets collaborator manager IDs for a contract in the current tenant.
+     * Managers must be the contract's primary manager.
      */
     public List<Long> getCollaboratorIds(Long contractId) {
-        findContractInScope(contractId)
-                .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
+        contractAccessGuard.checkManagerCanAccess(contractAccessGuard.getContractInScope(contractId));
         return contractManagerRepository.findManagerIdsByContractId(contractId);
     }
 

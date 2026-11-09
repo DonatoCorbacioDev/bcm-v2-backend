@@ -374,7 +374,7 @@ class FinancialValueControllerTest {
         @Test
         @Order(7)
         @DisplayName("Get financial values by contract ID")
-        @WithMockUser(roles = "ADMIN")
+        @WithMockUser(username = "admin", roles = "ADMIN")
         void shouldGetValuesByContract() throws Exception {
             // Create area and type FIRST
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
@@ -389,6 +389,7 @@ class FinancialValueControllerTest {
 
             // Create manager (needed for contract)
             Managers manager = createManager();
+            createAdminWithManager(manager);
 
             // Create contract with area and manager
             Counterparty counterparty = counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Client").type(CounterpartyType.CUSTOMER).build());

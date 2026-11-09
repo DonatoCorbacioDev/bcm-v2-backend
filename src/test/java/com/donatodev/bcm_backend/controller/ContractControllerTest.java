@@ -560,6 +560,7 @@ class ContractControllerTest {
         @DisplayName("Should get collaborators for contract")
         @WithMockUser(roles = "ADMIN")
         void shouldGetCollaborators() throws Exception {
+            createUser("user", "ADMIN", null);
             Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
                     .firstName("Collab").lastName("Manager").email("collab@example.com")
                     .phoneNumber("123456").department("Collab").build());

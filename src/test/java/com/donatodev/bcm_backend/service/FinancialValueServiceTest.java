@@ -94,8 +94,32 @@ class FinancialValueServiceTest {
     @Mock
     private MlCacheService mlCacheService;
 
+    @Mock
+    private ContractAccessGuard contractAccessGuard;
+
     @InjectMocks
     private FinancialValueService service;
+
+    @Test
+    void shouldNotReadValuesWhenContractIsOutsideTenant() {
+        when(contractAccessGuard.getContractInScope(42L)).thenThrow(
+                new com.donatodev.bcm_backend.exception.ContractNotFoundException("Contratto non trovato"));
+
+        assertThrows(com.donatodev.bcm_backend.exception.ContractNotFoundException.class,
+                () -> service.getValuesByContractId(42L));
+        verifyNoInteractions(valuesRepository, mapper);
+    }
+
+    @Test
+    void shouldNotReadValuesWhenManagerAccessIsDenied() {
+        Contracts contract = Contracts.builder().id(42L).build();
+        when(contractAccessGuard.getContractInScope(42L)).thenReturn(contract);
+        doThrow(new AccessDeniedException("non autorizzato ad accedere al contratto"))
+                .when(contractAccessGuard).checkManagerCanAccess(contract);
+
+        assertThrows(AccessDeniedException.class, () -> service.getValuesByContractId(42L));
+        verifyNoInteractions(valuesRepository, mapper);
+    }
 
     @AfterEach
     @SuppressWarnings("unused")
@@ -876,6 +900,8 @@ class FinancialValueServiceTest {
 
             com.donatodev.bcm_backend.config.TenantContext.set(5L);
             try {
+                Contracts contract = Contracts.builder().id(42L).build();
+                when(contractAccessGuard.getContractInScope(42L)).thenReturn(contract);
                 when(valuesRepository.findByContractIdAndOrganizationId(42L, 5L))
                         .thenReturn(List.of(entity));
                 when(mapper.toDTO(entity)).thenReturn(dto);

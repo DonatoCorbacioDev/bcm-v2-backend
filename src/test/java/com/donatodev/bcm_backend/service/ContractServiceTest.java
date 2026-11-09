@@ -127,8 +127,32 @@ class ContractServiceTest {
     @Mock
     private TierLimitService tierLimitService;
 
+    @Mock
+    private ContractAccessGuard contractAccessGuard;
+
     @InjectMocks
     private ContractService contractService;
+
+    @Test
+    void shouldNotReadCollaboratorsWhenContractIsOutsideTenant() {
+        when(contractAccessGuard.getContractInScope(42L))
+                .thenThrow(new ContractNotFoundException("Contratto non trovato"));
+
+        assertThrows(ContractNotFoundException.class, () -> contractService.getCollaboratorIds(42L));
+        org.mockito.Mockito.verifyNoInteractions(contractManagerRepository);
+    }
+
+    @Test
+    void shouldNotReadCollaboratorsWhenManagerAccessIsDenied() {
+        Contracts contract = Contracts.builder().id(42L).build();
+        when(contractAccessGuard.getContractInScope(42L)).thenReturn(contract);
+        doThrow(new org.springframework.security.access.AccessDeniedException("non autorizzato ad accedere al contratto"))
+                .when(contractAccessGuard).checkManagerCanAccess(contract);
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> contractService.getCollaboratorIds(42L));
+        org.mockito.Mockito.verifyNoInteractions(contractManagerRepository);
+    }
 
     /** The organization every request carries (its token's); tests that need another set their own. */
     private static final Long TENANT = 1L;
@@ -1325,7 +1349,7 @@ class ContractServiceTest {
             Contracts contract = Contracts.builder().id(contractId).build();
             List<Long> managerIds = List.of(10L, 20L, 30L);
 
-            when(contractsRepository.findByIdAndOrganization_Id(contractId, TENANT)).thenReturn(Optional.of(contract));
+            when(contractAccessGuard.getContractInScope(contractId)).thenReturn(contract);
             when(contractManagerRepository.findManagerIdsByContractId(contractId)).thenReturn(managerIds);
 
             List<Long> result = contractService.getCollaboratorIds(contractId);
@@ -1341,7 +1365,8 @@ class ContractServiceTest {
         @Order(23)
         @DisplayName("Get collaborator IDs throws when contract not found")
         void shouldThrowWhenGettingCollaboratorIdsForNonExistentContract() {
-            when(contractsRepository.findByIdAndOrganization_Id(999L, TENANT)).thenReturn(Optional.empty());
+            when(contractAccessGuard.getContractInScope(999L))
+                    .thenThrow(new ContractNotFoundException("Contratto non trovato: 999"));
 
             ContractNotFoundException ex
                     = assertThrows(ContractNotFoundException.class,

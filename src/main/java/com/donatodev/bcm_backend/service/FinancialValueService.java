@@ -42,16 +42,19 @@ public class FinancialValueService {
     private final FinancialValueMapper financialValueMapper;
     private final UsersRepository usersRepository;
     private final MlCacheService mlCacheService;
+    private final ContractAccessGuard contractAccessGuard;
 
     public FinancialValueService(
             FinancialValuesRepository financialValuesRepository,
             FinancialValueMapper financialValueMapper,
             UsersRepository usersRepository,
-            MlCacheService mlCacheService) {
+            MlCacheService mlCacheService,
+            ContractAccessGuard contractAccessGuard) {
         this.financialValuesRepository = financialValuesRepository;
         this.financialValueMapper = financialValueMapper;
         this.usersRepository = usersRepository;
         this.mlCacheService = mlCacheService;
+        this.contractAccessGuard = contractAccessGuard;
     }
 
     /**
@@ -219,12 +222,15 @@ public class FinancialValueService {
     }
 
     /**
-     * Retrieves all financial values associated with a specific contract.
+     * Retrieves all financial values associated with a contract in the current
+     * tenant. Managers must be the contract's primary manager, even when the
+     * contract has no financial values.
      *
      * @param contractId the ID of the contract
      * @return a list of {@link FinancialValueDTO}
      */
     public List<FinancialValueDTO> getValuesByContractId(Long contractId) {
+        contractAccessGuard.checkManagerCanAccess(contractAccessGuard.getContractInScope(contractId));
         Long orgId = TenantContext.require();
         List<FinancialValues> values = financialValuesRepository.findByContractIdAndOrganizationId(contractId, orgId);
         return values.stream().map(financialValueMapper::toDTO).toList();
