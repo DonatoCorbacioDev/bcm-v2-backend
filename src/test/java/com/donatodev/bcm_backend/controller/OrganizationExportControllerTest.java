@@ -421,8 +421,13 @@ class OrganizationExportControllerTest {
             assertThat(new String(entries.get(path), StandardCharsets.UTF_8)).as(path)
                     .doesNotContain("storagePath", "ours/");
         }
+        // No embedding field at all. Checked on the parsed JSON: a substring like "0.1"
+        // also matches timestamps such as "...:00.140537Z" and made this test flaky.
+        for (JsonNode document : objectMapper.readTree(entries.get("data/contract_documents.json"))) {
+            assertThat(document.has("embedding")).as(document.toString()).isFalse();
+        }
         assertThat(new String(entries.get("data/contract_documents.json"), StandardCharsets.UTF_8))
-                .doesNotContain("embedding", "0.1");
+                .doesNotContain("embedding");
 
         JsonNode invoice = objectMapper.readTree(entries.get("data/electronic_invoices.json")).get(0);
         JsonNode batch = objectMapper.readTree(entries.get("data/sepa_payment_batches.json")).get(0);
