@@ -81,6 +81,18 @@ class MlClaimsSignerTest {
     }
 
     @Test
+    @DisplayName("Signs a token without an orgId claim when there is no organization")
+    void signsTokenWithNullOrgId() {
+        MlClaimsSigner signer = signerWithKey();
+
+        Claims claims = verify(signer.sign(null, null));
+
+        // The ML service then answers 401: it never treats a missing org as "all orgs".
+        assertNull(claims.get("orgId"));
+        assertNull(claims.get("managerId"));
+    }
+
+    @Test
     @DisplayName("Wraps a malformed private key into IllegalStateException")
     void wrapsMalformedPrivateKey() {
         MlClaimsSigner signer = new MlClaimsSigner();

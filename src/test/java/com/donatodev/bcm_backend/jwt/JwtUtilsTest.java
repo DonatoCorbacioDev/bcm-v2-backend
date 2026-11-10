@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.User;
@@ -29,6 +30,9 @@ import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.SubscriptionTier;
 import com.donatodev.bcm_backend.entity.Users;
 
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 
 /**
@@ -45,6 +49,9 @@ class JwtUtilsTest {
 
     @Autowired
     private JwtUtils jwtUtils;
+
+    @Value("${jwt.secret}")
+    private String jwtSecret;
 
     private Users testUser;
     private Roles testRole;
@@ -396,6 +403,20 @@ class JwtUtilsTest {
         UUID orgId = jwtUtils.getOrganizationIdFromToken(token);
 
         org.junit.jupiter.api.Assertions.assertNull(orgId);
+    }
+
+    @Test
+    @Order(19)
+    @DisplayName("getOrganizationIdFromToken returns null when the orgId claim is text but not a UUID")
+    void shouldReturnNullOrgIdWhenClaimIsNotAUuid() {
+        // Signed with the real key, so only the claim's content is wrong.
+        String token = Jwts.builder()
+                .subject("orguser")
+                .claim("orgId", "not-a-uuid")
+                .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret)))
+                .compact();
+
+        org.junit.jupiter.api.Assertions.assertNull(jwtUtils.getOrganizationIdFromToken(token));
     }
 
     @Test

@@ -62,12 +62,17 @@ class OrganizationPurgeServiceTest {
 
     /** The row the job locks, with the given schedule and plan. */
     private void organization(LocalDateTime scheduledFor, String tier, String stripeCustomer) {
+        organization(scheduledFor, tier, stripeCustomer, LEGACY_ID);
+    }
+
+    /** Same, with the given pre-V55 id: null for an organization created after V55. */
+    private void organization(LocalDateTime scheduledFor, String tier, String stripeCustomer, Long legacyId) {
         Map<String, Object> row = new HashMap<>();
         row.put("name", "Acme S.r.l.");
         row.put("deletion_scheduled_for", scheduledFor == null ? null : Timestamp.valueOf(scheduledFor));
         row.put("subscription_tier", tier);
         row.put("stripe_customer_id", stripeCustomer);
-        row.put("legacy_id", LEGACY_ID);
+        row.put("legacy_id", legacyId);
         when(jdbc.queryForList(contains("FOR UPDATE"), eq(ORG.toString()))).thenReturn(List.of(row));
         when(jdbc.queryForList(contains("SELECT DISTINCT m.email"), eq(String.class), eq(ORG.toString())))
                 .thenReturn(List.of("admin@acme.test"));
@@ -96,6 +101,17 @@ class OrganizationPurgeServiceTest {
         order.verify(emailService).sendOrganizationDeleted("admin@acme.test", "Acme S.r.l.");
         verify(auditLogService).save("ORGANIZATION_DELETED", "Organization", ORG, "system", ORG,
                 "Organization deleted as scheduled: 3 contracts, 3 users");
+    }
+
+    @Test
+    @DisplayName("An organization created after V55 has no legacy id: only its UUID folder is removed")
+    void deletesOrganizationWithoutLegacyId() {
+        due(ORG);
+        organization(LocalDateTime.now().minusDays(1), "FREE", null, null);
+
+        assertThat(service.purgeDueOrganizations()).isEqualTo(1);
+
+        verify(storage).deleteOrganizationFiles(ORG, null);
     }
 
     @Test

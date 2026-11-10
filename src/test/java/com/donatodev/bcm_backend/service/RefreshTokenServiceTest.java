@@ -1,6 +1,5 @@
 package com.donatodev.bcm_backend.service;
 
-import java.util.UUID;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
