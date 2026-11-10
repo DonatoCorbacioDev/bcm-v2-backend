@@ -5,9 +5,6 @@
 
 package com.donatodev.bcm_backend.service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -20,6 +17,7 @@ import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.RefreshTokenException;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.RefreshTokenRepository;
+import com.donatodev.bcm_backend.util.TokenHash;
 
 @Service
 public class RefreshTokenService {
@@ -102,16 +100,6 @@ public class RefreshTokenService {
     }
 
     static String hashToken(String rawToken) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] digest = md.digest(rawToken.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder(64);
-            for (byte b : digest) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not available", e);
-        }
+        return TokenHash.sha256Hex(rawToken);
     }
 }

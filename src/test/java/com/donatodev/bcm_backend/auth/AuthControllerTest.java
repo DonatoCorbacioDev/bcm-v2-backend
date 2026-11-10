@@ -53,6 +53,7 @@ import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.donatodev.bcm_backend.repository.VerificationTokenRepository;
 import com.donatodev.bcm_backend.util.TestDataCleaner;
+import com.donatodev.bcm_backend.util.TokenHash;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -237,7 +238,7 @@ class AuthControllerTest {
                 .role(rolesRepository.findById(roleId).orElseThrow()).build());
 
         passwordResetTokenRepository.save(PasswordResetToken.builder()
-                .token("reset-token").user(user)
+                .token(TokenHash.sha256Hex("reset-token")).user(user)
                 .expiryDate(LocalDateTime.of(2030, Month.JANUARY, 1, 12, 0)).build());
 
         ResetPasswordRequestDTO req = new ResetPasswordRequestDTO("reset-token", "newpwd123");
@@ -257,7 +258,7 @@ class AuthControllerTest {
                 .manager(managersRepository.findById(managerId).orElseThrow())
                 .role(rolesRepository.findById(roleId).orElseThrow()).build());
         passwordResetTokenRepository.save(PasswordResetToken.builder()
-                .token("reset-token-short").user(user)
+                .token(TokenHash.sha256Hex("reset-token-short")).user(user)
                 .expiryDate(LocalDateTime.of(2030, Month.JANUARY, 1, 12, 0)).build());
 
         mockMvc.perform(post("/auth/reset-password")
@@ -268,7 +269,7 @@ class AuthControllerTest {
 
         // Refused before the token was used: the link still works with a valid password.
         assertEquals("old", usersRepository.findById(user.getId()).orElseThrow().getPasswordHash());
-        assertTrue(passwordResetTokenRepository.findByToken("reset-token-short").isPresent());
+        assertTrue(passwordResetTokenRepository.findByToken(TokenHash.sha256Hex("reset-token-short")).isPresent());
     }
 
     /**
@@ -302,7 +303,7 @@ class AuthControllerTest {
                 .role(rolesRepository.findById(roleId).orElseThrow()).build());
 
         passwordResetTokenRepository.save(PasswordResetToken.builder()
-                .token("expired-reset-token").user(user)
+                .token(TokenHash.sha256Hex("expired-reset-token")).user(user)
                 .expiryDate(LocalDateTime.of(2020, Month.JANUARY, 1, 12, 0)).build());
 
         ResetPasswordRequestDTO req = new ResetPasswordRequestDTO("expired-reset-token", "newpwd123");
@@ -538,6 +539,33 @@ class AuthControllerTest {
                 .andExpect(status().isOk());
     }
 
+    @Autowired
+    private com.donatodev.bcm_backend.service.PasswordResetTokenService passwordResetTokenService;
+
+    /**
+     * OWASP API2: only the hash of a reset link is stored. The emailed token
+     * works; what the database holds does not, so a dump or a stolen backup
+     * gives nobody a usable link.
+     */
+    @Test
+    @Order(22)
+    void resetLinkWorksButWhatTheDatabaseHoldsDoesNot() throws Exception {
+        Users user = userInOrganization("hashedreset", "OldPassword1");
+        String emailed = passwordResetTokenService.createToken(user);
+        String stored = passwordResetTokenRepository.findAll().stream()
+                .filter(t -> t.getUser().getId().equals(user.getId())).findFirst().orElseThrow().getToken();
+        assertThat(stored).isNotEqualTo(emailed).isEqualTo(TokenHash.sha256Hex(emailed));
+
+        mockMvc.perform(post("/auth/reset-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new ResetPasswordRequestDTO(stored, "NewPassword2"))))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/auth/reset-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new ResetPasswordRequestDTO(emailed, "NewPassword2"))))
+                .andExpect(status().isOk());
+    }
+
     /**
      * OWASP API2: a reset through the emailed link ends every session and lifts
      * the login lock (the forgotten password is often why the account locked).
@@ -552,7 +580,7 @@ class AuthControllerTest {
         user.setLockedUntil(LocalDateTime.now().plusMinutes(10));
         usersRepository.save(user);
         passwordResetTokenRepository.save(PasswordResetToken.builder()
-                .token("reset-sessions").user(user)
+                .token(TokenHash.sha256Hex("reset-sessions")).user(user)
                 .expiryDate(LocalDateTime.of(2030, Month.JANUARY, 1, 12, 0)).build());
 
         mockMvc.perform(post("/auth/reset-password")
@@ -699,7 +727,7 @@ class AuthControllerTest {
     void shouldCompleteInviteSuccessfully() throws Exception {
         // Create an invite token in the database
         InviteToken inviteToken = new InviteToken();
-        inviteToken.setToken("valid-invite-token");
+        inviteToken.setToken(TokenHash.sha256Hex("valid-invite-token"));
         inviteToken.setUsername("inviteduser");
         inviteToken.setRole("MANAGER");
         inviteToken.setManagerId(managerId);

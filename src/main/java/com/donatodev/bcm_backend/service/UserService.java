@@ -38,6 +38,7 @@ import com.donatodev.bcm_backend.repository.InviteTokenRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+import com.donatodev.bcm_backend.util.TokenHash;
 
 @Service
 public class UserService {
@@ -341,7 +342,8 @@ public class UserService {
 		String token = UUID.randomUUID().toString();
 
 		InviteToken it = InviteToken.builder()
-				.token(token)
+				// Only the hash is stored (OWASP API2); the link carries the token.
+				.token(TokenHash.sha256Hex(token))
 				.username(username)
 				.role("MANAGER")
 				.managerId(manager.getId())
@@ -353,7 +355,7 @@ public class UserService {
 	}
 
 	public void completeInvite(String token, String rawPassword) {
-		InviteToken it = inviteTokenRepository.findByToken(token)
+		InviteToken it = inviteTokenRepository.findByToken(TokenHash.sha256Hex(token))
 			.orElseThrow(() -> new IllegalArgumentException("Token di invito non valido"));
 
 		if (it.isUsed() || it.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.systemDefault()))) {
@@ -431,9 +433,10 @@ public class UserService {
 
 	public void sendResetLink(UUID userId) {
 		Users u = getEntityById(userId);
-		var token = passwordResetTokenService.createToken(u);
+		String token = passwordResetTokenService.createToken(u);
 
-		String resetLink = frontendBaseUrl + "/auth/reset-password?token=" + token.getToken();
+		// The page is /reset-password: "(auth)" is a Next.js route group, not part of the URL.
+		String resetLink = frontendBaseUrl + "/reset-password?token=" + token;
 
 		String recipient = (u.getManager() != null && u.getManager().getEmail() != null)
 				? u.getManager().getEmail()

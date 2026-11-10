@@ -67,7 +67,10 @@ class UuidMigrationIT {
         List<String> schemaBefore = keysAndIndexes(db);
         Map<String, Long> oldOrgIds = slugToLongId(db);
 
-        migrate(db, null);
+        // V55 and V56 are the UUID release; later migrations change data on
+        // purpose (V59 stores reset and invite links as their hash, and the
+        // fingerprint names those rows by token), so the comparison stops at V56.
+        migrate(db, "56");
 
         List<String> expected = new ArrayList<>(before);
         String notifications = expected.stream().filter(l -> l.startsWith("count\tnotifications\t")).findFirst().orElseThrow();
@@ -101,6 +104,8 @@ class UuidMigrationIT {
                     + "AND table_name LIKE 'uuid\\_%'")).isEqualTo("0");
             assertThat(Integer.parseInt(single(s, "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE success = 1"))).isGreaterThanOrEqualTo(55);
         }
+        // Every migration after the UUID release still applies on top of it.
+        migrate(db, null);
     }
 
     @Test

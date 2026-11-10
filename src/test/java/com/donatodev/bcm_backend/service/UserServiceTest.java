@@ -28,6 +28,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
@@ -62,6 +63,7 @@ import com.donatodev.bcm_backend.repository.InviteTokenRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+import com.donatodev.bcm_backend.util.TokenHash;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -839,7 +841,11 @@ class UserServiceTest {
             String result = userService.inviteUser("newmanager", "MANAGER", uid(1));
 
             assertTrue(result.contains("/complete-invite?token="));
-            verify(inviteTokenRepository).save(any(InviteToken.class));
+            org.mockito.ArgumentCaptor<InviteToken> saved = org.mockito.ArgumentCaptor.forClass(InviteToken.class);
+            verify(inviteTokenRepository).save(saved.capture());
+            // The link carries the token, the database only its hash (OWASP API2).
+            String token = result.substring(result.indexOf("token=") + "token=".length());
+            assertEquals(TokenHash.sha256Hex(token), saved.getValue().getToken());
         }
 
         /**
@@ -910,7 +916,7 @@ class UserServiceTest {
                     .used(false)
                     .build();
 
-            when(inviteTokenRepository.findByToken(token)).thenReturn(Optional.of(inviteToken));
+            when(inviteTokenRepository.findByToken(TokenHash.sha256Hex(token))).thenReturn(Optional.of(inviteToken));
             when(usersRepository.existsByUsername("inviteduser")).thenReturn(false);
             when(usersRepository.existsByManagerId(uid(1))).thenReturn(false);
             when(managersRepository.findById(uid(1))).thenReturn(Optional.of(manager));
@@ -933,7 +939,7 @@ class UserServiceTest {
         @Order(28)
         @DisplayName("Complete invite fails if token is invalid")
         void shouldThrowIfInviteTokenInvalid() {
-            when(inviteTokenRepository.findByToken("invalid")).thenReturn(Optional.empty());
+            when(inviteTokenRepository.findByToken(TokenHash.sha256Hex("invalid"))).thenReturn(Optional.empty());
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.completeInvite("invalid", "password"));
 
@@ -954,7 +960,7 @@ class UserServiceTest {
                     .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .build();
 
-            when(inviteTokenRepository.findByToken("used-token")).thenReturn(Optional.of(usedToken));
+            when(inviteTokenRepository.findByToken(TokenHash.sha256Hex("used-token"))).thenReturn(Optional.of(usedToken));
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.completeInvite("used-token", "password"));
@@ -976,7 +982,7 @@ class UserServiceTest {
                     .expiryDate(LocalDateTime.of(2020, Month.JANUARY, 1, 12, 0))
                     .build();
 
-            when(inviteTokenRepository.findByToken("expired-token")).thenReturn(Optional.of(expiredToken));
+            when(inviteTokenRepository.findByToken(TokenHash.sha256Hex("expired-token"))).thenReturn(Optional.of(expiredToken));
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> userService.completeInvite("expired-token", "password"));
@@ -999,7 +1005,7 @@ class UserServiceTest {
                     .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .build();
 
-            when(inviteTokenRepository.findByToken("token")).thenReturn(Optional.of(inviteToken));
+            when(inviteTokenRepository.findByToken(TokenHash.sha256Hex("token"))).thenReturn(Optional.of(inviteToken));
             when(usersRepository.existsByUsername("existinguser")).thenReturn(true);
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
@@ -1024,7 +1030,7 @@ class UserServiceTest {
                     .expiryDate(LocalDateTime.of(2027, Month.JUNE, 16, 12, 0))
                     .build();
 
-            when(inviteTokenRepository.findByToken("token")).thenReturn(Optional.of(inviteToken));
+            when(inviteTokenRepository.findByToken(TokenHash.sha256Hex("token"))).thenReturn(Optional.of(inviteToken));
             when(usersRepository.existsByUsername("newuser")).thenReturn(false);
             when(usersRepository.existsByManagerId(uid(1))).thenReturn(true);
 
@@ -1322,18 +1328,14 @@ class UserServiceTest {
                     .manager(Managers.builder().email("manager@company.com").build())
                     .build();
 
-            PasswordResetToken token = PasswordResetToken.builder()
-                    .token("reset-token-123")
-                    .build();
-
             when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
-            when(passwordResetTokenService.createToken(user)).thenReturn(token);
+            when(passwordResetTokenService.createToken(user)).thenReturn("reset-token-123");
 
             userService.sendResetLink(uid(1));
 
             verify(emailService).sendResetPasswordEmail(
                     eq("manager@company.com"),
-                    contains("/auth/reset-password?token=reset-token-123")
+                    argThat(link -> link.endsWith("/reset-password?token=reset-token-123") && !link.contains("/auth/"))
             );
         }
 
@@ -1351,18 +1353,14 @@ class UserServiceTest {
                     .manager(null)
                     .build();
 
-            PasswordResetToken token = PasswordResetToken.builder()
-                    .token("reset-token-456")
-                    .build();
-
             when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
-            when(passwordResetTokenService.createToken(user)).thenReturn(token);
+            when(passwordResetTokenService.createToken(user)).thenReturn("reset-token-456");
 
             userService.sendResetLink(uid(1));
 
             verify(emailService).sendResetPasswordEmail(
                     eq("john.doe"),
-                    contains("/auth/reset-password?token=reset-token-456")
+                    argThat(link -> link.endsWith("/reset-password?token=reset-token-456") && !link.contains("/auth/"))
             );
         }
 
@@ -1380,18 +1378,14 @@ class UserServiceTest {
                     .manager(Managers.builder().email(null).build())
                     .build();
 
-            PasswordResetToken token = PasswordResetToken.builder()
-                    .token("reset-token-789")
-                    .build();
-
             when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
-            when(passwordResetTokenService.createToken(user)).thenReturn(token);
+            when(passwordResetTokenService.createToken(user)).thenReturn("reset-token-789");
 
             userService.sendResetLink(uid(1));
 
             verify(emailService).sendResetPasswordEmail(
                     eq("jane.smith"),
-                    contains("/auth/reset-password?token=reset-token-789")
+                    argThat(link -> link.endsWith("/reset-password?token=reset-token-789") && !link.contains("/auth/"))
             );
         }
 
@@ -1566,7 +1560,7 @@ class UserServiceTest {
                     .used(false)
                     .build();
 
-            when(inviteTokenRepository.findByToken(token)).thenReturn(Optional.of(inviteToken));
+            when(inviteTokenRepository.findByToken(TokenHash.sha256Hex(token))).thenReturn(Optional.of(inviteToken));
             when(usersRepository.existsByUsername("newuser")).thenReturn(false);
             when(usersRepository.existsByManagerId(uid(999))).thenReturn(false);
             when(managersRepository.findById(uid(999))).thenReturn(Optional.empty());
@@ -1598,7 +1592,7 @@ class UserServiceTest {
                     .used(false)
                     .build();
 
-            when(inviteTokenRepository.findByToken(token)).thenReturn(Optional.of(inviteToken));
+            when(inviteTokenRepository.findByToken(TokenHash.sha256Hex(token))).thenReturn(Optional.of(inviteToken));
             when(usersRepository.existsByUsername("newuser")).thenReturn(false);
             when(usersRepository.existsByManagerId(uid(1))).thenReturn(false);
             when(managersRepository.findById(uid(1))).thenReturn(Optional.of(manager));

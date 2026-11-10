@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import com.donatodev.bcm_backend.entity.PasswordResetToken;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.repository.PasswordResetTokenRepository;
+import com.donatodev.bcm_backend.util.TokenHash;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,16 +37,18 @@ public class PasswordResetTokenService {
      * @param user the user for whom to create the token
      * @return the created {@link PasswordResetToken}
      */
-    public PasswordResetToken createToken(Users user) {
+    public String createToken(Users user) {
         repository.findByUser(user).ifPresent(repository::delete);
 
+        // Only the hash is stored (OWASP API2): the plain token exists in the
+        // emailed link alone, so the database holds nothing that works as one.
         String token = UUID.randomUUID().toString();
-        PasswordResetToken resetToken = PasswordResetToken.builder()
-                .token(token)
+        repository.save(PasswordResetToken.builder()
+                .token(TokenHash.sha256Hex(token))
                 .expiryDate(LocalDateTime.now(ZoneId.systemDefault()).plusMinutes(30))
                 .user(user)
-                .build();
-        return repository.save(resetToken);
+                .build());
+        return token;
     }
 
     /**
@@ -56,7 +59,7 @@ public class PasswordResetTokenService {
      * @throws RuntimeException if the token is not found
      */
     public PasswordResetToken getByToken(String token) {
-        return repository.findByToken(token)
+        return repository.findByToken(TokenHash.sha256Hex(token))
                 .orElseThrow(() -> new RuntimeException("Reset token not found"));
     }
 

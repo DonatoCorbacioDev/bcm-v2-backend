@@ -156,8 +156,8 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ResponseEntity<String> forgotPassword(@RequestBody ForgotPasswordRequestDTO request) {
         userService.findByEmail(request.email()).ifPresent(user -> {
-            PasswordResetToken token = passwordResetTokenService.createToken(user);
-            String resetLink = frontendBaseUrl + "/reset-password?token=" + token.getToken();
+            String token = passwordResetTokenService.createToken(user);
+            String resetLink = frontendBaseUrl + "/reset-password?token=" + token;
             emailService.sendResetPasswordEmail(request.email(), resetLink);
         });
         return ResponseEntity.ok("Se esiste un account con questa email, è stato inviato un link per reimpostare la password.");

@@ -28,6 +28,7 @@ import org.springframework.test.context.ActiveProfiles;
 import com.donatodev.bcm_backend.entity.PasswordResetToken;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.repository.PasswordResetTokenRepository;
+import com.donatodev.bcm_backend.util.TokenHash;
 
 /**
  * Unit tests for {@link PasswordResetTokenService}.
@@ -71,13 +72,16 @@ class PasswordResetTokenServiceTest {
             doNothing().when(repository).delete(oldToken);
             when(repository.save(any(PasswordResetToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-            PasswordResetToken result = service.createToken(user);
+            String link = service.createToken(user);
 
             verify(repository).delete(oldToken);
-            verify(repository).save(any(PasswordResetToken.class));
-            assertEquals(user, result.getUser());
-            assertNotNull(result.getToken());
-            assertTrue(result.getExpiryDate().isAfter(LocalDateTime.of(2020, Month.JANUARY, 1, 0, 0)));
+            org.mockito.ArgumentCaptor<PasswordResetToken> saved = org.mockito.ArgumentCaptor.forClass(PasswordResetToken.class);
+            verify(repository).save(saved.capture());
+            assertEquals(user, saved.getValue().getUser());
+            assertNotNull(link);
+            // Only the hash reaches the database: the plain token lives in the emailed link alone.
+            assertEquals(TokenHash.sha256Hex(link), saved.getValue().getToken());
+            assertTrue(saved.getValue().getExpiryDate().isAfter(LocalDateTime.of(2020, Month.JANUARY, 1, 0, 0)));
         }
 
         /**
@@ -88,7 +92,7 @@ class PasswordResetTokenServiceTest {
         @DisplayName("Should return token if found")
         void shouldReturnTokenIfFound() {
             PasswordResetToken token = PasswordResetToken.builder().token("abc").build();
-            when(repository.findByToken("abc")).thenReturn(Optional.of(token));
+            when(repository.findByToken(TokenHash.sha256Hex("abc"))).thenReturn(Optional.of(token));
 
             PasswordResetToken result = service.getByToken("abc");
             assertEquals(token, result);
@@ -101,7 +105,7 @@ class PasswordResetTokenServiceTest {
         @Order(3)
         @DisplayName("Should throw exception if token not found")
         void shouldThrowIfTokenNotFound() {
-            when(repository.findByToken("invalid")).thenReturn(Optional.empty());
+            when(repository.findByToken(TokenHash.sha256Hex("invalid"))).thenReturn(Optional.empty());
             RuntimeException ex = assertThrows(RuntimeException.class, () -> service.getByToken("invalid"));
             assertEquals("Reset token not found", ex.getMessage());
         }
