@@ -30,7 +30,7 @@ and SEPA compares the invoice IBAN with the counterparty's verified one.
 
 Usage (credentials from the environment, never on the command line):
     BCM_DEMO_PASSWORD=... BCM_ADMIN_PASSWORD=... python3 scripts/seed_demo_purchase_invoices.py \\
-        --cloud-contract-id 123 --advisory-contract-id 124
+        --cloud-contract-id <NRT-117 UUID> --advisory-contract-id <NRT-118 UUID>
 
 Exits 1 if any step fails or an invoice doesn't end up in the expected
 state, so a broken night shows up in demo-reset.log.
@@ -40,6 +40,7 @@ import argparse
 import os
 import random
 import sys
+import uuid
 from datetime import date, timedelta
 
 import requests
@@ -156,11 +157,16 @@ def expect(label, actual, expected, problems):
         problems.append(label)
 
 
+def contract_uuid(value):
+    """A contract id as given on the command line: ids are UUIDs (ADR-0009)."""
+    return str(uuid.UUID(value))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--base-url", default="http://127.0.0.1:8090/api/v1")
-    parser.add_argument("--cloud-contract-id", type=int, required=True, help="id of NRT-117")
-    parser.add_argument("--advisory-contract-id", type=int, required=True, help="id of NRT-118")
+    parser.add_argument("--cloud-contract-id", type=contract_uuid, required=True, help="id of NRT-117")
+    parser.add_argument("--advisory-contract-id", type=contract_uuid, required=True, help="id of NRT-118")
     parser.add_argument("--demo-username", default="demo")
     parser.add_argument("--admin-username", default="demo_admin")
     args = parser.parse_args()
