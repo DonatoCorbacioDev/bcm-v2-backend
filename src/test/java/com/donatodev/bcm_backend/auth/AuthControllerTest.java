@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
@@ -474,6 +475,98 @@ class AuthControllerTest {
 
         String rotatedRefreshToken = refreshResponse.getCookie(RefreshCookieFactory.COOKIE_NAME).getValue();
         assertThat(rotatedRefreshToken).isNotEqualTo(refreshToken);
+    }
+
+    /** A verified user inside an organization: its tokens authenticate (the JWT filter needs the org). */
+    private Users userInOrganization(String username, String password) {
+        com.donatodev.bcm_backend.entity.Organization org = organizationRepository.save(
+                com.donatodev.bcm_backend.entity.Organization.builder()
+                        .name("Sessions org").slug("sessions-org-" + UUID.randomUUID()).build());
+        return usersRepository.save(Users.builder()
+                .username(username).passwordHash(passwordEncoder.encode(password)).verified(true)
+                .organization(org)
+                .manager(managersRepository.findById(managerId).orElseThrow())
+                .role(rolesRepository.findById(roleId).orElseThrow()).build());
+    }
+
+    private MockHttpServletResponse login(String username, String password) throws Exception {
+        return mockMvc.perform(post("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new AuthRequestDTO(username, password))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse();
+    }
+
+    /**
+     * OWASP API2: changing one's own password ends every other session at once
+     * (refresh revoked, earlier access tokens refused) while this one goes on
+     * through the new refresh cookie of the response.
+     */
+    @Test
+    @Order(22)
+    void changingOwnPasswordEndsOtherSessionsAndKeepsThisOne() throws Exception {
+        userInOrganization("sessionuser", "OldPassword1");
+        MockHttpServletResponse otherDevice = login("sessionuser", "OldPassword1");
+        MockHttpServletResponse thisDevice = login("sessionuser", "OldPassword1");
+        String otherRefresh = otherDevice.getCookie(RefreshCookieFactory.COOKIE_NAME).getValue();
+        String otherAccess = objectMapper.readTree(otherDevice.getContentAsString()).get("token").asText();
+        String thisAccess = objectMapper.readTree(thisDevice.getContentAsString()).get("token").asText();
+        // Tokens carry whole seconds: the change must fall in a later second than the logins.
+        Thread.sleep(1100);
+
+        MockHttpServletResponse changed = mockMvc.perform(post("/users/me/password")
+                .header("Authorization", "Bearer " + thisAccess)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"currentPassword\":\"OldPassword1\",\"newPassword\":\"NewPassword2\"}"))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().exists(RefreshCookieFactory.COOKIE_NAME))
+                .andReturn().getResponse();
+
+        // The other device: its refresh token is revoked and its access token refused now.
+        mockMvc.perform(post("/auth/refresh").cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, otherRefresh)))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/auth/me").header("Authorization", "Bearer " + otherAccess))
+                .andExpect(status().isUnauthorized());
+
+        // This device renews through the new cookie and carries on.
+        String renewed = changed.getCookie(RefreshCookieFactory.COOKIE_NAME).getValue();
+        String newAccess = objectMapper.readTree(mockMvc.perform(post("/auth/refresh")
+                        .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, renewed)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString()).get("token").asText();
+        mockMvc.perform(get("/auth/me").header("Authorization", "Bearer " + newAccess))
+                .andExpect(status().isOk());
+    }
+
+    /**
+     * OWASP API2: a reset through the emailed link ends every session and lifts
+     * the login lock (the forgotten password is often why the account locked).
+     */
+    @Test
+    @Order(22)
+    void resetPasswordEndsEverySessionAndLiftsTheLock() throws Exception {
+        Users user = userInOrganization("resetsessions", "OldPassword1");
+        String refresh = login("resetsessions", "OldPassword1").getCookie(RefreshCookieFactory.COOKIE_NAME).getValue();
+        user = usersRepository.findById(user.getId()).orElseThrow();
+        user.setFailedLoginAttempts(5);
+        user.setLockedUntil(LocalDateTime.now().plusMinutes(10));
+        usersRepository.save(user);
+        passwordResetTokenRepository.save(PasswordResetToken.builder()
+                .token("reset-sessions").user(user)
+                .expiryDate(LocalDateTime.of(2030, Month.JANUARY, 1, 12, 0)).build());
+
+        mockMvc.perform(post("/auth/reset-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new ResetPasswordRequestDTO("reset-sessions", "NewPassword2"))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/auth/refresh").cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, refresh)))
+                .andExpect(status().isUnauthorized());
+        Users after = usersRepository.findById(user.getId()).orElseThrow();
+        assertEquals(0, after.getFailedLoginAttempts());
+        org.junit.jupiter.api.Assertions.assertNull(after.getLockedUntil());
+        assertNotNull(after.getCredentialsChangedAt());
+        login("resetsessions", "NewPassword2");
     }
 
     /**

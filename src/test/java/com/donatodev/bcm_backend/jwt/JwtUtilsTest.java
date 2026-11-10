@@ -432,6 +432,25 @@ class JwtUtilsTest {
     }
 
     @Test
+    @Order(20)
+    @DisplayName("a token issued before the user's last credential change is refused; the same second or later is accepted")
+    void shouldRefuseTokenIssuedBeforeCredentialsChanged() {
+        String token = jwtUtils.generateToken(testUser);
+        long issuedAt = Jwts.parser().verifyWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret))).build()
+                .parseSignedClaims(token).getPayload().getIssuedAt().toInstant().getEpochSecond();
+        List<org.springframework.security.core.GrantedAuthority> roles = List.of(() -> "ROLE_ADMIN");
+
+        assertFalse(jwtUtils.validateJwtToken(token,
+                new com.donatodev.bcm_backend.security.AuthenticatedUser("john", "x", roles, issuedAt + 1)));
+        assertTrue(jwtUtils.validateJwtToken(token,
+                new com.donatodev.bcm_backend.security.AuthenticatedUser("john", "x", roles, issuedAt)));
+        assertTrue(jwtUtils.validateJwtToken(token,
+                new com.donatodev.bcm_backend.security.AuthenticatedUser("john", "x", roles, null)));
+        // A plain UserDetails carries no change time: nothing to compare.
+        assertTrue(jwtUtils.validateJwtToken(token, springUser));
+    }
+
+    @Test
     @Order(21)
     @DisplayName("generateMfaPendingToken with organization embeds the orgId claim")
     void shouldGenerateMfaPendingTokenWithOrganization() {

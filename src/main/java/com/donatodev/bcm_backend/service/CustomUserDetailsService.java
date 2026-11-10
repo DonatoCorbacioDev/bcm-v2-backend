@@ -9,7 +9,6 @@ import java.util.UUID;
 import java.util.Collections;
 
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -17,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+import com.donatodev.bcm_backend.security.AuthenticatedUser;
 
 /**
  * Implementation of Spring Security's {@link UserDetailsService} that loads user-specific data.
@@ -69,10 +69,11 @@ public class CustomUserDetailsService implements UserDetailsService {
         // Converts the role string to Spring Security authority format, e.g., "ADMIN" -> "ROLE_ADMIN"
         SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().getRole());
 
-        return new User(
+        return new AuthenticatedUser(
                 user.getUsername(),
                 user.getPasswordHash(),
-                Collections.singletonList(authority)
+                Collections.singletonList(authority),
+                user.getCredentialsChangedAt()
         );
     }
 }

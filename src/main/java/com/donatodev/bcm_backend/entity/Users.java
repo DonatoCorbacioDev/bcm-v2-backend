@@ -120,6 +120,15 @@ public class Users {
     private Long totpLastUsedStep;
 
     /**
+     * When the credentials last changed (password, 2FA on or off), as epoch
+     * seconds. An access token issued in an earlier second is refused
+     * ({@link com.donatodev.bcm_backend.jwt.JwtUtils}); null means no change
+     * recorded, so no token is refused for this reason.
+     */
+    @Column(name = "credentials_changed_at")
+    private Long credentialsChangedAt;
+
+    /**
      * Whether this user can approve or reject contracts submitted for
      * review, in addition to ADMIN (who can always approve/reject).
      */

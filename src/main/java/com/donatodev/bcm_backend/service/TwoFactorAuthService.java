@@ -52,6 +52,7 @@ public class TwoFactorAuthService {
     private final JwtUtils jwtUtils;
     private final RefreshTokenService refreshTokenService;
     private final CurrentUserResolver currentUserResolver;
+    private final SessionRevocationService sessionRevocationService;
 
     public TwoFactorAuthService(UsersRepository usersRepository,
                                 TotpRecoveryCodeRepository recoveryCodeRepository,
@@ -59,7 +60,8 @@ public class TwoFactorAuthService {
                                 PasswordEncoder passwordEncoder,
                                 JwtUtils jwtUtils,
                                 RefreshTokenService refreshTokenService,
-                                CurrentUserResolver currentUserResolver) {
+                                CurrentUserResolver currentUserResolver,
+                                SessionRevocationService sessionRevocationService) {
         this.usersRepository = usersRepository;
         this.recoveryCodeRepository = recoveryCodeRepository;
         this.totpEncryptionService = totpEncryptionService;
@@ -67,6 +69,7 @@ public class TwoFactorAuthService {
         this.jwtUtils = jwtUtils;
         this.refreshTokenService = refreshTokenService;
         this.currentUserResolver = currentUserResolver;
+        this.sessionRevocationService = sessionRevocationService;
     }
 
     @Transactional
@@ -101,6 +104,8 @@ public class TwoFactorAuthService {
                 .map(plain -> TotpRecoveryCode.builder().user(user).codeHash(passwordEncoder.encode(plain)).build())
                 .toList();
         recoveryCodeRepository.saveAll(entities);
+        // Sessions opened without 2FA end: from now on a session needs the code.
+        sessionRevocationService.credentialsChanged(user);
 
         return new TotpConfirmResponse(plainCodes);
     }
@@ -121,6 +126,7 @@ public class TwoFactorAuthService {
         user.setTotpSecretEncrypted(null);
         usersRepository.save(user);
         recoveryCodeRepository.deleteByUserId(user.getId());
+        sessionRevocationService.credentialsChanged(user);
     }
 
     @Transactional(readOnly = true)

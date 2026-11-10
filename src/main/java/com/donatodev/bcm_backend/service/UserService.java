@@ -54,6 +54,7 @@ public class UserService {
 
 	private final PasswordResetTokenService passwordResetTokenService;
 	private final IEmailService emailService;
+	private final SessionRevocationService sessionRevocationService;
 
 	@Value("${app.frontend-base-url:http://localhost:3000}")
 	private String frontendBaseUrl;
@@ -71,7 +72,8 @@ public class UserService {
 			RolesRepository rolesRepository,
 			InviteTokenRepository inviteTokenRepository,
 			PasswordResetTokenService passwordResetTokenService,
-			IEmailService emailService
+			IEmailService emailService,
+			SessionRevocationService sessionRevocationService
 	) {
 		this.usersRepository = usersRepository;
 		this.userMapper = userMapper;
@@ -81,6 +83,7 @@ public class UserService {
 		this.inviteTokenRepository = inviteTokenRepository;
 		this.passwordResetTokenService = passwordResetTokenService; // ✅
 		this.emailService = emailService; // ✅
+		this.sessionRevocationService = sessionRevocationService;
 	}
 
 	/**
@@ -197,7 +200,8 @@ public class UserService {
 		user.setUsername(dto.username());
 		// No password in the request keeps the current one: encode(null) would
 		// otherwise null the NOT NULL hash and fail the whole update.
-		if (dto.password() != null && !dto.password().isBlank()) {
+		boolean passwordChanged = dto.password() != null && !dto.password().isBlank();
+		if (passwordChanged) {
 			PasswordPolicy.require(dto.password());
 			user.setPasswordHash(passwordEncoder.encode(dto.password()));
 		}
@@ -211,6 +215,9 @@ public class UserService {
 		user.setCanApproveContracts(Boolean.TRUE.equals(dto.canApproveContracts()));
 
 		user = usersRepository.save(user);
+		if (passwordChanged) {
+			sessionRevocationService.credentialsChanged(user);
+		}
 		return userMapper.toDTO(user);
 	}
 
@@ -255,6 +262,21 @@ public class UserService {
 		PasswordPolicy.require(newPassword);
 		user.setPasswordHash(passwordEncoder.encode(newPassword));
 		usersRepository.save(user);
+		sessionRevocationService.credentialsChanged(user);
+	}
+
+	/**
+	 * Sets the password chosen through an emailed reset link. Proving access to
+	 * the mailbox also lifts a login lock: the forgotten password is often why
+	 * the account got locked.
+	 *
+	 * @param user        the user the reset link belongs to
+	 * @param newPassword the new password (plain text, will be encoded)
+	 */
+	public void resetPassword(Users user, String newPassword) {
+		user.setFailedLoginAttempts(0);
+		user.setLockedUntil(null);
+		updatePassword(user, newPassword);
 	}
 
 	/**
@@ -389,12 +411,17 @@ public class UserService {
 			user.setManager(m);
 		}
 
-		if (rawPassword != null && !rawPassword.isBlank()) {
+		boolean passwordChanged = rawPassword != null && !rawPassword.isBlank();
+		if (passwordChanged) {
 			PasswordPolicy.require(rawPassword);
 			user.setPasswordHash(passwordEncoder.encode(rawPassword));
 		}
 
-		return usersRepository.save(user);
+		Users saved = usersRepository.save(user);
+		if (passwordChanged) {
+			sessionRevocationService.credentialsChanged(saved);
+		}
+		return saved;
 	}
 
 	public Users getEntityById(UUID id) {

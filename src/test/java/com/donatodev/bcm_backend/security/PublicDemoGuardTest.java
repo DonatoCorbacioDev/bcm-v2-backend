@@ -28,6 +28,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.donatodev.bcm_backend.auth.CurrentSessionRenewer;
 import com.donatodev.bcm_backend.service.ElectronicInvoiceService;
 import com.donatodev.bcm_backend.service.FinancialValueService;
 import com.donatodev.bcm_backend.service.SepaPaymentService;
@@ -57,6 +58,8 @@ class PublicDemoGuardTest {
     @MockitoBean private ElectronicInvoiceService electronicInvoiceService;
     @MockitoBean private FinancialValueService financialValueService;
     @MockitoBean private SepaPaymentService sepaPaymentService;
+    // Hands the caller a new refresh cookie after an own-credentials change; not under test here.
+    @MockitoBean private CurrentSessionRenewer currentSessionRenewer;
 
     @Nested
     @DisplayName("as the public demo account")

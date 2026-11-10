@@ -179,7 +179,8 @@ public class AuthController {
             }
 
             Users user = token.getUser();
-            userService.updatePassword(user, request.newPassword());
+            // Ends every session and pending link, and lifts a login lock.
+            userService.resetPassword(user, request.newPassword());
             passwordResetTokenService.deleteToken(token);
 
             return ResponseEntity.ok("Password reimpostata con successo.");

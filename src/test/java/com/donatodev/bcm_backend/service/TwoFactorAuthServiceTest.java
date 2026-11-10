@@ -59,7 +59,8 @@ class TwoFactorAuthServiceTest {
         TenantContext.set(TENANT);
         twoFactorAuthService = new TwoFactorAuthService(
                 usersRepository, recoveryCodeRepository, totpEncryptionService,
-                passwordEncoder, jwtUtils, refreshTokenService, new CurrentUserResolver(usersRepository));
+                passwordEncoder, jwtUtils, refreshTokenService, new CurrentUserResolver(usersRepository),
+                sessionRevocationService);
         // pass-through "encryption" so plaintext secrets can be asserted on directly
         lenient().when(totpEncryptionService.encrypt(anyString())).thenAnswer(inv -> "ENC(" + inv.getArgument(0) + ")");
         lenient().when(totpEncryptionService.decrypt(anyString())).thenAnswer(inv -> {
@@ -83,6 +84,7 @@ class TwoFactorAuthServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtUtils jwtUtils;
     @Mock private RefreshTokenService refreshTokenService;
+    @Mock private SessionRevocationService sessionRevocationService;
 
     private TwoFactorAuthService twoFactorAuthService;
 
@@ -142,6 +144,8 @@ class TwoFactorAuthServiceTest {
             assertEquals(10, response.recoveryCodes().stream().distinct().count());
             assertTrue(user.isTotpEnabled());
             verify(recoveryCodeRepository).deleteByUserId(uid(1));
+            // Sessions opened without 2FA end.
+            verify(sessionRevocationService).credentialsChanged(user);
 
             ArgumentCaptor<List<TotpRecoveryCode>> captor = ArgumentCaptor.forClass(List.class);
             verify(recoveryCodeRepository).saveAll(captor.capture());
@@ -191,6 +195,7 @@ class TwoFactorAuthServiceTest {
             assertFalse(user.isTotpEnabled());
             assertNull(user.getTotpSecretEncrypted());
             verify(recoveryCodeRepository).deleteByUserId(uid(1));
+            verify(sessionRevocationService).credentialsChanged(user);
         }
 
         @Test

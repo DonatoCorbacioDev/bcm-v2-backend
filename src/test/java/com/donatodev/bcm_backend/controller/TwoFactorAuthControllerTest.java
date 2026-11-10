@@ -22,10 +22,12 @@ import com.donatodev.bcm_backend.dto.TotpConfirmResponse;
 import com.donatodev.bcm_backend.dto.TotpSetupResponse;
 import com.donatodev.bcm_backend.dto.TotpStatusResponse;
 import com.donatodev.bcm_backend.service.TwoFactorAuthService;
+import com.donatodev.bcm_backend.auth.CurrentSessionRenewer;
 import tools.jackson.databind.ObjectMapper;
 
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -36,6 +38,7 @@ class TwoFactorAuthControllerTest {
     @Autowired private ObjectMapper objectMapper;
 
     @MockitoBean private TwoFactorAuthService twoFactorAuthService;
+    @MockitoBean private CurrentSessionRenewer currentSessionRenewer;
 
     @Test
     @DisplayName("GET /users/me/2fa/status without auth returns 401")
@@ -74,12 +77,15 @@ class TwoFactorAuthControllerTest {
     void shouldConfirm() throws Exception {
         when(twoFactorAuthService.confirm("123456"))
                 .thenReturn(new TotpConfirmResponse(List.of("AAAA-1111", "BBBB-2222")));
+        when(currentSessionRenewer.renewedRefreshCookie()).thenReturn("refresh_token=renewed; Path=/api/v1/auth");
 
         mockMvc.perform(post("/users/me/2fa/confirm")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new TotpCodeBody("123456"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.recoveryCodes.length()").value(2));
+                .andExpect(jsonPath("$.recoveryCodes.length()").value(2))
+                // Every other session ended with the change: this one gets a new refresh cookie.
+                .andExpect(header().string("Set-Cookie", "refresh_token=renewed; Path=/api/v1/auth"));
     }
 
     @Test
@@ -99,10 +105,13 @@ class TwoFactorAuthControllerTest {
     @WithMockUser
     @DisplayName("POST /users/me/2fa/disable with a valid code returns 204")
     void shouldDisable() throws Exception {
+        when(currentSessionRenewer.renewedRefreshCookie()).thenReturn("refresh_token=renewed; Path=/api/v1/auth");
+
         mockMvc.perform(post("/users/me/2fa/disable")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new TotpCodeBody("123456"))))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isNoContent())
+                .andExpect(header().string("Set-Cookie", "refresh_token=renewed; Path=/api/v1/auth"));
     }
 
     @Test

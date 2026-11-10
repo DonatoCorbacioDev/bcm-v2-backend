@@ -18,6 +18,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import com.donatodev.bcm_backend.entity.Users;
+import com.donatodev.bcm_backend.security.AuthenticatedUser;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -189,7 +190,8 @@ public class JwtUtils {
     public boolean validateJwtToken(String token, UserDetails userDetails) {
         try {
             final String username = getUsernameFromJwtToken(token);
-            return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+            return username.equals(userDetails.getUsername()) && !isTokenExpired(token)
+                    && !issuedBeforeCredentialsChanged(token, userDetails);
         } catch (ExpiredJwtException | MalformedJwtException | UnsupportedJwtException
                  | IllegalArgumentException | SignatureException e) {
             return false;
@@ -222,6 +224,20 @@ public class JwtUtils {
         }
 
         return false;
+    }
+
+    /**
+     * Whether the token predates the user's last credential change (OWASP API2):
+     * a new password or 2FA setting ends the sessions opened before it at once.
+     * Compared in whole seconds, like the {@code iat} claim, so the token issued
+     * right after the change, in the same second, is still accepted.
+     */
+    private boolean issuedBeforeCredentialsChanged(String token, UserDetails userDetails) {
+        if (!(userDetails instanceof AuthenticatedUser user) || user.getCredentialsChangedAt() == null) {
+            return false;
+        }
+        java.util.Date issuedAt = getClaimFromToken(token, Claims::getIssuedAt);
+        return issuedAt == null || issuedAt.toInstant().getEpochSecond() < user.getCredentialsChangedAt();
     }
 
     private boolean isTokenExpired(String token) {

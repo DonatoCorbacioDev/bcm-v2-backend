@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpHeaders;
 
 import com.donatodev.bcm_backend.dto.ChangeOwnPasswordRequest;
 import com.donatodev.bcm_backend.dto.InviteUserRequest;
@@ -24,6 +25,7 @@ import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.mapper.UserMapper;
 import com.donatodev.bcm_backend.service.UserService;
 import com.donatodev.bcm_backend.security.DisabledInPublicDemo;
+import com.donatodev.bcm_backend.auth.CurrentSessionRenewer;
 
 import jakarta.validation.Valid;
 
@@ -38,10 +40,13 @@ public class UserController {
 
 	private final UserService userService;
 	private final UserMapper userMapper;
+	private final CurrentSessionRenewer currentSessionRenewer;
 
-	public UserController(UserService userService, UserMapper userMapper) {
+	public UserController(UserService userService, UserMapper userMapper,
+			CurrentSessionRenewer currentSessionRenewer) {
         this.userService = userService;
         this.userMapper = userMapper;
+        this.currentSessionRenewer = currentSessionRenewer;
     }
 
     /**
@@ -53,7 +58,10 @@ public class UserController {
     @PostMapping("/me/password")
     public ResponseEntity<Void> changeOwnPassword(@RequestBody @Valid ChangeOwnPasswordRequest request) {
         userService.changeOwnPassword(request.currentPassword(), request.newPassword());
-        return ResponseEntity.noContent().build();
+        // Every other session ended with the change; this one goes on.
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, currentSessionRenewer.renewedRefreshCookie())
+                .build();
     }
 
     /**

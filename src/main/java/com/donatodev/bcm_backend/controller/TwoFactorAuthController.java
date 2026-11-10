@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpHeaders;
 
 import com.donatodev.bcm_backend.dto.TotpCodeRequest;
 import com.donatodev.bcm_backend.dto.TotpConfirmResponse;
@@ -18,6 +19,7 @@ import com.donatodev.bcm_backend.dto.TotpSetupResponse;
 import com.donatodev.bcm_backend.dto.TotpStatusResponse;
 import com.donatodev.bcm_backend.service.TwoFactorAuthService;
 import com.donatodev.bcm_backend.security.DisabledInPublicDemo;
+import com.donatodev.bcm_backend.auth.CurrentSessionRenewer;
 
 import jakarta.validation.Valid;
 
@@ -26,9 +28,12 @@ import jakarta.validation.Valid;
 public class TwoFactorAuthController {
 
     private final TwoFactorAuthService twoFactorAuthService;
+    private final CurrentSessionRenewer currentSessionRenewer;
 
-    public TwoFactorAuthController(TwoFactorAuthService twoFactorAuthService) {
+    public TwoFactorAuthController(TwoFactorAuthService twoFactorAuthService,
+                                   CurrentSessionRenewer currentSessionRenewer) {
         this.twoFactorAuthService = twoFactorAuthService;
+        this.currentSessionRenewer = currentSessionRenewer;
     }
 
     @GetMapping("/status")
@@ -45,12 +50,18 @@ public class TwoFactorAuthController {
     @DisabledInPublicDemo
     @PostMapping("/confirm")
     public ResponseEntity<TotpConfirmResponse> confirm(@Valid @RequestBody TotpCodeRequest request) {
-        return ResponseEntity.ok(twoFactorAuthService.confirm(request.code()));
+        TotpConfirmResponse response = twoFactorAuthService.confirm(request.code());
+        // Every other session ended with the change; this one goes on.
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, currentSessionRenewer.renewedRefreshCookie())
+                .body(response);
     }
 
     @PostMapping("/disable")
     public ResponseEntity<Void> disable(@Valid @RequestBody TotpCodeRequest request) {
         twoFactorAuthService.disable(request.code());
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, currentSessionRenewer.renewedRefreshCookie())
+                .build();
     }
 }

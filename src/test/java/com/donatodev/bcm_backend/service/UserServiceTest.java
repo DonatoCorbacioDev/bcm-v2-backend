@@ -127,6 +127,9 @@ class UserServiceTest {
     @Mock
     private IEmailService emailService;
 
+    @Mock
+    private SessionRevocationService sessionRevocationService;
+
     @InjectMocks
     private UserService userService;
 
@@ -370,6 +373,7 @@ class UserServiceTest {
 
             assertEquals("updatedUser", result.username());
             verify(usersRepository).save(user);
+            verify(sessionRevocationService).credentialsChanged(user);
         }
 
         @Test
@@ -390,6 +394,34 @@ class UserServiceTest {
 
             assertEquals("current-hash", user.getPasswordHash());
             verify(passwordEncoder, never()).encode(any());
+            // Same credentials: the user's sessions stay open.
+            verify(sessionRevocationService, never()).credentialsChanged(any());
+        }
+
+        @Test
+        @DisplayName("A new password, set by anyone, ends every session of that user")
+        void newPasswordEndsSessions() {
+            Users user = Users.builder().id(uid(1)).username("alice").passwordHash("old").build();
+            when(passwordEncoder.encode("NewPassword2")).thenReturn("new-hash");
+
+            userService.updatePassword(user, "NewPassword2");
+
+            assertEquals("new-hash", user.getPasswordHash());
+            verify(sessionRevocationService).credentialsChanged(user);
+        }
+
+        @Test
+        @DisplayName("A reset through the emailed link also lifts the login lock")
+        void resetLiftsTheLock() {
+            Users user = Users.builder().id(uid(1)).username("alice").passwordHash("old")
+                    .failedLoginAttempts(5).lockedUntil(java.time.LocalDateTime.now().plusMinutes(10)).build();
+            when(passwordEncoder.encode("NewPassword2")).thenReturn("new-hash");
+
+            userService.resetPassword(user, "NewPassword2");
+
+            assertEquals(0, user.getFailedLoginAttempts());
+            org.junit.jupiter.api.Assertions.assertNull(user.getLockedUntil());
+            verify(sessionRevocationService).credentialsChanged(user);
         }
 
         @Test
