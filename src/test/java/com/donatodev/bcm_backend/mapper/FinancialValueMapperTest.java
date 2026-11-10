@@ -168,8 +168,9 @@ class FinancialValueMapperTest {
 
         when(financialTypesRepository.findByIdAndOrganizationId(uid(99), uid(7))).thenReturn(Optional.empty());
 
+        UUID id7 = uid(7);
         FinancialTypeNotFoundException ex = assertThrows(FinancialTypeNotFoundException.class, () -> {
-            financialValueMapper.toEntity(dto, uid(7));
+            financialValueMapper.toEntity(dto, id7);
         });
 
         assertEquals("Tipo finanziario ID " + uid(99) + " non trovato", ex.getMessage());
@@ -184,8 +185,9 @@ class FinancialValueMapperTest {
                 .thenReturn(Optional.of(FinancialTypes.builder().id(uid(1)).build()));
         when(businessAreaRepository.findByIdAndOrganizationId(uid(99), uid(7))).thenReturn(Optional.empty());
 
+        UUID id7 = uid(7);
         BusinessAreaNotFoundException ex = assertThrows(BusinessAreaNotFoundException.class, () -> {
-            financialValueMapper.toEntity(dto, uid(7));
+            financialValueMapper.toEntity(dto, id7);
         });
 
         assertEquals("Area di business ID " + uid(99) + " non trovata", ex.getMessage());
@@ -202,8 +204,9 @@ class FinancialValueMapperTest {
                 .thenReturn(Optional.of(BusinessAreas.builder().id(uid(2)).build()));
         when(contractsRepository.findByIdAndOrganization_Id(uid(99), uid(7))).thenReturn(Optional.empty());
 
+        UUID id7 = uid(7);
         ContractNotFoundException ex = assertThrows(ContractNotFoundException.class, () -> {
-            financialValueMapper.toEntity(dto, uid(7));
+            financialValueMapper.toEntity(dto, id7);
         });
 
         assertEquals("Contratto ID " + uid(99) + " non trovato", ex.getMessage());
@@ -258,8 +261,9 @@ class FinancialValueMapperTest {
 
         when(financialTypesRepository.findByIdAndOrganizationId(uid(99), uid(7))).thenReturn(Optional.empty());
 
+        UUID id7 = uid(7);
         FinancialTypeNotFoundException ex = assertThrows(FinancialTypeNotFoundException.class,
-                () -> financialValueMapper.updateEntity(existing, dto, uid(7)));
+                () -> financialValueMapper.updateEntity(existing, dto, id7));
         assertEquals("Tipo finanziario ID " + uid(99) + " non trovato", ex.getMessage());
     }
 
@@ -273,8 +277,9 @@ class FinancialValueMapperTest {
                 .thenReturn(Optional.of(FinancialTypes.builder().id(uid(1)).build()));
         when(businessAreaRepository.findByIdAndOrganizationId(uid(99), uid(7))).thenReturn(Optional.empty());
 
+        UUID id7 = uid(7);
         BusinessAreaNotFoundException ex = assertThrows(BusinessAreaNotFoundException.class,
-                () -> financialValueMapper.updateEntity(existing, dto, uid(7)));
+                () -> financialValueMapper.updateEntity(existing, dto, id7));
         assertEquals("Area di business ID " + uid(99) + " non trovata", ex.getMessage());
     }
 
@@ -290,8 +295,9 @@ class FinancialValueMapperTest {
                 .thenReturn(Optional.of(BusinessAreas.builder().id(uid(2)).build()));
         when(contractsRepository.findByIdAndOrganization_Id(uid(99), uid(7))).thenReturn(Optional.empty());
 
+        UUID id7 = uid(7);
         ContractNotFoundException ex = assertThrows(ContractNotFoundException.class,
-                () -> financialValueMapper.updateEntity(existing, dto, uid(7)));
+                () -> financialValueMapper.updateEntity(existing, dto, id7));
         assertEquals("Contratto ID " + uid(99) + " non trovato", ex.getMessage());
     }
 

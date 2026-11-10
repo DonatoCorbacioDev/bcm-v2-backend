@@ -1,6 +1,5 @@
 package com.donatodev.bcm_backend.integration;
 
-import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.time.LocalDate;
 import java.time.Month;
 import java.time.LocalDateTime;

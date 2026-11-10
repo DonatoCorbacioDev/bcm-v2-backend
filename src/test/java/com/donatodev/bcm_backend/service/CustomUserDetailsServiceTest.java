@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.service;
 
 import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -115,8 +116,9 @@ class CustomUserDetailsServiceTest {
     void shouldThrowIfUserNotFoundInOrganization() {
         when(usersRepository.findByUsernameAndOrganizationId("ghost", uid(1))).thenReturn(Optional.empty());
 
+        UUID id1 = uid(1);
         UsernameNotFoundException ex = assertThrows(UsernameNotFoundException.class,
-                () -> userDetailsService.loadUserByUsername("ghost", uid(1)));
+                () -> userDetailsService.loadUserByUsername("ghost", id1));
         assertEquals("Utente non trovato: ghost", ex.getMessage());
     }
 }

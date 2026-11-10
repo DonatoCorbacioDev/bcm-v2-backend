@@ -108,8 +108,9 @@ class NotificationServiceTest {
         void shouldThrowWhenUserNotFoundOnCreate() {
             when(usersRepository.findById(uid(99))).thenReturn(Optional.empty());
 
+            UUID id99 = uid(99);
             assertThrows(UserNotFoundException.class,
-                    () -> notificationService.createForUser(uid(99), ORG_ID, "T", "M", NotificationType.INFO));
+                    () -> notificationService.createForUser(id99, ORG_ID, "T", "M", NotificationType.INFO));
 
             verify(notificationRepository, never()).save(any());
         }
@@ -175,8 +176,9 @@ class NotificationServiceTest {
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(notificationRepository.findByIdAndUserIdAndOrgId(uid(99), USER_ID, ORG_ID)).thenReturn(Optional.empty());
 
+            UUID id99 = uid(99);
             assertThrows(NotificationNotFoundException.class,
-                    () -> notificationService.markAsRead(uid(99)));
+                    () -> notificationService.markAsRead(id99));
         }
 
         @Test
@@ -192,8 +194,9 @@ class NotificationServiceTest {
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(requester));
             when(notificationRepository.findByIdAndUserIdAndOrgId(uid(1), USER_ID, ORG_ID)).thenReturn(Optional.empty());
 
+            UUID id1 = uid(1);
             assertThrows(NotificationNotFoundException.class,
-                    () -> notificationService.markAsRead(uid(1)));
+                    () -> notificationService.markAsRead(id1));
             verify(notificationRepository, never()).save(any());
             assertEquals(false, n.isRead());
         }
@@ -256,8 +259,9 @@ class NotificationServiceTest {
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(owner));
             when(notificationRepository.findByIdAndUserIdAndOrgId(uid(1), USER_ID, ORG_ID)).thenReturn(Optional.empty());
 
+            UUID id1 = uid(1);
             assertThrows(NotificationNotFoundException.class,
-                    () -> notificationService.markAsRead(uid(1)));
+                    () -> notificationService.markAsRead(id1));
             verify(notificationRepository, never()).save(any());
             assertEquals(false, n.isRead());
         }
@@ -288,8 +292,9 @@ class NotificationServiceTest {
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findByIdAndOrganization_Id(uid(999), ORG_ID)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             assertThrows(ContractNotFoundException.class,
-                    () -> notificationService.createReminderForCurrentUser(uid(999), "hi"));
+                    () -> notificationService.createReminderForCurrentUser(id999, "hi"));
 
             verify(notificationRepository, never()).save(any());
         }
@@ -321,7 +326,8 @@ class NotificationServiceTest {
             Users user = Users.builder().id(USER_ID).username(USERNAME).role(role("ADMIN")).build();
             org.mockito.Mockito.lenient().when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
 
-            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class, () -> notificationService.createReminderForCurrentUser(uid(7), "hi"));
+            UUID id7 = uid(7);
+            assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class, () -> notificationService.createReminderForCurrentUser(id7, "hi"));
             verify(notificationRepository, never()).save(any());
         }
 
@@ -358,8 +364,9 @@ class NotificationServiceTest {
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findByIdAndOrganization_Id(uid(5), ORG_ID)).thenReturn(Optional.of(contract));
 
+            UUID id5 = uid(5);
             assertThrows(ContractNotFoundException.class,
-                    () -> notificationService.createReminderForCurrentUser(uid(5), "hi"));
+                    () -> notificationService.createReminderForCurrentUser(id5, "hi"));
 
             verify(notificationRepository, never()).save(any());
         }
@@ -375,8 +382,9 @@ class NotificationServiceTest {
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findByIdAndOrganization_Id(uid(5), ORG_ID)).thenReturn(Optional.of(contract));
 
+            UUID id5 = uid(5);
             assertThrows(ContractNotFoundException.class,
-                    () -> notificationService.createReminderForCurrentUser(uid(5), "hi"));
+                    () -> notificationService.createReminderForCurrentUser(id5, "hi"));
 
             verify(notificationRepository, never()).save(any());
         }
@@ -392,8 +400,9 @@ class NotificationServiceTest {
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
             when(contractsRepository.findByIdAndOrganization_Id(uid(5), ORG_ID)).thenReturn(Optional.of(contract));
 
+            UUID id5 = uid(5);
             assertThrows(ContractNotFoundException.class,
-                    () -> notificationService.createReminderForCurrentUser(uid(5), "hi"));
+                    () -> notificationService.createReminderForCurrentUser(id5, "hi"));
 
             verify(notificationRepository, never()).save(any());
         }

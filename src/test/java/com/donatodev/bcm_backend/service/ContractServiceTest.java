@@ -140,7 +140,8 @@ class ContractServiceTest {
         when(contractAccessGuard.getContractInScope(uid(42)))
                 .thenThrow(new ContractNotFoundException("Contratto non trovato"));
 
-        assertThrows(ContractNotFoundException.class, () -> contractService.getCollaboratorIds(uid(42)));
+        UUID id42 = uid(42);
+        assertThrows(ContractNotFoundException.class, () -> contractService.getCollaboratorIds(id42));
         org.mockito.Mockito.verifyNoInteractions(contractManagerRepository);
     }
 
@@ -151,8 +152,9 @@ class ContractServiceTest {
         doThrow(new org.springframework.security.access.AccessDeniedException("non autorizzato ad accedere al contratto"))
                 .when(contractAccessGuard).checkManagerCanAccess(contract);
 
+        UUID id42 = uid(42);
         assertThrows(org.springframework.security.access.AccessDeniedException.class,
-                () -> contractService.getCollaboratorIds(uid(42)));
+                () -> contractService.getCollaboratorIds(id42));
         org.mockito.Mockito.verifyNoInteractions(contractManagerRepository);
     }
 
@@ -308,8 +310,9 @@ class ContractServiceTest {
             Contracts contract = Contracts.builder().id(uid(1)).counterparty(Counterparty.builder().name("Mario").type(CounterpartyType.CUSTOMER).build()).manager(otherManager).build();
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
 
+            UUID id1 = uid(1);
             assertThrows(org.springframework.security.access.AccessDeniedException.class,
-                    () -> contractService.getContractById(uid(1)));
+                    () -> contractService.getContractById(id1));
         }
 
         @Test
@@ -326,8 +329,9 @@ class ContractServiceTest {
             Contracts contract = Contracts.builder().id(uid(1)).counterparty(Counterparty.builder().name("Mario").type(CounterpartyType.CUSTOMER).build()).build();
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
 
+            UUID id1 = uid(1);
             assertThrows(org.springframework.security.access.AccessDeniedException.class,
-                    () -> contractService.getContractById(uid(1)));
+                    () -> contractService.getContractById(id1));
         }
 
         @Test
@@ -346,8 +350,9 @@ class ContractServiceTest {
             Contracts contract = Contracts.builder().id(uid(1)).counterparty(Counterparty.builder().name("Mario").type(CounterpartyType.CUSTOMER).build()).build();
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
 
+            UUID id1 = uid(1);
             assertThrows(org.springframework.security.access.AccessDeniedException.class,
-                    () -> contractService.getContractById(uid(1)));
+                    () -> contractService.getContractById(id1));
         }
 
         /**
@@ -359,8 +364,9 @@ class ContractServiceTest {
         @DisplayName("Get contract by ID throws exception if not found")
         void shouldThrowWhenContractNotFound() {
             when(contractsRepository.findByIdAndOrganization_Id(uid(999), TENANT)).thenReturn(Optional.empty());
+            UUID id999 = uid(999);
             ContractNotFoundException ex
-                    = assertThrows(ContractNotFoundException.class, () -> contractService.getContractById(uid(999)));
+                    = assertThrows(ContractNotFoundException.class, () -> contractService.getContractById(id999));
             assertEquals("Contratto ID " + uid(999) + " non trovato", ex.getMessage());
         }
 
@@ -456,7 +462,8 @@ class ContractServiceTest {
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(existing));
             when(counterpartiesRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
-            assertThrows(CounterpartyNotFoundException.class, () -> contractService.updateContract(uid(1), updateDTO));
+            UUID id1 = uid(1);
+            assertThrows(CounterpartyNotFoundException.class, () -> contractService.updateContract(id1, updateDTO));
         }
 
         @Test
@@ -479,7 +486,8 @@ class ContractServiceTest {
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(existing));
             when(financialTypesRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
-            assertThrows(FinancialTypeNotFoundException.class, () -> contractService.updateContract(uid(1), updateDTO));
+            UUID id1 = uid(1);
+            assertThrows(FinancialTypeNotFoundException.class, () -> contractService.updateContract(id1, updateDTO));
         }
 
         @Test
@@ -686,7 +694,8 @@ class ContractServiceTest {
 
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(existing));
 
-            assertThrows(IllegalArgumentException.class, () -> contractService.updateContract(uid(1), updateDTO));
+            UUID id1 = uid(1);
+            assertThrows(IllegalArgumentException.class, () -> contractService.updateContract(id1, updateDTO));
             verify(contractsRepository, never()).save(any());
         }
 
@@ -919,7 +928,8 @@ class ContractServiceTest {
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(existing));
             when(businessAreasRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
-            assertThrows(BusinessAreaNotFoundException.class, () -> contractService.updateContract(uid(1), updateDTO));
+            UUID id1 = uid(1);
+            assertThrows(BusinessAreaNotFoundException.class, () -> contractService.updateContract(id1, updateDTO));
             verify(contractsRepository, never()).save(any());
         }
 
@@ -949,7 +959,8 @@ class ContractServiceTest {
         void shouldThrowWhenDeletingMissingContract() {
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.empty());
 
-            assertThrows(ContractNotFoundException.class, () -> contractService.deleteContract(uid(1)));
+            UUID id1 = uid(1);
+            assertThrows(ContractNotFoundException.class, () -> contractService.deleteContract(id1));
         }
 
         /**
@@ -1322,9 +1333,11 @@ class ContractServiceTest {
         void shouldThrowWhenAssigningManagerToNonExistentContract() {
             when(contractsRepository.findByIdAndOrganization_Id(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id5 = uid(5);
+            UUID id999 = uid(999);
             ContractNotFoundException ex
                     = assertThrows(ContractNotFoundException.class,
-                            () -> contractService.assignManager(uid(999), uid(5)));
+                            () -> contractService.assignManager(id999, id5));
             assertTrue(ex.getMessage().contains("Contratto non trovato"));
         }
 
@@ -1337,9 +1350,11 @@ class ContractServiceTest {
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
             when(managerService.getManagerEntity(uid(999))).thenReturn(null);
 
+            UUID id1 = uid(1);
+            UUID id999 = uid(999);
             ManagerNotFoundException ex
                     = assertThrows(ManagerNotFoundException.class,
-                            () -> contractService.assignManager(uid(1), uid(999)));
+                            () -> contractService.assignManager(id1, id999));
             assertTrue(ex.getMessage().contains("Manager non trovato"));
         }
 
@@ -1370,9 +1385,10 @@ class ContractServiceTest {
             when(contractAccessGuard.getContractInScope(uid(999)))
                     .thenThrow(new ContractNotFoundException("Contratto non trovato: 999"));
 
+            UUID id999 = uid(999);
             ContractNotFoundException ex
                     = assertThrows(ContractNotFoundException.class,
-                            () -> contractService.getCollaboratorIds(uid(999)));
+                            () -> contractService.getCollaboratorIds(id999));
             assertTrue(ex.getMessage().contains("Contratto non trovato"));
         }
 
@@ -1410,8 +1426,9 @@ class ContractServiceTest {
             when(managerService.getManagerEntity(uid(10))).thenThrow(new ManagerNotFoundException("Responsabile non trovato"));
 
             List<UUID> managerIds = List.of(uid(5), uid(10));
+            UUID id1 = uid(1);
             assertThrows(ManagerNotFoundException.class,
-                    () -> contractService.setCollaborators(uid(1), managerIds));
+                    () -> contractService.setCollaborators(id1, managerIds));
             org.mockito.Mockito.verifyNoInteractions(contractManagerRepository);
         }
 
@@ -1420,8 +1437,9 @@ class ContractServiceTest {
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT))
                     .thenReturn(Optional.of(Contracts.builder().id(uid(1)).build()));
 
+            UUID id1 = uid(1);
             assertThrows(IllegalArgumentException.class,
-                    () -> contractService.setCollaborators(uid(1), java.util.Collections.singletonList(null)));
+                    () -> contractService.setCollaborators(id1, java.util.Collections.singletonList(null)));
             org.mockito.Mockito.verifyNoInteractions(contractManagerRepository, managerService);
         }
 
@@ -1448,9 +1466,10 @@ class ContractServiceTest {
 
             List<UUID> managerIds = List.of(uid(1), uid(2));
 
+            UUID id999 = uid(999);
             ContractNotFoundException ex
                     = assertThrows(ContractNotFoundException.class,
-                            () -> contractService.setCollaborators(uid(999), managerIds));
+                            () -> contractService.setCollaborators(id999, managerIds));
             assertTrue(ex.getMessage().contains("Contratto non trovato"));
         }
 
@@ -2014,8 +2033,9 @@ class ContractServiceTest {
             when(businessAreasRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(BusinessAreas.builder().id(uid(1)).name("Area").build()));
 
             // Should throw UserNotFoundException when trying to create history
+            UUID id1 = uid(1);
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
-                    () -> contractService.updateContract(uid(1), updateDTO));
+                    () -> contractService.updateContract(id1, updateDTO));
 
             assertEquals("Utente non trovato", ex.getMessage());
 

@@ -136,8 +136,9 @@ class ManagerServiceTest {
         @DisplayName("Get manager by ID throws exception if not found")
         void shouldThrowIfManagerNotFound() {
             when(managersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
+            UUID id999 = uid(999);
             ManagerNotFoundException ex
-                    = assertThrows(ManagerNotFoundException.class, () -> managerService.getManagerById(uid(999)));
+                    = assertThrows(ManagerNotFoundException.class, () -> managerService.getManagerById(id999));
             assertEquals("ID manager " + uid(999) + " non trovato", ex.getMessage());
         }
 
@@ -197,8 +198,9 @@ class ManagerServiceTest {
             ManagerDTO dto = new ManagerDTO(uid(1), "Giulia", "Moretti", "giulia@example.com", "777888999", "Sales");
             when(managersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.empty());
 
+            UUID id1 = uid(1);
             ManagerNotFoundException ex
-                    = assertThrows(ManagerNotFoundException.class, () -> managerService.updateManager(uid(1), dto));
+                    = assertThrows(ManagerNotFoundException.class, () -> managerService.updateManager(id1, dto));
             assertEquals("ID manager " + uid(1) + " non trovato", ex.getMessage());
         }
 
@@ -224,8 +226,9 @@ class ManagerServiceTest {
         void shouldThrowWhenDeletingMissingManager() {
             when(managersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             ManagerNotFoundException ex = assertThrows(ManagerNotFoundException.class,
-                    () -> managerService.deleteManager(uid(999)));
+                    () -> managerService.deleteManager(id999));
 
             assertEquals("ID manager " + uid(999) + " non trovato", ex.getMessage());
             verify(managersRepository, never()).delete(any(Managers.class));
@@ -315,9 +318,10 @@ class ManagerServiceTest {
         void shouldThrowWhenGetManagerEntityNotFound() {
             when(managersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             ManagerNotFoundException ex = assertThrows(
                     ManagerNotFoundException.class,
-                    () -> managerService.getManagerEntity(uid(999))
+                    () -> managerService.getManagerEntity(id999)
             );
 
             assertEquals("ID manager " + uid(999) + " non trovato", ex.getMessage());

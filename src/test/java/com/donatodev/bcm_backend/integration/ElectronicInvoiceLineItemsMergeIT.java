@@ -5,7 +5,6 @@
 
 package com.donatodev.bcm_backend.integration;
 
-import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.UUID;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -93,7 +92,7 @@ class ElectronicInvoiceLineItemsMergeIT extends AbstractMySQLIntegrationTest {
     private ElectronicInvoice newInvoiceWithLineItems(List<InvoiceLineItem> lineItems) {
         ElectronicInvoice invoice = ElectronicInvoice.builder()
                 .contract(contract)
-                .storagePath("invoices/it-test/" + java.util.UUID.randomUUID() + ".xml")
+                .storagePath("invoices/it-test/" + UUID.randomUUID() + ".xml")
                 .fileName("it-test-invoice.xml")
                 .fileSize(1024L)
                 .contentType("application/xml")

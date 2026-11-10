@@ -1,6 +1,5 @@
 package com.donatodev.bcm_backend.controller;
 
-import static com.donatodev.bcm_backend.support.TestIds.uid;
 import com.donatodev.bcm_backend.support.TestTenant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;

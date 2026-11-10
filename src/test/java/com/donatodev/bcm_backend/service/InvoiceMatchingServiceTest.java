@@ -26,7 +26,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -573,8 +572,9 @@ class InvoiceMatchingServiceTest {
 
             when(financialValuesRepository.findByIdAndOrganizationId(uid(200), TENANT)).thenReturn(Optional.of(foreign));
 
+            UUID id200 = uid(200);
             assertThrows(IllegalArgumentException.class,
-                    () -> invoiceMatchingService.confirmMatch(invoice, uid(200), "admin"));
+                    () -> invoiceMatchingService.confirmMatch(invoice, id200, "admin"));
         }
 
         @Test
@@ -630,8 +630,9 @@ class InvoiceMatchingServiceTest {
 
             when(financialValuesRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             assertThrows(FinancialValueNotFoundException.class,
-                    () -> invoiceMatchingService.confirmMatch(invoice, uid(999), "admin"));
+                    () -> invoiceMatchingService.confirmMatch(invoice, id999, "admin"));
             verifyNoInteractions(invoiceRepository, usersRepository);
         }
 
@@ -659,8 +660,9 @@ class InvoiceMatchingServiceTest {
             TenantContext.clear();
             ElectronicInvoice invoice = new ElectronicInvoice();
 
+            UUID id999 = uid(999);
             assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class,
-                    () -> invoiceMatchingService.confirmMatch(invoice, uid(999), "admin"));
+                    () -> invoiceMatchingService.confirmMatch(invoice, id999, "admin"));
 
             verifyNoInteractions(financialValuesRepository, invoiceRepository, usersRepository);
         }

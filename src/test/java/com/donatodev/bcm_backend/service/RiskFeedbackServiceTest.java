@@ -161,7 +161,8 @@ class RiskFeedbackServiceTest {
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
 
-            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(uid(1), request));
+            UUID id1 = uid(1);
+            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(id1, request));
         }
 
         @Test
@@ -180,7 +181,8 @@ class RiskFeedbackServiceTest {
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
 
-            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(uid(1), request));
+            UUID id1 = uid(1);
+            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(id1, request));
         }
 
         @Test
@@ -199,7 +201,8 @@ class RiskFeedbackServiceTest {
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
 
-            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(uid(1), request));
+            UUID id1 = uid(1);
+            assertThrows(AccessDeniedException.class, () -> riskFeedbackService.create(id1, request));
         }
 
         @Test
@@ -216,7 +219,8 @@ class RiskFeedbackServiceTest {
             when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
             when(contractsRepository.findByIdAndOrganization_Id(uid(999), TENANT)).thenReturn(Optional.empty());
 
-            assertThrows(ContractNotFoundException.class, () -> riskFeedbackService.create(uid(999), request));
+            UUID id999 = uid(999);
+            assertThrows(ContractNotFoundException.class, () -> riskFeedbackService.create(id999, request));
         }
 
         @Test
@@ -372,7 +376,8 @@ class RiskFeedbackServiceTest {
 
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
-            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> riskFeedbackService.create(uid(1), request));
+            UUID id1 = uid(1);
+            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> riskFeedbackService.create(id1, request));
             assertNotNull(ex);
         }
 

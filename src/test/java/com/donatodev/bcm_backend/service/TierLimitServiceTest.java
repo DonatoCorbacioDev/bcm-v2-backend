@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -78,8 +77,9 @@ class TierLimitServiceTest {
         when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
         when(contractsRepository.countAllContractsByOrg(uid(1))).thenReturn(15);
 
+        UUID id1 = uid(1);
         TierLimitExceededException ex = assertThrows(TierLimitExceededException.class,
-                () -> tierLimitService.enforceContractCreationLimit(uid(1)));
+                () -> tierLimitService.enforceContractCreationLimit(id1));
         assertTrue(ex.getMessage().contains("FREE"));
     }
 
@@ -100,8 +100,9 @@ class TierLimitServiceTest {
         when(organizationRepository.findById(uid(2))).thenReturn(Optional.of(org));
         when(contractsRepository.countAllContractsByOrg(uid(2))).thenReturn(200);
 
+        UUID id2 = uid(2);
         assertThrows(TierLimitExceededException.class,
-                () -> tierLimitService.enforceContractCreationLimit(uid(2)));
+                () -> tierLimitService.enforceContractCreationLimit(id2));
     }
 
     @Test
@@ -135,7 +136,8 @@ class TierLimitServiceTest {
         Organization org = Organization.builder().id(uid(1)).subscriptionTier(SubscriptionTier.FREE).build();
         when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
 
-        assertThrows(AccessDeniedException.class, () -> tierLimitService.requireMlAccess(uid(1)));
+        UUID id1 = uid(1);
+        assertThrows(AccessDeniedException.class, () -> tierLimitService.requireMlAccess(id1));
     }
 
     @Test

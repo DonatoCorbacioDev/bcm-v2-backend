@@ -183,7 +183,8 @@ class ContractHistoryServiceTest {
             when(historyRepository.findByIdAndContract_Organization_Id(uid(1), TENANT)).thenReturn(Optional.of(entity));
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(manager));
 
-            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getById(uid(1)));
+            UUID id1 = uid(1);
+            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getById(id1));
             assertNotNull(ex);
         }
 
@@ -241,7 +242,8 @@ class ContractHistoryServiceTest {
         @DisplayName("Delete history throws if not found")
         void shouldThrowWhenDeletingNonExistent() {
             when(historyRepository.findByIdAndContract_Organization_Id(uid(999), TENANT)).thenReturn(Optional.empty());
-            ContractHistoryNotFoundException ex = assertThrows(ContractHistoryNotFoundException.class, () -> historyService.delete(uid(999)));
+            UUID id999 = uid(999);
+            ContractHistoryNotFoundException ex = assertThrows(ContractHistoryNotFoundException.class, () -> historyService.delete(id999));
             assertNotNull(ex);
         }
 
@@ -317,7 +319,8 @@ class ContractHistoryServiceTest {
             when(usersRepository.findByUsername("manager1")).thenReturn(Optional.of(manager));
             when(contractAccessGuard.getContractInScope(uid(1))).thenReturn(entity.getContract());
 
-            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(uid(1)));
+            UUID id1 = uid(1);
+            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(id1));
             assertNotNull(ex);
         }
 
@@ -474,7 +477,8 @@ class ContractHistoryServiceTest {
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(managerUser));
             when(contractAccessGuard.getContractInScope(uid(1))).thenReturn(h1.getContract());
 
-            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(uid(1)));
+            UUID id1 = uid(1);
+            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getByContractId(id1));
             assertNotNull(ex);
         }
 
@@ -524,7 +528,8 @@ class ContractHistoryServiceTest {
             when(usersRepository.findByUsername("manager")).thenReturn(Optional.of(user));
             when(historyRepository.findByIdAndContract_Organization_Id(uid(1), TENANT)).thenReturn(Optional.of(entity));
 
-            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getById(uid(1)));
+            UUID id1 = uid(1);
+            RuntimeException ex = assertThrows(RuntimeException.class, () -> historyService.getById(id1));
             assertNotNull(ex);
         }
 
@@ -567,7 +572,8 @@ class ContractHistoryServiceTest {
             when(historyRepository.findByIdAndContract_Organization_Id(uid(1), TENANT)).thenReturn(Optional.of(entity));
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
-            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getById(uid(1)));
+            UUID id1 = uid(1);
+            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getById(id1));
             assertNotNull(ex);
         }
 
@@ -585,7 +591,8 @@ class ContractHistoryServiceTest {
 
             when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
-            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getByContractId(uid(1)));
+            UUID id1 = uid(1);
+            UserNotFoundException ex = assertThrows(UserNotFoundException.class, () -> historyService.getByContractId(id1));
             assertNotNull(ex);
         }
 
@@ -675,8 +682,9 @@ class ContractHistoryServiceTest {
             try {
                 when(historyRepository.findByIdAndContract_Organization_Id(uid(999), uid(2))).thenReturn(Optional.empty());
 
+                UUID id999 = uid(999);
                 ContractHistoryNotFoundException ex = assertThrows(ContractHistoryNotFoundException.class,
-                        () -> historyService.getById(uid(999)));
+                        () -> historyService.getById(id999));
                 assertEquals("Voce storico ID " + uid(999) + " non trovata", ex.getMessage());
             } finally {
                 TenantContext.clear();

@@ -117,7 +117,7 @@ class OrganizationControllerTest {
         rolesRepository.save(Roles.builder().role("ADMIN").build());
         rolesRepository.save(Roles.builder().role("MANAGER").build());
         testOrg = organizationRepository.save(Organization.builder()
-                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+                .name("Test org").slug("test-org-" + UUID.randomUUID()).build());
         TestTenant.use(testOrg.getId());
     }
 
@@ -401,7 +401,7 @@ class OrganizationControllerTest {
 
             resend(id)
                     .andExpect(status().isAccepted())
-                    .andExpect(jsonPath("$.registrationId").value(id.toString()));
+                    .andExpect(jsonPath("$.registrationId").value(id));
             String newCode = emailedCode("admin@testcorp.com");
             PendingRegistration pending = pendingRegistrationRepository.findByPublicId(id).orElseThrow();
             assertEquals(2, pending.getCodesSent());

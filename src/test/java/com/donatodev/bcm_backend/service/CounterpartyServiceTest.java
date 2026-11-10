@@ -150,8 +150,9 @@ class CounterpartyServiceTest {
         void shouldThrowExceptionWhenCounterpartyNotFound() {
             when(repository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             CounterpartyNotFoundException ex =
-                assertThrows(CounterpartyNotFoundException.class, () -> service.getCounterpartyById(uid(999)));
+                assertThrows(CounterpartyNotFoundException.class, () -> service.getCounterpartyById(id999));
             assertEquals("ID controparte " + uid(999) + " non trovata", ex.getMessage());
         }
 
@@ -221,8 +222,9 @@ class CounterpartyServiceTest {
             CounterpartyDTO updatedDTO = new CounterpartyDTO(uid(1), "Updated", CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null);
             when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.empty());
 
+            UUID id1 = uid(1);
             CounterpartyNotFoundException ex =
-                assertThrows(CounterpartyNotFoundException.class, () -> service.updateCounterparty(uid(1), updatedDTO));
+                assertThrows(CounterpartyNotFoundException.class, () -> service.updateCounterparty(id1, updatedDTO));
             assertEquals("ID controparte " + uid(1) + " non trovata", ex.getMessage());
         }
 
@@ -245,8 +247,9 @@ class CounterpartyServiceTest {
         void shouldThrowWhenDeletingNonExistentCounterparty() {
             when(repository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             CounterpartyNotFoundException ex = assertThrows(CounterpartyNotFoundException.class,
-                    () -> service.deleteCounterparty(uid(999)));
+                    () -> service.deleteCounterparty(id999));
             assertEquals("ID controparte " + uid(999) + " non trovata", ex.getMessage());
             verify(repository, never()).delete(any(Counterparty.class));
         }
@@ -405,7 +408,8 @@ class CounterpartyServiceTest {
         void shouldThrowWhenGettingInvoicingSummaryForMissingCounterparty() {
             when(repository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
-            assertThrows(CounterpartyNotFoundException.class, () -> service.getInvoicingSummary(uid(999)));
+            UUID id999 = uid(999);
+            assertThrows(CounterpartyNotFoundException.class, () -> service.getInvoicingSummary(id999));
         }
     }
 
@@ -571,8 +575,9 @@ class CounterpartyServiceTest {
             when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(counterparty));
             VerifyCounterpartyIbanRequest request = new VerifyCounterpartyIbanRequest("NOTANIBAN", null);
 
+            UUID id1 = uid(1);
             assertThrows(IllegalArgumentException.class,
-                    () -> service.confirmVerifiedIban(uid(1), request));
+                    () -> service.confirmVerifiedIban(id1, request));
 
             verify(repository, never()).save(any());
             verify(auditLogService, never()).save(any(), any(), any(), any(), any(), any());
@@ -585,8 +590,9 @@ class CounterpartyServiceTest {
             when(repository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
             VerifyCounterpartyIbanRequest request = new VerifyCounterpartyIbanRequest(VALID_IBAN, null);
 
+            UUID id999 = uid(999);
             assertThrows(CounterpartyNotFoundException.class,
-                    () -> service.confirmVerifiedIban(uid(999), request));
+                    () -> service.confirmVerifiedIban(id999, request));
             verify(auditLogService, never()).save(any(), any(), any(), any(), any(), any());
         }
     }

@@ -5,7 +5,6 @@
 
 package com.donatodev.bcm_backend.integration;
 
-import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.UUID;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -72,7 +71,7 @@ class InvoiceTotalsIT extends AbstractMySQLIntegrationTest {
     private void invoice(String number, String type, String total, String taxable, InvoiceMatchStatus status) {
         invoiceRepository.save(ElectronicInvoice.builder()
                 .contract(contract)
-                .storagePath("invoices/it-test/" + java.util.UUID.randomUUID() + ".xml")
+                .storagePath("invoices/it-test/" + UUID.randomUUID() + ".xml")
                 .fileName(number + ".xml").fileSize(1024L).contentType("application/xml")
                 .orgId(contract.getOrganization().getId())
                 .supplierName(supplier.getName()).invoiceNumber(number).documentType(type)

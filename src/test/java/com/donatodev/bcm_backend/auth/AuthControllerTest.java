@@ -616,7 +616,7 @@ class AuthControllerTest {
         // The session the second step issues is scoped to the user's organization.
         com.donatodev.bcm_backend.entity.Organization org = organizationRepository.save(
                 com.donatodev.bcm_backend.entity.Organization.builder()
-                        .name("Totp org").slug("totp-org-" + java.util.UUID.randomUUID()).build());
+                        .name("Totp org").slug("totp-org-" + UUID.randomUUID()).build());
         usersRepository.save(Users.builder()
                 .username("totpuser").passwordHash(passwordEncoder.encode("mypwd123")).verified(true)
                 .organization(org)

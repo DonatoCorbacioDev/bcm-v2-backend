@@ -144,7 +144,7 @@ class ContractControllerTest {
         // TestDataCleaner predates the counterparties table.
         counterpartiesRepository.deleteAll();
         testOrg = organizationRepository.save(Organization.builder()
-                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+                .name("Test org").slug("test-org-" + UUID.randomUUID()).build());
         TestTenant.use(testOrg.getId());
     }
 

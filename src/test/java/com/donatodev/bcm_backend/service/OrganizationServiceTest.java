@@ -558,8 +558,9 @@ class OrganizationServiceTest {
         void shouldThrowWhenOrganizationMissing() {
             when(organizationRepository.findById(uid(99))).thenReturn(Optional.empty());
 
+            UUID id99 = uid(99);
             assertThrows(OrganizationNotFoundException.class,
-                    () -> organizationService.linkStripeCustomer(uid(99), "cus_1"));
+                    () -> organizationService.linkStripeCustomer(id99, "cus_1"));
         }
     }
 
@@ -598,8 +599,9 @@ class OrganizationServiceTest {
         void shouldThrowWhenOrganizationMissing() {
             when(organizationRepository.findById(uid(99))).thenReturn(Optional.empty());
 
+            UUID id99 = uid(99);
             assertThrows(OrganizationNotFoundException.class,
-                    () -> organizationService.changeTier(uid(99), SubscriptionTier.PRO, "manual"));
+                    () -> organizationService.changeTier(id99, SubscriptionTier.PRO, "manual"));
         }
     }
 }

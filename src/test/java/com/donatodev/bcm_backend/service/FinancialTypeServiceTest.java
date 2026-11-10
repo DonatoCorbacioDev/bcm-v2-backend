@@ -124,8 +124,9 @@ class FinancialTypeServiceTest {
         void shouldThrowWhenTypeNotFound() {
             when(financialTypesRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             FinancialTypeNotFoundException ex =
-                assertThrows(FinancialTypeNotFoundException.class, () -> financialTypeService.getTypeById(uid(999)));
+                assertThrows(FinancialTypeNotFoundException.class, () -> financialTypeService.getTypeById(id999));
             assertEquals("ID tipo finanziario " + uid(999) + " non trovato", ex.getMessage());
         }
 
@@ -196,8 +197,9 @@ class FinancialTypeServiceTest {
         void shouldThrowWhenDeletingMissingType() {
             when(financialTypesRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             FinancialTypeNotFoundException ex = assertThrows(FinancialTypeNotFoundException.class,
-                    () -> financialTypeService.deleteType(uid(999)));
+                    () -> financialTypeService.deleteType(id999));
 
             assertEquals("ID tipo finanziario " + uid(999) + " non trovato", ex.getMessage());
             verify(financialTypesRepository, never()).delete(any(FinancialTypes.class));
@@ -214,9 +216,10 @@ class FinancialTypeServiceTest {
 
             when(financialTypesRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             FinancialTypeNotFoundException ex =
                 assertThrows(FinancialTypeNotFoundException.class,
-                    () -> financialTypeService.updateType(uid(999), updateDTO));
+                    () -> financialTypeService.updateType(id999, updateDTO));
             assertEquals("ID tipo finanziario " + uid(999) + " non trovato", ex.getMessage());
         }
 

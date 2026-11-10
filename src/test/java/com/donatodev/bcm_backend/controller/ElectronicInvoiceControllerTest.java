@@ -55,7 +55,6 @@ import com.donatodev.bcm_backend.service.ElectronicInvoiceService;
 import com.donatodev.bcm_backend.service.FileDownload;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;

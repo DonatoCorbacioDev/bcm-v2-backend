@@ -111,8 +111,9 @@ class BudgetServiceTest {
         void shouldThrowWhenBudgetNotFound() {
             when(budgetRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             BudgetNotFoundException ex =
-                assertThrows(BudgetNotFoundException.class, () -> budgetService.getBudgetById(uid(999)));
+                assertThrows(BudgetNotFoundException.class, () -> budgetService.getBudgetById(id999));
             assertEquals("Budget ID " + uid(999) + " non trovato", ex.getMessage());
         }
 
@@ -161,8 +162,9 @@ class BudgetServiceTest {
             BudgetDTO updateDTO = new BudgetDTO(uid(999), uid(2), "IT", FinancialCategory.COST, 2025, 100.0, 0, 0);
             when(budgetRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             BudgetNotFoundException ex =
-                assertThrows(BudgetNotFoundException.class, () -> budgetService.updateBudget(uid(999), updateDTO));
+                assertThrows(BudgetNotFoundException.class, () -> budgetService.updateBudget(id999, updateDTO));
             assertEquals("Budget ID " + uid(999) + " non trovato", ex.getMessage());
         }
 
@@ -184,8 +186,9 @@ class BudgetServiceTest {
         void shouldThrowWhenDeletingMissingBudget() {
             when(budgetRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             BudgetNotFoundException ex = assertThrows(BudgetNotFoundException.class,
-                    () -> budgetService.deleteBudget(uid(999)));
+                    () -> budgetService.deleteBudget(id999));
 
             assertEquals("Budget ID " + uid(999) + " non trovato", ex.getMessage());
             verify(budgetRepository, never()).delete(any(Budget.class));

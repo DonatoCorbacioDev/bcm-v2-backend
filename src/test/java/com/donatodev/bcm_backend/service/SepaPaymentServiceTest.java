@@ -715,8 +715,9 @@ class SepaPaymentServiceTest {
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(batchRepository.findByIdAndContractId(uid(1), CONTRACT_ID)).thenReturn(Optional.empty());
 
+            UUID id1 = uid(1);
             assertThrows(ContractNotFoundException.class,
-                    () -> sepaPaymentService.downloadPayment(CONTRACT_ID, uid(1)));
+                    () -> sepaPaymentService.downloadPayment(CONTRACT_ID, id1));
         }
     }
 

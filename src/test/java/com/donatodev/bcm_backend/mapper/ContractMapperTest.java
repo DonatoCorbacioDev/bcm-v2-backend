@@ -110,7 +110,7 @@ class ContractMapperTest {
         organizationRepository.deleteAll();
 
         testOrg = organizationRepository.save(Organization.builder()
-                .name("Test org").slug("test-org-" + java.util.UUID.randomUUID()).build());
+                .name("Test org").slug("test-org-" + UUID.randomUUID()).build());
         // The mapper is called directly here, not through MockMvc: the
         // request's organization has to be set by hand.
         TenantContext.set(testOrg.getId());

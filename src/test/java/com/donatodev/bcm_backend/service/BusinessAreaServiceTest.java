@@ -138,8 +138,9 @@ class BusinessAreaServiceTest {
         void shouldThrowExceptionWhenAreaNotFound() {
             when(repository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             BusinessAreaNotFoundException ex =
-                assertThrows(BusinessAreaNotFoundException.class, () -> service.getAreaById(uid(999)));
+                assertThrows(BusinessAreaNotFoundException.class, () -> service.getAreaById(id999));
             assertEquals("ID area aziendale " + uid(999) + " non trovata", ex.getMessage());
         }
 
@@ -195,8 +196,9 @@ class BusinessAreaServiceTest {
             BusinessAreaDTO updatedDTO = new BusinessAreaDTO(uid(1), "Updated", "Updated Desc");
             when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.empty());
 
+            UUID id1 = uid(1);
             BusinessAreaNotFoundException ex =
-                assertThrows(BusinessAreaNotFoundException.class, () -> service.updateArea(uid(1), updatedDTO));
+                assertThrows(BusinessAreaNotFoundException.class, () -> service.updateArea(id1, updatedDTO));
             assertEquals("ID area aziendale " + uid(1) + " non trovata", ex.getMessage());
         }
 
@@ -226,8 +228,9 @@ class BusinessAreaServiceTest {
         void shouldThrowWhenDeletingNonExistentArea() {
             when(repository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             BusinessAreaNotFoundException ex = assertThrows(BusinessAreaNotFoundException.class,
-                    () -> service.deleteArea(uid(999)));
+                    () -> service.deleteArea(id999));
             assertEquals("ID area aziendale " + uid(999) + " non trovata", ex.getMessage());
             verify(repository, never()).delete(any(BusinessAreas.class));
         }

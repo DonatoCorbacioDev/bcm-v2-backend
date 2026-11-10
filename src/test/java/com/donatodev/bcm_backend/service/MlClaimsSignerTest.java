@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
+import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -85,7 +86,8 @@ class MlClaimsSignerTest {
         MlClaimsSigner signer = new MlClaimsSigner();
         ReflectionTestUtils.setField(signer, "privateKeyBase64", "not-valid-base64-pkcs8!!");
 
-        assertThrows(IllegalStateException.class, () -> signer.sign(uid(1), null));
+        UUID id1 = uid(1);
+        assertThrows(IllegalStateException.class, () -> signer.sign(id1, null));
     }
 
     @Test

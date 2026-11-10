@@ -718,8 +718,9 @@ class ContractDocumentServiceTest {
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(from));
             when(documentRepository.findByIdAndContractId(uid(20), CONTRACT_ID)).thenReturn(Optional.empty());
 
+            UUID id20 = uid(20);
             assertThrows(ContractNotFoundException.class,
-                    () -> contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, uid(20)));
+                    () -> contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, id20));
         }
 
         @Test
@@ -731,8 +732,9 @@ class ContractDocumentServiceTest {
             when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
             when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.empty());
 
+            UUID id20 = uid(20);
             assertThrows(ContractNotFoundException.class,
-                    () -> contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, uid(20)));
+                    () -> contractDocumentService.diffDocuments(CONTRACT_ID, DOC_ID, id20));
         }
 
         @Test

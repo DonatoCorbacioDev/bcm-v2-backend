@@ -6,6 +6,7 @@ import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -236,8 +237,9 @@ class PdfBoxServiceTest {
         void shouldThrowOnInvalidPdfBytes() {
             byte[] invalid = "not a pdf".getBytes();
 
+            UUID id6 = uid(6);
             assertThrows(java.io.UncheckedIOException.class,
-                    () -> pdfBoxService.analyzeDocument(uid(6), invalid));
+                    () -> pdfBoxService.analyzeDocument(id6, invalid));
         }
 
         @Test

@@ -183,8 +183,9 @@ class UserServiceTest {
         @DisplayName("Get user by ID throws if not found")
         void shouldThrowIfUserNotFound() {
             when(usersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
+            UUID id999 = uid(999);
             UserNotFoundException ex
-                    = assertThrows(UserNotFoundException.class, () -> userService.getUserById(uid(999)));
+                    = assertThrows(UserNotFoundException.class, () -> userService.getUserById(id999));
             assertEquals("Utente ID " + uid(999) + " non trovato", ex.getMessage());
         }
 
@@ -396,8 +397,9 @@ class UserServiceTest {
         void shouldThrowWhenDeletingMissingUser() {
             when(usersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
-                    () -> userService.deleteUser(uid(999)));
+                    () -> userService.deleteUser(id999));
 
             assertEquals("Utente ID " + uid(999) + " non trovato", ex.getMessage());
             verify(usersRepository, never()).delete(any(Users.class));
@@ -614,8 +616,9 @@ class UserServiceTest {
             when(passwordEncoder.encode("pass")).thenReturn("encoded");
             when(managersRepository.findByIdAndOrganizationId(uid(10), TENANT)).thenReturn(Optional.empty());
 
+            UUID id1 = uid(1);
             IllegalArgumentException ex
-                    = assertThrows(IllegalArgumentException.class, () -> userService.updateUser(uid(1), dto));
+                    = assertThrows(IllegalArgumentException.class, () -> userService.updateUser(id1, dto));
             assertEquals("ID manager non trovato", ex.getMessage());
         }
 
@@ -635,8 +638,9 @@ class UserServiceTest {
             when(managersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(manager));
             when(rolesRepository.findById(uid(20))).thenReturn(Optional.empty());
 
+            UUID id1 = uid(1);
             IllegalArgumentException ex
-                    = assertThrows(IllegalArgumentException.class, () -> userService.updateUser(uid(1), dto));
+                    = assertThrows(IllegalArgumentException.class, () -> userService.updateUser(id1, dto));
             assertEquals("ID ruolo non trovato", ex.getMessage());
         }
 
@@ -783,7 +787,8 @@ class UserServiceTest {
         void shouldThrowIfUsernameExistsDuringInvite() {
             when(usersRepository.existsByUsername("existinguser")).thenReturn(true);
 
-            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("existinguser", "MANAGER", uid(1)));
+            UUID id1 = uid(1);
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("existinguser", "MANAGER", id1));
             assertEquals("Username già esistente.", ex.getMessage());
         }
 
@@ -796,7 +801,8 @@ class UserServiceTest {
         void shouldThrowIfRoleNotManagerDuringInvite() {
             when(usersRepository.existsByUsername("user")).thenReturn(false);
 
-            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("user", "USER", uid(1)));
+            UUID id1 = uid(1);
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("user", "USER", id1));
 
             assertEquals("Solo il ruolo MANAGER è consentito tramite invito.", ex.getMessage());
 
@@ -812,7 +818,8 @@ class UserServiceTest {
             when(usersRepository.existsByUsername("user")).thenReturn(false);
             when(managersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
-            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("user", "MANAGER", uid(999)));
+            UUID id999 = uid(999);
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.inviteUser("user", "MANAGER", id999));
 
             assertEquals("Manager non trovato", ex.getMessage());
         }
@@ -1000,8 +1007,9 @@ class UserServiceTest {
             when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(usersRepository.existsByUsername("existinguser")).thenReturn(true);
 
+            UUID id1 = uid(1);
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                    () -> userService.updateUserPartial(uid(1), "existinguser", null, null, null));
+                    () -> userService.updateUserPartial(id1, "existinguser", null, null, null));
 
             assertEquals("Username già esistente.", ex.getMessage());
         }
@@ -1059,8 +1067,9 @@ class UserServiceTest {
             when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(rolesRepository.findByRole("INVALIDROLE")).thenReturn(Optional.empty());
 
+            UUID id1 = uid(1);
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                    () -> userService.updateUserPartial(uid(1), null, "INVALIDROLE", null, null));
+                    () -> userService.updateUserPartial(id1, null, "INVALIDROLE", null, null));
 
             assertEquals("Ruolo non trovato: INVALIDROLE", ex.getMessage());
         }
@@ -1097,8 +1106,10 @@ class UserServiceTest {
             when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(managersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id1 = uid(1);
+            UUID id999 = uid(999);
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                    () -> userService.updateUserPartial(uid(1), null, null, uid(999), null));
+                    () -> userService.updateUserPartial(id1, null, null, id999, null));
 
             assertEquals("ID manager non trovato", ex.getMessage());
         }
@@ -1131,8 +1142,9 @@ class UserServiceTest {
         void shouldThrowIfUserNotFoundInPartialUpdate() {
             when(usersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
-                    () -> userService.updateUserPartial(uid(999), "newname", null, null, null));
+                    () -> userService.updateUserPartial(id999, "newname", null, null, null));
 
             assertEquals("Utente ID " + uid(999) + " non trovato", ex.getMessage());
         }
@@ -1327,8 +1339,9 @@ class UserServiceTest {
         void shouldThrowIfUserNotFoundForResetLink() {
             when(usersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             UserNotFoundException ex = assertThrows(UserNotFoundException.class,
-                    () -> userService.sendResetLink(uid(999)));
+                    () -> userService.sendResetLink(id999));
 
             assertEquals("Utente ID " + uid(999) + " non trovato", ex.getMessage());
         }

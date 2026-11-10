@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -55,7 +56,8 @@ class OrganizationExportServiceTest {
         when(organizationRepository.findById(uid(7))).thenReturn(Optional.empty());
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        assertThatThrownBy(() -> service.writeExport(uid(7), out))
+        UUID id7 = uid(7);
+        assertThatThrownBy(() -> service.writeExport(id7, out))
                 .isInstanceOf(OrganizationNotFoundException.class);
         // Nothing reached the client: not even a ZIP header.
         assertThat(out.size()).isZero();
@@ -70,7 +72,8 @@ class OrganizationExportServiceTest {
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        assertThatThrownBy(() -> service.writeExport(uid(7), out))
+        UUID id7 = uid(7);
+        assertThatThrownBy(() -> service.writeExport(id7, out))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("data/organization.json");
     }

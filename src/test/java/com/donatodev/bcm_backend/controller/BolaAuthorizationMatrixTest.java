@@ -35,6 +35,7 @@ import com.donatodev.bcm_backend.service.MlProxyService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -423,7 +424,7 @@ class BolaAuthorizationMatrixTest {
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andReturn().getResponse();
         assertThat(response.getStatus()).as(response.getContentAsString()).isEqualTo(201);
         if (response.getStatus() == 201) {
-            assertThat(json.readTree(response.getContentAsString()).get("id").asText()).isNotEqualTo(victimId);
+            assertThat(json.readTree(response.getContentAsString()).get("id").asText()).isNotEqualTo(victimId.toString());
         }
         flushAndClear();
         assertThat(jdbc.queryForMap("SELECT * FROM " + table + " WHERE id = ?", victimId)).isEqualTo(before);
@@ -459,7 +460,7 @@ class BolaAuthorizationMatrixTest {
     @ParameterizedTest(name = "own contract {0}, manager={1}")
     @MethodSource("ownContractReadCases")
     void ownContractReadsSucceed(Route route, boolean manager) throws Exception {
-        org.mockito.Mockito.when(storage.readDocument(org.mockito.ArgumentMatchers.anyString()))
+        when(storage.readDocument(org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn("%PDF-1.7\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         mvc.perform(request(route, own, false).header("Authorization", "Bearer " + (manager ? managerToken : adminToken)))
                 .andExpect(status().is2xxSuccessful());

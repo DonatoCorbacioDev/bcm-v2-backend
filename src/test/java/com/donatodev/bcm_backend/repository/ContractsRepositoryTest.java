@@ -118,7 +118,7 @@ class ContractsRepositoryTest {
 
     private Contracts tenantContract(String number, Organization org) {
         BusinessAreas tenantArea = businessAreasRepository.save(BusinessAreas.builder().organization(org)
-                .name(java.util.UUID.randomUUID().toString()).build());
+                .name(UUID.randomUUID().toString()).build());
         Counterparty tenantCounterparty = counterpartiesRepository.save(Counterparty.builder().organization(org)
                 .name("Tenant customer").type(CounterpartyType.CUSTOMER).build());
         return Contracts.builder().organization(org).businessArea(tenantArea).counterparty(tenantCounterparty)

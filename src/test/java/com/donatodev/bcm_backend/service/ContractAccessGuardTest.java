@@ -103,8 +103,9 @@ class ContractAccessGuardTest {
         void refusesLookupWithoutTenant() {
             TenantContext.clear();
 
+            UUID id1 = uid(1);
             assertThrows(com.donatodev.bcm_backend.exception.MissingTenantException.class,
-                    () -> contractAccessGuard.getContractInScope(uid(1)));
+                    () -> contractAccessGuard.getContractInScope(id1));
             verify(contractsRepository, never()).findById(uid(1));
         }
 

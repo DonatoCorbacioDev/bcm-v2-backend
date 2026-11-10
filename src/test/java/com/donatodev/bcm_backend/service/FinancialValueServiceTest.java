@@ -27,7 +27,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -124,7 +123,8 @@ class FinancialValueServiceTest {
         FinancialValueDTO dto = new FinancialValueDTO(null, 2, 2027, 999, uid(1), uid(1), uid(2),
                 null, null, null, FinancialCategory.REVENUE);
 
-        assertThrows(AccessDeniedException.class, () -> service.updateValue(uid(1), dto));
+        UUID id1 = uid(1);
+        assertThrows(AccessDeniedException.class, () -> service.updateValue(id1, dto));
 
         assertEquals(500, value.getFinancialAmount());
         assertEquals(1, value.getMonth());
@@ -139,8 +139,9 @@ class FinancialValueServiceTest {
         when(contractAccessGuard.getContractInScope(uid(42))).thenThrow(
                 new com.donatodev.bcm_backend.exception.ContractNotFoundException("Contratto non trovato"));
 
+        UUID id42 = uid(42);
         assertThrows(com.donatodev.bcm_backend.exception.ContractNotFoundException.class,
-                () -> service.getValuesByContractId(uid(42)));
+                () -> service.getValuesByContractId(id42));
         verifyNoInteractions(valuesRepository, mapper);
     }
 
@@ -151,7 +152,8 @@ class FinancialValueServiceTest {
         doThrow(new AccessDeniedException("non autorizzato ad accedere al contratto"))
                 .when(contractAccessGuard).checkManagerCanAccess(contract);
 
-        assertThrows(AccessDeniedException.class, () -> service.getValuesByContractId(uid(42)));
+        UUID id42 = uid(42);
+        assertThrows(AccessDeniedException.class, () -> service.getValuesByContractId(id42));
         verifyNoInteractions(valuesRepository, mapper);
     }
 
@@ -404,7 +406,8 @@ class FinancialValueServiceTest {
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
             when(valuesRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(entity));
 
-            AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.getValueById(uid(1)));
+            UUID id1 = uid(1);
+            AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.getValueById(id1));
             assertTrue(ex.getMessage().contains("non sei assegnato"));
         }
 
@@ -441,7 +444,8 @@ class FinancialValueServiceTest {
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
             when(valuesRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(entity));
 
-            AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.getValueById(uid(1)));
+            UUID id1 = uid(1);
+            AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.getValueById(id1));
             assertTrue(ex.getMessage().contains("non sei assegnato"));
         }
 
@@ -538,8 +542,9 @@ class FinancialValueServiceTest {
         void shouldThrowIfValueNotFound() {
             when(valuesRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             FinancialValueNotFoundException ex
-                    = assertThrows(FinancialValueNotFoundException.class, () -> service.getValueById(uid(999)));
+                    = assertThrows(FinancialValueNotFoundException.class, () -> service.getValueById(id999));
             assertEquals("ID valore finanziario " + uid(999) + " non trovato", ex.getMessage());
         }
 
@@ -575,7 +580,8 @@ class FinancialValueServiceTest {
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
             when(valuesRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(entity));
 
-            AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.deleteValue(uid(1)));
+            UUID id1 = uid(1);
+            AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.deleteValue(id1));
             assertTrue(ex.getMessage().contains("non sei assegnato"));
         }
 
@@ -701,7 +707,8 @@ class FinancialValueServiceTest {
             when(usersRepository.findByUsername("managerX")).thenReturn(Optional.of(managerUser));
             when(valuesRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(entity));
 
-            AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.updateValue(uid(1), dto));
+            UUID id1 = uid(1);
+            AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> service.updateValue(id1, dto));
             assertTrue(ex.getMessage().contains("non sei assegnato"));
         }
 
@@ -717,8 +724,9 @@ class FinancialValueServiceTest {
 
             FinancialValueDTO dto = new FinancialValueDTO(uid(999), 1, 2024, 100.0, uid(1), uid(1), uid(1), "Type", "Area", "Contract", FinancialCategory.REVENUE);
 
+            UUID id999 = uid(999);
             FinancialValueNotFoundException ex
-                    = assertThrows(FinancialValueNotFoundException.class, () -> service.updateValue(uid(999), dto));
+                    = assertThrows(FinancialValueNotFoundException.class, () -> service.updateValue(id999, dto));
             assertEquals("ID valore finanziario " + uid(999) + " non trovato", ex.getMessage());
         }
 
@@ -732,8 +740,9 @@ class FinancialValueServiceTest {
         void shouldThrowWhenDeletingNonexistentValue() {
             when(valuesRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
+            UUID id999 = uid(999);
             FinancialValueNotFoundException ex
-                    = assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(uid(999)));
+                    = assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(id999));
             assertEquals("ID valore finanziario " + uid(999) + " non trovato", ex.getMessage());
         }
 
@@ -989,8 +998,9 @@ class FinancialValueServiceTest {
             try {
                 when(valuesRepository.findByIdAndOrganizationId(uid(999), uid(8))).thenReturn(Optional.empty());
 
+                UUID id999 = uid(999);
                 FinancialValueNotFoundException ex = assertThrows(FinancialValueNotFoundException.class,
-                        () -> service.getValueById(uid(999)));
+                        () -> service.getValueById(id999));
                 assertEquals("ID valore finanziario " + uid(999) + " non trovato", ex.getMessage());
             } finally {
                 com.donatodev.bcm_backend.config.TenantContext.clear();
@@ -1169,7 +1179,8 @@ class FinancialValueServiceTest {
             when(valuesRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(entity));
             doThrow(new RuntimeException("db unavailable")).when(valuesRepository).delete(entity);
 
-            assertThrows(RuntimeException.class, () -> service.deleteValue(uid(1)));
+            UUID id1 = uid(1);
+            assertThrows(RuntimeException.class, () -> service.deleteValue(id1));
 
             verify(mlCacheService, never()).evictAllForOrg(any(UUID.class));
         }
@@ -1214,7 +1225,8 @@ class FinancialValueServiceTest {
         void shouldNotEvictCacheWhenDeleteNotFound() {
             when(valuesRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
 
-            assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(uid(999)));
+            UUID id999 = uid(999);
+            assertThrows(FinancialValueNotFoundException.class, () -> service.deleteValue(id999));
 
             verify(valuesRepository, never()).delete(org.mockito.ArgumentMatchers.any());
             verifyNoInteractions(mlCacheService);

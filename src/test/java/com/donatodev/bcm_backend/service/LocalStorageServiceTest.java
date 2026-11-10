@@ -3,6 +3,7 @@ package com.donatodev.bcm_backend.service;
 import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -120,8 +121,10 @@ class LocalStorageServiceTest {
             // Place a regular file where storeDocument expects to create a directory
             java.nio.file.Files.write(tempDir.resolve("contracts"), new byte[0]);
 
+            UUID id1 = uid(1);
+            UUID id42 = uid(42);
             assertThrows(java.io.UncheckedIOException.class,
-                    () -> localStorageService.storeDocument(uid(1), uid(42), CONTENT));
+                    () -> localStorageService.storeDocument(id1, id42, CONTENT));
         }
 
         @Test
@@ -225,7 +228,8 @@ class LocalStorageServiceTest {
                 Files.setAttribute(file, "dos:readonly", true);
             }
             try {
-                assertThrows(java.io.UncheckedIOException.class, () -> localStorageService.deleteOrganizationFiles(uid(6), null));
+                UUID id6 = uid(6);
+                assertThrows(java.io.UncheckedIOException.class, () -> localStorageService.deleteOrganizationFiles(id6, null));
             } finally {
                 if (posix) {
                     Files.setPosixFilePermissions(parent, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));

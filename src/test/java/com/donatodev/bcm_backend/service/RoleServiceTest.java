@@ -3,6 +3,7 @@ package com.donatodev.bcm_backend.service;
 import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -101,8 +102,9 @@ class RoleServiceTest {
         @DisplayName("Get role by ID throws exception if not found")
         void shouldThrowIfRoleNotFound() {
             when(rolesRepository.findById(uid(999))).thenReturn(Optional.empty());
+            UUID id999 = uid(999);
             RoleNotFoundException ex =
-                assertThrows(RoleNotFoundException.class, () -> roleService.getRoleById(uid(999)));
+                assertThrows(RoleNotFoundException.class, () -> roleService.getRoleById(id999));
             assertEquals("Ruolo ID " + uid(999) + " non trovato", ex.getMessage());
         }
     }
