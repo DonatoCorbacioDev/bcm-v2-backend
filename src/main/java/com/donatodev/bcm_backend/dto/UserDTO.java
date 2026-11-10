@@ -12,6 +12,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import com.donatodev.bcm_backend.validation.ValidPassword;
+
 /**
  * DTO used for managing users in the REST API.
  * <p>
@@ -31,8 +33,9 @@ public record UserDTO(
         @NotBlank(message = "Username obbligatorio")
         @Size(min = 4, max = 30, message = "Lo username deve avere tra 4 e 30 caratteri")
         String username,
-        @NotBlank(message = "Password obbligatoria")
-        @Size(min = 6, message = "La password deve contenere almeno 6 caratteri")
+        // Optional: an update without it keeps the current password; creation
+        // requires one (UserService.createUser).
+        @ValidPassword(optional = true)
         String password,
         UUID managerId,
         @NotNull(message = "ID ruolo obbligatorio")

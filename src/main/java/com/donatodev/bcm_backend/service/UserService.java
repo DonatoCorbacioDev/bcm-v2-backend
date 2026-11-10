@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
+import com.donatodev.bcm_backend.validation.PasswordPolicy;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -148,6 +149,8 @@ public class UserService {
 		Users user = userMapper.toEntity(dto);
 		// Client IDs must never turn account creation into an update of an existing user.
 		user.setId(null);
+		// The DTO allows no password (an update keeps the current one); a new user needs one.
+		PasswordPolicy.require(dto.password());
 		user.setPasswordHash(passwordEncoder.encode(dto.password()));
 		if (user.getManager() != null) {
 			// userMapper.toEntity() resolves the manager by ID without tenant
@@ -192,7 +195,12 @@ public class UserService {
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
 
 		user.setUsername(dto.username());
-		user.setPasswordHash(passwordEncoder.encode(dto.password()));
+		// No password in the request keeps the current one: encode(null) would
+		// otherwise null the NOT NULL hash and fail the whole update.
+		if (dto.password() != null && !dto.password().isBlank()) {
+			PasswordPolicy.require(dto.password());
+			user.setPasswordHash(passwordEncoder.encode(dto.password()));
+		}
 
 		user.setManager(findManagerInScope(dto.managerId())
 				.orElseThrow(() -> new IllegalArgumentException("ID manager non trovato")));
@@ -244,6 +252,7 @@ public class UserService {
 	 * @param newPassword the new password (plain text, will be encoded)
 	 */
 	public void updatePassword(Users user, String newPassword) {
+		PasswordPolicy.require(newPassword);
 		user.setPasswordHash(passwordEncoder.encode(newPassword));
 		usersRepository.save(user);
 	}
@@ -344,6 +353,7 @@ public class UserService {
 
 		Users user = new Users();
 		user.setUsername(it.getUsername());
+		PasswordPolicy.require(rawPassword);
 		user.setPasswordHash(passwordEncoder.encode(rawPassword));
 		user.setManager(manager);
 		user.setRole(role);
@@ -380,6 +390,7 @@ public class UserService {
 		}
 
 		if (rawPassword != null && !rawPassword.isBlank()) {
+			PasswordPolicy.require(rawPassword);
 			user.setPasswordHash(passwordEncoder.encode(rawPassword));
 		}
 

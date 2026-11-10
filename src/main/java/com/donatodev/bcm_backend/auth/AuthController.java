@@ -170,7 +170,7 @@ public class AuthController {
      * @return 200 OK if successful, otherwise 400 BAD REQUEST
      */
     @PostMapping("/reset-password")
-    public ResponseEntity<String> resetPassword(@RequestBody ResetPasswordRequestDTO request) {
+    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequestDTO request) {
         try {
             PasswordResetToken token = passwordResetTokenService.getByToken(request.token());
 

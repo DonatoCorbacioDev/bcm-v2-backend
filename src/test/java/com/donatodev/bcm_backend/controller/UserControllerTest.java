@@ -147,6 +147,37 @@ class UserControllerTest {
                     .andExpect(jsonPath("$.username").value("mario.rossi"));
         }
 
+        @Test
+        @Order(1)
+        @DisplayName("Creating a user with a 6-character password is refused with the rule's message")
+        @WithMockUser(roles = "ADMIN")
+        void shouldRefuseCreateUserWithShortPassword() throws Exception {
+            Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
+            UserDTO dto = new UserDTO(null, "short.pwd", "abc123", null, role.getId(), null, null);
+
+            mockMvc.perform(post("/users")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(dto)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("almeno 8 caratteri")));
+        }
+
+        @Test
+        @Order(1)
+        @DisplayName("A new own password over 72 bytes is a 400 with a clear message, not a BCrypt error")
+        @WithMockUser(username = "anyone")
+        void shouldRefuseOwnPasswordOverBcryptLimit() throws Exception {
+            String body = "{\"currentPassword\":\"whatever1\",\"newPassword\":\"" + "x".repeat(100) + "\"}";
+
+            mockMvc.perform(post("/users/me/password")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("troppo lunga")));
+        }
+
         /**
          * Tests retrieving all users in the system.
          */

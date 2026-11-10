@@ -145,7 +145,7 @@ class UserServiceTest {
         @DisplayName("Get all users")
         void shouldGetAllUsers() {
             Users user = Users.builder().id(uid(1)).username("admin").build();
-            UserDTO dto = new UserDTO(uid(1), "admin", "pass", uid(1), uid(1), null, null);
+            UserDTO dto = new UserDTO(uid(1), "admin", "password1", uid(1), uid(1), null, null);
 
             when(usersRepository.findAllByOrganizationId(TENANT)).thenReturn(List.of(user));
             when(userMapper.toDTO(user)).thenReturn(dto);
@@ -165,7 +165,7 @@ class UserServiceTest {
         @DisplayName("Get user by ID")
         void shouldGetUserById() {
             Users user = Users.builder().id(uid(1)).username("admin").build();
-            UserDTO dto = new UserDTO(uid(1), "admin", "pass", uid(1), uid(1), null, null);
+            UserDTO dto = new UserDTO(uid(1), "admin", "password1", uid(1), uid(1), null, null);
 
             when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
             when(userMapper.toDTO(user)).thenReturn(dto);
@@ -356,11 +356,11 @@ class UserServiceTest {
             Users user = Users.builder().id(uid(1)).username("olduser").build();
             Managers manager = Managers.builder().id(uid(2)).build();
             Roles role = Roles.builder().id(uid(3)).role("MANAGER").build();
-            UserDTO dto = new UserDTO(uid(1), "updatedUser", "newpass", uid(2), uid(3), null, null);
+            UserDTO dto = new UserDTO(uid(1), "updatedUser", "newpass12", uid(2), uid(3), null, null);
             UserDTO resultDTO = new UserDTO(uid(1), "updatedUser", null, uid(2), uid(3), null, null);
 
             when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
-            when(passwordEncoder.encode("newpass")).thenReturn("encodedpass");
+            when(passwordEncoder.encode("newpass12")).thenReturn("encodedpass");
             when(managersRepository.findByIdAndOrganizationId(uid(2), TENANT)).thenReturn(Optional.of(manager));
             when(rolesRepository.findById(uid(3))).thenReturn(Optional.of(role));
             when(usersRepository.save(user)).thenReturn(user);
@@ -370,6 +370,39 @@ class UserServiceTest {
 
             assertEquals("updatedUser", result.username());
             verify(usersRepository).save(user);
+        }
+
+        @Test
+        @DisplayName("Update user without a password keeps the current one (no null hash)")
+        void shouldKeepPasswordWhenUpdateHasNone() {
+            Users user = Users.builder().id(uid(1)).username("olduser").passwordHash("current-hash").build();
+            Managers manager = Managers.builder().id(uid(2)).build();
+            Roles role = Roles.builder().id(uid(3)).role("MANAGER").build();
+            UserDTO dto = new UserDTO(uid(1), "updatedUser", null, uid(2), uid(3), null, null);
+
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
+            when(managersRepository.findByIdAndOrganizationId(uid(2), TENANT)).thenReturn(Optional.of(manager));
+            when(rolesRepository.findById(uid(3))).thenReturn(Optional.of(role));
+            when(usersRepository.save(user)).thenReturn(user);
+            when(userMapper.toDTO(user)).thenReturn(dto);
+
+            userService.updateUser(uid(1), dto);
+
+            assertEquals("current-hash", user.getPasswordHash());
+            verify(passwordEncoder, never()).encode(any());
+        }
+
+        @Test
+        @DisplayName("Create user without a password is refused before anything is saved")
+        void shouldRefuseCreateWithoutPassword() {
+            UserDTO dto = new UserDTO(null, "newuser1", null, null, uid(3), null, null);
+            when(usersRepository.existsByUsername("newuser1")).thenReturn(false);
+            when(userMapper.toEntity(dto)).thenReturn(Users.builder().username("newuser1").build());
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> userService.createUser(dto));
+
+            assertEquals("Password obbligatoria", ex.getMessage());
+            verify(usersRepository, never()).save(any(Users.class));
         }
 
         /**
@@ -576,7 +609,7 @@ class UserServiceTest {
         @Order(10)
         @DisplayName("Register user fails if username exists")
         void shouldThrowIfUsernameExists() {
-            UserDTO dto = new UserDTO(null, "existingUser", "pass", null, null, null, null);
+            UserDTO dto = new UserDTO(null, "existingUser", "password1", null, null, null, null);
             when(usersRepository.existsByUsername("existingUser")).thenReturn(true);
 
             IllegalArgumentException ex
@@ -592,7 +625,7 @@ class UserServiceTest {
         @Order(11)
         @DisplayName("Register user fails if manager already assigned")
         void shouldThrowIfManagerAlreadyAssigned() {
-            UserDTO dto = new UserDTO(null, "newuser", "pass", uid(1), null, null, null);
+            UserDTO dto = new UserDTO(null, "newuser", "password1", uid(1), null, null, null);
             when(usersRepository.existsByUsername("newuser")).thenReturn(false);
             when(usersRepository.existsByManagerId(uid(1))).thenReturn(true);
 
@@ -609,11 +642,11 @@ class UserServiceTest {
         @Order(12)
         @DisplayName("Update user fails if manager not found")
         void shouldThrowIfManagerNotFound() {
-            UserDTO dto = new UserDTO(uid(1), "user", "pass", uid(10), uid(1), null, null);
+            UserDTO dto = new UserDTO(uid(1), "user", "password1", uid(10), uid(1), null, null);
             Users user = Users.builder().id(uid(1)).build();
 
             when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
-            when(passwordEncoder.encode("pass")).thenReturn("encoded");
+            when(passwordEncoder.encode("password1")).thenReturn("encoded");
             when(managersRepository.findByIdAndOrganizationId(uid(10), TENANT)).thenReturn(Optional.empty());
 
             UUID id1 = uid(1);
@@ -629,12 +662,12 @@ class UserServiceTest {
         @Order(13)
         @DisplayName("Update user fails if role not found")
         void shouldThrowIfRoleNotFound() {
-            UserDTO dto = new UserDTO(uid(1), "user", "pass", uid(1), uid(20), null, null);
+            UserDTO dto = new UserDTO(uid(1), "user", "password1", uid(1), uid(20), null, null);
             Users user = Users.builder().id(uid(1)).build();
             Managers manager = Managers.builder().id(uid(1)).build();
 
             when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
-            when(passwordEncoder.encode("pass")).thenReturn("encoded");
+            when(passwordEncoder.encode("password1")).thenReturn("encoded");
             when(managersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(manager));
             when(rolesRepository.findById(uid(20))).thenReturn(Optional.empty());
 
@@ -708,14 +741,14 @@ class UserServiceTest {
         @Order(20)
         @DisplayName("Register user when managerId is null")
         void shouldRegisterUserIfManagerIdIsNull() {
-            UserDTO dto = new UserDTO(null, "userNoManager", "pass", null, uid(2), null, null);
+            UserDTO dto = new UserDTO(null, "userNoManager", "password1", null, uid(2), null, null);
             Users user = Users.builder().username("userNoManager").build();
             Users saved = Users.builder().id(uid(1)).username("userNoManager").build();
             UserDTO savedDTO = new UserDTO(uid(1), "userNoManager", null, null, uid(2), null, null);
 
             when(usersRepository.existsByUsername("userNoManager")).thenReturn(false);
             when(userMapper.toEntity(dto)).thenReturn(user);
-            when(passwordEncoder.encode("pass")).thenReturn("encodedPass");
+            when(passwordEncoder.encode("password1")).thenReturn("encodedPass");
             when(usersRepository.save(user)).thenReturn(saved);
             when(userMapper.toDTO(saved)).thenReturn(savedDTO);
 
@@ -749,7 +782,7 @@ class UserServiceTest {
         @DisplayName("Update user throws with correct UserNotFoundException message")
         void shouldThrowUserNotFoundWithCorrectMessageInUpdate() {
             UUID userId = uid(999);
-            UserDTO dto = new UserDTO(userId, "updatedUser", "pass", uid(1), uid(1), null, null);
+            UserDTO dto = new UserDTO(userId, "updatedUser", "password1", uid(1), uid(1), null, null);
 
             when(usersRepository.findByIdAndOrganizationId(userId, TENANT)).thenReturn(Optional.empty());
 
@@ -1232,10 +1265,10 @@ class UserServiceTest {
             when(usersRepository.existsByUsername("newuser")).thenReturn(false);
             when(rolesRepository.findByRole("MANAGER")).thenReturn(Optional.of(role));
             when(managersRepository.findByIdAndOrganizationId(uid(3), TENANT)).thenReturn(Optional.of(manager));
-            when(passwordEncoder.encode("newpass")).thenReturn("encodedpass");
+            when(passwordEncoder.encode("newpass12")).thenReturn("encodedpass");
             when(usersRepository.save(user)).thenReturn(user);
 
-            Users result = userService.updateUserPartial(uid(1), "newuser", "MANAGER", uid(3), "newpass");
+            Users result = userService.updateUserPartial(uid(1), "newuser", "MANAGER", uid(3), "newpass12");
 
             assertEquals("newuser", result.getUsername());
             assertEquals(role, result.getRole());
@@ -1554,7 +1587,7 @@ class UserServiceTest {
         @DisplayName("Get all users with TenantContext uses org-filtered repository")
         void shouldGetAllUsersWithTenantContext() {
             Users user = Users.builder().id(uid(1)).username("orguser").build();
-            UserDTO dto = new UserDTO(uid(1), "orguser", "pass", uid(1), uid(1), null, null);
+            UserDTO dto = new UserDTO(uid(1), "orguser", "password1", uid(1), uid(1), null, null);
 
             TenantContext.set(uid(2));
             try {
@@ -1578,7 +1611,7 @@ class UserServiceTest {
         @DisplayName("Get user by ID with TenantContext uses org-scoped repository")
         void shouldGetUserByIdWithTenantContext() {
             Users user = Users.builder().id(uid(1)).username("orguser").build();
-            UserDTO dto = new UserDTO(uid(1), "orguser", "pass", uid(1), uid(1), null, null);
+            UserDTO dto = new UserDTO(uid(1), "orguser", "password1", uid(1), uid(1), null, null);
 
             TenantContext.set(uid(9));
             try {

@@ -11,6 +11,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import com.donatodev.bcm_backend.validation.ValidPassword;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -23,5 +25,7 @@ public class UpdateUserRequest {
 
     private UUID managerId;
 
+    /** Optional: absent or blank keeps the current password. */
+    @ValidPassword(optional = true)
     private String password;
 }

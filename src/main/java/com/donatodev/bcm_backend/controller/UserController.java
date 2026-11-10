@@ -89,7 +89,7 @@ public class UserController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<UserDTO> createUser(@RequestBody UserDTO userDTO) {
+    public ResponseEntity<UserDTO> createUser(@Valid @RequestBody UserDTO userDTO) {
         UserDTO newUser = userService.createUser(userDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(newUser);
     }
@@ -103,7 +103,7 @@ public class UserController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<UserDTO> updateUser(@PathVariable UUID id, @RequestBody UserDTO userDTO) {
+    public ResponseEntity<UserDTO> updateUser(@PathVariable UUID id, @Valid @RequestBody UserDTO userDTO) {
         UserDTO updatedUser = userService.updateUser(id, userDTO);
         return ResponseEntity.ok(updatedUser);
     }

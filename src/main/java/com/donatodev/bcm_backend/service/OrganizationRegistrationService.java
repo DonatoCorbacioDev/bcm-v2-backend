@@ -27,6 +27,7 @@ import com.donatodev.bcm_backend.dto.RequestOrigin;
 import com.donatodev.bcm_backend.entity.PendingRegistration;
 import com.donatodev.bcm_backend.exception.RegistrationCodeException;
 import com.donatodev.bcm_backend.repository.PendingRegistrationRepository;
+import com.donatodev.bcm_backend.validation.PasswordPolicy;
 
 /**
  * Two-step self-service registration. Requesting it stores the data as a
@@ -83,6 +84,7 @@ public class OrganizationRegistrationService {
 
         String publicId = UUID.randomUUID().toString();
         String code = newCode();
+        PasswordPolicy.require(request.adminPassword());
         LocalDateTime now = now();
         pendingRepository.save(PendingRegistration.builder()
                 .publicId(publicId)

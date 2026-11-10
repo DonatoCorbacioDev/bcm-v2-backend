@@ -10,6 +10,8 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import com.donatodev.bcm_backend.validation.ValidPassword;
+
 /**
  * Self-service registration. The three declarations are primitive booleans on
  * purpose: a missing field deserializes to {@code false} and fails
@@ -33,8 +35,7 @@ public record OrganizationRegistrationRequest(
         @Size(min = 3, max = 50, message = "Lo username deve avere tra 3 e 50 caratteri")
         String adminUsername,
 
-        @NotBlank(message = "Password amministratore obbligatoria")
-        @Size(min = 6, message = "La password deve contenere almeno 6 caratteri")
+        @ValidPassword(message = "Password amministratore obbligatoria")
         String adminPassword,
 
         @NotBlank(message = "Email amministratore obbligatoria")

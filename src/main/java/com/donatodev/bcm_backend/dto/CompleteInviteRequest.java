@@ -8,12 +8,14 @@ package com.donatodev.bcm_backend.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import com.donatodev.bcm_backend.validation.ValidPassword;
+
 public class CompleteInviteRequest {
 	
     @NotBlank
     private String token;
 
-    @NotBlank @Size(min = 8, message = "La password deve contenere almeno 8 caratteri")
+    @ValidPassword
     private String password;
 
     public String getToken() {

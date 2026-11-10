@@ -7,6 +7,8 @@ package com.donatodev.bcm_backend.dto;
 
 import jakarta.validation.constraints.NotBlank;
 
+import com.donatodev.bcm_backend.validation.ValidPassword;
+
 /**
  * DTO used to handle password reset requests via REST API.
  * <p>
@@ -19,6 +21,6 @@ public record ResetPasswordRequestDTO(
         @NotBlank(message = "Token obbligatorio")
         String token,
 
-        @NotBlank(message = "Nuova password obbligatoria")
+        @ValidPassword(message = "Nuova password obbligatoria")
         String newPassword
 ) {}

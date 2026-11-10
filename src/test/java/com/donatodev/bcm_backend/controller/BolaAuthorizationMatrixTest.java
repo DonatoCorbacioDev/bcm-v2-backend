@@ -624,7 +624,8 @@ class BolaAuthorizationMatrixTest {
             case "contracts", "instantiate" -> "{\"counterpartyId\":" + q(own.counterparty().getId())
                     + ",\"contractNumber\":\"NEW-CONTRACT\",\"status\":\"ACTIVE\",\"startDate\":\"2026-01-01\",\"endDate\":\"2027-01-01\",\"areaId\":" + q(own.area().getId()) + "}";
             case "counterparties" -> "{\"name\":\"Updated\",\"type\":\"CUSTOMER\",\"iban\":\"IT60X0542811101000000123456\"}";
-            case "users" -> "{\"username\":\"updated-user\"}";
+            // A valid body (UserDTO requires roleId), so the request reaches the access check.
+            case "users" -> "{\"username\":\"updated-user\",\"roleId\":" + q(admin.getRole().getId()) + "}";
             case "contract-templates" -> "{\"name\":\"Updated\"}";
             case "assign" -> "{\"managerId\":" + q(own.manager().getId()) + "}";
             case "collaborators" -> "{\"managerIds\":[" + q(own.manager().getId()) + "]}";

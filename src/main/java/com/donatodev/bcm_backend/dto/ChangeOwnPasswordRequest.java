@@ -6,7 +6,8 @@
 package com.donatodev.bcm_backend.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+
+import com.donatodev.bcm_backend.validation.ValidPassword;
 
 /**
  * A signed-in user changing their own password from the profile page.
@@ -20,7 +21,6 @@ public record ChangeOwnPasswordRequest(
         @NotBlank(message = "Password attuale obbligatoria")
         String currentPassword,
 
-        @NotBlank(message = "Nuova password obbligatoria")
-        @Size(min = 8, max = 128, message = "La password deve contenere tra 8 e 128 caratteri")
+        @ValidPassword(message = "Nuova password obbligatoria")
         String newPassword
 ) {}

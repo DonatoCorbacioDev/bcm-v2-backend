@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -238,13 +239,35 @@ class AuthControllerTest {
                 .token("reset-token").user(user)
                 .expiryDate(LocalDateTime.of(2030, Month.JANUARY, 1, 12, 0)).build());
 
-        ResetPasswordRequestDTO req = new ResetPasswordRequestDTO("reset-token", "newpwd");
+        ResetPasswordRequestDTO req = new ResetPasswordRequestDTO("reset-token", "newpwd123");
 
         mockMvc.perform(post("/auth/reset-password")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Password reimpostata con successo")));
+    }
+
+    @Test
+    @Order(5)
+    void shouldRefuseResetToATooShortPasswordAndKeepTheToken() throws Exception {
+        Users user = usersRepository.save(Users.builder()
+                .username("resetme3").passwordHash("old").verified(true)
+                .manager(managersRepository.findById(managerId).orElseThrow())
+                .role(rolesRepository.findById(roleId).orElseThrow()).build());
+        passwordResetTokenRepository.save(PasswordResetToken.builder()
+                .token("reset-token-short").user(user)
+                .expiryDate(LocalDateTime.of(2030, Month.JANUARY, 1, 12, 0)).build());
+
+        mockMvc.perform(post("/auth/reset-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new ResetPasswordRequestDTO("reset-token-short", "a"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("almeno 8 caratteri")));
+
+        // Refused before the token was used: the link still works with a valid password.
+        assertEquals("old", usersRepository.findById(user.getId()).orElseThrow().getPasswordHash());
+        assertTrue(passwordResetTokenRepository.findByToken("reset-token-short").isPresent());
     }
 
     /**
@@ -281,7 +304,7 @@ class AuthControllerTest {
                 .token("expired-reset-token").user(user)
                 .expiryDate(LocalDateTime.of(2020, Month.JANUARY, 1, 12, 0)).build());
 
-        ResetPasswordRequestDTO req = new ResetPasswordRequestDTO("expired-reset-token", "newpwd");
+        ResetPasswordRequestDTO req = new ResetPasswordRequestDTO("expired-reset-token", "newpwd123");
 
         mockMvc.perform(post("/auth/reset-password")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -296,7 +319,7 @@ class AuthControllerTest {
     @Test
     @Order(10)
     void shouldFailResetPasswordWithInvalidToken() throws Exception {
-        ResetPasswordRequestDTO req = new ResetPasswordRequestDTO("non-existent-token", "newpwd");
+        ResetPasswordRequestDTO req = new ResetPasswordRequestDTO("non-existent-token", "newpwd123");
 
         mockMvc.perform(post("/auth/reset-password")
                 .contentType(MediaType.APPLICATION_JSON)
