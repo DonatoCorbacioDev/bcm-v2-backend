@@ -7,6 +7,7 @@ import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
@@ -647,14 +648,25 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.token").exists())
                 .andExpect(jsonPath("$.mfaRequired").value(false))
                 .andExpect(cookie().exists(RefreshCookieFactory.COOKIE_NAME));
+
+        // The same code, while still valid, does not log in a second time.
+        mockMvc.perform(post("/auth/2fa/verify")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(verifyJson))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
     @Order(33)
     void shouldRejectTwoFactorVerifyWithWrongCode() throws Exception {
         String secret = com.donatodev.bcm_backend.util.TotpUtil.generateSecret();
-        usersRepository.save(Users.builder()
+        // With an organization, so the request reaches the code check itself.
+        com.donatodev.bcm_backend.entity.Organization org = organizationRepository.save(
+                com.donatodev.bcm_backend.entity.Organization.builder()
+                        .name("Totp org 2").slug("totp-org-" + UUID.randomUUID()).build());
+        Users saved = usersRepository.save(Users.builder()
                 .username("totpuser2").passwordHash(passwordEncoder.encode("mypwd123")).verified(true)
+                .organization(org)
                 .totpEnabled(true).totpSecretEncrypted(totpEncryptionService.encrypt(secret))
                 .manager(managersRepository.findById(managerId).orElseThrow())
                 .role(rolesRepository.findById(roleId).orElseThrow()).build());
@@ -674,6 +686,10 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(verifyJson))
                 .andExpect(status().isUnauthorized());
+
+        // The failed attempt is stored even though the request failed: the
+        // transaction is not rolled back on a wrong code.
+        assertEquals(1, usersRepository.findById(saved.getId()).orElseThrow().getFailedLoginAttempts());
     }
 
     private String totpCodeAt(String secret, long timeStep) throws Exception {

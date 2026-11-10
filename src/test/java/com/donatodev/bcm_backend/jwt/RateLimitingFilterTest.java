@@ -66,6 +66,19 @@ class RateLimitingFilterTest {
     }
 
     @Test
+    @DisplayName("the 2FA code check is rate limited like the password: 6 digits are guessable otherwise")
+    void twoFactorVerifyIsRateLimited() throws Exception {
+        FilterChain chain = mock(FilterChain.class);
+        for (int i = 0; i < 2; i++) {
+            filter.doFilter(pathRequest("/auth/2fa/verify"), new MockHttpServletResponse(), chain);
+        }
+        MockHttpServletResponse blocked = new MockHttpServletResponse();
+        filter.doFilter(pathRequest("/auth/2fa/verify"), blocked, chain);
+
+        assertEquals(429, blocked.getStatus());
+    }
+
+    @Test
     void loginExhaustionDoesNotBlockRefreshAndRefreshHasItsOwnLimit() throws Exception {
         FilterChain chain = mock(FilterChain.class);
         for (int i = 0; i < 2; i++) {

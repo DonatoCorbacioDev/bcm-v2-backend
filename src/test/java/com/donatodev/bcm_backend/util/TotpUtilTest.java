@@ -74,6 +74,17 @@ class TotpUtilTest {
     }
 
     @Test
+    @DisplayName("matchingStep tells which time step a code belongs to, and -1 for an invalid code")
+    void shouldReturnTheMatchingStep() throws Exception {
+        String secret = TotpUtil.generateSecret();
+        long currentStep = Instant.now().getEpochSecond() / 30;
+
+        assertEquals(currentStep - 1, TotpUtil.matchingStep(secret, codeAt(secret, currentStep - 1)));
+        assertEquals(-1, TotpUtil.matchingStep(secret, codeAt(secret, currentStep + 2)));
+        assertEquals(-1, TotpUtil.matchingStep(secret, "12ab56"));
+    }
+
+    @Test
     @DisplayName("verifyCode tolerates one time step of clock drift in either direction")
     void shouldToleratePlusMinusOneStepDrift() throws Exception {
         String secret = TotpUtil.generateSecret();

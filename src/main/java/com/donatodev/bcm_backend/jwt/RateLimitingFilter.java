@@ -25,7 +25,7 @@ import jakarta.servlet.http.HttpServletResponse;
 public class RateLimitingFilter extends OncePerRequestFilter {
 
     private static final Set<String> RATE_LIMITED_PATHS = Set.of(
-            "/auth/login",
+            "/auth/login", "/auth/2fa/verify",
             "/auth/forgot-password", "/auth/reset-password",
             "/auth/refresh", "/auth/complete-invite",
             "/organizations/register", "/organizations/register/resend",

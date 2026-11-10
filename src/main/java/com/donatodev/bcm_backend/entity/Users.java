@@ -112,6 +112,14 @@ public class Users {
     private boolean totpEnabled = false;
 
     /**
+     * The TOTP time step of the last code accepted at login. A code is
+     * accepted only for a later step, so a code seen by someone else (over a
+     * shoulder, in a phishing proxy) can't be used again while still valid.
+     */
+    @Column(name = "totp_last_used_step")
+    private Long totpLastUsedStep;
+
+    /**
      * Whether this user can approve or reject contracts submitted for
      * review, in addition to ADMIN (who can always approve/reject).
      */

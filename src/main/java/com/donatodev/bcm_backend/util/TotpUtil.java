@@ -53,16 +53,25 @@ public final class TotpUtil {
 
     /** Verifies a 6-digit code against the secret, tolerating +/-1 time step of clock drift. */
     public static boolean verifyCode(String secretBase32, String code) {
+        return matchingStep(secretBase32, code) >= 0;
+    }
+
+    /**
+     * The time step a valid code belongs to, or -1 when the code is not valid
+     * now (+/-1 step of clock drift). A login keeps the step it accepted, so
+     * the same code can't be accepted twice while it is still valid.
+     */
+    public static long matchingStep(String secretBase32, String code) {
         if (code == null || !code.matches("\\d{6}")) {
-            return false;
+            return -1;
         }
         long currentStep = Instant.now().getEpochSecond() / TIME_STEP_SECONDS;
         for (long step = currentStep - ALLOWED_DRIFT_STEPS; step <= currentStep + ALLOWED_DRIFT_STEPS; step++) {
             if (code.equals(generateCode(secretBase32, step))) {
-                return true;
+                return step;
             }
         }
-        return false;
+        return -1;
     }
 
     @SuppressWarnings("java:S4790") // RFC 6238 mandates HMAC-SHA1 for interop with standard authenticator apps

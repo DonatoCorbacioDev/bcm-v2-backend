@@ -4,6 +4,7 @@ import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.UUID;
 import java.lang.reflect.Method;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,11 +30,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.donatodev.bcm_backend.auth.AuthResponseDTO;
+import com.donatodev.bcm_backend.auth.LoginLockout;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.TotpConfirmResponse;
 import com.donatodev.bcm_backend.dto.TotpSetupResponse;
@@ -363,6 +366,92 @@ class TwoFactorAuthServiceTest {
 
             assertThrows(BadCredentialsException.class,
                     () -> twoFactorAuthService.verifyLogin("pending-token", "000000"));
+        }
+
+        /** A user with 2FA on, reached through a valid MFA-pending token. */
+        private Users pendingLoginFor(String secret) {
+            Users user = Users.builder().id(uid(1)).username(USERNAME).totpEnabled(true)
+                    .totpSecretEncrypted("ENC(" + secret + ")").build();
+            when(jwtUtils.isMfaPendingToken("pending-token")).thenReturn(true);
+            when(jwtUtils.getUsernameFromToken("pending-token")).thenReturn(USERNAME);
+            when(jwtUtils.getOrganizationIdFromToken("pending-token")).thenReturn(ORG_ID);
+            when(usersRepository.findByUsernameAndOrganizationId(USERNAME, ORG_ID)).thenReturn(Optional.of(user));
+            return user;
+        }
+
+        @Test
+        @DisplayName("a wrong code counts against the login lock, and the fifth one locks the account")
+        void wrongCodeCountsAgainstTheLock() {
+            Users user = pendingLoginFor(TotpUtil.generateSecret());
+            user.setFailedLoginAttempts(LoginLockout.MAX_FAILED_ATTEMPTS - 1);
+            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(uid(1))).thenReturn(List.of());
+
+            assertThrows(BadCredentialsException.class,
+                    () -> twoFactorAuthService.verifyLogin("pending-token", "000000"));
+
+            assertEquals(LoginLockout.MAX_FAILED_ATTEMPTS, user.getFailedLoginAttempts());
+            assertNotNull(user.getLockedUntil());
+            verify(usersRepository).save(user);
+        }
+
+        @Test
+        @DisplayName("a locked account is refused before any code is checked, even a valid one")
+        void lockedAccountIsRefusedBeforeTheCode() throws Exception {
+            String secret = TotpUtil.generateSecret();
+            Users user = pendingLoginFor(secret);
+            user.setLockedUntil(LocalDateTime.now().plusMinutes(10));
+            String code = currentCode(secret);
+
+            assertThrows(LockedException.class, () -> twoFactorAuthService.verifyLogin("pending-token", code));
+
+            verify(recoveryCodeRepository, never()).findByUserIdAndUsedAtIsNull(any());
+            verify(jwtUtils, never()).generateToken(any(Users.class));
+        }
+
+        @Test
+        @DisplayName("the same TOTP code is accepted once: replaying it fails and counts as a wrong attempt")
+        void sameCodeIsAcceptedOnce() throws Exception {
+            String secret = TotpUtil.generateSecret();
+            Users user = pendingLoginFor(secret);
+            when(jwtUtils.generateToken(user)).thenReturn("real-access-token");
+            when(refreshTokenService.createRefreshToken(user)).thenReturn("real-refresh-token");
+            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(uid(1))).thenReturn(List.of());
+            String code = currentCode(secret);
+
+            twoFactorAuthService.verifyLogin("pending-token", code);
+            assertNotNull(user.getTotpLastUsedStep());
+
+            assertThrows(BadCredentialsException.class, () -> twoFactorAuthService.verifyLogin("pending-token", code));
+            assertEquals(1, user.getFailedLoginAttempts());
+        }
+
+        @Test
+        @DisplayName("a code from a time step before the last one used is refused")
+        void olderStepIsRefused() throws Exception {
+            String secret = TotpUtil.generateSecret();
+            Users user = pendingLoginFor(secret);
+            long currentStep = Instant.now().getEpochSecond() / 30;
+            user.setTotpLastUsedStep(currentStep);
+            when(recoveryCodeRepository.findByUserIdAndUsedAtIsNull(uid(1))).thenReturn(List.of());
+            String previous = codeAt(secret, currentStep - 1);
+
+            assertThrows(BadCredentialsException.class,
+                    () -> twoFactorAuthService.verifyLogin("pending-token", previous));
+        }
+
+        @Test
+        @DisplayName("a successful 2FA step starts the failed-attempt count again")
+        void successResetsTheCount() throws Exception {
+            String secret = TotpUtil.generateSecret();
+            Users user = pendingLoginFor(secret);
+            user.setFailedLoginAttempts(3);
+            when(jwtUtils.generateToken(user)).thenReturn("real-access-token");
+            when(refreshTokenService.createRefreshToken(user)).thenReturn("real-refresh-token");
+
+            twoFactorAuthService.verifyLogin("pending-token", currentCode(secret));
+
+            assertEquals(0, user.getFailedLoginAttempts());
+            verify(usersRepository).save(user);
         }
 
         @Test

@@ -35,8 +35,6 @@ public class AuthService {
      * does nothing against a distributed or IP-rotating attacker targeting one
      * known username - this is the per-account backstop.
      */
-    private static final int MAX_FAILED_ATTEMPTS = 5;
-    private static final long LOCKOUT_MINUTES = 15;
 
     private final JwtUtils jwtUtils;
     private final UsersRepository usersRepository;
@@ -95,23 +93,15 @@ public class AuthService {
         Users user = findUser(username, organizationSlug);
 
         LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
-        if (user.getLockedUntil() != null) {
-            if (user.getLockedUntil().isAfter(now)) {
-                throw new LockedException(
-                        "Account temporaneamente bloccato per troppi tentativi falliti. Riprova più tardi.");
-            }
-            // Lock expired naturally - start the attempt count fresh.
-            user.setLockedUntil(null);
-            user.setFailedLoginAttempts(0);
-        }
+        LoginLockout.ensureNotLocked(user, now);
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            registerFailedAttempt(user, now);
+            LoginLockout.recordFailure(user, now);
+            usersRepository.save(user);
             throw new BadCredentialsException("Nome utente o password non validi");
         }
 
-        if (user.getFailedLoginAttempts() > 0) {
-            user.setFailedLoginAttempts(0);
+        if (LoginLockout.recordSuccess(user)) {
             usersRepository.save(user);
         }
 
@@ -126,19 +116,6 @@ public class AuthService {
         String accessToken = jwtUtils.generateToken(user);
         String refreshToken = refreshTokenService.createRefreshToken(user);
         return new LoginOutcome(new AuthResponseDTO(accessToken, refreshToken), null);
-    }
-
-    /**
-     * Records one failed login attempt and locks the account for
-     * {@link #LOCKOUT_MINUTES} once {@link #MAX_FAILED_ATTEMPTS} is reached.
-     */
-    private void registerFailedAttempt(Users user, LocalDateTime now) {
-        int attempts = user.getFailedLoginAttempts() + 1;
-        user.setFailedLoginAttempts(attempts);
-        if (attempts >= MAX_FAILED_ATTEMPTS) {
-            user.setLockedUntil(now.plusMinutes(LOCKOUT_MINUTES));
-        }
-        usersRepository.save(user);
     }
 
     /**

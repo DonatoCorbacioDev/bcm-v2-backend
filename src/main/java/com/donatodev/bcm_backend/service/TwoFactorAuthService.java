@@ -8,15 +8,19 @@ package com.donatodev.bcm_backend.service;
 import java.util.UUID;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.auth.AuthResponseDTO;
+import com.donatodev.bcm_backend.auth.LoginLockout;
 import com.donatodev.bcm_backend.dto.TotpConfirmResponse;
 import com.donatodev.bcm_backend.dto.TotpSetupResponse;
 import com.donatodev.bcm_backend.dto.TotpStatusResponse;
@@ -39,6 +43,7 @@ public class TwoFactorAuthService {
     private static final String RECOVERY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no O/0/I/1
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final String INVALID_MFA_SESSION = "Sessione MFA non valida o scaduta";
+    private static final String INVALID_CODE = "Codice di verifica non valido";
 
     private final UsersRepository usersRepository;
     private final TotpRecoveryCodeRepository recoveryCodeRepository;
@@ -84,7 +89,7 @@ public class TwoFactorAuthService {
 
         String secret = totpEncryptionService.decrypt(user.getTotpSecretEncrypted());
         if (!TotpUtil.verifyCode(secret, code)) {
-            throw new IllegalArgumentException("Codice di verifica non valido");
+            throw new IllegalArgumentException(INVALID_CODE);
         }
 
         user.setTotpEnabled(true);
@@ -109,7 +114,7 @@ public class TwoFactorAuthService {
 
         String secret = totpEncryptionService.decrypt(user.getTotpSecretEncrypted());
         if (!TotpUtil.verifyCode(secret, code) && !consumeRecoveryCodeIfValid(user, code)) {
-            throw new IllegalArgumentException("Codice di verifica non valido");
+            throw new IllegalArgumentException(INVALID_CODE);
         }
 
         user.setTotpEnabled(false);
@@ -126,8 +131,13 @@ public class TwoFactorAuthService {
     /**
      * Second step of a two-step login: exchanges a short-lived MFA-pending
      * token plus a TOTP/recovery code for the real access and refresh tokens.
+     *
+     * <p>A wrong code counts against the same lock as a wrong password
+     * ({@link LoginLockout}), and a TOTP code is accepted once: only for a
+     * time step after the last one used. The count must survive the failure,
+     * hence no rollback for the two exceptions thrown on a bad attempt.
      */
-    @Transactional
+    @Transactional(noRollbackFor = { BadCredentialsException.class, LockedException.class })
     public AuthResponseDTO verifyLogin(String mfaToken, String code) {
         if (!jwtUtils.isMfaPendingToken(mfaToken)) {
             throw new BadCredentialsException(INVALID_MFA_SESSION);
@@ -147,15 +157,35 @@ public class TwoFactorAuthService {
             throw new BadCredentialsException(INVALID_MFA_SESSION);
         }
 
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+        LoginLockout.ensureNotLocked(user, now);
+
         String secret = totpEncryptionService.decrypt(user.getTotpSecretEncrypted());
-        boolean valid = TotpUtil.verifyCode(secret, code) || consumeRecoveryCodeIfValid(user, code);
-        if (!valid) {
-            throw new BadCredentialsException("Codice di verifica non valido");
+        if (!acceptTotpCode(user, secret, code) && !consumeRecoveryCodeIfValid(user, code)) {
+            LoginLockout.recordFailure(user, now);
+            usersRepository.save(user);
+            throw new BadCredentialsException(INVALID_CODE);
         }
+        LoginLockout.recordSuccess(user);
+        usersRepository.save(user);
 
         String accessToken = jwtUtils.generateToken(user);
         String refreshToken = refreshTokenService.createRefreshToken(user);
         return new AuthResponseDTO(accessToken, refreshToken);
+    }
+
+    /**
+     * Accepts a TOTP code only for a time step later than the last one used
+     * at login, and remembers the step: the same code can't log in twice.
+     */
+    private static boolean acceptTotpCode(Users user, String secret, String code) {
+        long step = TotpUtil.matchingStep(secret, code);
+        Long lastUsed = user.getTotpLastUsedStep();
+        if (step < 0 || (lastUsed != null && step <= lastUsed)) {
+            return false;
+        }
+        user.setTotpLastUsedStep(step);
+        return true;
     }
 
     private boolean consumeRecoveryCodeIfValid(Users user, String code) {
