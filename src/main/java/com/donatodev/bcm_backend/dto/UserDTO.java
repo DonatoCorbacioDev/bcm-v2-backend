@@ -27,6 +27,8 @@ import com.donatodev.bcm_backend.validation.ValidPassword;
  * @param roleId the ID of the assigned role (not null)
  * @param verified whether the user has verified their email
  * @param canApproveContracts whether the user can approve/reject contracts submitted for review
+ * @param twoFactorEnabled whether the user has turned on two-factor authentication; read-only,
+ * shown to admins so they can ask colleagues to turn it on, and never read from a request
  */
 public record UserDTO(
         UUID id,
@@ -42,7 +44,8 @@ public record UserDTO(
         UUID roleId,
         Boolean verified,
         LocalDateTime createdAt,
-        Boolean canApproveContracts
+        Boolean canApproveContracts,
+        Boolean twoFactorEnabled
         ) {
 
     /**
@@ -52,5 +55,11 @@ public record UserDTO(
     public UserDTO(UUID id, String username, String password, UUID managerId, UUID roleId,
             Boolean verified, LocalDateTime createdAt) {
         this(id, username, password, managerId, roleId, verified, createdAt, false);
+    }
+
+    /** For call sites that only send data: {@code twoFactorEnabled} is never read from a request. */
+    public UserDTO(UUID id, String username, String password, UUID managerId, UUID roleId,
+            Boolean verified, LocalDateTime createdAt, Boolean canApproveContracts) {
+        this(id, username, password, managerId, roleId, verified, createdAt, canApproveContracts, null);
     }
 }

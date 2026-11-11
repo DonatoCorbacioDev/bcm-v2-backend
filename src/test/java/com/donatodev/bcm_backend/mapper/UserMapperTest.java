@@ -3,6 +3,8 @@ package com.donatodev.bcm_backend.mapper;
 import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
@@ -85,6 +87,21 @@ class UserMapperTest {
         assertEquals(savedManager.getId(), dto.managerId());
         assertEquals(savedRole.getId(), dto.roleId());
         assertNull(dto.password()); // password should not be returned in DTO
+    }
+
+    @Test
+    void shouldShowAdminsWhetherTwoFactorIsOn() {
+        Users user = Users.builder().id(uid(1)).username("totpUser").role(savedRole).totpEnabled(true).build();
+
+        assertTrue(userMapper.toDTO(user).twoFactorEnabled());
+    }
+
+    @Test
+    void shouldNeverTurnOnTwoFactorFromARequest() {
+        UserDTO dto = new UserDTO(uid(1), "totpUser", "password123", null, savedRole.getId(),
+                null, null, false, true);
+
+        assertFalse(userMapper.toEntity(dto).isTotpEnabled());
     }
 
     /**

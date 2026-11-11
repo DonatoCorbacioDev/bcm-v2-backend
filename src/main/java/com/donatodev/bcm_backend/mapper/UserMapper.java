@@ -49,7 +49,8 @@ public class UserMapper {
                 user.getRole().getId(),
                 user.isVerified(),
                 user.getCreatedAt(),
-                user.isCanApproveContracts()
+                user.isCanApproveContracts(),
+                user.isTotpEnabled()
         );
     }
 
