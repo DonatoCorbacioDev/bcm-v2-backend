@@ -45,6 +45,9 @@ class RefreshTokenServiceTest {
     @Mock
     private JwtUtils jwtUtils;
 
+    @Mock
+    private com.donatodev.bcm_backend.auth.TwoFactorPolicy twoFactorPolicy;
+
     @InjectMocks
     private RefreshTokenService refreshTokenService;
 
@@ -127,6 +130,21 @@ class RefreshTokenServiceTest {
             assertNotNull(result.refreshToken());
             assertFalse(result.refreshToken().isEmpty());
             assertTrue(token.isRevoked());
+        }
+
+        @Test
+        @DisplayName("refreshAccessToken ends the session of an account that must set 2FA up")
+        void shouldNotRenewASessionThatNeedsTwoFactor() {
+            Users admin = Users.builder().username("boss").build();
+            RefreshToken token = RefreshToken.builder().token(sha256("valid-token")).user(admin)
+                    .expiryDate(Instant.parse("2030-01-01T00:00:00Z")).revoked(false).build();
+            when(refreshTokenRepository.findByToken(sha256("valid-token"))).thenReturn(Optional.of(token));
+            when(twoFactorPolicy.blocksSession(admin)).thenReturn(true);
+
+            org.junit.jupiter.api.Assertions.assertThrows(com.donatodev.bcm_backend.exception.RefreshTokenException.class,
+                    () -> refreshTokenService.refreshAccessToken("valid-token"));
+            assertTrue(token.isRevoked());
+            org.mockito.Mockito.verify(jwtUtils, org.mockito.Mockito.never()).generateToken(any());
         }
 
         @Test

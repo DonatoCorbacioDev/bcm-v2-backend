@@ -20,11 +20,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.donatodev.bcm_backend.auth.AuthResponseDTO;
+import com.donatodev.bcm_backend.auth.LoginOutcome;
+import com.donatodev.bcm_backend.auth.SessionIssuer;
 import com.donatodev.bcm_backend.dto.OrganizationRegistrationRequest;
 import com.donatodev.bcm_backend.dto.RegistrationStartedDTO;
 import com.donatodev.bcm_backend.dto.RequestOrigin;
 import com.donatodev.bcm_backend.entity.PendingRegistration;
+import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.RegistrationCodeException;
 import com.donatodev.bcm_backend.repository.PendingRegistrationRepository;
 import com.donatodev.bcm_backend.validation.PasswordPolicy;
@@ -58,17 +60,20 @@ public class OrganizationRegistrationService {
     private final OrganizationService organizationService;
     private final PasswordEncoder passwordEncoder;
     private final IEmailService emailService;
+    private final SessionIssuer sessionIssuer;
     private final SecureRandom random = new SecureRandom();
 
     public OrganizationRegistrationService(
             PendingRegistrationRepository pendingRepository,
             OrganizationService organizationService,
             PasswordEncoder passwordEncoder,
-            IEmailService emailService) {
+            IEmailService emailService,
+            SessionIssuer sessionIssuer) {
         this.pendingRepository = pendingRepository;
         this.organizationService = organizationService;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+        this.sessionIssuer = sessionIssuer;
     }
 
     /**
@@ -142,7 +147,7 @@ public class OrganizationRegistrationService {
      * million possible codes can't be guessed.
      */
     @Transactional(noRollbackFor = RegistrationCodeException.class)
-    public AuthResponseDTO confirm(String registrationId, String code, RequestOrigin origin) {
+    public LoginOutcome confirm(String registrationId, String code, RequestOrigin origin) {
         PendingRegistration pending = findLive(registrationId);
 
         boolean matches = MessageDigest.isEqual(
@@ -159,9 +164,10 @@ public class OrganizationRegistrationService {
             throw new RegistrationCodeException(WRONG_CODE);
         }
 
-        AuthResponseDTO tokens = organizationService.createConfirmedOrganization(pending, origin);
+        Users admin = organizationService.createConfirmedOrganization(pending, origin);
         pendingRepository.delete(pending);
-        return tokens;
+        // The new admin sets 2FA up before the first session (TwoFactorPolicy).
+        return sessionIssuer.afterFirstFactor(admin);
     }
 
     /** Hourly cleanup of registrations whose code expired without being used. */

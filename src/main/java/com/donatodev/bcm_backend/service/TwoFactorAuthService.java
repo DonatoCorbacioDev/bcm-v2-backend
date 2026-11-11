@@ -74,7 +74,18 @@ public class TwoFactorAuthService {
 
     @Transactional
     public TotpSetupResponse setup() {
-        Users user = currentUserResolver.resolve();
+        return setupFor(currentUserResolver.resolve());
+    }
+
+    /**
+     * A new secret, not yet active. Refused while 2FA is on: overwriting the
+     * secret used to turn 2FA off without a code, so a stolen session could
+     * drop it. Changing the device goes through {@link #disable} first.
+     */
+    private TotpSetupResponse setupFor(Users user) {
+        if (user.isTotpEnabled()) {
+            throw new IllegalArgumentException("La 2FA è già attiva: per cambiare dispositivo disattivala prima con un codice");
+        }
         String secret = TotpUtil.generateSecret();
         user.setTotpSecretEncrypted(totpEncryptionService.encrypt(secret));
         user.setTotpEnabled(false);
@@ -85,7 +96,13 @@ public class TwoFactorAuthService {
 
     @Transactional
     public TotpConfirmResponse confirm(String code) {
-        Users user = currentUserResolver.resolve();
+        return confirmFor(currentUserResolver.resolve(), code);
+    }
+
+    private TotpConfirmResponse confirmFor(Users user, String code) {
+        if (user.isTotpEnabled()) {
+            throw new IllegalArgumentException("La 2FA è già attiva");
+        }
         if (user.getTotpSecretEncrypted() == null) {
             throw new IllegalArgumentException("Eseguire prima il setup per confermare la 2FA");
         }
@@ -129,6 +146,43 @@ public class TwoFactorAuthService {
         sessionRevocationService.credentialsChanged(user);
     }
 
+    /**
+     * First step of the 2FA setup an account must do before its first session
+     * ({@code TwoFactorPolicy}), authorized by the setup token from login
+     * instead of a session.
+     */
+    @Transactional
+    public TotpSetupResponse enrollSetup(String setupToken) {
+        return setupFor(userFromSetupToken(setupToken));
+    }
+
+    /**
+     * Second step: the code from the new authenticator turns 2FA on, and only
+     * then the account gets its session, with the recovery codes to save.
+     */
+    @Transactional
+    public EnrollmentResult enrollConfirm(String setupToken, String code) {
+        Users user = userFromSetupToken(setupToken);
+        TotpConfirmResponse codes = confirmFor(user, code);
+        AuthResponseDTO session = new AuthResponseDTO(jwtUtils.generateToken(user),
+                refreshTokenService.createRefreshToken(user));
+        return new EnrollmentResult(codes.recoveryCodes(), session);
+    }
+
+    public record EnrollmentResult(List<String> recoveryCodes, AuthResponseDTO session) {}
+
+    private Users userFromSetupToken(String setupToken) {
+        if (!jwtUtils.isMfaSetupToken(setupToken)) {
+            throw new BadCredentialsException(INVALID_MFA_SESSION);
+        }
+        UUID orgId = jwtUtils.getOrganizationIdFromToken(setupToken);
+        if (orgId == null) {
+            throw new BadCredentialsException(INVALID_MFA_SESSION);
+        }
+        return usersRepository.findByUsernameAndOrganizationId(jwtUtils.getUsernameFromToken(setupToken), orgId)
+                .orElseThrow(() -> new BadCredentialsException(INVALID_MFA_SESSION));
+    }
+
     @Transactional(readOnly = true)
     public TotpStatusResponse status() {
         return new TotpStatusResponse(currentUserResolver.resolve().isTotpEnabled());
@@ -145,7 +199,8 @@ public class TwoFactorAuthService {
      */
     @Transactional(noRollbackFor = { BadCredentialsException.class, LockedException.class })
     public AuthResponseDTO verifyLogin(String mfaToken, String code) {
-        if (!jwtUtils.isMfaPendingToken(mfaToken)) {
+        // A setup token carries mfaPending too, but proves only the password.
+        if (!jwtUtils.isMfaPendingToken(mfaToken) || jwtUtils.isMfaSetupToken(mfaToken)) {
             throw new BadCredentialsException(INVALID_MFA_SESSION);
         }
 

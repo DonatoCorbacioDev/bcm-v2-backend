@@ -122,6 +122,89 @@ class TwoFactorAuthServiceTest {
             assertEquals("ENC(" + response.secret() + ")", user.getTotpSecretEncrypted());
             verify(usersRepository).save(user);
         }
+
+        @Test
+        @DisplayName("is refused while 2FA is on: a session alone can't drop it by replacing the secret")
+        void shouldNotReplaceAnActiveSecret() {
+            authenticateAs(USERNAME);
+            Users user = Users.builder().username(USERNAME).totpEnabled(true).totpSecretEncrypted("ENC(OLD)").build();
+            when(usersRepository.findByUsernameAndOrganizationId(USERNAME, TENANT)).thenReturn(Optional.of(user));
+
+            assertThrows(IllegalArgumentException.class, () -> twoFactorAuthService.setup());
+
+            assertTrue(user.isTotpEnabled());
+            assertEquals("ENC(OLD)", user.getTotpSecretEncrypted());
+            verify(usersRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("enrollment with a setup token")
+    class Enrollment {
+
+        private Users pendingAdmin() {
+            Users user = Users.builder().id(uid(9)).username(USERNAME).build();
+            when(jwtUtils.isMfaSetupToken("setup-token")).thenReturn(true);
+            when(jwtUtils.getOrganizationIdFromToken("setup-token")).thenReturn(ORG_ID);
+            when(jwtUtils.getUsernameFromToken("setup-token")).thenReturn(USERNAME);
+            when(usersRepository.findByUsernameAndOrganizationId(USERNAME, ORG_ID)).thenReturn(Optional.of(user));
+            return user;
+        }
+
+        @Test
+        @DisplayName("setup then confirm turns 2FA on and only then opens the session")
+        void shouldEnrollAndOpenTheSession() throws Exception {
+            Users user = pendingAdmin();
+            when(jwtUtils.generateToken(user)).thenReturn("access");
+            when(refreshTokenService.createRefreshToken(user)).thenReturn("refresh");
+
+            String secret = twoFactorAuthService.enrollSetup("setup-token").secret();
+            TwoFactorAuthService.EnrollmentResult result =
+                    twoFactorAuthService.enrollConfirm("setup-token", currentCode(secret));
+
+            assertTrue(user.isTotpEnabled());
+            assertEquals(10, result.recoveryCodes().size());
+            assertEquals("access", result.session().token());
+            verify(sessionRevocationService).credentialsChanged(user);
+        }
+
+        @Test
+        @DisplayName("a wrong code turns nothing on and opens no session")
+        void shouldRefuseAWrongCode() {
+            Users user = pendingAdmin();
+            twoFactorAuthService.enrollSetup("setup-token");
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> twoFactorAuthService.enrollConfirm("setup-token", "000000"));
+
+            assertFalse(user.isTotpEnabled());
+            verify(refreshTokenService, never()).createRefreshToken(any());
+        }
+
+        @Test
+        @DisplayName("anything but a setup token is refused, an MFA-pending one included")
+        void shouldRefuseOtherTokens() {
+            when(jwtUtils.isMfaSetupToken("mfa-pending")).thenReturn(false);
+
+            assertThrows(BadCredentialsException.class, () -> twoFactorAuthService.enrollSetup("mfa-pending"));
+            assertThrows(BadCredentialsException.class,
+                    () -> twoFactorAuthService.enrollConfirm("mfa-pending", "123456"));
+            verify(usersRepository, never()).findByUsernameAndOrganizationId(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("a setup token can't stand in for the code at the second login step")
+        void setupTokenIsNotAnMfaToken() {
+            lenient().when(jwtUtils.isMfaPendingToken("setup-token")).thenReturn(true);
+            when(jwtUtils.isMfaSetupToken("setup-token")).thenReturn(true);
+            // Everything else about it is valid: only the setup claim must stop it.
+            lenient().when(jwtUtils.getOrganizationIdFromToken("setup-token")).thenReturn(ORG_ID);
+            lenient().when(jwtUtils.getUsernameFromToken("setup-token")).thenReturn(USERNAME);
+
+            assertThrows(BadCredentialsException.class,
+                    () -> twoFactorAuthService.verifyLogin("setup-token", "123456"));
+            verify(usersRepository, never()).findByUsernameAndOrganizationId(anyString(), any());
+        }
     }
 
     @Nested

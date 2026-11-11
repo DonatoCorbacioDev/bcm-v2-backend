@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
@@ -14,7 +15,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
+
 import org.mockito.Mock;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -54,8 +55,15 @@ class AuthServiceTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
-    @InjectMocks
     private AuthService authService;
+
+    // The real SessionIssuer and policy over the mocks: what a password leads
+    // to is part of what this class decides. "demo_admin" is exempt, as in production.
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        authService = new AuthService(usersRepository, passwordEncoder,
+                new SessionIssuer(jwtUtils, refreshTokenService, new TwoFactorPolicy("demo_admin")));
+    }
 
     /**
      * Nested class grouping all unit tests for authentication service.
@@ -251,6 +259,39 @@ class AuthServiceTest {
 
             assertTrue(outcome.mfaRequired());
             assertEquals("fake-mfa-pending-token", outcome.mfaToken());
+        }
+
+        @Test
+        @DisplayName("An ADMIN without 2FA gets only a setup token, never a session")
+        void adminWithoutTwoFactorMustSetItUp() {
+            Users admin = Users.builder().username("boss").passwordHash("hashedpwd").verified(true)
+                    .role(com.donatodev.bcm_backend.entity.Roles.builder().role("ADMIN").build()).build();
+            when(usersRepository.findAllByUsername("boss")).thenReturn(List.of(admin));
+            when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
+            when(jwtUtils.generateMfaSetupToken(admin)).thenReturn("setup-token");
+
+            LoginOutcome outcome = authService.authenticate("boss", "password");
+
+            assertTrue(outcome.mfaSetupRequired());
+            assertEquals("setup-token", outcome.setupToken());
+            assertNull(outcome.tokens());
+            org.mockito.Mockito.verifyNoInteractions(refreshTokenService);
+        }
+
+        @Test
+        @DisplayName("The exempt demo admin still signs in with a password")
+        void exemptAdminSignsIn() {
+            Users admin = Users.builder().username("demo_admin").passwordHash("hashedpwd").verified(true)
+                    .role(com.donatodev.bcm_backend.entity.Roles.builder().role("ADMIN").build()).build();
+            when(usersRepository.findAllByUsername("demo_admin")).thenReturn(List.of(admin));
+            when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
+            when(jwtUtils.generateToken(admin)).thenReturn("access");
+            when(refreshTokenService.createRefreshToken(admin)).thenReturn("refresh");
+
+            LoginOutcome outcome = authService.authenticate("demo_admin", "password");
+
+            assertEquals("access", outcome.tokens().token());
+            assertFalse(outcome.mfaSetupRequired());
         }
 
         @Test

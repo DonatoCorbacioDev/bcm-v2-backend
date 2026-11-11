@@ -47,7 +47,6 @@ import com.donatodev.bcm_backend.entity.SubscriptionTier;
 import com.donatodev.bcm_backend.entity.TermsAcceptance;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.OrganizationNotFoundException;
-import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.RolesRepository;
@@ -76,8 +75,6 @@ class OrganizationServiceTest {
     @Mock private ManagersRepository managersRepository;
     @Mock private RolesRepository rolesRepository;
     @Mock private TermsAcceptanceRepository termsAcceptanceRepository;
-    @Mock private JwtUtils jwtUtils;
-    @Mock private RefreshTokenService refreshTokenService;
     @Mock private com.donatodev.bcm_backend.repository.ContractsRepository contractsRepository;
     @Mock private TierLimitService tierLimitService;
     @Mock private AuditLogService auditLogService;
@@ -117,7 +114,7 @@ class OrganizationServiceTest {
 
         @Test
         @Order(1)
-        @DisplayName("createConfirmedOrganization creates org + admin and returns tokens")
+        @DisplayName("createConfirmedOrganization creates org + admin and returns the admin")
         void shouldRegisterOrganizationAndReturnTokens() {
             Organization org = savedOrg();
             Managers manager = Managers.builder().id(uid(1)).email("admin@acme.com").build();
@@ -131,13 +128,8 @@ class OrganizationServiceTest {
             when(rolesRepository.findByRole("ADMIN"))
                     .thenReturn(Optional.of(Roles.builder().role("ADMIN").build()));
             when(usersRepository.save(any())).thenReturn(admin);
-            when(jwtUtils.generateToken(admin)).thenReturn("access-token");
-            when(refreshTokenService.createRefreshToken(admin)).thenReturn("refresh-token");
 
-            var response = organizationService.createConfirmedOrganization(validPending(), CONFIRM_ORIGIN);
-
-            assertEquals("access-token", response.token());
-            assertEquals("refresh-token", response.refreshToken());
+            assertEquals(admin, organizationService.createConfirmedOrganization(validPending(), CONFIRM_ORIGIN));
 
             ArgumentCaptor<Organization> created = ArgumentCaptor.forClass(Organization.class);
             verify(organizationRepository).save(created.capture());
@@ -263,11 +255,8 @@ class OrganizationServiceTest {
             when(rolesRepository.findByRole("ADMIN"))
                     .thenReturn(Optional.of(Roles.builder().role("ADMIN").build()));
             when(usersRepository.save(any())).thenReturn(admin);
-            when(jwtUtils.generateToken(any())).thenReturn("token");
-            when(refreshTokenService.createRefreshToken(any())).thenReturn("rt");
 
-            var response = organizationService.createConfirmedOrganization(validPending(), CONFIRM_ORIGIN);
-            assertNotNull(response.token());
+            assertEquals(admin, organizationService.createConfirmedOrganization(validPending(), CONFIRM_ORIGIN));
         }
 
         @Test
@@ -325,12 +314,8 @@ class OrganizationServiceTest {
             when(rolesRepository.findByRole("ADMIN"))
                     .thenReturn(Optional.of(com.donatodev.bcm_backend.entity.Roles.builder().role("ADMIN").build()));
             when(usersRepository.save(any())).thenReturn(admin);
-            when(jwtUtils.generateToken(any())).thenReturn("token");
-            when(refreshTokenService.createRefreshToken(any())).thenReturn("rt");
 
-            var response = organizationService.createConfirmedOrganization(req, CONFIRM_ORIGIN);
-
-            assertNotNull(response.token());
+            assertEquals(admin, organizationService.createConfirmedOrganization(req, CONFIRM_ORIGIN));
         }
 
         @Test

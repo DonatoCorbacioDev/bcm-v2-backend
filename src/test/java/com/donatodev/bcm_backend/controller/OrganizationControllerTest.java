@@ -84,6 +84,7 @@ class OrganizationControllerTest {
     @Autowired private ManagersRepository managersRepository;
     @Autowired private RolesRepository rolesRepository;
     @Autowired private RefreshTokenRepository refreshTokenRepository;
+    @Autowired private com.donatodev.bcm_backend.repository.TotpRecoveryCodeRepository totpRecoveryCodeRepository;
     @Autowired private AuditLogRepository auditLogRepository;
     @Autowired private PendingRegistrationRepository pendingRegistrationRepository;
     @Autowired private TermsAcceptanceRepository termsAcceptanceRepository;
@@ -109,6 +110,7 @@ class OrganizationControllerTest {
         pendingRegistrationRepository.deleteAll();
         termsAcceptanceRepository.deleteAll();
         refreshTokenRepository.deleteAll();
+        totpRecoveryCodeRepository.deleteAll(); // the 2FA setup after registration creates them
         usersRepository.deleteAll();
         managersRepository.deleteAll();
         rolesRepository.deleteAll();
@@ -158,6 +160,13 @@ class OrganizationControllerTest {
         ArgumentCaptor<String> code = ArgumentCaptor.forClass(String.class);
         verify(dummyEmailService, atLeastOnce()).sendRegistrationCode(eq(email), code.capture(), anyInt());
         return code.getValue();
+    }
+
+    private static String currentTotp(String secret) throws Exception {
+        java.lang.reflect.Method m = com.donatodev.bcm_backend.util.TotpUtil.class
+                .getDeclaredMethod("generateCode", String.class, long.class);
+        m.setAccessible(true);
+        return (String) m.invoke(null, secret, java.time.Instant.now().getEpochSecond() / 30);
     }
 
     private ResultActions confirm(String registrationId, String code) throws Exception {
@@ -268,17 +277,49 @@ class OrganizationControllerTest {
         void shouldCreateOrganizationWithRightCode() throws Exception {
             String id = start(registration("Test Corp", "testadmin", "admin@testcorp.com"));
 
-            confirm(id, emailedCode("admin@testcorp.com"))
+            // The new admin gets no session yet: only a token to set 2FA up.
+            String body = confirm(id, emailedCode("admin@testcorp.com"))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.token").exists())
+                    .andExpect(jsonPath("$.token").doesNotExist())
+                    .andExpect(jsonPath("$.mfaSetupRequired").value(true))
                     .andExpect(jsonPath("$.refreshToken").doesNotExist())
-                    .andExpect(cookie().exists(RefreshCookieFactory.COOKIE_NAME))
-                    .andExpect(cookie().httpOnly(RefreshCookieFactory.COOKIE_NAME, true));
+                    .andExpect(cookie().doesNotExist(RefreshCookieFactory.COOKIE_NAME))
+                    .andReturn().getResponse().getContentAsString();
+            String setupToken = com.jayway.jsonpath.JsonPath.read(body, "$.setupToken");
 
             Users admin = usersRepository.findByUsername("testadmin").orElseThrow();
             assertTrue(admin.isVerified());
             assertTrue(passwordEncoder.matches("password123", admin.getPasswordHash()));
             assertEquals(0, pendingRegistrationRepository.count());
+
+            // The setup token opens nothing else.
+            mockMvc.perform(get("/organizations/me").header("Authorization", "Bearer " + setupToken))
+                    .andExpect(status().isUnauthorized());
+
+            String secret = com.jayway.jsonpath.JsonPath.read(mockMvc.perform(post("/auth/2fa/enroll/setup")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"setupToken\":\"%s\"}".formatted(setupToken)))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString(), "$.secret");
+
+            String session = mockMvc.perform(post("/auth/2fa/enroll/confirm")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"setupToken\":\"%s\",\"code\":\"%s\"}".formatted(setupToken, currentTotp(secret))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.recoveryCodes.length()").value(10))
+                    .andExpect(cookie().exists(RefreshCookieFactory.COOKIE_NAME))
+                    .andReturn().getResponse().getContentAsString();
+            assertTrue(usersRepository.findByUsername("testadmin").orElseThrow().isTotpEnabled());
+
+            mockMvc.perform(get("/organizations/me")
+                            .header("Authorization", "Bearer " + com.jayway.jsonpath.JsonPath.read(session, "$.token")))
+                    .andExpect(status().isOk());
+
+            // Once 2FA is on, the same setup token can't replace the secret.
+            mockMvc.perform(post("/auth/2fa/enroll/setup")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"setupToken\":\"%s\"}".formatted(setupToken)))
+                    .andExpect(status().isBadRequest());
         }
 
         @Test

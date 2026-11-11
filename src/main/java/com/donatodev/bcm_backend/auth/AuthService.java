@@ -18,9 +18,7 @@ import org.springframework.stereotype.Service;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.AccountNotVerifiedException;
 import com.donatodev.bcm_backend.exception.AmbiguousUsernameException;
-import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.UsersRepository;
-import com.donatodev.bcm_backend.service.RefreshTokenService;
 
 /**
  * Service class responsible for handling authentication logic.
@@ -36,17 +34,15 @@ public class AuthService {
      * known username - this is the per-account backstop.
      */
 
-    private final JwtUtils jwtUtils;
     private final UsersRepository usersRepository;
     private final PasswordEncoder passwordEncoder;
-    private final RefreshTokenService refreshTokenService;
+    private final SessionIssuer sessionIssuer;
 
-    public AuthService(JwtUtils jwtUtils, UsersRepository usersRepository,
-                       PasswordEncoder passwordEncoder, RefreshTokenService refreshTokenService) {
-        this.jwtUtils = jwtUtils;
+    public AuthService(UsersRepository usersRepository, PasswordEncoder passwordEncoder,
+                       SessionIssuer sessionIssuer) {
         this.usersRepository = usersRepository;
         this.passwordEncoder = passwordEncoder;
-        this.refreshTokenService = refreshTokenService;
+        this.sessionIssuer = sessionIssuer;
     }
 
     /**
@@ -75,13 +71,14 @@ public class AuthService {
      * If the account has TOTP 2FA enabled, this stops short of issuing real
      * tokens: the caller must complete the login via
      * {@code TwoFactorAuthService.verifyLogin} using the returned MFA-pending
-     * token.
+     * token. An account that must have 2FA ({@link TwoFactorPolicy}) but has
+     * not set it up gets only a setup token for the enrollment endpoints.
      *
      * @param username the user's username
      * @param password the raw password to verify
      * @param organizationSlug optional slug of the organization the user belongs to
-     * @return a {@link LoginOutcome} carrying either the issued tokens, or an
-     * MFA-pending token if the account has 2FA enabled
+     * @return a {@link LoginOutcome} carrying the issued tokens, an
+     * MFA-pending token, or a 2FA setup token
      * @throws UsernameNotFoundException if the username is not found
      * @throws AmbiguousUsernameException if the username matches users in multiple organizations
      * and no {@code organizationSlug} was provided
@@ -109,13 +106,8 @@ public class AuthService {
             throw new AccountNotVerifiedException("Account non verificato. Controlla la tua email");
         }
 
-        if (user.isTotpEnabled()) {
-            return new LoginOutcome(null, jwtUtils.generateMfaPendingToken(user));
-        }
-
-        String accessToken = jwtUtils.generateToken(user);
-        String refreshToken = refreshTokenService.createRefreshToken(user);
-        return new LoginOutcome(new AuthResponseDTO(accessToken, refreshToken), null);
+        // 2FA on: the code comes next. An admin without it: set it up first.
+        return sessionIssuer.afterFirstFactor(user);
     }
 
     /**

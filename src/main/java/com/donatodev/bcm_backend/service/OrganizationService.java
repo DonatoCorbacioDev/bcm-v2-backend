@@ -16,7 +16,6 @@ import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.donatodev.bcm_backend.auth.AuthResponseDTO;
 import com.donatodev.bcm_backend.config.LegalTerms;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.OrganizationDTO;
@@ -33,7 +32,6 @@ import com.donatodev.bcm_backend.entity.SubscriptionTier;
 import com.donatodev.bcm_backend.entity.TermsAcceptance;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.OrganizationNotFoundException;
-import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
@@ -53,8 +51,6 @@ public class OrganizationService {
     private final ManagersRepository managersRepository;
     private final RolesRepository rolesRepository;
     private final TermsAcceptanceRepository termsAcceptanceRepository;
-    private final JwtUtils jwtUtils;
-    private final RefreshTokenService refreshTokenService;
     private final ContractsRepository contractsRepository;
     private final TierLimitService tierLimitService;
     private final AuditLogService auditLogService;
@@ -66,8 +62,6 @@ public class OrganizationService {
             ManagersRepository managersRepository,
             RolesRepository rolesRepository,
             TermsAcceptanceRepository termsAcceptanceRepository,
-            JwtUtils jwtUtils,
-            RefreshTokenService refreshTokenService,
             ContractsRepository contractsRepository,
             TierLimitService tierLimitService,
             AuditLogService auditLogService,
@@ -77,8 +71,6 @@ public class OrganizationService {
         this.managersRepository = managersRepository;
         this.rolesRepository = rolesRepository;
         this.termsAcceptanceRepository = termsAcceptanceRepository;
-        this.jwtUtils = jwtUtils;
-        this.refreshTokenService = refreshTokenService;
         this.contractsRepository = contractsRepository;
         this.tierLimitService = tierLimitService;
         this.auditLogService = auditLogService;
@@ -112,12 +104,14 @@ public class OrganizationService {
     /**
      * Creates the organization and its admin once the emailed code has been
      * typed back, and stores the signed Terms acceptance as evidence. The
-     * email is verified by then, hence {@code verified(true)}.
+     * email is verified by then, hence {@code verified(true)}. What the new
+     * admin gets next (a 2FA setup, not a session) is the caller's decision.
      *
      * @param confirmOrigin where the confirming request came from
+     * @return the new organization's admin
      */
     @Transactional
-    public AuthResponseDTO createConfirmedOrganization(PendingRegistration pending, RequestOrigin confirmOrigin) {
+    public Users createConfirmedOrganization(PendingRegistration pending, RequestOrigin confirmOrigin) {
         ensureRegistrable(pending.getAdminUsername(), pending.getAdminEmail(), pending.getTermsVersion());
 
         LocalDateTime acceptedAt = LocalDateTime.now(ZoneId.systemDefault());
@@ -172,9 +166,7 @@ public class OrganizationService {
                 "terms " + pending.getTermsVersion() + "; professional use declared; onerous clauses "
                 + LegalTerms.ONEROUS_CLAUSES + " approved (artt. 1341-1342 c.c.); signed with emailed code");
 
-        String accessToken = jwtUtils.generateToken(admin);
-        String refreshToken = refreshTokenService.createRefreshToken(admin);
-        return new AuthResponseDTO(accessToken, refreshToken);
+        return admin;
     }
 
     // Shared by validateNewRegistration and createConfirmedOrganization as a

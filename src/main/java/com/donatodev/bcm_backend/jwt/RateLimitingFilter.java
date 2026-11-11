@@ -25,7 +25,7 @@ import jakarta.servlet.http.HttpServletResponse;
 public class RateLimitingFilter extends OncePerRequestFilter {
 
     private static final Set<String> RATE_LIMITED_PATHS = Set.of(
-            "/auth/login", "/auth/2fa/verify",
+            "/auth/login", "/auth/2fa/verify", "/auth/2fa/enroll/setup", "/auth/2fa/enroll/confirm",
             "/auth/forgot-password", "/auth/reset-password",
             "/auth/refresh", "/auth/complete-invite",
             "/organizations/register", "/organizations/register/resend",
@@ -58,7 +58,15 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             String ip = request.getRemoteAddr();
 
             boolean refresh = "/auth/refresh".equals(request.getServletPath());
-            String bucketKey = BUCKET_KEY_PREFIX + (refresh ? "refresh:" : "") + ip;
+            // The 2FA setup after a login has its own budget, so setting it up
+            // (two calls, maybe a mistyped code) never uses up the login's.
+            String bucket = "";
+            if (refresh) {
+                bucket = "refresh:";
+            } else if (request.getServletPath().startsWith("/auth/2fa/enroll/")) {
+                bucket = "enroll:";
+            }
+            String bucketKey = BUCKET_KEY_PREFIX + bucket + ip;
             int limit = refresh ? refreshRequestsPerMinute : requestsPerMinute;
 
             if (!bucketSource.tryConsume(bucketKey, limit)) {

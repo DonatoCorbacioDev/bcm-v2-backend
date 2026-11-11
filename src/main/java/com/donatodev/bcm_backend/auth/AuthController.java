@@ -94,6 +94,9 @@ public class AuthController {
         if (outcome.mfaRequired()) {
             return ResponseEntity.ok(new LoginResponseDTO(null, true, outcome.mfaToken()));
         }
+        if (outcome.mfaSetupRequired()) {
+            return ResponseEntity.ok(LoginResponseDTO.setupRequired(outcome.setupToken()));
+        }
 
         AuthResponseDTO response = outcome.tokens();
         return ResponseEntity.ok()
@@ -114,6 +117,28 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.create(response.refreshToken()).toString())
                 .body(new LoginResponseDTO(response.token(), false, null));
+    }
+
+    /**
+     * First step of the 2FA setup an admin must do before the first session:
+     * a new secret, authorized by the setup token from {@link #login}.
+     */
+    @PostMapping("/2fa/enroll/setup")
+    public ResponseEntity<TotpSetupResponse> enrollSetup(@Valid @RequestBody MfaSetupTokenRequest request) {
+        return ResponseEntity.ok(twoFactorAuthService.enrollSetup(request.setupToken()));
+    }
+
+    /**
+     * Second step: the code from the authenticator turns 2FA on and opens the
+     * session, returning the recovery codes once.
+     */
+    @PostMapping("/2fa/enroll/confirm")
+    public ResponseEntity<EnrollmentResponse> enrollConfirm(@Valid @RequestBody MfaEnrollConfirmRequest request) {
+        TwoFactorAuthService.EnrollmentResult result =
+                twoFactorAuthService.enrollConfirm(request.setupToken(), request.code());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.create(result.session().refreshToken()).toString())
+                .body(new EnrollmentResponse(result.session().token(), result.recoveryCodes()));
     }
 
     @PostMapping("/refresh")

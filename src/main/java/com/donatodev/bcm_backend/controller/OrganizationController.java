@@ -24,7 +24,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
-import com.donatodev.bcm_backend.auth.AccessTokenResponse;
+import com.donatodev.bcm_backend.auth.LoginOutcome;
+import com.donatodev.bcm_backend.auth.LoginResponseDTO;
 import com.donatodev.bcm_backend.auth.AuthResponseDTO;
 import com.donatodev.bcm_backend.auth.RefreshCookieFactory;
 import com.donatodev.bcm_backend.dto.ConfirmOrganizationDeletionRequest;
@@ -86,13 +87,18 @@ public class OrganizationController {
 
     /** Step 2: the emailed code creates the organization and signs the Terms acceptance. */
     @PostMapping("/register/confirm")
-    public ResponseEntity<AccessTokenResponse> confirmRegistration(
+    public ResponseEntity<LoginResponseDTO> confirmRegistration(
             @Valid @RequestBody ConfirmRegistrationRequest request, HttpServletRequest httpRequest) {
-        AuthResponseDTO response = registrationService.confirm(
+        LoginOutcome outcome = registrationService.confirm(
                 request.registrationId(), request.code(), RequestOrigin.from(httpRequest));
+        // A new admin sets 2FA up before the first session: no cookie yet.
+        if (outcome.mfaSetupRequired()) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(LoginResponseDTO.setupRequired(outcome.setupToken()));
+        }
+        AuthResponseDTO response = outcome.tokens();
         return ResponseEntity.status(HttpStatus.CREATED)
                 .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.create(response.refreshToken()).toString())
-                .body(new AccessTokenResponse(response.token()));
+                .body(new LoginResponseDTO(response.token(), false, null));
     }
 
     @GetMapping("/me")

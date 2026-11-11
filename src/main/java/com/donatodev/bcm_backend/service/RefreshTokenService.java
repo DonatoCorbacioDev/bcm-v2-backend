@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.donatodev.bcm_backend.auth.TwoFactorPolicy;
 import com.donatodev.bcm_backend.entity.RefreshToken;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.RefreshTokenException;
@@ -27,10 +28,13 @@ public class RefreshTokenService {
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtUtils jwtUtils;
+    private final TwoFactorPolicy twoFactorPolicy;
 
-    public RefreshTokenService(RefreshTokenRepository refreshTokenRepository, JwtUtils jwtUtils) {
+    public RefreshTokenService(RefreshTokenRepository refreshTokenRepository, JwtUtils jwtUtils,
+            TwoFactorPolicy twoFactorPolicy) {
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtUtils = jwtUtils;
+        this.twoFactorPolicy = twoFactorPolicy;
     }
 
     @Transactional
@@ -65,6 +69,13 @@ public class RefreshTokenService {
 
         refreshToken.setRevoked(true);
         refreshTokenRepository.save(refreshToken);
+
+        // A session opened before 2FA became required for this account (an
+        // admin from before the rule, a user just made admin) is not renewed:
+        // the next login asks to set 2FA up.
+        if (twoFactorPolicy.blocksSession(refreshToken.getUser())) {
+            throw new RefreshTokenException("Configura l'autenticazione a due fattori: accedi di nuovo");
+        }
 
         IssuedToken newToken = issueToken(refreshToken.getUser());
         String newAccessToken = jwtUtils.generateToken(refreshToken.getUser());

@@ -51,6 +51,8 @@ public class JwtUtils {
 
     private static final long MFA_PENDING_TOKEN_TTL_MS = 5 * 60 * 1000L;
     private static final String CLAIM_MFA_PENDING = "mfaPending";
+    private static final long MFA_SETUP_TOKEN_TTL_MS = 10 * 60 * 1000L;
+    private static final String CLAIM_MFA_SETUP = "mfaSetup";
     private static final String CLAIM_ORG_ID = "orgId";
 
     public Clock getClock() {
@@ -135,6 +137,38 @@ public class JwtUtils {
                 .claim(CLAIM_MFA_PENDING, true)
                 .signWith(getSigningKey())
                 .compact();
+    }
+
+    /**
+     * Issues a short-lived token for an account that passed the password check
+     * but must set two-factor authentication up first ({@code TwoFactorPolicy}).
+     * It also carries {@code mfaPending}, so the authentication filter refuses
+     * it like any token that is not a real session; only the enrollment
+     * endpoints accept it, through {@link #isMfaSetupToken}.
+     */
+    public String generateMfaSetupToken(Users user) {
+        Instant now = clock.instant();
+        UUID orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
+
+        return Jwts.builder()
+                .subject(user.getUsername())
+                .issuedAt(toLegacyDate(now))
+                .expiration(toLegacyDate(now.plusMillis(MFA_SETUP_TOKEN_TTL_MS)))
+                .claim(CLAIM_ORG_ID, orgId != null ? orgId.toString() : null)
+                .claim(CLAIM_MFA_PENDING, true)
+                .claim(CLAIM_MFA_SETUP, true)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    /** True for a token from {@link #generateMfaSetupToken}; false for anything else, malformed or expired. */
+    public boolean isMfaSetupToken(String token) {
+        try {
+            return Boolean.TRUE.equals(getClaimFromToken(token, claims -> claims.get(CLAIM_MFA_SETUP)));
+        } catch (ExpiredJwtException | MalformedJwtException | UnsupportedJwtException
+                 | IllegalArgumentException | SignatureException e) {
+            return false;
+        }
     }
 
     /**
