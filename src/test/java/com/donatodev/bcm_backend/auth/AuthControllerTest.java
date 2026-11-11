@@ -33,6 +33,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.verify;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import jakarta.servlet.http.Cookie;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -98,6 +100,11 @@ class AuthControllerTest {
 
     @Autowired
     private TestDataCleaner testDataCleaner;
+
+    // Its own tests cover the lookup and the email; mocked here so its thread
+    // never writes a link while the cleaner empties the tables.
+    @MockitoBean
+    private PasswordResetMailer passwordResetMailer;
 
     @Autowired
     private com.donatodev.bcm_backend.repository.OrganizationRepository organizationRepository;
@@ -208,6 +215,7 @@ class AuthControllerTest {
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("è stato inviato un link per reimpostare la password")));
+        verify(passwordResetMailer).requestReset("manager@test.com");
     }
 
     /**
@@ -224,6 +232,8 @@ class AuthControllerTest {
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("è stato inviato un link per reimpostare la password")));
+        // Handed over unchanged: the controller itself never looks the address up.
+        verify(passwordResetMailer).requestReset("doesnotexist@test.com");
     }
 
     /**

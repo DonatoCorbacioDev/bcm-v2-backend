@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -38,29 +37,25 @@ public class AuthController {
 
     private final AuthService authService;
     private final UserService userService;
-    private final IEmailService emailService;
+    private final PasswordResetMailer passwordResetMailer;
     private final PasswordResetTokenService passwordResetTokenService;
     private final RefreshTokenService refreshTokenService;
     private final RefreshCookieFactory refreshCookieFactory;
     private final TwoFactorAuthService twoFactorAuthService;
     private final AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
 
-    @Value("${app.frontend-base-url}")
-    private String frontendBaseUrl;
-
-
     @Autowired
     public AuthController(
             AuthService authService,
             UserService userService,
-            IEmailService emailService,
+            PasswordResetMailer passwordResetMailer,
             PasswordResetTokenService passwordResetTokenService,
             RefreshTokenService refreshTokenService,
             RefreshCookieFactory refreshCookieFactory,
             TwoFactorAuthService twoFactorAuthService) {
         this.authService = authService;
         this.userService = userService;
-        this.emailService = emailService;
+        this.passwordResetMailer = passwordResetMailer;
         this.passwordResetTokenService = passwordResetTokenService;
         this.refreshTokenService = refreshTokenService;
         this.refreshCookieFactory = refreshCookieFactory;
@@ -155,11 +150,9 @@ public class AuthController {
      */
     @PostMapping("/forgot-password")
     public ResponseEntity<String> forgotPassword(@RequestBody ForgotPasswordRequestDTO request) {
-        userService.findByEmail(request.email()).ifPresent(user -> {
-            String token = passwordResetTokenService.createToken(user);
-            String resetLink = frontendBaseUrl + "/reset-password?token=" + token;
-            emailService.sendResetPasswordEmail(request.email(), resetLink);
-        });
+        // Looked up and sent off the request thread: the answer takes the same
+        // time, and is the same, whether the address has an account or not.
+        passwordResetMailer.requestReset(request.email());
         return ResponseEntity.ok("Se esiste un account con questa email, è stato inviato un link per reimpostare la password.");
     }
 
