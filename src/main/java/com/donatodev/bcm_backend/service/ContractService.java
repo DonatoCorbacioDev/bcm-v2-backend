@@ -32,6 +32,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.donatodev.bcm_backend.util.PageLimits;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ContractStatsResponse;
@@ -471,7 +472,7 @@ public class ContractService {
      * Paged search with optional term (q) and status filter.
      */
     public Page<ContractDTO> searchPaged(String q, ContractStatus status, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("contractNumber").ascending());
+        Pageable pageable = PageLimits.of(page, size, Sort.by("contractNumber").ascending());
 
         String term = (q == null) ? null : q.trim();
         boolean hasTerm = term != null && !term.isBlank();

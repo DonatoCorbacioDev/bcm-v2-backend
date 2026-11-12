@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import com.donatodev.bcm_backend.security.CostlyOperation;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
@@ -37,6 +38,7 @@ public class SemanticSearchController {
 
     @PostMapping("/semantic")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @CostlyOperation(CostlyOperation.Cost.HEAVY)
     public ResponseEntity<List<SemanticSearchResultDTO>> semanticSearch(
             @Valid @RequestBody SemanticSearchRequestDTO request) {
         return ResponseEntity.ok(semanticSearchService.search(request.query(), TOP_K));

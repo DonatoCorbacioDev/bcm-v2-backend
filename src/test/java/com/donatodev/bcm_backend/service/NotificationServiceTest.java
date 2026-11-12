@@ -126,7 +126,7 @@ class NotificationServiceTest {
                     .read(false).createdAt(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0)).build();
 
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(notificationRepository.findByUserIdAndOrgIdOrderByCreatedAtDesc(USER_ID, ORG_ID))
+            when(notificationRepository.findTop100ByUserIdAndOrgIdOrderByCreatedAtDesc(USER_ID, ORG_ID))
                     .thenReturn(List.of(n));
 
             List<NotificationDTO> result = notificationService.getForCurrentUser();
@@ -142,7 +142,7 @@ class NotificationServiceTest {
         void shouldReturnEmptyListWhenNoNotifications() {
             Users user = Users.builder().id(USER_ID).username(USERNAME).build();
             when(usersRepository.findByUsername(USERNAME)).thenReturn(Optional.of(user));
-            when(notificationRepository.findByUserIdAndOrgIdOrderByCreatedAtDesc(USER_ID, ORG_ID))
+            when(notificationRepository.findTop100ByUserIdAndOrgIdOrderByCreatedAtDesc(USER_ID, ORG_ID))
                     .thenReturn(Collections.emptyList());
 
             List<NotificationDTO> result = notificationService.getForCurrentUser();

@@ -10,11 +10,11 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import com.donatodev.bcm_backend.util.PageLimits;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ManagerDTO;
 import com.donatodev.bcm_backend.entity.Managers;
@@ -129,7 +129,7 @@ public class ManagerService {
     }
     
     public Page<ManagerDTO> searchManagers(String q, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
+        Pageable pageable = PageLimits.of(page, size, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
         UUID orgId = TenantContext.require();
         Page<Managers> result;
         if (q == null || q.isBlank()) {

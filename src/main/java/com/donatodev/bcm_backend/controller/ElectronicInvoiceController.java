@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import com.donatodev.bcm_backend.security.CostlyOperation;
 import java.util.UUID;
 import java.io.IOException;
 import java.util.List;
@@ -47,6 +48,7 @@ public class ElectronicInvoiceController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @CostlyOperation(CostlyOperation.Cost.HEAVY)
     public ResponseEntity<ElectronicInvoiceDTO> uploadInvoice(
             @PathVariable UUID contractId,
             @RequestParam("file") MultipartFile file) throws IOException {
@@ -119,6 +121,7 @@ public class ElectronicInvoiceController {
 
     @PostMapping("/match/recompute")
     @PreAuthorize("hasRole('ADMIN')")
+    @CostlyOperation(CostlyOperation.Cost.HEAVY)
     public ResponseEntity<List<ElectronicInvoiceDTO>> recomputeMatches(@PathVariable UUID contractId) {
         return ResponseEntity.ok(invoiceService.recomputeMatches(contractId));
     }

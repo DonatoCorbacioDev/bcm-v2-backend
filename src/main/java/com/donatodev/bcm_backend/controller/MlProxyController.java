@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import com.donatodev.bcm_backend.security.CostlyOperation;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,12 +41,14 @@ public class MlProxyController {
 
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @GetMapping("/agent/insights")
+    @CostlyOperation(CostlyOperation.Cost.LLM)
     public ResponseEntity<String> getAgentInsights(@RequestParam(defaultValue = "3") int months) {
         return mlProxyService.getAgentInsights(months);
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PostMapping("/agent/ask")
+    @CostlyOperation(CostlyOperation.Cost.LLM)
     public ResponseEntity<String> askAgent(@Valid @RequestBody AskAgentRequest request) {
         return mlProxyService.askAgent(request.question());
     }

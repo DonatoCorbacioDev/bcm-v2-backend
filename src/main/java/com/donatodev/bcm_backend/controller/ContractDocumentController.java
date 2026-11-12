@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import com.donatodev.bcm_backend.security.CostlyOperation;
 import java.util.UUID;
 import java.io.IOException;
 import java.util.List;
@@ -43,6 +44,7 @@ public class ContractDocumentController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @CostlyOperation(CostlyOperation.Cost.HEAVY)
     public ResponseEntity<ContractDocumentDTO> uploadDocument(
             @PathVariable UUID contractId,
             @RequestParam("file") MultipartFile file) throws IOException {
@@ -58,6 +60,7 @@ public class ContractDocumentController {
 
     @PostMapping(value = "/{documentId}/versions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @CostlyOperation(CostlyOperation.Cost.HEAVY)
     public ResponseEntity<ContractDocumentDTO> uploadNewVersion(
             @PathVariable UUID contractId,
             @PathVariable UUID documentId,
@@ -106,6 +109,7 @@ public class ContractDocumentController {
 
     @PostMapping("/{documentId}/extract")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @CostlyOperation(CostlyOperation.Cost.HEAVY)
     public ResponseEntity<DocumentAnalysisDTO> extractText(
             @PathVariable UUID contractId,
             @PathVariable UUID documentId) {
@@ -114,6 +118,7 @@ public class ContractDocumentController {
 
     @PostMapping("/{documentId}/analyze-clause-risk")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @CostlyOperation(CostlyOperation.Cost.LLM)
     public ResponseEntity<String> analyzeClauseRisk(
             @PathVariable UUID contractId,
             @PathVariable UUID documentId) {

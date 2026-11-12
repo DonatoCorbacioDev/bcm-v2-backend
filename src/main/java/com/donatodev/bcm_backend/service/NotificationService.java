@@ -130,8 +130,9 @@ public class NotificationService {
         Users user = resolveCurrentUser();
         UUID orgId = TenantContext.require();
 
+        // The latest ones only (OWASP API4): notifications pile up over the years.
         return notificationRepository
-                .findByUserIdAndOrgIdOrderByCreatedAtDesc(user.getId(), orgId)
+                .findTop100ByUserIdAndOrgIdOrderByCreatedAtDesc(user.getId(), orgId)
                 .stream()
                 .map(this::toDTO)
                 .toList();

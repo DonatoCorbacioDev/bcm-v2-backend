@@ -84,6 +84,21 @@ class PasswordResetTokenServiceTest {
             assertTrue(saved.getValue().getExpiryDate().isAfter(LocalDateTime.of(2020, Month.JANUARY, 1, 0, 0)));
         }
 
+        @Test
+        @DisplayName("A link created a minute ago counts as recent for a two-minute window, one from five minutes ago does not")
+        void tellsARecentLinkByItsExpiry() {
+            Users user = Users.builder().id(uid(1)).build();
+            LocalDateTime now = LocalDateTime.now(java.time.ZoneId.systemDefault());
+            when(repository.findByUser(user))
+                    .thenReturn(Optional.of(PasswordResetToken.builder().user(user).expiryDate(now.plusMinutes(29)).build()))
+                    .thenReturn(Optional.of(PasswordResetToken.builder().user(user).expiryDate(now.plusMinutes(25)).build()))
+                    .thenReturn(Optional.empty());
+
+            assertTrue(service.sentWithinMinutes(user, 2));
+            org.junit.jupiter.api.Assertions.assertFalse(service.sentWithinMinutes(user, 2));
+            org.junit.jupiter.api.Assertions.assertFalse(service.sentWithinMinutes(user, 2), "no link at all");
+        }
+
         /**
          * Should return a token if found by its string value.
          */

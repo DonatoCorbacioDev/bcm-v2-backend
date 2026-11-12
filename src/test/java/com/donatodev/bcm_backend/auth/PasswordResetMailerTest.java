@@ -52,6 +52,19 @@ class PasswordResetMailerTest {
     }
 
     @Test
+    @DisplayName("Asking again within the cooldown sends nothing and keeps the pending link")
+    void cooldownSendsNothing() {
+        Users user = new Users();
+        when(userService.findByEmail("anna@alfa.test")).thenReturn(Optional.of(user));
+        when(tokenService.sentWithinMinutes(user, PasswordResetMailer.RESEND_COOLDOWN_MINUTES)).thenReturn(true);
+
+        inline().requestReset("anna@alfa.test");
+
+        verify(tokenService, never()).createToken(any());
+        verify(emailService, never()).sendResetPasswordEmail(anyString(), anyString());
+    }
+
+    @Test
     @DisplayName("An unknown address creates no link and sends nothing")
     void unknownAddressDoesNothing() {
         when(userService.findByEmail("nobody@alfa.test")).thenReturn(Optional.empty());

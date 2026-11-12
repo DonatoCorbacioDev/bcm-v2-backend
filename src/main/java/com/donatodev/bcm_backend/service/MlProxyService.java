@@ -8,6 +8,7 @@ package com.donatodev.bcm_backend.service;
 import java.util.UUID;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Semaphore;
 import java.util.function.Supplier;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -57,6 +58,15 @@ public class MlProxyService {
     private static final String QUERY_PARAM_MONTHS = "months";
     private static final String OUTCOME_SUCCESS = "success";
     private static final String OUTCOME_ERROR = "error";
+    /**
+     * Language-model calls running at once, across every user (OWASP API4).
+     * Ollama runs on the CPU of the same two-core VM that serves the API: one
+     * generation already keeps a core busy, a second would leave the API
+     * nothing, so a call beyond the first is refused at once instead.
+     */
+    static final int MAX_CONCURRENT_LLM_CALLS = 1;
+    static final String LLM_BUSY_BODY =
+            "{\"status\":503,\"message\":\"L'assistente è occupato: riprova tra qualche istante\"}";
 
     @Value("${ml.fastapi.url:http://localhost:8000}")
     private String fastApiUrl;
@@ -70,6 +80,7 @@ public class MlProxyService {
     private final UsersRepository usersRepository;
     private final MlClaimsSigner mlClaimsSigner;
     private final TierLimitService tierLimitService;
+    private final Semaphore llmSlots = new Semaphore(MAX_CONCURRENT_LLM_CALLS);
 
     public MlProxyService(
             RestTemplate restTemplate,
@@ -129,8 +140,8 @@ public class MlProxyService {
             headers.set("X-Internal-Api-Key", internalApiKey);
         }
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(Map.of("text", text), headers);
-        return executeWithTiming("clause-risk-analysis", () -> restTemplate.exchange(
-                fastApiUrl + "/clause-risk-analysis", HttpMethod.POST, entity, String.class));
+        return withLlmSlot(() -> executeWithTiming("clause-risk-analysis", () -> restTemplate.exchange(
+                fastApiUrl + "/clause-risk-analysis", HttpMethod.POST, entity, String.class)));
     }
 
     public ResponseEntity<String> askAgent(String question) {
@@ -145,8 +156,22 @@ public class MlProxyService {
         HttpHeaders headers = buildInternalHeaders(orgId, managerId);
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(Map.of("question", question), headers);
-        return executeWithTiming("agent-ask", () -> restTemplate.exchange(
-                uriBuilder.toUriString(), HttpMethod.POST, entity, String.class));
+        return withLlmSlot(() -> executeWithTiming("agent-ask", () -> restTemplate.exchange(
+                uriBuilder.toUriString(), HttpMethod.POST, entity, String.class)));
+    }
+
+    /** Runs a language-model call if one of the shared slots is free, else answers 503 at once. */
+    private ResponseEntity<String> withLlmSlot(Supplier<ResponseEntity<String>> call) {
+        if (!llmSlots.tryAcquire()) {
+            meterRegistry.counter("bcm.ml.llm.busy").increment();
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .contentType(MediaType.APPLICATION_JSON).body(LLM_BUSY_BODY);
+        }
+        try {
+            return call.get();
+        } finally {
+            llmSlots.release();
+        }
     }
 
     // ── Raw methods for the nightly refresher (bypass cache) ────────────────

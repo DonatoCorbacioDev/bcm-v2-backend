@@ -27,7 +27,21 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PasswordResetTokenService {
 
+    private static final int VALIDITY_MINUTES = 30;
+
     private final PasswordResetTokenRepository repository;
+
+    /**
+     * Whether a link was sent to this user less than {@code minutes} ago
+     * (OWASP API4): told from the pending link's expiry, which is its creation
+     * plus {@value #VALIDITY_MINUTES} minutes.
+     */
+    public boolean sentWithinMinutes(Users user, int minutes) {
+        LocalDateTime createdAfter = LocalDateTime.now(ZoneId.systemDefault()).minusMinutes(minutes);
+        return repository.findByUser(user)
+                .map(token -> token.getExpiryDate().minusMinutes(VALIDITY_MINUTES).isAfter(createdAfter))
+                .orElse(false);
+    }
 
     /**
      * Creates a new password reset token for the given user.
@@ -45,7 +59,7 @@ public class PasswordResetTokenService {
         String token = UUID.randomUUID().toString();
         repository.save(PasswordResetToken.builder()
                 .token(TokenHash.sha256Hex(token))
-                .expiryDate(LocalDateTime.now(ZoneId.systemDefault()).plusMinutes(30))
+                .expiryDate(LocalDateTime.now(ZoneId.systemDefault()).plusMinutes(VALIDITY_MINUTES))
                 .user(user)
                 .build());
         return token;

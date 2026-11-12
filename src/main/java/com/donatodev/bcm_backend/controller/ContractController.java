@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.controller;
 
+import com.donatodev.bcm_backend.security.CostlyOperation;
 import java.util.UUID;
 import java.io.IOException;
 import java.text.Normalizer;
@@ -244,6 +245,7 @@ public class ContractController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/export/excel")
+    @CostlyOperation(CostlyOperation.Cost.HEAVY)
     public ResponseEntity<byte[]> exportContractsToExcel() {
         try {
             List<ContractDTO> contracts = contractService.getAllContracts();
@@ -269,6 +271,7 @@ public class ContractController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping("/export/pdf")
+    @CostlyOperation(CostlyOperation.Cost.HEAVY)
     public ResponseEntity<byte[]> exportContractsToPDF() {
         try {
             List<ContractDTO> contracts = contractService.getAllContracts();
@@ -363,6 +366,7 @@ public class ContractController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping(value = "/import/excel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @CostlyOperation(CostlyOperation.Cost.HEAVY)
     public ResponseEntity<ContractImportResultDTO> importContractsFromExcel(
             @RequestParam("file") MultipartFile file) throws IOException {
         ContractImportResultDTO result = contractImportService.importFromExcel(file);

@@ -41,6 +41,12 @@ public class PasswordResetMailer {
 
     private static final Logger logger = LoggerFactory.getLogger(PasswordResetMailer.class);
     private static final int QUEUE_CAPACITY = 100;
+    /**
+     * One email per account in this window (OWASP API4): asking again sooner
+     * sends nothing, so nobody can flood a person's inbox with reset links or
+     * use up the mail quota. The answer to the request is the same either way.
+     */
+    static final int RESEND_COOLDOWN_MINUTES = 2;
 
     private final UserService userService;
     private final PasswordResetTokenService passwordResetTokenService;
@@ -88,6 +94,9 @@ public class PasswordResetMailer {
     private void send(String email) {
         try {
             userService.findByEmail(email).ifPresent(user -> {
+                if (passwordResetTokenService.sentWithinMinutes(user, RESEND_COOLDOWN_MINUTES)) {
+                    return;
+                }
                 String token = passwordResetTokenService.createToken(user);
                 emailService.sendResetPasswordEmail(email, frontendBaseUrl + "/reset-password?token=" + token);
             });
