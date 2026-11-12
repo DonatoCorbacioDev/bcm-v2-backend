@@ -218,7 +218,9 @@ public class OrganizationRegistrationService {
     private PendingRegistration findLive(String registrationId) {
         PendingRegistration pending = pendingRepository.findByPublicId(registrationId)
                 .orElseThrow(() -> new RegistrationCodeException(REGISTRATION_EXPIRED));
-        if (pending.getExpiresAt().isBefore(now())) {
+        // Expired at its expiry instant too: a registration closed after too many
+        // wrong codes expires "now", which the next request can read as the same instant.
+        if (!pending.getExpiresAt().isAfter(now())) {
             throw new RegistrationCodeException(REGISTRATION_EXPIRED);
         }
         return pending;

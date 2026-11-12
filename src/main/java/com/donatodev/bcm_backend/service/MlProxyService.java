@@ -278,6 +278,12 @@ public class MlProxyService {
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
             ResponseEntity<String> response = restCall.get();
+            // 4xx and 5xx arrive as exceptions; a redirect (never followed, OWASP API7)
+            // arrives here and is no answer to pass on: its body and Location stay inside.
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                recordCallTiming(sample, endpoint, OUTCOME_ERROR);
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+            }
             recordCallTiming(sample, endpoint, OUTCOME_SUCCESS);
             return ResponseEntity.status(response.getStatusCode())
                     .contentType(MediaType.APPLICATION_JSON)
