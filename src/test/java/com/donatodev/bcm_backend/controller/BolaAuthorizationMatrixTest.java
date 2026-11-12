@@ -104,7 +104,6 @@ class BolaAuthorizationMatrixTest {
         }
         routes.add(new Route("GET", "/contract-history/{id}", "contract-history", true));
         routes.add(new Route("GET", "/counterparties/{id}/invoicing-summary", "counterparties", true));
-        routes.add(new Route("DELETE", "/contract-history/{id}", "contract-history", false));
         routes.add(new Route("PATCH", "/users/{id}", "users", false));
         routes.add(new Route("POST", "/users/{id}/force-reset", "users", false));
         routes.add(new Route("PATCH", "/managers/{id}", "managers", false));
@@ -394,13 +393,13 @@ class BolaAuthorizationMatrixTest {
 
     @ParameterizedTest(name = "create must not overwrite foreign id: {0}")
     @org.junit.jupiter.params.provider.ValueSource(strings = {"business-areas", "financial-types", "counterparties",
-            "managers", "users", "budgets", "contract-templates", "financial-values", "contracts", "contract-history"})
+            "managers", "users", "budgets", "contract-templates", "financial-values", "contracts"})
     void creationCannotOverwriteExistingResourceThroughBodyId(String resource) throws Exception {
         UUID victimId = UUID.fromString(resolve("/" + resource + "/{id}", foreign, false).split("/")[2]);
         String table = switch (resource) {
             case "business-areas" -> "business_areas"; case "financial-types" -> "financial_types";
             case "contract-templates" -> "contract_templates"; case "financial-values" -> "financial_values";
-            case "contract-history" -> "contract_history"; default -> resource;
+            default -> resource;
         };
         Map<String, Object> before = jdbc.queryForMap("SELECT * FROM " + table + " WHERE id = ?", victimId);
         String body = switch (resource) {
@@ -415,8 +414,6 @@ class BolaAuthorizationMatrixTest {
             }
             case "budgets" -> "{\"businessAreaId\":" + q(own.area().getId()) + ",\"year\":2027,\"category\":\"REVENUE\",\"targetAmount\":100}";
             case "financial-values" -> financialBody(own, own, own).replace("\"month\":1", "\"month\":2");
-            case "contract-history" -> "{\"contractId\":" + q(own.contract().getId()) + ",\"modifiedById\":"
-                    + q(own.user().getId()) + ",\"modificationDate\":\"2026-01-01T00:00:00\",\"previousStatus\":\"DRAFT\",\"newStatus\":\"ACTIVE\"}";
             default -> payload(resource);
         };
         body = "{\"id\":" + q(victimId) + "," + body.substring(1);

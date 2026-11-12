@@ -36,7 +36,6 @@ import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
-import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.FinancialTypesRepository;
@@ -96,9 +95,6 @@ class CrossTenantAccessTest {
 
     @Autowired
     private InviteTokenRepository inviteTokenRepository;
-
-    @Autowired
-    private ContractHistoryRepository contractHistoryRepository;
 
     @Autowired
     private JwtUtils jwtUtils;
@@ -362,20 +358,6 @@ class CrossTenantAccessTest {
                         .content("{\"businessAreaId\": \"%s\", \"category\": \"REVENUE\", \"year\": 2026, \"targetAmount\": 1000}"
                                 .formatted(orgBArea.getId())))
                 .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @DisplayName("POST /contract-history rejects a contract of another organization")
-    void createHistoryRejectsOtherOrganizationContract() throws Exception {
-        mockMvc.perform(post("/contract-history")
-                        .header("Authorization", "Bearer " + orgAAdminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"contractId\": \"%s\", \"previousStatus\": \"ACTIVE\", \"newStatus\": \"CANCELLED\"}"
-                                .formatted(orgBContract.getId())))
-                .andExpect(status().isNotFound());
-
-        assertTrue(contractHistoryRepository.findAll().stream()
-                .noneMatch(h -> h.getContract().getId().equals(orgBContract.getId())));
     }
 
     @Test

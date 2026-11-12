@@ -136,32 +136,6 @@ public class ContractHistoryService {
 	}
 
 	/**
-	 * Creates a new contract history entry.
-	 *
-	 * @param dto the contract history data transfer object
-	 * @return the created {@link ContractHistoryDTO}
-	 */
-	public ContractHistoryDTO create(ContractHistoryDTO dto) {
-		ContractHistory entity = historyMapper.toEntity(dto);
-		// Creation must never merge an existing row selected by a client-supplied ID.
-		entity.setId(null);
-		entity = historyRepository.save(entity);
-		return historyMapper.toDTO(entity);
-	}
-
-	/**
-	 * Deletes a contract history entry by ID.
-	 *
-	 * @param id the ID of the contract history entry to delete
-	 * @throws ContractHistoryNotFoundException if the entry does not exist
-	 */
-	public void delete(UUID id) {
-		ContractHistory history = findHistoryInScope(id)
-				.orElseThrow(() -> new ContractHistoryNotFoundException("Voce storico ID " + id + " non trovata"));
-		historyRepository.delete(history);
-	}
-
-	/**
 	 * Finds a contract history entry by ID, scoped to the current tenant when
 	 * {@link TenantContext} carries an organization ID.
 	 */

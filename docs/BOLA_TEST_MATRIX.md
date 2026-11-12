@@ -35,7 +35,7 @@ the same organization; this does not allow access across organizations.
 | Workflow submit, approve, reject and events | JWT matrix for parent scope and plain-manager denial; explicit same-tenant approver exception |
 | Risk feedback | JWT matrix for parent scope and manager ownership |
 | Financial-value relation IDs in request bodies | JWT matrix for foreign contract/type/area on creation and update; regression for moving an owned value to a colleague's contract |
-| Other write references | Existing `CrossTenantAccessTest`, mapper tests and collaborator IT cover contract, area, manager, counterparty, template, budget, history and invite references |
+| Other write references | Existing `CrossTenantAccessTest`, mapper tests and collaborator IT cover contract, area, manager, counterparty, template, budget and invite references. Contract history has no write endpoint since 2026-11-12 (OWASP API3): the server writes it on every status change |
 | Notifications | JWT matrix for cross-user/tenant denial; existing real-service HTTP matrix covers own, foreign, missing and already-read notifications for both roles |
 | Lists, search, filters and Excel/PDF exports | JWT matrix checks actual response contents and parses exported files; excludes foreign data and colleague contracts where required |
 | Calendar feed | Explicit capability-token test without a JWT: only the token owner's contracts are present; invalid token is rejected |

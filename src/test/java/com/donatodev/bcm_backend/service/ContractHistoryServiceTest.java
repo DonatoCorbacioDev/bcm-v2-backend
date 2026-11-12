@@ -189,65 +189,6 @@ class ContractHistoryServiceTest {
         }
 
         /**
-         * Tests the creation of a new contract history record.
-         */
-        @Test
-        @Order(4)
-        @DisplayName("Create history returns saved DTO")
-        void shouldCreateHistory() {
-            ContractHistoryDTO dto = new ContractHistoryDTO(null, uid(1), uid(2), LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
-            ContractHistory entity = ContractHistory.builder()
-                    .contract(Contracts.builder().id(uid(1)).build())
-                    .modifiedBy(Users.builder().id(uid(2)).build())
-                    .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
-                    .previousStatus(ContractStatus.ACTIVE)
-                    .newStatus(ContractStatus.CANCELLED)
-                    .build();
-            ContractHistory saved = ContractHistory.builder()
-                    .id(uid(1))
-                    .contract(Contracts.builder().id(uid(1)).build())
-                    .modifiedBy(Users.builder().id(uid(2)).build())
-                    .modificationDate(LocalDateTime.of(2027, Month.JUNE, 15, 12, 0))
-                    .previousStatus(ContractStatus.ACTIVE)
-                    .newStatus(ContractStatus.CANCELLED)
-                    .build();
-            ContractHistoryDTO savedDTO = new ContractHistoryDTO(uid(1), uid(1), uid(2), LocalDateTime.of(2027, Month.JUNE, 15, 12, 0), ContractStatus.ACTIVE, ContractStatus.CANCELLED);
-
-            when(historyMapper.toEntity(dto)).thenReturn(entity);
-            when(historyRepository.save(entity)).thenReturn(saved);
-            when(historyMapper.toDTO(saved)).thenReturn(savedDTO);
-
-            ContractHistoryDTO result = historyService.create(dto);
-            assertEquals(ContractStatus.CANCELLED, result.newStatus());
-        }
-
-        /**
-         * Tests the deletion of a contract history record by ID.
-         */
-        @Test
-        @Order(5)
-        @DisplayName("Delete history removes record")
-        void shouldDeleteHistory() {
-            ContractHistory entity = ContractHistory.builder().id(uid(1)).build();
-            when(historyRepository.findByIdAndContract_Organization_Id(uid(1), TENANT)).thenReturn(Optional.of(entity));
-            historyService.delete(uid(1));
-            verify(historyRepository).delete(entity);
-        }
-
-        /**
-         * Tests that deleting a non-existent contract history record
-         */
-        @Test
-        @Order(6)
-        @DisplayName("Delete history throws if not found")
-        void shouldThrowWhenDeletingNonExistent() {
-            when(historyRepository.findByIdAndContract_Organization_Id(uid(999), TENANT)).thenReturn(Optional.empty());
-            UUID id999 = uid(999);
-            ContractHistoryNotFoundException ex = assertThrows(ContractHistoryNotFoundException.class, () -> historyService.delete(id999));
-            assertNotNull(ex);
-        }
-
-        /**
          * Tests that an ADMIN user can retrieve contract history entries
          */
         @Test
@@ -719,24 +660,6 @@ class ContractHistoryServiceTest {
 
                 assertEquals(1, result.size());
                 verify(historyRepository).findByContractIdAndContract_Organization_Id(uid(1), uid(2));
-            } finally {
-                TenantContext.clear();
-            }
-        }
-
-        @Test
-        @Order(23)
-        @DisplayName("delete with TenantContext uses org-filtered repository")
-        void shouldDeleteWithTenantContext() {
-            ContractHistory entity = ContractHistory.builder().id(uid(1)).build();
-
-            TenantContext.set(uid(2));
-            try {
-                when(historyRepository.findByIdAndContract_Organization_Id(uid(1), uid(2))).thenReturn(Optional.of(entity));
-
-                historyService.delete(uid(1));
-
-                verify(historyRepository).delete(entity);
             } finally {
                 TenantContext.clear();
             }

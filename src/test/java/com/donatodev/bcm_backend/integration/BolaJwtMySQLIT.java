@@ -112,7 +112,7 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
     }
 
     @ParameterizedTest(name = "MySQL create id cannot overwrite: {0}")
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"contracts", "financial-values", "contract-history",
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"contracts", "financial-values",
             "business-areas", "managers", "counterparties", "financial-types", "budgets", "users"})
     void createBodyIdCannotOverwriteForeignCommittedRow(String resource) throws Exception {
         Map<String, Object> ownContract = jdbc.queryForMap("SELECT * FROM contracts WHERE id = ?", String.valueOf(own.contractId()));
@@ -121,7 +121,7 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
         Map<String, Object> foreignValue = jdbc.queryForMap("SELECT * FROM financial_values WHERE id = ?", String.valueOf(foreign.valueId()));
         Object victimId = switch (resource) {
             case "contracts" -> foreign.contractId(); case "financial-values" -> foreign.valueId();
-            case "contract-history" -> foreign.historyId(); case "budgets" -> foreign.budgetId();
+            case "budgets" -> foreign.budgetId();
             case "business-areas" -> foreignContract.get("area_id"); case "managers" -> foreignContract.get("manager_id");
             case "counterparties" -> foreignContract.get("counterparty_id");
             case "financial-types" -> foreignValue.get("financial_type_id");
@@ -129,7 +129,6 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
             default -> throw new IllegalArgumentException(resource);
         };
         String table = resource.replace('-', '_');
-        if (resource.equals("contract-history")) table = "contract_history";
         Map<String, Object> before = jdbc.queryForMap("SELECT * FROM " + table + " WHERE id = ?", String.valueOf(victimId));
         String fields = switch (resource) {
             case "contracts" -> "\"counterpartyId\":" + q(ownContract.get("counterparty_id"))
@@ -137,8 +136,6 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
             case "financial-values" -> "\"contractId\":" + q(own.contractId()) + ",\"financialTypeId\":"
                     + q(ownValue.get("financial_type_id")) + ",\"businessAreaId\":" + q(ownContract.get("area_id"))
                     + ",\"month\":2,\"year\":2026,\"financialAmount\":100";
-            case "contract-history" -> "\"contractId\":" + q(own.contractId())
-                    + ",\"modificationDate\":\"2026-01-01T00:00:00\",\"previousStatus\":\"DRAFT\",\"newStatus\":\"ACTIVE\"";
             case "business-areas" -> "\"name\":\"Created area\"";
             case "financial-types" -> "\"name\":\"Created type\",\"category\":\"REVENUE\"";
             case "managers" -> "\"firstName\":\"Created\",\"lastName\":\"Manager\",\"email\":\"" + UUID.randomUUID() + "@example.com\"";

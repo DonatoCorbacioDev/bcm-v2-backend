@@ -66,29 +66,7 @@ public class ContractHistoryController {
         return ResponseEntity.ok(contractHistoryService.getById(id));
     }
 
-    /**
-     * Creates a new contract history record.
-     *
-     * @param dto the contract history data
-     * @return the created {@link ContractHistoryDTO}
-     */
-    @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping
-    public ResponseEntity<ContractHistoryDTO> create(@RequestBody ContractHistoryDTO dto) {
-        ContractHistoryDTO newHistory = contractHistoryService.create(dto);
-        return ResponseEntity.status(201).body(newHistory);
-    }
-
-    /**
-     * Deletes a contract history record by ID.
-     *
-     * @param id the ID of the record to delete
-     * @return HTTP 204 No Content if deletion was successful
-     */
-    @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        contractHistoryService.delete(id);
-        return ResponseEntity.noContent().build();
-    }
+    // No POST or DELETE (OWASP API3): the history is written by the server on
+    // every status change, so nobody can add an entry in a colleague's name,
+    // backdate one, or erase one.
 }
