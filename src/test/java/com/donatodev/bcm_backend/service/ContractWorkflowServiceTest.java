@@ -101,6 +101,84 @@ class ContractWorkflowServiceTest {
     }
 
     @Nested
+    @DisplayName("four eyes: an approver may not decide on their own contract")
+    class FourEyes {
+
+        private Users approverWithProfile() {
+            Users u = userWithRole("MANAGER", true);
+            u.setManager(com.donatodev.bcm_backend.entity.Managers.builder().id(uid(20)).build());
+            return u;
+        }
+
+        private ContractWorkflowEvent submittedBy(Users who) {
+            return ContractWorkflowEvent.builder().action(WorkflowAction.SUBMIT).actor(who).build();
+        }
+
+        @Test
+        @DisplayName("a contract assigned to the approver: neither approved nor rejected")
+        void notOnTheirAssignedContract() {
+            Users approver = approverWithProfile();
+            Contracts contract = contractWithStage(WorkflowStage.IN_REVIEW);
+            contract.setManager(approver.getManager());
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(currentUserResolver.resolve()).thenReturn(approver);
+
+            AccessDeniedException denied = assertThrows(AccessDeniedException.class, () -> workflowService.approve(CONTRACT_ID));
+            assertEquals(ContractWorkflowService.SELF_APPROVAL, denied.getMessage());
+            assertThrows(AccessDeniedException.class, () -> workflowService.reject(CONTRACT_ID, "no"));
+            assertEquals(WorkflowStage.IN_REVIEW, contract.getWorkflowStage());
+            verify(eventRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("a contract the approver submitted, even someone else's: refused")
+        void notOnWhatTheySubmitted() {
+            Users approver = approverWithProfile();
+            Contracts contract = contractWithStage(WorkflowStage.IN_REVIEW);
+            contract.setManager(com.donatodev.bcm_backend.entity.Managers.builder().id(uid(21)).build());
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(currentUserResolver.resolve()).thenReturn(approver);
+            Users colleague = userWithRole("MANAGER", false);
+            colleague.setId(uid(30));
+            when(eventRepository.findByContractIdOrderByCreatedAtAsc(CONTRACT_ID))
+                    .thenReturn(java.util.List.of(submittedBy(colleague), submittedBy(approver)));
+
+            assertThrows(AccessDeniedException.class, () -> workflowService.approve(CONTRACT_ID));
+            assertEquals(ContractStatus.DRAFT, contract.getStatus());
+        }
+
+        @Test
+        @DisplayName("a colleague's contract submitted by the colleague: the approver decides")
+        void aSecondPersonDecides() {
+            Users approver = approverWithProfile();
+            Contracts contract = contractWithStage(WorkflowStage.IN_REVIEW);
+            contract.setManager(com.donatodev.bcm_backend.entity.Managers.builder().id(uid(21)).build());
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(currentUserResolver.resolve()).thenReturn(approver);
+            Users colleague = userWithRole("MANAGER", false);
+            colleague.setId(uid(30));
+            when(eventRepository.findByContractIdOrderByCreatedAtAsc(CONTRACT_ID)).thenReturn(java.util.List.of(submittedBy(colleague)));
+
+            workflowService.approve(CONTRACT_ID);
+
+            assertEquals(WorkflowStage.APPROVED, contract.getWorkflowStage());
+        }
+
+        @Test
+        @DisplayName("an ADMIN may approve what they submitted: a one-admin organization must still approve")
+        void adminMay() {
+            Users admin = userWithRole("ADMIN", false);
+            Contracts contract = contractWithStage(WorkflowStage.IN_REVIEW);
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(currentUserResolver.resolve()).thenReturn(admin);
+
+            workflowService.approve(CONTRACT_ID);
+
+            assertEquals(WorkflowStage.APPROVED, contract.getWorkflowStage());
+        }
+    }
+
+    @Nested
     @DisplayName("approve")
     class Approve {
 

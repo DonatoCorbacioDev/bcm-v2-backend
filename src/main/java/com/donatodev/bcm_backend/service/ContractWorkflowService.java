@@ -31,6 +31,8 @@ import com.donatodev.bcm_backend.repository.ContractsRepository;
 public class ContractWorkflowService {
 
     private static final String ROLE_ADMIN = "ADMIN";
+    static final String SELF_APPROVAL =
+            "non puoi approvare o respingere un contratto che hai inviato tu o che ti è assegnato";
 
     private final ContractAccessGuard contractAccessGuard;
     private final CurrentUserResolver currentUserResolver;
@@ -73,6 +75,7 @@ public class ContractWorkflowService {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         Users actor = requireApprover();
         requireStage(contract, WorkflowStage.IN_REVIEW, "Il contratto deve essere in revisione per poter essere approvato");
+        requireSecondPerson(contract, actor);
 
         contract.setStatus(ContractStatus.ACTIVE);
         recordAndApply(contract, WorkflowStage.APPROVED, WorkflowAction.APPROVE, actor, null);
@@ -90,6 +93,7 @@ public class ContractWorkflowService {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         Users actor = requireApprover();
         requireStage(contract, WorkflowStage.IN_REVIEW, "Il contratto deve essere in revisione per poter essere respinto");
+        requireSecondPerson(contract, actor);
 
         recordAndApply(contract, WorkflowStage.DRAFT, WorkflowAction.REJECT, actor, comment);
         agentNotificationService.notifyWorkflowRejected(contract, comment);
@@ -125,6 +129,30 @@ public class ContractWorkflowService {
             throw new AccessDeniedException("non autorizzato ad approvare o respingere contratti");
         }
         return actor;
+    }
+
+    /**
+     * Four eyes (OWASP API5): an approver who is not an ADMIN may not decide on
+     * a contract assigned to them, nor on one they submitted themselves,
+     * otherwise the approval permission alone would let a manager approve
+     * their own contracts. An ADMIN may, by choice: an organization with one
+     * administrator must still be able to approve.
+     */
+    private void requireSecondPerson(Contracts contract, Users actor) {
+        if (ROLE_ADMIN.equals(actor.getRole().getRole())) {
+            return;
+        }
+        boolean assignedToActor = actor.getManager() != null && contract.getManager() != null
+                && actor.getManager().getId().equals(contract.getManager().getId());
+        List<ContractWorkflowEvent> events = eventRepository.findByContractIdOrderByCreatedAtAsc(contract.getId());
+        boolean submittedByActor = events.stream()
+                .filter(e -> e.getAction() == WorkflowAction.SUBMIT)
+                .reduce((first, second) -> second)
+                .map(e -> e.getActor() != null && actor.getId().equals(e.getActor().getId()))
+                .orElse(false);
+        if (assignedToActor || submittedByActor) {
+            throw new AccessDeniedException(SELF_APPROVAL);
+        }
     }
 
     private void recordAndApply(Contracts contract, WorkflowStage toStage, WorkflowAction action,

@@ -70,6 +70,10 @@ public class SecurityConfig {
                 // separate management port) is the real access control before public
                 // exposure — tracked in docs/SECURITY.md, not solved by JWT auth here.
                 .requestMatchers(AUTH_WHITELIST, "/actuator/health", "/actuator/prometheus").permitAll()
+                // The rest of the actuator (metrics, info, sbom...) describes the whole
+                // platform, every organization's traffic included: no tenant user may
+                // read it, an admin neither (OWASP API5). Ops read Prometheus instead.
+                .requestMatchers("/actuator/**").denyAll()
                 .requestMatchers(HttpMethod.POST, "/organizations/register", "/organizations/register/resend",
                         "/organizations/register/confirm").permitAll()
                 // Calendar apps subscribe to this URL directly and cannot send a bearer
