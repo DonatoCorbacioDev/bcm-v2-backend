@@ -15,10 +15,13 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import com.donatodev.bcm_backend.security.SecurityEvents;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletResponse;
@@ -27,12 +30,13 @@ import jakarta.servlet.http.HttpServletResponse;
 class RateLimitingFilterTest {
 
     private RateLimitingFilter filter;
+    @Mock private SecurityEvents securityEvents;
 
     @BeforeEach
     void setup() {
         // Same class that backs the `test` Spring profile in production wiring
         // (InMemoryRateLimiterConfig) — no divergence between this test double and reality.
-        filter = new RateLimitingFilter(new InMemoryRateLimitBucketSource());
+        filter = new RateLimitingFilter(new InMemoryRateLimitBucketSource(), securityEvents);
         ReflectionTestUtils.setField(filter, "requestsPerMinute", 2);
         ReflectionTestUtils.setField(filter, "refreshRequestsPerMinute", 4);
     }
@@ -245,7 +249,7 @@ class RateLimitingFilterTest {
         @DisplayName("A bucket source that rejects everything still returns 429 (delegation sanity check)")
         void shouldDelegateToBucketSource() throws Exception {
             RateLimitBucketSource alwaysReject = (key, limit) -> false;
-            RateLimitingFilter rejectingFilter = new RateLimitingFilter(alwaysReject);
+            RateLimitingFilter rejectingFilter = new RateLimitingFilter(alwaysReject, securityEvents);
             ReflectionTestUtils.setField(rejectingFilter, "requestsPerMinute", 5);
 
             FilterChain chain = mock(FilterChain.class);
@@ -254,6 +258,8 @@ class RateLimitingFilterTest {
 
             assertEquals(429, response.getStatus());
             verify(chain, times(0)).doFilter(any(), any());
+            // OWASP API6: the refusal is counted for the weekly abuse report.
+            verify(securityEvents).record(SecurityEvents.Type.RATE_LIMITED, "/auth/login");
         }
     }
 }

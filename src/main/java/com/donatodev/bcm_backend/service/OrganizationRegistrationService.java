@@ -29,6 +29,7 @@ import com.donatodev.bcm_backend.entity.PendingRegistration;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.RegistrationCodeException;
 import com.donatodev.bcm_backend.repository.PendingRegistrationRepository;
+import com.donatodev.bcm_backend.security.SecurityEvents;
 import com.donatodev.bcm_backend.validation.PasswordPolicy;
 
 /**
@@ -47,6 +48,12 @@ public class OrganizationRegistrationService {
     static final int RESEND_COOLDOWN_SECONDS = 60;
     static final int MAX_CODES_SENT = 5;
     static final int MAX_FAILED_ATTEMPTS = 5;
+    /** The codes an address can receive are counted over this many hours, across new attempts. */
+    static final int SEND_WINDOW_HOURS = 24;
+
+    static final String WAIT_BEFORE_NEW_CODE = "Attendi qualche secondo prima di richiedere un nuovo codice.";
+    static final String TOO_MANY_CODES =
+            "Hai richiesto troppi codici per questo indirizzo email: riprova domani.";
 
     static final String REGISTRATION_EXPIRED =
             "La registrazione è scaduta o non è più valida: compila di nuovo il modulo.";
@@ -61,6 +68,7 @@ public class OrganizationRegistrationService {
     private final PasswordEncoder passwordEncoder;
     private final IEmailService emailService;
     private final SessionIssuer sessionIssuer;
+    private final SecurityEvents securityEvents;
     private final SecureRandom random = new SecureRandom();
 
     public OrganizationRegistrationService(
@@ -68,7 +76,9 @@ public class OrganizationRegistrationService {
             OrganizationService organizationService,
             PasswordEncoder passwordEncoder,
             IEmailService emailService,
-            SessionIssuer sessionIssuer) {
+            SessionIssuer sessionIssuer,
+            SecurityEvents securityEvents) {
+        this.securityEvents = securityEvents;
         this.pendingRepository = pendingRepository;
         this.organizationService = organizationService;
         this.passwordEncoder = passwordEncoder;
@@ -85,12 +95,17 @@ public class OrganizationRegistrationService {
     public RegistrationStartedDTO start(OrganizationRegistrationRequest request, RequestOrigin origin) {
         organizationService.validateNewRegistration(
                 request.adminUsername(), request.adminEmail(), request.termsVersion());
+        PasswordPolicy.require(request.adminPassword());
+        LocalDateTime now = now();
+        // Starting over is no way around the limits of resend (OWASP API6): the
+        // count of codes the address received carries over to the new attempt.
+        int codesSent = pendingRepository.findFirstByAdminEmailOrderByCodeSentAtDesc(request.adminEmail())
+                .map(previous -> codesAlreadySent(previous, now))
+                .orElse(0);
         pendingRepository.deleteByAdminEmail(request.adminEmail());
 
         String publicId = UUID.randomUUID().toString();
         String code = newCode();
-        PasswordPolicy.require(request.adminPassword());
-        LocalDateTime now = now();
         pendingRepository.save(PendingRegistration.builder()
                 .publicId(publicId)
                 .organizationName(request.organizationName())
@@ -101,6 +116,7 @@ public class OrganizationRegistrationService {
                 .passwordHash(passwordEncoder.encode(request.adminPassword()))
                 .termsVersion(request.termsVersion())
                 .codeHash(hash(publicId, code))
+                .codesSent(codesSent + 1)
                 .codeSentAt(now)
                 .expiresAt(now.plusMinutes(CODE_VALIDITY_MINUTES))
                 .requestIp(origin.ip())
@@ -119,18 +135,11 @@ public class OrganizationRegistrationService {
     public RegistrationStartedDTO resend(String registrationId) {
         PendingRegistration pending = findLive(registrationId);
         LocalDateTime now = now();
-        if (pending.getCodesSent() >= MAX_CODES_SENT) {
-            throw new IllegalArgumentException(
-                    "Hai richiesto troppi codici: compila di nuovo il modulo.");
-        }
-        if (pending.getCodeSentAt().plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(now)) {
-            throw new IllegalArgumentException(
-                    "Attendi qualche secondo prima di richiedere un nuovo codice.");
-        }
+        int codesSent = codesAlreadySent(pending, now);
 
         String code = newCode();
         pending.setCodeHash(hash(pending.getPublicId(), code));
-        pending.setCodesSent(pending.getCodesSent() + 1);
+        pending.setCodesSent(codesSent + 1);
         pending.setFailedAttempts(0);
         pending.setCodeSentAt(now);
         pending.setExpiresAt(now.plusMinutes(CODE_VALIDITY_MINUTES));
@@ -156,7 +165,10 @@ public class OrganizationRegistrationService {
         if (!matches) {
             int attempts = pending.getFailedAttempts() + 1;
             if (attempts >= MAX_FAILED_ATTEMPTS) {
-                pendingRepository.delete(pending);
+                // Closed, not deleted: the row keeps the count of codes sent to the address.
+                pending.setFailedAttempts(attempts);
+                pending.setExpiresAt(now());
+                pendingRepository.save(pending);
                 throw new RegistrationCodeException(TOO_MANY_ATTEMPTS);
             }
             pending.setFailedAttempts(attempts);
@@ -170,19 +182,43 @@ public class OrganizationRegistrationService {
         return sessionIssuer.afterFirstFactor(admin);
     }
 
-    /** Hourly cleanup of registrations whose code expired without being used. */
+    /**
+     * Hourly cleanup of registrations whose code expired without being used,
+     * once a day has passed: until then the row is what limits the codes the
+     * address can receive.
+     */
     @Scheduled(cron = "0 15 * * * *")
     @Transactional
     public void purgeExpired() {
-        int deleted = pendingRepository.deleteExpiredBefore(now());
+        int deleted = pendingRepository.deleteExpiredBefore(now().minusHours(SEND_WINDOW_HOURS));
         logger.info("Pending registration purge completed. {} expired entries deleted.", deleted);
     }
 
+    /**
+     * How many codes the address has received in the current window, refusing
+     * one more if it asked within the cooldown or has had the most a day
+     * allows. Each refusal is recorded for the weekly report.
+     */
+    private int codesAlreadySent(PendingRegistration previous, LocalDateTime now) {
+        if (previous.getCodeSentAt().plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(now)) {
+            securityEvents.record(SecurityEvents.Type.REGISTRATION_CODE_REFUSED, "cooldown");
+            throw new IllegalArgumentException(WAIT_BEFORE_NEW_CODE);
+        }
+        if (previous.getCodeSentAt().plusHours(SEND_WINDOW_HOURS).isBefore(now)) {
+            return 0;
+        }
+        if (previous.getCodesSent() >= MAX_CODES_SENT) {
+            securityEvents.record(SecurityEvents.Type.REGISTRATION_CODE_REFUSED, "daily limit");
+            throw new IllegalArgumentException(TOO_MANY_CODES);
+        }
+        return previous.getCodesSent();
+    }
+
+    /** An expired attempt stays until the purge: deleting it here would reset its count of codes. */
     private PendingRegistration findLive(String registrationId) {
         PendingRegistration pending = pendingRepository.findByPublicId(registrationId)
                 .orElseThrow(() -> new RegistrationCodeException(REGISTRATION_EXPIRED));
         if (pending.getExpiresAt().isBefore(now())) {
-            pendingRepository.delete(pending);
             throw new RegistrationCodeException(REGISTRATION_EXPIRED);
         }
         return pending;

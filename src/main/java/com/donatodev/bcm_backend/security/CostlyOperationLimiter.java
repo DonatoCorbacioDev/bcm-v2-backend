@@ -31,11 +31,13 @@ public class CostlyOperationLimiter implements HandlerInterceptor {
     private final RateLimitBucketSource buckets;
     private final int llmPerMinute;
     private final int heavyPerMinute;
+    private final SecurityEvents securityEvents;
 
-    public CostlyOperationLimiter(RateLimitBucketSource buckets,
+    public CostlyOperationLimiter(RateLimitBucketSource buckets, SecurityEvents securityEvents,
             @Value("${rate-limit.llm-per-minute:5}") int llmPerMinute,
             @Value("${rate-limit.heavy-per-minute:20}") int heavyPerMinute) {
         this.buckets = buckets;
+        this.securityEvents = securityEvents;
         this.llmPerMinute = llmPerMinute;
         this.heavyPerMinute = heavyPerMinute;
     }
@@ -54,6 +56,7 @@ public class CostlyOperationLimiter implements HandlerInterceptor {
         boolean llm = costly.value() == CostlyOperation.Cost.LLM;
         String key = "rate-limit:cost:" + (llm ? "llm:" : "heavy:") + username;
         if (!buckets.tryConsume(key, llm ? llmPerMinute : heavyPerMinute)) {
+            securityEvents.record(SecurityEvents.Type.COST_LIMITED, SecurityEvents.operation(method));
             throw new TooManyRequestsException(MESSAGE);
         }
         return true;

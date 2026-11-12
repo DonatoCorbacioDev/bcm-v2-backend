@@ -32,9 +32,12 @@ public class PublicDemoGuard implements HandlerInterceptor {
     static final String MESSAGE = "nella demo pubblica questa azione è disattivata";
 
     private final String lockedUsername;
+    private final SecurityEvents securityEvents;
 
-    public PublicDemoGuard(@Value("${bcm.demo.locked-username:}") String lockedUsername) {
+    public PublicDemoGuard(@Value("${bcm.demo.locked-username:}") String lockedUsername,
+            SecurityEvents securityEvents) {
         this.lockedUsername = lockedUsername == null ? "" : lockedUsername.trim();
+        this.securityEvents = securityEvents;
     }
 
     /** Whether the given user is the public demo account. */
@@ -47,6 +50,7 @@ public class PublicDemoGuard implements HandlerInterceptor {
         if (handler instanceof HandlerMethod method
                 && method.hasMethodAnnotation(DisabledInPublicDemo.class)
                 && isPublicDemo(AuthenticatedUserUtils.getUsernameOrNull())) {
+            securityEvents.record(SecurityEvents.Type.DEMO_BLOCKED, SecurityEvents.operation(method));
             throw new AccessDeniedException(MESSAGE);
         }
         return true;

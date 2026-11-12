@@ -15,6 +15,8 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.donatodev.bcm_backend.security.SecurityEvents;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,6 +40,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private static final String BUCKET_KEY_PREFIX = "rate-limit:";
 
     private final RateLimitBucketSource bucketSource;
+    private final SecurityEvents securityEvents;
 
     @Value("${rate-limit.requests-per-minute:5}")
     private int requestsPerMinute;
@@ -45,8 +48,9 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     @Value("${rate-limit.refresh-requests-per-minute:30}")
     private int refreshRequestsPerMinute;
 
-    public RateLimitingFilter(RateLimitBucketSource bucketSource) {
+    public RateLimitingFilter(RateLimitBucketSource bucketSource, SecurityEvents securityEvents) {
         this.bucketSource = bucketSource;
+        this.securityEvents = securityEvents;
     }
 
     @Override
@@ -70,6 +74,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             int limit = refresh ? refreshRequestsPerMinute : requestsPerMinute;
 
             if (!bucketSource.tryConsume(bucketKey, limit)) {
+                securityEvents.record(SecurityEvents.Type.RATE_LIMITED, request.getServletPath());
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 response.getWriter().write(

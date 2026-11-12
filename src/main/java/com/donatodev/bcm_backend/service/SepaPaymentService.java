@@ -51,6 +51,7 @@ import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.SepaPaymentBatchRepository;
+import com.donatodev.bcm_backend.security.SecurityEvents;
 import com.donatodev.bcm_backend.util.IbanValidator;
 
 @Service
@@ -68,6 +69,7 @@ public class SepaPaymentService {
     private final LocalStorageService localStorageService;
     private final CounterpartiesRepository counterpartiesRepository;
     private final AuditLogService auditLogService;
+    private final SecurityEvents securityEvents;
 
     public SepaPaymentService(ContractAccessGuard contractAccessGuard,
                                ElectronicInvoiceRepository invoiceRepository,
@@ -75,7 +77,9 @@ public class SepaPaymentService {
                                SepaPaymentBatchRepository batchRepository,
                                LocalStorageService localStorageService,
                                CounterpartiesRepository counterpartiesRepository,
-                               AuditLogService auditLogService) {
+                               AuditLogService auditLogService,
+                               SecurityEvents securityEvents) {
+        this.securityEvents = securityEvents;
         this.contractAccessGuard = contractAccessGuard;
         this.invoiceRepository = invoiceRepository;
         this.organizationRepository = organizationRepository;
@@ -103,6 +107,8 @@ public class SepaPaymentService {
         String currency = resolveCurrency(invoices);
         for (ElectronicInvoice invoice : invoices) {
             if (invoice.getSepaBatch() != null) {
+                securityEvents.record(SecurityEvents.Type.DUPLICATE_PAYMENT_REFUSED, "ElectronicInvoice",
+                        invoice.getId(), "invoice already paid by SEPA batch " + invoice.getSepaBatch().getId());
                 throw new IllegalArgumentException("La fattura " + invoice.getId() + " è già inclusa in un pagamento SEPA");
             }
             // RiBa and direct debits are collected by the supplier: a transfer
@@ -234,12 +240,13 @@ public class SepaPaymentService {
 
     private void logIbanMismatchBlocked(Counterparty counterparty, ElectronicInvoice invoice,
                                          String verifiedIban, String invoiceIban) {
-        String username = AuthenticatedUserUtils.getUsernameOrThrow();
         String details = "SEPA payment blocked: invoice " + invoice.getId() + " supplier IBAN ("
                 + IbanValidator.mask(invoiceIban) + ") does not match verified IBAN ("
                 + IbanValidator.mask(verifiedIban) + ") for counterparty " + counterparty.getId();
-        auditLogService.save("SEPA_IBAN_MISMATCH_BLOCKED", "Counterparty", counterparty.getId(), username,
-                TenantContext.require(), details);
+        // Its own transaction: the IbanMismatchException that follows rolls this one back,
+        // and with it, before, the only record that a payment to a changed IBAN was tried.
+        securityEvents.record(SecurityEvents.Type.SEPA_IBAN_MISMATCH_BLOCKED, "Counterparty",
+                counterparty.getId(), details);
     }
 
     private Organization resolveOrganization() {

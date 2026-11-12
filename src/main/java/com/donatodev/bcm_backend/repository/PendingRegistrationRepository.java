@@ -20,6 +20,9 @@ public interface PendingRegistrationRepository extends JpaRepository<PendingRegi
 
     Optional<PendingRegistration> findByPublicId(String publicId);
 
+    /** The latest attempt for an address: how many codes it has already received, and when. */
+    Optional<PendingRegistration> findFirstByAdminEmailOrderByCodeSentAtDesc(String email);
+
     /** Drops earlier attempts for the same address, so only the latest code is valid. */
     @Modifying
     @Query("DELETE FROM PendingRegistration p WHERE p.adminEmail = :email")

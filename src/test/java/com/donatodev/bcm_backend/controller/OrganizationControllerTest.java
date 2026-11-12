@@ -15,6 +15,7 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -254,17 +255,67 @@ class OrganizationControllerTest {
         }
 
         @Test
-        @DisplayName("requesting again with the same email replaces the earlier attempt")
+        @DisplayName("requesting again with the same email replaces the earlier attempt and keeps its count of codes")
         void shouldReplaceEarlierAttemptForSameEmail() throws Exception {
             String first = start(registration("Test Corp", "testadmin", "admin@testcorp.com"));
             String firstCode = emailedCode("admin@testcorp.com");
-            start(registration("Test Corp", "testadmin", "admin@testcorp.com"));
+            codeSentAgo(first, Duration.ofSeconds(61), 1);
+            String second = start(registration("Test Corp", "testadmin", "admin@testcorp.com"));
 
             confirm(first, firstCode)
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.message").value(containsString("scaduta")));
             assertEquals(1, pendingRegistrationRepository.count());
+            assertEquals(2, pendingRegistrationRepository.findByPublicId(second).orElseThrow().getCodesSent());
         }
+
+        @Test
+        @DisplayName("OWASP API6: starting over within the cooldown sends no new code")
+        void shouldRefuseRestartDuringCooldown() throws Exception {
+            String first = start(registration("Test Corp", "testadmin", "admin@testcorp.com"));
+            clearInvocations(dummyEmailService);
+
+            mockMvc.perform(post(REGISTER_URL).contentType(MediaType.APPLICATION_JSON)
+                            .content(registration("Test Corp", "testadmin", "admin@testcorp.com")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value(containsString("Attendi")));
+            verify(dummyEmailService, never()).sendRegistrationCode(anyString(), anyString(), anyInt());
+            // The earlier attempt is untouched: its code still works.
+            assertTrue(pendingRegistrationRepository.findByPublicId(first).isPresent());
+        }
+
+        @Test
+        @DisplayName("OWASP API6: starting over is no way past five codes a day to one address")
+        void shouldRefuseRestartAfterFiveCodesInADay() throws Exception {
+            String id = start(registration("Test Corp", "testadmin", "admin@testcorp.com"));
+            codeSentAgo(id, Duration.ofMinutes(30), 5);
+            clearInvocations(dummyEmailService);
+
+            mockMvc.perform(post(REGISTER_URL).contentType(MediaType.APPLICATION_JSON)
+                            .content(registration("Test Corp", "testadmin", "admin@testcorp.com")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value(containsString("troppi codici")));
+            verify(dummyEmailService, never()).sendRegistrationCode(anyString(), anyString(), anyInt());
+
+            // A day later the address may start again, with a fresh count.
+            codeSentAgo(id, Duration.ofHours(25), 5);
+            String again = start(registration("Test Corp", "testadmin", "admin@testcorp.com"));
+            assertEquals(1, pendingRegistrationRepository.findByPublicId(again).orElseThrow().getCodesSent());
+        }
+    }
+
+    /** Pretends the last code of a registration went out some time ago, after a number of codes. */
+    private void codeSentAgo(String registrationId, Duration ago, int codesSent) {
+        PendingRegistration pending = pendingRegistrationRepository.findByPublicId(registrationId).orElseThrow();
+        pending.setCodeSentAt(LocalDateTime.now().minus(ago));
+        pending.setCodesSent(codesSent);
+        pendingRegistrationRepository.save(pending);
+    }
+
+    private void expiredAgo(String registrationId, Duration ago) {
+        PendingRegistration pending = pendingRegistrationRepository.findByPublicId(registrationId).orElseThrow();
+        pending.setExpiresAt(LocalDateTime.now().minus(ago));
+        pendingRegistrationRepository.save(pending);
     }
 
     @Nested
@@ -338,7 +389,7 @@ class OrganizationControllerTest {
         }
 
         @Test
-        @DisplayName("five wrong codes drop the registration, so the right code no longer works")
+        @DisplayName("five wrong codes close the registration, so the right code no longer works")
         void shouldDropRegistrationAfterTooManyWrongCodes() throws Exception {
             String id = start(registration("Test Corp", "testadmin", "admin@testcorp.com"));
             String code = emailedCode("admin@testcorp.com");
@@ -351,11 +402,14 @@ class OrganizationControllerTest {
                     .andExpect(jsonPath("$.message").value(containsString("Troppi tentativi")));
 
             confirm(id, code).andExpect(status().isBadRequest());
-            assertEquals(0, pendingRegistrationRepository.count());
+            // Closed, not deleted: the row still counts the codes sent to the address.
+            assertEquals(1, pendingRegistrationRepository.count());
+            assertTrue(pendingRegistrationRepository.findByPublicId(id).orElseThrow().getExpiresAt()
+                    .isBefore(LocalDateTime.now().plusSeconds(1)));
         }
 
         @Test
-        @DisplayName("an expired code returns 400 and the registration is dropped")
+        @DisplayName("an expired code returns 400; the attempt stays until the purge")
         void shouldRefuseExpiredCode() throws Exception {
             String id = start(registration("Test Corp", "testadmin", "admin@testcorp.com"));
             String code = emailedCode("admin@testcorp.com");
@@ -366,7 +420,7 @@ class OrganizationControllerTest {
             confirm(id, code)
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.message").value(containsString("scaduta")));
-            assertEquals(0, pendingRegistrationRepository.count());
+            assertEquals(1, pendingRegistrationRepository.count());
         }
 
         @ParameterizedTest(name = "id={0}, code={1}")
@@ -389,18 +443,20 @@ class OrganizationControllerTest {
         }
 
         @Test
-        @DisplayName("the hourly purge removes only expired registrations")
+        @DisplayName("the hourly purge removes registrations expired for over a day, and only those")
         void shouldPurgeOnlyExpired() throws Exception {
-            String expired = start(registration("Old Corp", "oldadmin", "old@corp.com"));
+            String old = start(registration("Old Corp", "oldadmin", "old@corp.com"));
+            String recent = start(registration("Recent Corp", "recentadmin", "recent@corp.com"));
             start(registration("New Corp", "newadmin", "new@corp.com"));
-            PendingRegistration pending = pendingRegistrationRepository.findByPublicId(expired).orElseThrow();
-            pending.setExpiresAt(LocalDateTime.now().minusMinutes(1));
-            pendingRegistrationRepository.save(pending);
+            expiredAgo(old, Duration.ofHours(25));
+            expiredAgo(recent, Duration.ofMinutes(1));
 
             registrationService.purgeExpired();
 
-            assertEquals(1, pendingRegistrationRepository.count());
-            assertTrue(pendingRegistrationRepository.findByPublicId(expired).isEmpty());
+            assertEquals(2, pendingRegistrationRepository.count());
+            assertTrue(pendingRegistrationRepository.findByPublicId(old).isEmpty());
+            // Kept for the day: it still limits the codes recent@corp.com can receive.
+            assertTrue(pendingRegistrationRepository.findByPublicId(recent).isPresent());
         }
     }
 
@@ -474,7 +530,7 @@ class OrganizationControllerTest {
         }
 
         @Test
-        @DisplayName("refuses an expired registration and drops it")
+        @DisplayName("refuses an expired registration, which stays until the purge")
         void shouldRefuseExpired() throws Exception {
             String id = start(registration("Test Corp", "testadmin", "admin@testcorp.com"));
             PendingRegistration pending = pendingRegistrationRepository.findByPublicId(id).orElseThrow();
@@ -482,7 +538,7 @@ class OrganizationControllerTest {
             pendingRegistrationRepository.save(pending);
 
             resend(id).andExpect(status().isBadRequest());
-            assertEquals(0, pendingRegistrationRepository.count());
+            assertEquals(1, pendingRegistrationRepository.count());
         }
     }
 

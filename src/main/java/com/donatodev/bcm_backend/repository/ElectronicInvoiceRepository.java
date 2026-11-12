@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 // Every SUM below is of the taxable amount (contract amounts are IVA
@@ -22,6 +23,8 @@ import org.springframework.stereotype.Repository;
 
 import com.donatodev.bcm_backend.entity.ElectronicInvoice;
 import com.donatodev.bcm_backend.entity.InvoiceMatchStatus;
+
+import jakarta.persistence.LockModeType;
 
 @Repository
 public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInvoice, UUID> {
@@ -39,6 +42,13 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
 
     Optional<ElectronicInvoice> findByIdAndContractId(UUID id, UUID contractId);
 
+    /**
+     * The invoices a SEPA batch is about to pay, locked for the rest of the
+     * transaction (OWASP API6): a second request for the same invoices (a
+     * double click, two colleagues at once) waits here, then finds them in the
+     * first batch instead of producing a second file that pays them again.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<ElectronicInvoice> findByContractIdAndIdIn(UUID contractId, List<UUID> ids);
 
     List<ElectronicInvoice> findByContractIdAndMatchStatusIn(UUID contractId, List<InvoiceMatchStatus> statuses);

@@ -7,6 +7,7 @@ package com.donatodev.bcm_backend.repository;
 
 import java.util.UUID;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -45,4 +46,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     long deleteByTimestampBefore(Instant cutoff);
 
     List<AuditLog> findAllByOrgIdOrderByTimestampAsc(UUID orgId);
+
+    /** Every organization's entries of the given kinds since a moment: the weekly security report. */
+    List<AuditLog> findByActionInAndTimestampAfter(Collection<String> actions, Instant since);
 }

@@ -60,6 +60,7 @@ class PublicDemoGuardTest {
     @MockitoBean private SepaPaymentService sepaPaymentService;
     // Hands the caller a new refresh cookie after an own-credentials change; not under test here.
     @MockitoBean private CurrentSessionRenewer currentSessionRenewer;
+    @MockitoBean private SecurityEvents securityEvents;
 
     @Nested
     @DisplayName("as the public demo account")
@@ -73,6 +74,7 @@ class PublicDemoGuardTest {
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.message").value(DISABLED));
             verify(userService, never()).changeOwnPassword(anyString(), anyString());
+            verify(securityEvents).record(SecurityEvents.Type.DEMO_BLOCKED, "UserController.changeOwnPassword");
         }
 
         @Test
@@ -131,19 +133,19 @@ class PublicDemoGuardTest {
     @Test
     @DisplayName("locks nobody when the setting is empty")
     void emptySettingLocksNobody() {
-        PublicDemoGuard guard = new PublicDemoGuard("");
+        PublicDemoGuard guard = new PublicDemoGuard("", securityEvents);
         assertFalse(guard.isPublicDemo("demo"));
         assertFalse(guard.isPublicDemo(null));
-        assertTrue(new PublicDemoGuard(" demo ").isPublicDemo("demo"));
+        assertTrue(new PublicDemoGuard(" demo ", securityEvents).isPublicDemo("demo"));
     }
 
     @Test
     @DisplayName("locks nobody without the setting, and ignores requests that aren't controller methods")
     void nullSettingAndStaticResources() {
-        PublicDemoGuard guard = new PublicDemoGuard(null);
+        PublicDemoGuard guard = new PublicDemoGuard(null, securityEvents);
         assertFalse(guard.isPublicDemo("demo"));
 
-        PublicDemoGuard locked = new PublicDemoGuard("demo");
+        PublicDemoGuard locked = new PublicDemoGuard("demo", securityEvents);
         assertTrue(locked.preHandle(null, null, new Object()));
     }
 }

@@ -31,6 +31,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
@@ -61,6 +62,7 @@ import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.SepaPaymentBatchRepository;
+import com.donatodev.bcm_backend.security.SecurityEvents;
 
 @ExtendWith(MockitoExtension.class)
 class SepaPaymentServiceTest {
@@ -90,6 +92,7 @@ class SepaPaymentServiceTest {
     @Mock private LocalStorageService localStorageService;
     @Mock private CounterpartiesRepository counterpartiesRepository;
     @Mock private AuditLogService auditLogService;
+    @Mock private SecurityEvents securityEvents;
 
     @InjectMocks
     private SepaPaymentService sepaPaymentService;
@@ -215,6 +218,8 @@ class SepaPaymentServiceTest {
 
             assertThrows(IllegalArgumentException.class,
                     () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
+            verify(securityEvents).record(eq(SecurityEvents.Type.DUPLICATE_PAYMENT_REFUSED),
+                    eq("ElectronicInvoice"), eq(uid(10)), any());
         }
 
         @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
@@ -666,7 +671,10 @@ class SepaPaymentServiceTest {
 
             verify(batchRepository, never()).save(any());
             verify(counterpartiesRepository, never()).save(any());
-            verify(auditLogService).save(eq("SEPA_IBAN_MISMATCH_BLOCKED"), eq("Counterparty"), eq(uid(7)), eq("admin"), any(), any());
+            // Through SecurityEvents, whose own transaction outlives the rollback that follows.
+            verify(securityEvents).record(eq(SecurityEvents.Type.SEPA_IBAN_MISMATCH_BLOCKED), eq("Counterparty"),
+                    eq(uid(7)), contains("does not match verified IBAN"));
+            verify(auditLogService, never()).save(any(), any(), any(), any(), any(), any());
         }
     }
 
