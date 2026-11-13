@@ -5,6 +5,8 @@ import java.util.UUID;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +27,7 @@ import org.springframework.ai.embedding.EmbeddingModel;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.SemanticSearchResultDTO;
+import com.donatodev.bcm_backend.exception.SemanticSearchUnavailableException;
 import com.donatodev.bcm_backend.entity.ContractDocument;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.entity.Counterparty;
@@ -164,6 +167,21 @@ class SemanticSearchServiceTest {
         }
 
         @Test
+        @DisplayName("doesn't store an empty or non-finite vector from Ollama (OWASP API10)")
+        void refusesUnusableEmbedding() {
+            for (float[] unusable : new float[][]{new float[0], {0.1f, Float.NaN}, {Float.POSITIVE_INFINITY}}) {
+                ContractDocument doc = fakeDoc(null);
+                when(embeddingModel.embed("hello world")).thenReturn(unusable);
+
+                semanticSearchService.generateAndStoreEmbedding(doc, "hello world");
+
+                assertNull(doc.getEmbedding());
+            }
+            verify(documentRepository, never()).save(any());
+            assertEquals(3, meterRegistry.get("bcm.embedding.generate").tag("outcome", "error").timer().count());
+        }
+
+        @Test
         @DisplayName("does nothing for blank text")
         void doesNothingForBlankText() {
             ContractDocument doc = fakeDoc(null);
@@ -283,6 +301,36 @@ class SemanticSearchServiceTest {
             when(embeddingModel.embed("query")).thenReturn(new float[]{1f, 0f});
 
             assertEquals(1, semanticSearchService.search("query", 1).size());
+        }
+
+        @Test
+        @DisplayName("skips a document embedded by another model instead of failing the whole search")
+        void skipsEmbeddingOfAnotherDimension() throws Exception {
+            TenantContext.set(ORG_ID);
+            asAdmin();
+            ContractDocument other = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f, 0f}));
+            ContractDocument same = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
+            other.setId(uid(11));
+
+            when(documentRepository.findByOrgIdAndEmbeddingIsNotNull(ORG_ID)).thenReturn(List.of(other, same));
+            when(embeddingModel.embed("query")).thenReturn(new float[]{1f, 0f});
+
+            List<SemanticSearchResultDTO> results = semanticSearchService.search("query", 10);
+
+            assertEquals(1, results.size());
+            assertEquals(uid(10), results.get(0).documentId());
+        }
+
+        @Test
+        @DisplayName("an unusable query vector from Ollama means the search is unavailable")
+        void unusableQueryEmbeddingIsUnavailable() throws Exception {
+            TenantContext.set(ORG_ID);
+            asAdmin();
+            ContractDocument doc = fakeDoc(objectMapper.writeValueAsString(new float[]{1f, 0f}));
+            when(documentRepository.findByOrgIdAndEmbeddingIsNotNull(ORG_ID)).thenReturn(List.of(doc));
+            when(embeddingModel.embed("query")).thenReturn(new float[]{Float.NaN, 0f});
+
+            assertThrows(SemanticSearchUnavailableException.class, () -> semanticSearchService.search("query", 10));
         }
 
         @Test

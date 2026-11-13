@@ -310,6 +310,13 @@
         <Method name="readEmbedding"/>
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
+    <!-- search logs a document skipped for a different embedding size: its
+         UUID and two lengths, none of which can hold a line break. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.SemanticSearchService"/>
+        <Method name="search"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
     <!-- CRLF_INJECTION_LOGS in SecurityEvents.record: every value logged (user,
          address, detail, exception message) goes through oneLine(), which
          replaces line breaks; FindSecBugs doesn't track a Pattern replaceAll as

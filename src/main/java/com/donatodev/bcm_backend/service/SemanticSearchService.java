@@ -80,10 +80,15 @@ public class SemanticSearchService {
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
             float[] embedding = embeddingModel.embed(input);
+            if (!usable(embedding)) {
+                // What Ollama sends back is checked like any input (OWASP API10):
+                // an empty or non-finite vector would match nothing, or everything.
+                throw new IllegalStateException("unusable embedding returned");
+            }
             document.setEmbedding(objectMapper.writeValueAsString(embedding));
             documentRepository.save(document);
             sample.stop(Timer.builder("bcm.embedding.generate").tag("outcome", "success").register(meterRegistry));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             sample.stop(Timer.builder("bcm.embedding.generate").tag("outcome", "error").register(meterRegistry));
             logger.warn("Embedding generation failed for document {}: {}", document.getId(), safeMessage(e));
         }
@@ -103,6 +108,9 @@ public class SemanticSearchService {
         float[] queryEmbedding;
         try {
             queryEmbedding = embeddingModel.embed(query);
+            if (!usable(queryEmbedding)) {
+                throw new IllegalStateException("unusable embedding returned");
+            }
         } catch (Exception e) {
             logger.warn("Query embedding failed: {}", safeMessage(e));
             throw new SemanticSearchUnavailableException("Impossibile generare l'embedding della query", e);
@@ -112,6 +120,13 @@ public class SemanticSearchService {
         for (ContractDocument doc : candidates) {
             float[] docEmbedding = readEmbedding(doc);
             if (docEmbedding.length == 0) {
+                continue;
+            }
+            if (docEmbedding.length != queryEmbedding.length) {
+                // Stored by another embedding model: not comparable, and one such
+                // document must not take the whole search down with it.
+                logger.warn("Embedding of document {} has {} dimensions, the query {}: skipping",
+                        doc.getId(), docEmbedding.length, queryEmbedding.length);
                 continue;
             }
             double score = cosineSimilarity(queryEmbedding, docEmbedding);
@@ -158,6 +173,19 @@ public class SemanticSearchService {
             logger.warn("Corrupt embedding for document {}, skipping", doc.getId());
             return EMPTY_EMBEDDING;
         }
+    }
+
+    /** A vector worth storing or comparing: not empty, every value a finite number. */
+    static boolean usable(float[] embedding) {
+        if (embedding == null || embedding.length == 0) {
+            return false;
+        }
+        for (float value : embedding) {
+            if (!Float.isFinite(value)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static String safeMessage(Exception e) {
