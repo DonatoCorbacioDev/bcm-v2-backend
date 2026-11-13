@@ -411,6 +411,7 @@ class JwtUtilsTest {
     void shouldReturnNullOrgIdWhenClaimIsNotAUuid() {
         // Signed with the real key, so only the claim's content is wrong.
         String token = Jwts.builder()
+                .issuer(JwtUtils.ISSUER)
                 .subject("orguser")
                 .claim("orgId", "not-a-uuid")
                 .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret)))

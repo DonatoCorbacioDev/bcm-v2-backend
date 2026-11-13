@@ -18,6 +18,8 @@ import java.util.Base64;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.donatodev.bcm_backend.jwt.JwtUtils;
+
 import io.jsonwebtoken.Jwts;
 
 /**
@@ -37,6 +39,8 @@ import io.jsonwebtoken.Jwts;
 @Component
 public class MlClaimsSigner {
 
+    /** The audience the ML service requires (app/security.py). */
+    public static final String AUDIENCE_ML = "bcm-ml";
     private static final String CLAIM_ORG_ID = "orgId";
     private static final String CLAIM_MANAGER_ID = "managerId";
     private static final long CLAIMS_TTL_MS = 30_000L;
@@ -62,7 +66,11 @@ public class MlClaimsSigner {
         }
 
         Instant now = clock.instant();
+        // The ML service requires both (OWASP ASVS V9): a token signed with this
+        // key for any other purpose is not accepted as a scope there.
         return Jwts.builder()
+                .issuer(JwtUtils.ISSUER)
+                .audience().add(AUDIENCE_ML).and()
                 .claim(CLAIM_ORG_ID, orgId != null ? orgId.toString() : null)
                 .claim(CLAIM_MANAGER_ID, managerId != null ? managerId.toString() : null)
                 .issuedAt(toLegacyDate(now))

@@ -22,10 +22,10 @@ import com.donatodev.bcm_backend.security.AuthenticatedUser;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtBuilder;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
@@ -55,6 +55,16 @@ public class JwtUtils {
     private static final String CLAIM_MFA_SETUP = "mfaSetup";
     private static final String CLAIM_ORG_ID = "orgId";
 
+    /**
+     * Who issued the token and what it is for (RFC 7519 {@code iss}/{@code aud}).
+     * The parser refuses any other issuer; the audience keeps a session token
+     * and a two-factor step token apart even though they share the signing key,
+     * so neither can be presented where the other is expected.
+     */
+    public static final String ISSUER = "bcm-backend";
+    public static final String AUDIENCE_API = "bcm-api";
+    public static final String AUDIENCE_MFA = "bcm-mfa";
+
     public Clock getClock() {
         return this.clock;
     }
@@ -81,12 +91,18 @@ public class JwtUtils {
         Instant now = clock.instant();
         Instant expiration = now.plusMillis(jwtExpirationMs);
 
-        return Jwts.builder()
-                .subject(userPrincipal.getUsername())
-                .issuedAt(toLegacyDate(now))
-                .expiration(toLegacyDate(expiration))
+        return baseToken(userPrincipal.getUsername(), AUDIENCE_API, now, expiration)
                 .signWith(getSigningKey())
                 .compact();
+    }
+
+    private JwtBuilder baseToken(String subject, String audience, Instant issuedAt, Instant expiration) {
+        return Jwts.builder()
+                .issuer(ISSUER)
+                .audience().add(audience).and()
+                .subject(subject)
+                .issuedAt(toLegacyDate(issuedAt))
+                .expiration(toLegacyDate(expiration));
     }
 
     /**
@@ -98,10 +114,7 @@ public class JwtUtils {
         Instant expiration = now.plusMillis(jwtExpirationMs);
         UUID orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
 
-        return Jwts.builder()
-                .subject(user.getUsername())
-                .issuedAt(toLegacyDate(now))
-                .expiration(toLegacyDate(expiration))
+        return baseToken(user.getUsername(), AUDIENCE_API, now, expiration)
                 .claim(CLAIM_ORG_ID, orgId != null ? orgId.toString() : null)
                 .signWith(getSigningKey())
                 .compact();
@@ -129,10 +142,7 @@ public class JwtUtils {
         Instant expiration = now.plusMillis(MFA_PENDING_TOKEN_TTL_MS);
         UUID orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
 
-        return Jwts.builder()
-                .subject(user.getUsername())
-                .issuedAt(toLegacyDate(now))
-                .expiration(toLegacyDate(expiration))
+        return baseToken(user.getUsername(), AUDIENCE_MFA, now, expiration)
                 .claim(CLAIM_ORG_ID, orgId != null ? orgId.toString() : null)
                 .claim(CLAIM_MFA_PENDING, true)
                 .signWith(getSigningKey())
@@ -150,10 +160,7 @@ public class JwtUtils {
         Instant now = clock.instant();
         UUID orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
 
-        return Jwts.builder()
-                .subject(user.getUsername())
-                .issuedAt(toLegacyDate(now))
-                .expiration(toLegacyDate(now.plusMillis(MFA_SETUP_TOKEN_TTL_MS)))
+        return baseToken(user.getUsername(), AUDIENCE_MFA, now, now.plusMillis(MFA_SETUP_TOKEN_TTL_MS))
                 .claim(CLAIM_ORG_ID, orgId != null ? orgId.toString() : null)
                 .claim(CLAIM_MFA_PENDING, true)
                 .claim(CLAIM_MFA_SETUP, true)
@@ -164,9 +171,9 @@ public class JwtUtils {
     /** True for a token from {@link #generateMfaSetupToken}; false for anything else, malformed or expired. */
     public boolean isMfaSetupToken(String token) {
         try {
-            return Boolean.TRUE.equals(getClaimFromToken(token, claims -> claims.get(CLAIM_MFA_SETUP)));
-        } catch (ExpiredJwtException | MalformedJwtException | UnsupportedJwtException
-                 | IllegalArgumentException | SignatureException e) {
+            return hasAudience(token, AUDIENCE_MFA)
+                    && Boolean.TRUE.equals(getClaimFromToken(token, claims -> claims.get(CLAIM_MFA_SETUP)));
+        } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }
@@ -179,9 +186,8 @@ public class JwtUtils {
     public boolean isMfaPendingToken(String token) {
         try {
             Object claim = getClaimFromToken(token, claims -> claims.get(CLAIM_MFA_PENDING));
-            return Boolean.TRUE.equals(claim);
-        } catch (ExpiredJwtException | MalformedJwtException | UnsupportedJwtException
-                 | IllegalArgumentException | SignatureException e) {
+            return hasAudience(token, AUDIENCE_MFA) && Boolean.TRUE.equals(claim);
+        } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }
@@ -217,17 +223,18 @@ public class JwtUtils {
     }
 
     /**
-     * Validates the token's signature and expiration, and that its subject
-     * matches the given user details. Returns false instead of throwing for
-     * any malformed, expired, or invalid token.
+     * Validates a session token: signature, issuer, expiration, the API
+     * audience (so a two-factor step token is refused here), and that its
+     * subject matches the given user details. Returns false instead of
+     * throwing for any malformed, expired, or invalid token.
      */
     public boolean validateJwtToken(String token, UserDetails userDetails) {
         try {
             final String username = getUsernameFromJwtToken(token);
             return username.equals(userDetails.getUsername()) && !isTokenExpired(token)
+                    && hasAudience(token, AUDIENCE_API)
                     && !issuedBeforeCredentialsChanged(token, userDetails);
-        } catch (ExpiredJwtException | MalformedJwtException | UnsupportedJwtException
-                 | IllegalArgumentException | SignatureException e) {
+        } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }
@@ -251,10 +258,10 @@ public class JwtUtils {
             return true;
         } catch (ExpiredJwtException e) {
             log.warn("JWT token is expired: {}", sanitizeLogMessage(e));
-        } catch (MalformedJwtException | UnsupportedJwtException | IllegalArgumentException e) {
-            log.error("Invalid JWT token: {}", sanitizeLogMessage(e));
         } catch (SignatureException e) {
             log.error("JWT signature validation failed: {}", sanitizeLogMessage(e));
+        } catch (JwtException | IllegalArgumentException e) {
+            log.error("Invalid JWT token: {}", sanitizeLogMessage(e));
         }
 
         return false;
@@ -281,7 +288,14 @@ public class JwtUtils {
     private JwtParser getJwtParser() {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
+                .requireIssuer(ISSUER)
                 .build();
+    }
+
+    /** Whether the token is meant for the given audience; a token with none is meant for nothing. */
+    private boolean hasAudience(String token, String audience) {
+        java.util.Set<String> audiences = getClaimFromToken(token, Claims::getAudience);
+        return audiences != null && audiences.contains(audience);
     }
 
     private <T> T getClaimFromToken(String token, Function<Claims, T> claimsResolver) {

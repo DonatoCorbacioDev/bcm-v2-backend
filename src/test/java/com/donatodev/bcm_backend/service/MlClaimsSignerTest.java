@@ -66,6 +66,9 @@ class MlClaimsSignerTest {
 
         assertEquals(uid(5).toString(), claims.get("orgId"));
         assertEquals(uid(42).toString(), claims.get("managerId"));
+        // What the ML service requires (app/security.py): a token for anything else is refused there.
+        assertEquals("bcm-backend", claims.getIssuer());
+        assertEquals(java.util.Set.of("bcm-ml"), claims.getAudience());
     }
 
     @Test

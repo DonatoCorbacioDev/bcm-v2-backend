@@ -7,6 +7,7 @@ package com.donatodev.bcm_backend.jwt;
 
 import java.io.IOException;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import org.slf4j.MDC;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -35,6 +36,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.userDetailsService = userDetailsService;
     }
 
+    /** The calendar feed's secret token in its path, e.g. {@code /calendar/<token>.ics}. */
+    private static final Pattern CALENDAR_FEED_TOKEN = Pattern.compile("(/calendar/)[^/]+?(\\.ics)?$");
+
+    /**
+     * The request path as it goes into every log line of the request (MDC,
+     * shipped as an ECS field in production). The calendar feed URL is a
+     * bearer secret, the only one carried in a path, so it is masked: a log
+     * reader must not be able to subscribe to someone's deadlines.
+     */
+    static String loggablePath(String requestUri) {
+        return requestUri == null ? null : CALENDAR_FEED_TOKEN.matcher(requestUri).replaceFirst("$1***$2");
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
@@ -42,7 +56,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         MDC.put("requestId", UUID.randomUUID().toString().substring(0, 8));
         MDC.put("method", request.getMethod());
-        MDC.put("path", request.getRequestURI());
+        MDC.put("path", loggablePath(request.getRequestURI()));
 
         try {
             String authHeader = request.getHeader("Authorization");
