@@ -9,12 +9,9 @@ import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import com.donatodev.bcm_backend.util.PageLimits;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ManagerDTO;
 import com.donatodev.bcm_backend.entity.Managers;
@@ -127,21 +124,6 @@ public class ManagerService {
                 .orElseThrow(() -> new ManagerNotFoundException(MANAGER_ID_PREFIX + id + NOT_FOUND_SUFFIX));
         managersRepository.delete(manager);
     }
-    
-    public Page<ManagerDTO> searchManagers(String q, int page, int size) {
-        Pageable pageable = PageLimits.of(page, size, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
-        UUID orgId = TenantContext.require();
-        Page<Managers> result;
-        if (q == null || q.isBlank()) {
-            result = managersRepository.findByOrganizationId(orgId, pageable);
-        } else {
-            String term = q.trim();
-            result = managersRepository
-                    .findByOrganizationIdAndFirstNameContainingIgnoreCaseOrOrganizationIdAndLastNameContainingIgnoreCaseOrOrganizationIdAndEmailContainingIgnoreCase(
-                            orgId, term, orgId, term, orgId, term, pageable);
-        }
-        return result.map(managerMapper::toDTO);
-   }
     
     public Managers getManagerEntity(UUID id) {
         return findManagerInScope(id)

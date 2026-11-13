@@ -58,12 +58,13 @@ class GlobalExceptionHandlerTest {
         }
 
         @Test
-        @WithMockUser(roles = "ADMIN")
         @DisplayName("a missing required query parameter answers 400, naming it")
-        void shouldReturn400ForMissingParameter() throws Exception {
-            mockMvc.perform(get("/contracts/filter"))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.message").value("Parametro obbligatorio mancante: status"));
+        void shouldReturn400ForMissingParameter() {
+            ResponseEntity<ApiErrorResponse> response = new GlobalExceptionHandler().handleMissingParameter(
+                    new org.springframework.web.bind.MissingServletRequestParameterException("status", "String"));
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Parametro obbligatorio mancante: status", response.getBody().message());
         }
     }
 
@@ -133,15 +134,6 @@ class GlobalExceptionHandlerTest {
         @DisplayName("Should return 404 for unknown financial value")
         void shouldReturn404ForUnknownFinancialValue() throws Exception {
             mockMvc.perform(get("/financial-values/" + uid(999999)))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.status").value(404));
-        }
-
-        @Test
-        @WithMockUser(roles = "ADMIN")
-        @DisplayName("Should return 404 for unknown role")
-        void shouldReturn404ForUnknownRole() throws Exception {
-            mockMvc.perform(get("/roles/" + uid(999999)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404));
         }

@@ -8,7 +8,6 @@ package com.donatodev.bcm_backend.controller;
 import java.util.UUID;
 import java.util.List;
 
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -100,17 +99,6 @@ public class ManagerController {
     public ResponseEntity<Void> deleteManager(@PathVariable UUID id) {
         managerService.deleteManager(id);
         return ResponseEntity.noContent().build();
-    }
-    
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/search")
-    public ResponseEntity<Page<ManagerDTO>> searchManagers(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String q
-    ) {
-        Page<ManagerDTO> res = managerService.searchManagers(q, page, size);
-        return ResponseEntity.ok(res);
     }
     
     @PreAuthorize("hasRole('ADMIN')")

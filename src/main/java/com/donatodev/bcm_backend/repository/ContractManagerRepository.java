@@ -12,10 +12,7 @@ import com.donatodev.bcm_backend.entity.ContractManagerId;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Repository interface for accessing {@link ContractManager} entities,
@@ -26,18 +23,5 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public interface ContractManagerRepository extends JpaRepository<ContractManager, ContractManagerId> {
 	
-	@Query(value = "SELECT manager_id FROM contract_manager WHERE contract_id = :contractId", nativeQuery = true)
-    List<UUID> findManagerIdsByContractId(UUID contractId);
-
-    @Modifying 
-    @Transactional
-    @Query(value = "DELETE FROM contract_manager WHERE contract_id = :contractId", nativeQuery = true)
-    void deleteAllByContractId(UUID contractId);
-
-    @Modifying 
-    @Transactional
-    @Query(value = "INSERT IGNORE INTO contract_manager (contract_id, manager_id) VALUES (:contractId, :managerId)", nativeQuery = true)
-    void insertIgnore(UUID contractId, UUID managerId);
-
     List<ContractManager> findAllByContract_Organization_Id(UUID organizationId);
 }

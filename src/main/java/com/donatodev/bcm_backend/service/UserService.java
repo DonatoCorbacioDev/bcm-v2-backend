@@ -14,9 +14,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 import com.donatodev.bcm_backend.validation.PasswordPolicy;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -53,8 +50,6 @@ public class UserService {
 	private final RolesRepository rolesRepository;
 	private final InviteTokenRepository inviteTokenRepository;
 
-	private final PasswordResetTokenService passwordResetTokenService;
-	private final IEmailService emailService;
 	private final SessionRevocationService sessionRevocationService;
 
 	@Value("${app.frontend-base-url:http://localhost:3000}")
@@ -72,8 +67,6 @@ public class UserService {
 			ManagersRepository managersRepository,
 			RolesRepository rolesRepository,
 			InviteTokenRepository inviteTokenRepository,
-			PasswordResetTokenService passwordResetTokenService,
-			IEmailService emailService,
 			SessionRevocationService sessionRevocationService
 	) {
 		this.usersRepository = usersRepository;
@@ -82,8 +75,6 @@ public class UserService {
 		this.managersRepository = managersRepository;
 		this.rolesRepository = rolesRepository;
 		this.inviteTokenRepository = inviteTokenRepository;
-		this.passwordResetTokenService = passwordResetTokenService; // ✅
-		this.emailService = emailService; // ✅
 		this.sessionRevocationService = sessionRevocationService;
 	}
 
@@ -431,44 +422,4 @@ public class UserService {
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
 	}
 
-	public void sendResetLink(UUID userId) {
-		Users u = getEntityById(userId);
-		String token = passwordResetTokenService.createToken(u);
-
-		// The page is /reset-password: "(auth)" is a Next.js route group, not part of the URL.
-		String resetLink = frontendBaseUrl + "/reset-password?token=" + token;
-
-		String recipient = (u.getManager() != null && u.getManager().getEmail() != null)
-				? u.getManager().getEmail()
-				: u.getUsername();
-
-		emailService.sendResetPasswordEmail(recipient, resetLink);
-	}
-
-	public Page<Users> searchUsers(String q, String role, Boolean verified, Pageable pageable) {
-		Specification<Users> spec = Specification.allOf();
-
-		UUID orgId = TenantContext.require();
-		spec = spec.and((root, query, cb) ->
-			cb.equal(root.get("organization").get("id"), orgId)
-		);
-
-		if (q != null && !q.isBlank()) {
-			spec = spec.and((root, query, cb) ->
-				cb.like(cb.lower(root.get("username")), "%" + q.toLowerCase(Locale.ROOT) + "%")
-			);
-		}
-		if (role != null && !role.isBlank()) {
-			spec = spec.and((root, query, cb) ->
-				cb.equal(root.join("role").get("role"), role)
-			);
-		}
-		if (verified != null) {
-			spec = spec.and((root, query, cb) ->
-				cb.equal(root.get("verified"), verified)
-			);
-		}
-
-		return usersRepository.findAll(spec, pageable);
-	}
 }

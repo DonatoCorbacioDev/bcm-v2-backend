@@ -215,48 +215,6 @@ class ManagerControllerTest {
         }
 
         /**
-         * Test searching managers with pagination.
-         */
-        @Test
-        @Order(7)
-        @DisplayName("Should search managers with pagination")
-        @WithMockUser(roles = "ADMIN")
-        void shouldSearchManagers() throws Exception {
-            repository.saveAll(List.of(
-                    Managers.builder().organization(testOrg).firstName("John").lastName("Doe").email("john@example.com")
-                            .phoneNumber("111").department("IT").build(),
-                    Managers.builder().organization(testOrg).firstName("Jane").lastName("Smith").email("jane@example.com")
-                            .phoneNumber("222").department("HR").build()
-            ));
-
-            mockMvc.perform(get("/managers/search")
-                    .param("q", "John")
-                    .param("page", "0")
-                    .param("size", "10"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content").isArray())
-                    .andExpect(jsonPath("$.totalElements").exists());
-        }
-
-        /**
-         * Test searching managers without query parameter.
-         */
-        @Test
-        @Order(8)
-        @DisplayName("Should search managers without query parameter")
-        @WithMockUser(roles = "ADMIN")
-        void shouldSearchManagersWithoutQuery() throws Exception {
-            repository.save(Managers.builder().organization(testOrg).firstName("Test").lastName("Manager")
-                    .email("test@example.com").phoneNumber("333").department("Sales").build());
-
-            mockMvc.perform(get("/managers/search")
-                    .param("page", "0")
-                    .param("size", "10"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content").isArray());
-        }
-
-        /**
          * Test patching/updating a manager using PATCH method.
          */
         @Test

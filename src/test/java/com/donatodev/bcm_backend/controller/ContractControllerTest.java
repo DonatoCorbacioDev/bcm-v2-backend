@@ -27,8 +27,6 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -43,7 +41,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -365,52 +362,6 @@ class ContractControllerTest {
         }
 
         /**
-         * Test filtering contracts by status returns matching contracts.
-         */
-        @Test
-        @Order(7)
-        @DisplayName("The contract has been retrieved successfully by status")
-        @WithMockUser(username = "admin", roles = "ADMIN")
-        void shouldGetContractsByStatus() throws Exception {
-            Roles role = rolesRepository.save(Roles.builder()
-                    .role("ADMIN").build());
-
-            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
-                    .firstName("Paolo").lastName("Neri").email("paolo@example.com").department("Ops").build());
-
-            usersRepository.save(Users.builder().organization(testOrg)
-                    .username("admin").passwordHash("admin").role(role).manager(manager).verified(true).build());
-
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
-                    .name("Ops").description("Operational").build());
-
-            contractsRepository.save(Contracts.builder().organization(testOrg)
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Client Z").type(CounterpartyType.CUSTOMER).build())).contractNumber("CNTR-STATUS").wbsCode("WBS-STATUS")
-                    .projectName("Status Test").businessArea(area).manager(manager)
-                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
-                    .status(ContractStatus.ACTIVE).build());
-
-            mockMvc.perform(get("/contracts/filter")
-                    .param("status", "ACTIVE"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$[0].contractNumber").value("CNTR-STATUS"));
-        }
-
-        /**
-         * Test filtering contracts by invalid status returns HTTP 400 Bad
-         * Request.
-         */
-        @Test
-        @Order(8)
-        @DisplayName("Should return 400 Bad Request for invalid status")
-        @WithMockUser(username = "admin", roles = "ADMIN")
-        void shouldReturnBadRequestForInvalidStatus() throws Exception {
-            mockMvc.perform(get("/contracts/filter")
-                    .param("status", "INVALID_STATUS"))
-                    .andExpect(status().isBadRequest());
-        }
-
-        /**
          * Test retrieving contract statistics.
          */
         @Test
@@ -518,102 +469,6 @@ class ContractControllerTest {
                     .param("size", "10"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content").isArray());
-        }
-
-        /**
-         * Test assigning manager to contract.
-         */
-        @Test
-        @Order(12)
-        @DisplayName("Should assign manager to contract")
-        @WithMockUser(roles = "ADMIN")
-        void shouldAssignManager() throws Exception {
-            Managers manager1 = managersRepository.save(Managers.builder().organization(testOrg)
-                    .firstName("Manager1").lastName("One").email("manager1@example.com")
-                    .phoneNumber("111111").department("Dept1").build());
-
-            Managers manager2 = managersRepository.save(Managers.builder().organization(testOrg)
-                    .firstName("Manager2").lastName("Two").email("manager2@example.com")
-                    .phoneNumber("222222").department("Dept2").build());
-
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
-                    .name("Assign Area").description("Assign").build());
-
-            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Assign Client").type(CounterpartyType.CUSTOMER).build())).contractNumber("ASSIGN-1").wbsCode("WBS-ASSIGN")
-                    .projectName("Assign Project").businessArea(area).manager(manager1)
-                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
-                    .status(ContractStatus.ACTIVE).build());
-
-            String requestBody = String.format("{\"managerId\": \"%s\"}", manager2.getId());
-
-            mockMvc.perform(patch("/contracts/{id}/assign-manager", contract.getId())
-                    .with(csrf())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(requestBody))
-                    .andExpect(status().isNoContent());
-        }
-
-        /**
-         * Test getting collaborators for a contract.
-         */
-        @Test
-        @Order(13)
-        @DisplayName("Should get collaborators for contract")
-        @WithMockUser(roles = "ADMIN")
-        void shouldGetCollaborators() throws Exception {
-            createUser("user", "ADMIN", null);
-            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
-                    .firstName("Collab").lastName("Manager").email("collab@example.com")
-                    .phoneNumber("123456").department("Collab").build());
-
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
-                    .name("Collab Area").description("Collab").build());
-
-            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Collab Client").type(CounterpartyType.CUSTOMER).build())).contractNumber("COLLAB-1").wbsCode("WBS-COLLAB")
-                    .projectName("Collab Project").businessArea(area).manager(manager)
-                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
-                    .status(ContractStatus.ACTIVE).build());
-
-            mockMvc.perform(get("/contracts/{id}/collaborators", contract.getId()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$").isArray());
-        }
-
-        /**
-         * Test setting collaborators for a contract.
-         */
-        @Test
-        @Order(14)
-        @DisplayName("Should set collaborators for contract")
-        @WithMockUser(roles = "ADMIN")
-        void shouldSetCollaborators() throws Exception {
-            Managers manager1 = managersRepository.save(Managers.builder().organization(testOrg)
-                    .firstName("Set1").lastName("Manager").email("set1@example.com")
-                    .phoneNumber("111111").department("Set").build());
-
-            Managers manager2 = managersRepository.save(Managers.builder().organization(testOrg)
-                    .firstName("Set2").lastName("Manager").email("set2@example.com")
-                    .phoneNumber("222222").department("Set").build());
-
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
-                    .name("Set Area").description("Set").build());
-
-            Contracts contract = contractsRepository.save(Contracts.builder().organization(testOrg)
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("Set Client").type(CounterpartyType.CUSTOMER).build())).contractNumber("SET-1").wbsCode("WBS-SET")
-                    .projectName("Set Project").businessArea(area).manager(manager1)
-                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
-                    .status(ContractStatus.ACTIVE).build());
-
-            String requestBody = String.format("{\"managerIds\": [\"%s\", \"%s\"]}",
-                    manager1.getId(), manager2.getId());
-
-            mockMvc.perform(patch("/contracts/{id}/collaborators", contract.getId())
-                    .with(csrf())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(requestBody))
-                    .andExpect(status().isNoContent());
         }
 
         /**
@@ -1063,42 +918,6 @@ class ContractControllerTest {
         }
 
         @Test
-        @Order(33)
-        @DisplayName("Should trigger contract expiration check as admin")
-        @WithMockUser(username = "admin", roles = "ADMIN")
-        void shouldTriggerExpireOverdueContracts_AsAdmin() throws Exception {
-
-            createUser("admin", "ADMIN", null);
-
-            mockMvc.perform(post("/contracts/expire-overdue").with(csrf()))
-                    .andExpect(status().isOk())
-                    .andExpect(content().string("Contract expiration check completed successfully"));
-
-            // Verify the scheduler service was called
-            verify(contractSchedulerService, times(1)).expireOverdueContracts();
-        }
-
-        @Test
-        @Order(34)
-        @DisplayName("Should return 401 when triggering expiration check without auth")
-        void shouldReturn401_TriggerExpireOverdue_WithoutAuth() throws Exception {
-            mockMvc.perform(post("/contracts/expire-overdue").with(csrf()))
-                    .andExpect(status().isUnauthorized());
-        }
-
-        @Test
-        @Order(35)
-        @DisplayName("Should return 403 when triggering expiration check as manager")
-        @WithMockUser(username = "manager", roles = "MANAGER")
-        void shouldReturn403_TriggerExpireOverdue_AsManager() throws Exception {
-
-            createUser("manager", "MANAGER", null);
-
-            mockMvc.perform(post("/contracts/expire-overdue").with(csrf()))
-                    .andExpect(status().isForbidden());
-        }
-
-        @Test
         @Order(36)
         @DisplayName("Should return 400 when request body is malformed JSON")
         @WithMockUser(roles = "ADMIN")
@@ -1135,19 +954,6 @@ class ContractControllerTest {
                     .content(objectMapper.writeValueAsString(dto)))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.status").value(409));
-        }
-
-        @Test
-        @Order(38)
-        @DisplayName("Should return 404 when assigning manager to non-existent contract")
-        @WithMockUser(roles = "ADMIN")
-        void shouldReturn404WhenAssigningManagerToNonExistentContract() throws Exception {
-            mockMvc.perform(patch("/contracts/" + uid(99999) + "/assign-manager")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"managerId\": \"00000000-0000-0000-0000-000000000001\"}")
-                    .with(csrf()))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.status").value(404));
         }
 
         @Test

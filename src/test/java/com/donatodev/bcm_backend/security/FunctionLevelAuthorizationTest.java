@@ -140,11 +140,9 @@ class FunctionLevelAuthorizationTest {
     @CsvSource({
             "GET,    /users",
             "DELETE, /users/{id}",
-            "POST,   /users/{id}/force-reset",
             "GET,    /audit-logs",
             "GET,    /contracts",
             "DELETE, /contracts/{id}",
-            "POST,   /contracts/expire-overdue",
             "GET,    /contracts/import/template",
             "DELETE, /managers/{id}",
             "DELETE, /counterparties/{id}",

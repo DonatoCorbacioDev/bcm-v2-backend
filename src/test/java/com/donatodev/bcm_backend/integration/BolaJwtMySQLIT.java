@@ -81,7 +81,7 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
     }
 
     static Stream<Arguments> cases() {
-        return Stream.of("contract", "financialList", "historyList", "collaborators", "documents", "invoices",
+        return Stream.of("contract", "financialList", "historyList", "documents", "invoices",
                 "sepa", "workflow", "financialValue", "historyEntry").flatMap(resource ->
                 Stream.of("own", "colleague", "foreign").flatMap(owner ->
                         Stream.of(false, true).map(admin -> Arguments.of(resource, owner, admin))));

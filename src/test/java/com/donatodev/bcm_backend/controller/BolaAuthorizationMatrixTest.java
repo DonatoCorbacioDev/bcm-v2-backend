@@ -37,6 +37,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** JWT -> filters -> real services -> real repositories; only external IO is replaced. */
@@ -105,7 +107,6 @@ class BolaAuthorizationMatrixTest {
         routes.add(new Route("GET", "/contract-history/{id}", "contract-history", true));
         routes.add(new Route("GET", "/counterparties/{id}/invoicing-summary", "counterparties", true));
         routes.add(new Route("PATCH", "/users/{id}", "users", false));
-        routes.add(new Route("POST", "/users/{id}/force-reset", "users", false));
         routes.add(new Route("PATCH", "/managers/{id}", "managers", false));
         routes.add(new Route("PATCH", "/counterparties/{id}/verified-iban", "counterparties", false));
         routes.add(new Route("POST", "/contract-templates/{id}/instantiate", "instantiate", false));
@@ -117,9 +118,6 @@ class BolaAuthorizationMatrixTest {
             new Route("GET", "/contracts/{contract}", "", true),
             new Route("GET", "/financial-values/by-contract/{contract}", "", true),
             new Route("GET", "/contract-history/contract/{contract}", "", true),
-            new Route("GET", "/contracts/{contract}/collaborators", "", true),
-            new Route("PATCH", "/contracts/{contract}/collaborators", "collaborators", false),
-            new Route("PATCH", "/contracts/{contract}/assign-manager", "assign", false),
             new Route("POST", "/contracts/{contract}/generate-financial-values", "", false),
             new Route("GET", "/contracts/{contract}/documents", "", true),
             new Route("UPLOAD", "/contracts/{contract}/documents", "", true),
@@ -230,7 +228,7 @@ class BolaAuthorizationMatrixTest {
 
     static Stream<Arguments> listCases() {
         return Stream.of("/business-areas", "/financial-types", "/counterparties", "/budgets", "/contract-templates",
-                        "/financial-values", "/contracts/search", "/contracts/filter?status=ACTIVE", "/contracts/export/excel", "/contracts/export/pdf")
+                        "/financial-values", "/contracts/search", "/contracts/export/excel", "/contracts/export/pdf")
                 .flatMap(path -> Stream.of(Arguments.of(path, false), Arguments.of(path, true)));
     }
 
@@ -322,8 +320,10 @@ class BolaAuthorizationMatrixTest {
 
     @org.junit.jupiter.api.Test
     void globalRolesDoNotBecomeTenantOwnedResources() throws Exception {
-        mvc.perform(get("/roles/" + own.user().getRole().getId()).header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isOk());
+        // Roles are shared by every organization: listing them shows them all, no tenant owns one.
+        mvc.perform(get("/roles").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].id", hasItem(own.user().getRole().getId().toString())));
     }
 
     @org.junit.jupiter.api.Test
@@ -529,8 +529,7 @@ class BolaAuthorizationMatrixTest {
     static Stream<Arguments> peopleAndActivityLists() {
         return Stream.of(
                 Arguments.of("/contract-history", false), Arguments.of("/managers", false), Arguments.of("/managers", true),
-                Arguments.of("/managers/search?q=Test", false), Arguments.of("/users", false),
-                Arguments.of("/users/search?q=", false), Arguments.of("/audit-logs", false),
+                Arguments.of("/users", false), Arguments.of("/audit-logs", false),
                 Arguments.of("/notifications", false), Arguments.of("/notifications", true),
                 Arguments.of("/risk-feedback", false), Arguments.of("/risk-feedback", true));
     }
@@ -557,7 +556,7 @@ class BolaAuthorizationMatrixTest {
 
     static Stream<Arguments> foreignReferenceWrites() {
         return Stream.of("create contract with foreign counterparty", "update contract with foreign counterparty",
-                "assign foreign manager", "create user with foreign manager",
+                "create contract with foreign manager", "create user with foreign manager",
                 "instantiate template with foreign counterparty").map(Arguments::of);
     }
 
@@ -570,8 +569,10 @@ class BolaAuthorizationMatrixTest {
         var builder = switch (scenario) {
             case "create contract with foreign counterparty" -> post("/contracts").content(foreignCounterparty);
             case "update contract with foreign counterparty" -> put("/contracts/" + own.contract().getId()).content(foreignCounterparty);
-            case "assign foreign manager" -> patch("/contracts/" + own.contract().getId() + "/assign-manager")
-                    .content("{\"managerId\":" + q(foreign.manager().getId()) + "}");
+            // Was checked through PATCH /contracts/{id}/assign-manager until that endpoint went
+            // (OWASP API9): a contract's manager is now set only when it is written.
+            case "create contract with foreign manager" -> post("/contracts").content(payload("contracts")
+                    .replace("}", ",\"managerId\":" + q(foreign.manager().getId()) + "}"));
             case "create user with foreign manager" -> post("/users").content("{\"username\":\"" + UUID.randomUUID()
                     + "\",\"password\":\"ValidPassword123!\",\"managerId\":" + q(foreign.manager().getId())
                     + ",\"roleId\":" + q(admin.getRole().getId()) + "}");
@@ -624,8 +625,6 @@ class BolaAuthorizationMatrixTest {
             // A valid body (UserDTO requires roleId), so the request reaches the access check.
             case "users" -> "{\"username\":\"updated-user\",\"roleId\":" + q(admin.getRole().getId()) + "}";
             case "contract-templates" -> "{\"name\":\"Updated\"}";
-            case "assign" -> "{\"managerId\":" + q(own.manager().getId()) + "}";
-            case "collaborators" -> "{\"managerIds\":[" + q(own.manager().getId()) + "]}";
             case "sepa" -> "{\"invoiceIds\":[" + q(own.invoice().getId()) + "],\"executionDate\":\"2027-01-01\"}";
             case "reject" -> "{\"comment\":\"Rejected for testing\"}";
             case "risk" -> "{\"riskScore\":0.5,\"level\":\"LOW\",\"agree\":true}";

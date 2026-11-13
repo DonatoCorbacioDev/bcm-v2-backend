@@ -9,8 +9,6 @@ import java.util.UUID;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -147,26 +145,6 @@ public class UserController {
                 req.getPassword() 
         );
         return ResponseEntity.ok(userMapper.toDTO(updated));
-    }
-    
-    @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/{id}/force-reset")
-    public ResponseEntity<Void> forceReset(@PathVariable UUID id) {
-        userService.sendResetLink(id);
-        return ResponseEntity.noContent().build();
-    }
-    
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/search")
-    public ResponseEntity<Page<UserDTO>> searchUsers(
-            @RequestParam(required = false) String q,
-            @RequestParam(required = false) String role,       
-            @RequestParam(required = false) Boolean verified,   
-            Pageable pageable
-    ) {
-        Page<Users> page = userService.searchUsers(q, role, verified, pageable);
-        Page<UserDTO> dto = page.map(userMapper::toDTO);
-        return ResponseEntity.ok(dto);
     }
 
 }

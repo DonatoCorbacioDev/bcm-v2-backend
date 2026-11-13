@@ -9,7 +9,6 @@ import java.util.UUID;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.Year;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
@@ -30,7 +29,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.util.PageLimits;
 import com.donatodev.bcm_backend.config.TenantContext;
@@ -56,12 +54,10 @@ import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.CounterpartyNotFoundException;
 import com.donatodev.bcm_backend.exception.FinancialTypeNotFoundException;
-import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.mapper.ContractMapper;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
-import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
@@ -89,7 +85,6 @@ public class ContractService {
     private final ContractMapper contractMapper;
     private final UsersRepository usersRepository;
     private final ManagerService managerService;
-    private final ContractManagerRepository contractManagerRepository;
     private final ContractHistoryRepository contractHistoryRepository;
     private final BusinessAreasRepository businessAreasRepository;
     private final CounterpartiesRepository counterpartiesRepository;
@@ -105,7 +100,6 @@ public class ContractService {
             ContractMapper contractMapper,
             UsersRepository usersRepository,
             ManagerService managerService,
-            ContractManagerRepository contractManagerRepository,
             ContractHistoryRepository contractHistoryRepository,
             BusinessAreasRepository businessAreasRepository,
             CounterpartiesRepository counterpartiesRepository,
@@ -120,7 +114,6 @@ public class ContractService {
         this.contractMapper = contractMapper;
         this.usersRepository = usersRepository;
         this.managerService = managerService;
-        this.contractManagerRepository = contractManagerRepository;
         this.contractHistoryRepository = contractHistoryRepository;
         this.businessAreasRepository = businessAreasRepository;
         this.counterpartiesRepository = counterpartiesRepository;
@@ -213,26 +206,6 @@ public class ContractService {
     private Optional<Contracts> findContractInScope(UUID id) {
         UUID orgId = TenantContext.require();
         return contractsRepository.findByIdAndOrganization_Id(id, orgId);
-    }
-
-    /**
-     * Retrieves contracts filtered by status accessible by the authenticated
-     * user.
-     */
-    public List<ContractDTO> getContractsByStatus(ContractStatus status) {
-        AuthCtx auth = getAuthCtx();
-        if (ROLE_ADMIN.equals(Normalizer.normalize(auth.role(), Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
-            UUID orgId = TenantContext.require();
-            List<Contracts> contracts = contractsRepository.findByStatusAndOrganization_Id(status, orgId);
-            return contracts.stream()
-                    .map(contractMapper::toDTO)
-                    .toList();
-        }
-        if (auth.managerId() == null) return List.of();
-        return contractsRepository.findByManagerIdAndStatus(auth.managerId(), status)
-                .stream()
-                .map(contractMapper::toDTO)
-                .toList();
     }
 
     /**
@@ -513,58 +486,6 @@ public class ContractService {
                             managerId, term, managerId, term, pageable);
         } else {
             return contractsRepository.findByManagerId(managerId, pageable);
-        }
-    }
-
-    /**
-     * Assigns a manager to a contract.
-     */
-    public void assignManager(UUID contractId, UUID managerId) {
-        Contracts c = findContractInScope(contractId)
-                .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
-
-        Managers m = managerService.getManagerEntity(managerId);
-        if (m == null) {
-            throw new ManagerNotFoundException("Manager non trovato: " + managerId);
-        }
-
-        c.setManager(m);
-        contractsRepository.save(c);
-    }
-
-    /**
-     * Gets collaborator manager IDs for a contract in the current tenant.
-     * Managers must be the contract's primary manager.
-     */
-    public List<UUID> getCollaboratorIds(UUID contractId) {
-        contractAccessGuard.checkManagerCanAccess(contractAccessGuard.getContractInScope(contractId));
-        return contractManagerRepository.findManagerIdsByContractId(contractId);
-    }
-
-    /**
-     * Replaces collaborators atomically after validating every manager in the
-     * current tenant. A rejected ID must not remove existing assignments.
-     */
-    @Transactional
-    public void setCollaborators(UUID contractId, List<UUID> managerIds) {
-        findContractInScope(contractId)
-                .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
-
-        if (managerIds != null) {
-            for (UUID managerId : managerIds) {
-                if (managerId == null) {
-                    throw new IllegalArgumentException("L'ID del responsabile non può essere nullo");
-                }
-                managerService.getManagerEntity(managerId);
-            }
-        }
-
-        contractManagerRepository.deleteAllByContractId(contractId);
-
-        if (managerIds != null) {
-            for (UUID mid : managerIds) {
-                contractManagerRepository.insertIgnore(contractId, mid);
-            }
         }
     }
 

@@ -46,12 +46,4 @@ public interface ManagersRepository extends JpaRepository<Managers, UUID> {
      */
     Optional<Managers> findByIdAndOrganizationId(UUID id, UUID orgId);
 
-    Page<Managers> findByOrganizationIdAndFirstNameContainingIgnoreCaseOrOrganizationIdAndLastNameContainingIgnoreCaseOrOrganizationIdAndEmailContainingIgnoreCase(
-            UUID orgId1, String first,
-            UUID orgId2, String last,
-            UUID orgId3, String email,
-            Pageable pageable);
-
-    Page<Managers> findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
-            String first, String last, String email, Pageable pageable);
 }

@@ -69,7 +69,7 @@ class ContractResourceAuthorizationTest {
     @Autowired private ContractManagerRepository collaborators;
 
     static Stream<Arguments> authorizationCases() {
-        return Stream.of("financial", "collaborators").flatMap(endpoint -> Stream.of(
+        return Stream.of("financial").flatMap(endpoint -> Stream.of(
                 Arguments.of(endpoint, "admin", 200),
                 Arguments.of(endpoint, "assigned", 200),
                 Arguments.of(endpoint, "colleague", 403),
@@ -141,9 +141,7 @@ class ContractResourceAuthorizationTest {
             clearTenant();
         }
         UUID id = scenario.equals("missingContract") ? uid(Long.MAX_VALUE) : contract.getId();
-        String path = endpoint.equals("financial")
-                ? "/financial-values/by-contract/{id}" : "/contracts/{id}/collaborators";
-        var response = mockMvc.perform(get(path, id).with(user(username).roles(role)))
+        var response = mockMvc.perform(get("/financial-values/by-contract/{id}", id).with(user(username).roles(role)))
                 .andExpect(status().is(expectedStatus));
         if (expectedStatus == 200) {
             if (scenario.equals("empty")) {

@@ -2,11 +2,8 @@ package com.donatodev.bcm_backend.service;
 
 import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
@@ -75,37 +72,5 @@ class RoleServiceTest {
             assertEquals("ADMIN", result.get(0).role());
         }
 
-        /**
-         * Verifies that the correct RoleDTO is returned for a valid ID.
-         */
-        @Test
-        @Order(2)
-        @DisplayName("Get role by ID returns DTO")
-        void shouldGetRoleById() {
-            Roles entity = Roles.builder().id(uid(1)).role("MANAGER").build();
-            RoleDTO dto = new RoleDTO(uid(1), "MANAGER");
-
-            when(rolesRepository.findById(uid(1))).thenReturn(Optional.of(entity));
-            when(roleMapper.toDTO(entity)).thenReturn(dto);
-
-            RoleDTO result = roleService.getRoleById(uid(1));
-
-            assertEquals("MANAGER", result.role());
-        }
-
-        /**
-         * Verifies that {@link com.donatodev.bcm_backend.exception.RoleNotFoundException}
-         * is thrown when the role ID is not found.
-         */
-        @Test
-        @Order(3)
-        @DisplayName("Get role by ID throws exception if not found")
-        void shouldThrowIfRoleNotFound() {
-            when(rolesRepository.findById(uid(999))).thenReturn(Optional.empty());
-            UUID id999 = uid(999);
-            RoleNotFoundException ex =
-                assertThrows(RoleNotFoundException.class, () -> roleService.getRoleById(id999));
-            assertEquals("Ruolo ID " + uid(999) + " non trovato", ex.getMessage());
-        }
     }
 }

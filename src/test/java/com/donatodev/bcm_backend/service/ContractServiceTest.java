@@ -64,12 +64,10 @@ import com.donatodev.bcm_backend.exception.BusinessAreaNotFoundException;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.CounterpartyNotFoundException;
 import com.donatodev.bcm_backend.exception.FinancialTypeNotFoundException;
-import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
 import com.donatodev.bcm_backend.mapper.ContractMapper;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
-import com.donatodev.bcm_backend.repository.ContractManagerRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.repository.UsersRepository;
@@ -99,8 +97,6 @@ class ContractServiceTest {
     @Mock
     private ContractMapper contractMapper;
 
-    @Mock
-    private ContractManagerRepository contractManagerRepository;
 
     @Mock
     private ManagerService managerService;
@@ -134,29 +130,6 @@ class ContractServiceTest {
 
     @InjectMocks
     private ContractService contractService;
-
-    @Test
-    void shouldNotReadCollaboratorsWhenContractIsOutsideTenant() {
-        when(contractAccessGuard.getContractInScope(uid(42)))
-                .thenThrow(new ContractNotFoundException("Contratto non trovato"));
-
-        UUID id42 = uid(42);
-        assertThrows(ContractNotFoundException.class, () -> contractService.getCollaboratorIds(id42));
-        org.mockito.Mockito.verifyNoInteractions(contractManagerRepository);
-    }
-
-    @Test
-    void shouldNotReadCollaboratorsWhenManagerAccessIsDenied() {
-        Contracts contract = Contracts.builder().id(uid(42)).build();
-        when(contractAccessGuard.getContractInScope(uid(42))).thenReturn(contract);
-        doThrow(new org.springframework.security.access.AccessDeniedException("non autorizzato ad accedere al contratto"))
-                .when(contractAccessGuard).checkManagerCanAccess(contract);
-
-        UUID id42 = uid(42);
-        assertThrows(org.springframework.security.access.AccessDeniedException.class,
-                () -> contractService.getCollaboratorIds(id42));
-        org.mockito.Mockito.verifyNoInteractions(contractManagerRepository);
-    }
 
     /** The organization every request carries (its token's); tests that need another set their own. */
     private static final UUID TENANT = uid(1);
@@ -1013,38 +986,6 @@ class ContractServiceTest {
         }
 
         /**
-         * Test retrieving contracts filtered by status as a MANAGER should
-         * return matching results.
-         */
-        @Test
-        @Order(9)
-        @DisplayName("Get contracts by status as MANAGER")
-        void shouldGetContractsByStatusAsManager() {
-            Roles managerRole = Roles.builder().role("MANAGER").build();
-            Managers manager = Managers.builder().id(uid(7)).build();
-            Users managerUser = Users.builder()
-                    .username("manager2")
-                    .role(managerRole)
-                    .manager(manager)
-                    .build();
-
-            Contracts contract = Contracts.builder().id(uid(2)).status(ContractStatus.ACTIVE).counterparty(Counterparty.builder().name("ClientB").type(CounterpartyType.CUSTOMER).build()).build();
-            ContractDTO dto = new ContractDTO(uid(2), uid(1), new com.donatodev.bcm_backend.dto.CounterpartyDTO(uid(1), "ClientB", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "CON456", "WBS2", "Proj2", ContractStatus.ACTIVE,
-                    LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(20), uid(7), uid(1), null, null, null, null);
-
-            mockAuthentication("manager2", "MANAGER");
-
-            when(usersRepository.findByUsername("manager2")).thenReturn(Optional.of(managerUser));
-            when(contractsRepository.findByManagerIdAndStatus(uid(7), ContractStatus.ACTIVE)).thenReturn(List.of(contract));
-            when(contractMapper.toDTO(contract)).thenReturn(dto);
-
-            List<ContractDTO> result = contractService.getContractsByStatus(ContractStatus.ACTIVE);
-
-            assertEquals(1, result.size());
-            assertEquals("ClientB", result.get(0).counterparty().name());
-        }
-
-        /**
          * Test should throw UserNotFoundException when authentication is
          * missing.
          */
@@ -1136,25 +1077,6 @@ class ContractServiceTest {
         }
 
         /**
-         * Test should throw UserNotFoundException if user is not found when
-         * filtering contracts by status.
-         */
-        @Test
-        @Order(15)
-        @DisplayName("Should throw if user not found in getContractsByStatus")
-        void shouldThrowIfUserNotFoundInGetContractsByStatus() {
-
-            mockAuthentication("ghost", "USER");
-
-            when(usersRepository.findByUsername("ghost")).thenReturn(Optional.empty());
-
-            UserNotFoundException ex
-                    = assertThrows(UserNotFoundException.class,
-                            () -> contractService.getContractsByStatus(ContractStatus.ACTIVE));
-            assertEquals("Utente non trovato", ex.getMessage());
-        }
-
-        /**
          * Test should throw ContractNotFoundException when trying to update a
          * contract that doesn't exist.
          */
@@ -1171,36 +1093,6 @@ class ContractServiceTest {
             ContractNotFoundException ex
                     = assertThrows(ContractNotFoundException.class, () -> contractService.updateContract(contractId, dto));
             assertEquals("Contratto non trovato", ex.getMessage());
-        }
-
-        @Test
-        @Order(17)
-        @DisplayName("Get contracts by status as ADMIN")
-        void shouldGetContractsByStatusAsAdmin() {
-            Roles adminRole = Roles.builder().role("ADMIN").build();
-            Users admin = Users.builder()
-                    .username("admin")
-                    .role(adminRole)
-                    .build();
-
-            Contracts contract = Contracts.builder()
-                    .id(uid(1))
-                    .status(ContractStatus.ACTIVE)
-                    .counterparty(Counterparty.builder().name("ClientA").type(CounterpartyType.CUSTOMER).build())
-                    .build();
-            ContractDTO dto = new ContractDTO(uid(1), uid(1), new com.donatodev.bcm_backend.dto.CounterpartyDTO(uid(1), "ClientA", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "CON123", "WBS", "Proj",
-                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), LocalDate.of(2027, Month.JUNE, 15).plusDays(30), uid(1), uid(1), null, null, null, null);
-
-            mockAuthentication("admin", "ADMIN");
-
-            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-            when(contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, TENANT)).thenReturn(List.of(contract));
-            when(contractMapper.toDTO(contract)).thenReturn(dto);
-
-            List<ContractDTO> result = contractService.getContractsByStatus(ContractStatus.ACTIVE);
-
-            assertEquals(1, result.size());
-            assertEquals("ClientA", result.get(0).counterparty().name());
         }
 
         @Test
@@ -1305,172 +1197,6 @@ class ContractServiceTest {
             assertEquals(0.0, result.invoicedYtd());
             assertEquals(0.0, result.variancePercent());
             verify(invoiceRepository, never()).sumConfirmedInvoicedAmountByManagerIdAndYear(any(), anyInt());
-        }
-
-        @Test
-        @Order(19)
-        @DisplayName("Assign manager to contract successfully")
-        void shouldAssignManagerToContract() {
-            UUID contractId = uid(1);
-            UUID managerId = uid(5);
-
-            Contracts contract = Contracts.builder().id(contractId).build();
-            Managers manager = Managers.builder().id(managerId).build();
-
-            when(contractsRepository.findByIdAndOrganization_Id(contractId, TENANT)).thenReturn(Optional.of(contract));
-            when(managerService.getManagerEntity(managerId)).thenReturn(manager);
-            when(contractsRepository.save(contract)).thenReturn(contract);
-
-            contractService.assignManager(contractId, managerId);
-
-            verify(contractsRepository).save(contract);
-            assertEquals(manager, contract.getManager());
-        }
-
-        @Test
-        @Order(20)
-        @DisplayName("Assign manager throws when contract not found")
-        void shouldThrowWhenAssigningManagerToNonExistentContract() {
-            when(contractsRepository.findByIdAndOrganization_Id(uid(999), TENANT)).thenReturn(Optional.empty());
-
-            UUID id5 = uid(5);
-            UUID id999 = uid(999);
-            ContractNotFoundException ex
-                    = assertThrows(ContractNotFoundException.class,
-                            () -> contractService.assignManager(id999, id5));
-            assertTrue(ex.getMessage().contains("Contratto non trovato"));
-        }
-
-        @Test
-        @Order(21)
-        @DisplayName("Assign manager throws when manager not found")
-        void shouldThrowWhenAssigningNonExistentManager() {
-            Contracts contract = Contracts.builder().id(uid(1)).build();
-
-            when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(contract));
-            when(managerService.getManagerEntity(uid(999))).thenReturn(null);
-
-            UUID id1 = uid(1);
-            UUID id999 = uid(999);
-            ManagerNotFoundException ex
-                    = assertThrows(ManagerNotFoundException.class,
-                            () -> contractService.assignManager(id1, id999));
-            assertTrue(ex.getMessage().contains("Manager non trovato"));
-        }
-
-        @Test
-        @Order(22)
-        @DisplayName("Get collaborator IDs returns list of manager IDs")
-        void shouldGetCollaboratorIds() {
-            UUID contractId = uid(1);
-            Contracts contract = Contracts.builder().id(contractId).build();
-            List<UUID> managerIds = List.of(uid(10), uid(20), uid(30));
-
-            when(contractAccessGuard.getContractInScope(contractId)).thenReturn(contract);
-            when(contractManagerRepository.findManagerIdsByContractId(contractId)).thenReturn(managerIds);
-
-            List<UUID> result = contractService.getCollaboratorIds(contractId);
-
-            assertEquals(3, result.size());
-            assertEquals(uid(10), result.get(0));
-            assertEquals(uid(20), result.get(1));
-            assertEquals(uid(30), result.get(2));
-            verify(contractManagerRepository).findManagerIdsByContractId(contractId);
-        }
-
-        @Test
-        @Order(23)
-        @DisplayName("Get collaborator IDs throws when contract not found")
-        void shouldThrowWhenGettingCollaboratorIdsForNonExistentContract() {
-            when(contractAccessGuard.getContractInScope(uid(999)))
-                    .thenThrow(new ContractNotFoundException("Contratto non trovato: 999"));
-
-            UUID id999 = uid(999);
-            ContractNotFoundException ex
-                    = assertThrows(ContractNotFoundException.class,
-                            () -> contractService.getCollaboratorIds(id999));
-            assertTrue(ex.getMessage().contains("Contratto non trovato"));
-        }
-
-        @Test
-        @Order(24)
-        @DisplayName("Set collaborators with valid manager IDs")
-        void shouldSetCollaborators() {
-            UUID contractId = uid(1);
-            List<UUID> managerIds = List.of(uid(5), uid(10), uid(15));
-            Contracts contract = Contracts.builder().id(contractId).build();
-
-            when(contractsRepository.findByIdAndOrganization_Id(contractId, TENANT)).thenReturn(Optional.of(contract));
-            for (UUID managerId : managerIds) {
-                when(managerService.getManagerEntity(managerId)).thenReturn(Managers.builder().id(managerId).build());
-            }
-
-            contractService.setCollaborators(contractId, managerIds);
-
-            verify(contractManagerRepository).deleteAllByContractId(contractId);
-            verify(contractManagerRepository).insertIgnore(contractId, uid(5));
-            verify(contractManagerRepository).insertIgnore(contractId, uid(10));
-            verify(contractManagerRepository).insertIgnore(contractId, uid(15));
-            var order = org.mockito.Mockito.inOrder(managerService, contractManagerRepository);
-            order.verify(managerService).getManagerEntity(uid(5));
-            order.verify(managerService).getManagerEntity(uid(10));
-            order.verify(managerService).getManagerEntity(uid(15));
-            order.verify(contractManagerRepository).deleteAllByContractId(contractId);
-        }
-
-        @Test
-        void shouldNotChangeCollaboratorsWhenAnyManagerIsOutsideTenant() {
-            when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT))
-                    .thenReturn(Optional.of(Contracts.builder().id(uid(1)).build()));
-            when(managerService.getManagerEntity(uid(5))).thenReturn(Managers.builder().id(uid(5)).build());
-            when(managerService.getManagerEntity(uid(10))).thenThrow(new ManagerNotFoundException("Responsabile non trovato"));
-
-            List<UUID> managerIds = List.of(uid(5), uid(10));
-            UUID id1 = uid(1);
-            assertThrows(ManagerNotFoundException.class,
-                    () -> contractService.setCollaborators(id1, managerIds));
-            org.mockito.Mockito.verifyNoInteractions(contractManagerRepository);
-        }
-
-        @Test
-        void shouldRejectNullManagerIdBeforeChangingCollaborators() {
-            when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT))
-                    .thenReturn(Optional.of(Contracts.builder().id(uid(1)).build()));
-
-            UUID id1 = uid(1);
-            assertThrows(IllegalArgumentException.class,
-                    () -> contractService.setCollaborators(id1, java.util.Collections.singletonList(null)));
-            org.mockito.Mockito.verifyNoInteractions(contractManagerRepository, managerService);
-        }
-
-        @Test
-        @Order(25)
-        @DisplayName("Set collaborators with null list removes all collaborators")
-        void shouldSetCollaboratorsWithNull() {
-            UUID contractId = uid(1);
-            Contracts contract = Contracts.builder().id(contractId).build();
-
-            when(contractsRepository.findByIdAndOrganization_Id(contractId, TENANT)).thenReturn(Optional.of(contract));
-
-            contractService.setCollaborators(contractId, null);
-
-            verify(contractManagerRepository).deleteAllByContractId(contractId);
-            verify(contractManagerRepository, times(0)).insertIgnore(any(), any());
-        }
-
-        @Test
-        @Order(26)
-        @DisplayName("Set collaborators throws when contract not found")
-        void shouldThrowWhenSettingCollaboratorsForNonExistentContract() {
-            when(contractsRepository.findByIdAndOrganization_Id(uid(999), TENANT)).thenReturn(Optional.empty());
-
-            List<UUID> managerIds = List.of(uid(1), uid(2));
-
-            UUID id999 = uid(999);
-            ContractNotFoundException ex
-                    = assertThrows(ContractNotFoundException.class,
-                            () -> contractService.setCollaborators(id999, managerIds));
-            assertTrue(ex.getMessage().contains("Contratto non trovato"));
         }
 
         @ParameterizedTest(name = "[{index}] Search paged as ADMIN: term=''{0}'', status={1}")
@@ -2620,25 +2346,6 @@ class ContractServiceTest {
         }
 
         @Test
-        @Order(51)
-        @DisplayName("Get contracts by status as MANAGER with no manager assigned returns empty list")
-        void shouldReturnEmptyListByStatusWhenManagerHasNoManagerAssigned() {
-            Roles managerRole = Roles.builder().role("MANAGER").build();
-            Users managerUser = Users.builder()
-                    .username("unassigned2")
-                    .role(managerRole)
-                    .manager(null)
-                    .build();
-
-            mockAuthentication("unassigned2", "MANAGER");
-            when(usersRepository.findByUsername("unassigned2")).thenReturn(Optional.of(managerUser));
-
-            List<ContractDTO> result = contractService.getContractsByStatus(ContractStatus.ACTIVE);
-
-            assertTrue(result.isEmpty());
-        }
-
-        @Test
         @Order(57)
         @DisplayName("getContractById with TenantContext uses org-scoped repository")
         void shouldGetContractByIdWithTenantContext() {
@@ -2692,37 +2399,6 @@ class ContractServiceTest {
                 assertEquals(1, result.size());
                 verify(contractsRepository).findByOrganization_Id(uid(20));
                 verify(contractsRepository, never()).findByOrganization_Id(TENANT);
-            } finally {
-                TenantContext.clear();
-            }
-        }
-
-        @Test
-        @Order(59)
-        @DisplayName("getContractsByStatus as ADMIN with TenantContext uses org-scoped repository")
-        void shouldGetContractsByStatusWithOrgFilter() {
-            Users admin = Users.builder()
-                    .username("admin")
-                    .role(Roles.builder().role("ADMIN").build())
-                    .build();
-            Contracts entity = Contracts.builder().id(uid(1)).counterparty(Counterparty.builder().name("OrgClient").type(CounterpartyType.CUSTOMER).build()).build();
-            ContractDTO dto = new ContractDTO(uid(1), uid(1), new com.donatodev.bcm_backend.dto.CounterpartyDTO(uid(1), "OrgClient", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "C001", null, null,
-                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15), null, uid(1), null, null, null, null, 0);
-
-            mockAuthentication("admin", "ADMIN");
-            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
-
-            TenantContext.set(uid(21));
-            try {
-                when(contractsRepository.findByStatusAndOrganization_Id(ContractStatus.ACTIVE, uid(21)))
-                        .thenReturn(List.of(entity));
-                when(contractMapper.toDTO(entity)).thenReturn(dto);
-
-                List<ContractDTO> result = contractService.getContractsByStatus(ContractStatus.ACTIVE);
-
-                assertEquals(1, result.size());
-                verify(contractsRepository).findByStatusAndOrganization_Id(ContractStatus.ACTIVE, uid(21));
-                verify(contractsRepository, never()).findByStatusAndOrganization_Id(any(ContractStatus.class), eq(TENANT));
             } finally {
                 TenantContext.clear();
             }

@@ -28,9 +28,7 @@ import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.donatodev.bcm_backend.dto.ManagerDTO;
@@ -235,70 +233,6 @@ class ManagerServiceTest {
         }
 
         @Test
-        @Order(8)
-        @DisplayName("Search managers with null query returns all managers paginated")
-        void shouldSearchManagersWithNullQuery() {
-            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").lastName("Rossi").build();
-            ManagerDTO dto = new ManagerDTO(uid(1), "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
-
-            Page<Managers> page = new PageImpl<>(List.of(entity));
-            Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
-
-            when(managersRepository.findByOrganizationId(TENANT, pageable)).thenReturn(page);
-            when(managerMapper.toDTO(entity)).thenReturn(dto);
-
-            Page<ManagerDTO> result = managerService.searchManagers(null, 0, 10);
-
-            assertEquals(1, result.getTotalElements());
-            assertEquals("Mario", result.getContent().get(0).firstName());
-            verify(managersRepository, times(1)).findByOrganizationId(TENANT, pageable);
-        }
-
-        @Test
-        @Order(9)
-        @DisplayName("Search managers with blank query returns all managers paginated")
-        void shouldSearchManagersWithBlankQuery() {
-            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").lastName("Rossi").build();
-            ManagerDTO dto = new ManagerDTO(uid(1), "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
-
-            Page<Managers> page = new PageImpl<>(List.of(entity));
-            Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
-
-            when(managersRepository.findByOrganizationId(TENANT, pageable)).thenReturn(page);
-            when(managerMapper.toDTO(entity)).thenReturn(dto);
-
-            Page<ManagerDTO> result = managerService.searchManagers("   ", 0, 10);
-
-            assertEquals(1, result.getTotalElements());
-            assertEquals("Mario", result.getContent().get(0).firstName());
-            verify(managersRepository, times(1)).findByOrganizationId(TENANT, pageable);
-        }
-
-        @Test
-        @Order(10)
-        @DisplayName("Search managers with query term returns filtered results")
-        void shouldSearchManagersWithQuery() {
-            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").lastName("Rossi").build();
-            ManagerDTO dto = new ManagerDTO(uid(1), "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
-
-            Page<Managers> page = new PageImpl<>(List.of(entity));
-            Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
-
-            when(managersRepository
-                    .findByOrganizationIdAndFirstNameContainingIgnoreCaseOrOrganizationIdAndLastNameContainingIgnoreCaseOrOrganizationIdAndEmailContainingIgnoreCase(
-                            TENANT, "Mario", TENANT, "Mario", TENANT, "Mario", pageable)).thenReturn(page);
-            when(managerMapper.toDTO(entity)).thenReturn(dto);
-
-            Page<ManagerDTO> result = managerService.searchManagers("Mario", 0, 10);
-
-            assertEquals(1, result.getTotalElements());
-            assertEquals("Mario", result.getContent().get(0).firstName());
-            verify(managersRepository, times(1))
-                    .findByOrganizationIdAndFirstNameContainingIgnoreCaseOrOrganizationIdAndLastNameContainingIgnoreCaseOrOrganizationIdAndEmailContainingIgnoreCase(
-                            TENANT, "Mario", TENANT, "Mario", TENANT, "Mario", pageable);
-        }
-
-        @Test
         @Order(11)
         @DisplayName("Get manager entity returns entity when found")
         void shouldGetManagerEntity() {
@@ -369,54 +303,6 @@ class ManagerServiceTest {
                 assertEquals(uid(2), result.id());
                 assertNotNull(entity.getOrganization());
                 assertEquals(uid(4), entity.getOrganization().getId());
-            } finally {
-                TenantContext.clear();
-            }
-        }
-
-        @Test
-        @Order(15)
-        @DisplayName("searchManagers with TenantContext and blank query uses org-filtered findByOrganizationId")
-        void shouldSearchManagersWithOrgAndBlankQuery() {
-            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").build();
-            ManagerDTO dto = new ManagerDTO(uid(1), "Mario", "Rossi", "m@e.com", "1", "IT");
-            Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
-            Page<Managers> page = new PageImpl<>(List.of(entity));
-
-            TenantContext.set(uid(6));
-            try {
-                when(managersRepository.findByOrganizationId(uid(6), pageable)).thenReturn(page);
-                when(managerMapper.toDTO(entity)).thenReturn(dto);
-
-                Page<ManagerDTO> result = managerService.searchManagers("", 0, 10);
-
-                assertEquals(1, result.getTotalElements());
-                verify(managersRepository).findByOrganizationId(uid(6), pageable);
-            } finally {
-                TenantContext.clear();
-            }
-        }
-
-        @Test
-        @Order(16)
-        @DisplayName("searchManagers with TenantContext and non-blank query uses org-filtered search")
-        void shouldSearchManagersWithOrgAndQuery() {
-            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").build();
-            ManagerDTO dto = new ManagerDTO(uid(1), "Mario", "Rossi", "m@e.com", "1", "IT");
-            Pageable pageable = PageRequest.of(0, 10, Sort.by("lastName").ascending().and(Sort.by("firstName").ascending()));
-            Page<Managers> page = new PageImpl<>(List.of(entity));
-
-            TenantContext.set(uid(6));
-            try {
-                when(managersRepository
-                        .findByOrganizationIdAndFirstNameContainingIgnoreCaseOrOrganizationIdAndLastNameContainingIgnoreCaseOrOrganizationIdAndEmailContainingIgnoreCase(
-                                uid(6), "Mario", uid(6), "Mario", uid(6), "Mario", pageable))
-                        .thenReturn(page);
-                when(managerMapper.toDTO(entity)).thenReturn(dto);
-
-                Page<ManagerDTO> result = managerService.searchManagers("Mario", 0, 10);
-
-                assertEquals(1, result.getTotalElements());
             } finally {
                 TenantContext.clear();
             }

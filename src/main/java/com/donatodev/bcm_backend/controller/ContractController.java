@@ -23,7 +23,6 @@ import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -33,8 +32,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.donatodev.bcm_backend.dto.AssignManagerRequest;
-import com.donatodev.bcm_backend.dto.CollaboratorsRequest;
 import com.donatodev.bcm_backend.dto.ContractDTO;
 import com.donatodev.bcm_backend.dto.ContractImportResultDTO;
 import com.donatodev.bcm_backend.dto.ContractStatsResponse;
@@ -45,7 +42,6 @@ import com.donatodev.bcm_backend.dto.FinancialGenerationResultDTO;
 import com.donatodev.bcm_backend.dto.TopManagerDTO;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.service.ContractImportService;
-import com.donatodev.bcm_backend.service.ContractSchedulerService;
 import com.donatodev.bcm_backend.service.ContractService;
 import com.donatodev.bcm_backend.service.ExportService;
 import org.openpdf.text.DocumentException;
@@ -66,17 +62,14 @@ public class ContractController {
 
     private final ContractService contractService;
     private final ExportService exportService;
-    private final ContractSchedulerService contractSchedulerService;
     private final ContractImportService contractImportService;
 
     public ContractController(
             ContractService contractService,
             ExportService exportService,
-            ContractSchedulerService contractSchedulerService,
             ContractImportService contractImportService) {
         this.contractService = contractService;
         this.exportService = exportService;
-        this.contractSchedulerService = contractSchedulerService;
         this.contractImportService = contractImportService;
     }
 
@@ -105,24 +98,6 @@ public class ContractController {
         return ResponseEntity.ok(contract);
     }
 
-    /**
-     * Retrieves contracts filtered by status.
-     *
-     * @param status the status to filter contracts (e.g., ACTIVE, EXPIRED,
-     * CANCELLED)
-     * @return a list of {@link ContractDTO} matching the given status
-     */
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    @GetMapping("/filter")
-    public ResponseEntity<List<ContractDTO>> getContractsByStatus(@RequestParam String status) {
-        try {
-            ContractStatus contractStatus = ContractStatus.valueOf(Normalizer.normalize(status, Normalizer.Form.NFC).toUpperCase(Locale.ROOT));
-            List<ContractDTO> contracts = contractService.getContractsByStatus(contractStatus);
-            return ResponseEntity.ok(contracts);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        }
-    }
 
     /**
      * Creates a new contract.
@@ -213,31 +188,6 @@ public class ContractController {
         return ResponseEntity.ok(result);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
-    @PatchMapping("/{id}/assign-manager")
-    public ResponseEntity<Void> assignManager(
-            @PathVariable UUID id,
-            @RequestBody AssignManagerRequest body
-    ) {
-        contractService.assignManager(id, body.managerId());
-        return ResponseEntity.noContent().build();
-    }
-
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    @GetMapping("/{id}/collaborators")
-    public ResponseEntity<List<UUID>> getCollaborators(@PathVariable UUID id) {
-        return ResponseEntity.ok(contractService.getCollaboratorIds(id));
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @PatchMapping("/{id}/collaborators")
-    public ResponseEntity<Void> setCollaborators(
-            @PathVariable UUID id,
-            @RequestBody CollaboratorsRequest body) {
-        contractService.setCollaborators(id, body.managerIds());
-        return ResponseEntity.noContent().build();
-    }
-
     /**
      * Exports all contracts to Excel format (.xlsx).
      *
@@ -324,20 +274,6 @@ public class ContractController {
     public ResponseEntity<List<TopManagerDTO>> getTopManagers() {
         List<TopManagerDTO> topManagers = contractService.getTopManagers();
         return ResponseEntity.ok(topManagers);
-    }
-
-    /**
-     * Manually triggers the contract expiration check. Updates all ACTIVE
-     * contracts that have passed their end date to EXPIRED status.
-     *
-     * @return HTTP 200 with success message
-     */
-    @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/expire-overdue")
-    public ResponseEntity<String> triggerExpireOverdueContracts() {
-        logger.info("Manual trigger of contract expiration check requested");
-        contractSchedulerService.expireOverdueContracts();
-        return ResponseEntity.ok("Contract expiration check completed successfully");
     }
 
     /**

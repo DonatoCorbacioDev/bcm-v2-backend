@@ -28,20 +28,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -54,7 +47,6 @@ import com.donatodev.bcm_backend.dto.UserProfileDTO;
 import com.donatodev.bcm_backend.entity.InviteToken;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
-import com.donatodev.bcm_backend.entity.PasswordResetToken;
 import com.donatodev.bcm_backend.entity.Roles;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
@@ -65,11 +57,6 @@ import com.donatodev.bcm_backend.repository.RolesRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
 import com.donatodev.bcm_backend.util.TokenHash;
 
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.Path;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
 
 /**
  * Unit tests for {@link UserService}.
@@ -123,11 +110,7 @@ class UserServiceTest {
     @Mock
     private InviteTokenRepository inviteTokenRepository;
 
-    @Mock
-    private PasswordResetTokenService passwordResetTokenService;
 
-    @Mock
-    private IEmailService emailService;
 
     @Mock
     private SessionRevocationService sessionRevocationService;
@@ -1316,233 +1299,6 @@ class UserServiceTest {
         }
 
         /**
-         * Test: Send reset link successfully with manager email.
-         */
-        @Test
-        @Order(47)
-        @DisplayName("Send reset link with manager email")
-        void shouldSendResetLinkWithManagerEmail() {
-            Users user = Users.builder()
-                    .id(uid(1))
-                    .username("user")
-                    .manager(Managers.builder().email("manager@company.com").build())
-                    .build();
-
-            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
-            when(passwordResetTokenService.createToken(user)).thenReturn("reset-token-123");
-
-            userService.sendResetLink(uid(1));
-
-            verify(emailService).sendResetPasswordEmail(
-                    eq("manager@company.com"),
-                    argThat(link -> link.endsWith("/reset-password?token=reset-token-123") && !link.contains("/auth/"))
-            );
-        }
-
-        /**
-         * Test: Send reset link uses username as fallback when manager email is
-         * null.
-         */
-        @Test
-        @Order(48)
-        @DisplayName("Send reset link uses username as fallback")
-        void shouldSendResetLinkToUsernameWhenNoManagerEmail() {
-            Users user = Users.builder()
-                    .id(uid(1))
-                    .username("john.doe")
-                    .manager(null)
-                    .build();
-
-            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
-            when(passwordResetTokenService.createToken(user)).thenReturn("reset-token-456");
-
-            userService.sendResetLink(uid(1));
-
-            verify(emailService).sendResetPasswordEmail(
-                    eq("john.doe"),
-                    argThat(link -> link.endsWith("/reset-password?token=reset-token-456") && !link.contains("/auth/"))
-            );
-        }
-
-        /**
-         * Test: Send reset link uses username when manager exists but email is
-         * null.
-         */
-        @Test
-        @Order(49)
-        @DisplayName("Send reset link uses username when manager email is null")
-        void shouldSendResetLinkToUsernameWhenManagerEmailIsNull() {
-            Users user = Users.builder()
-                    .id(uid(1))
-                    .username("jane.smith")
-                    .manager(Managers.builder().email(null).build())
-                    .build();
-
-            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
-            when(passwordResetTokenService.createToken(user)).thenReturn("reset-token-789");
-
-            userService.sendResetLink(uid(1));
-
-            verify(emailService).sendResetPasswordEmail(
-                    eq("jane.smith"),
-                    argThat(link -> link.endsWith("/reset-password?token=reset-token-789") && !link.contains("/auth/"))
-            );
-        }
-
-        /**
-         * Test: Send reset link fails if user not found.
-         */
-        @Test
-        @Order(50)
-        @DisplayName("Send reset link fails if user not found")
-        void shouldThrowIfUserNotFoundForResetLink() {
-            when(usersRepository.findByIdAndOrganizationId(uid(999), TENANT)).thenReturn(Optional.empty());
-
-            UUID id999 = uid(999);
-            UserNotFoundException ex = assertThrows(UserNotFoundException.class,
-                    () -> userService.sendResetLink(id999));
-
-            assertEquals("Utente ID " + uid(999) + " non trovato", ex.getMessage());
-        }
-
-        /**
-         * Test: Search users with query parameter only.
-         */
-        @Test
-        @Order(51)
-        @DisplayName("Search users by query")
-        @SuppressWarnings("unchecked")
-        void shouldSearchUsersByQuery() {
-            Pageable pageable = Pageable.unpaged();
-            Users user = Users.builder().id(uid(1)).username("johndoe").build();
-            Page<Users> page = new PageImpl<>(List.of(user));
-
-            when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-
-            Page<Users> result = userService.searchUsers("john", null, null, pageable);
-
-            assertEquals(1, result.getContent().size());
-            verify(usersRepository).findAll(any(Specification.class), eq(pageable));
-        }
-
-        /**
-         * Test: Search users with role parameter only.
-         */
-        @Test
-        @Order(52)
-        @DisplayName("Search users by role")
-        @SuppressWarnings("unchecked")
-        void shouldSearchUsersByRole() {
-            Pageable pageable = Pageable.unpaged();
-            Users user = Users.builder().id(uid(1)).username("admin").build();
-            Page<Users> page = new PageImpl<>(List.of(user));
-
-            when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-
-            Page<Users> result = userService.searchUsers(null, "ADMIN", null, pageable);
-
-            assertEquals(1, result.getContent().size());
-            verify(usersRepository).findAll(any(Specification.class), eq(pageable));
-        }
-
-        /**
-         * Test: Search users with verified parameter only.
-         */
-        @Test
-        @Order(53)
-        @DisplayName("Search users by verified status")
-        @SuppressWarnings("unchecked")
-        void shouldSearchUsersByVerified() {
-            Pageable pageable = Pageable.unpaged();
-            Users user = Users.builder().id(uid(1)).username("verified").verified(true).build();
-            Page<Users> page = new PageImpl<>(List.of(user));
-
-            when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-
-            Page<Users> result = userService.searchUsers(null, null, true, pageable);
-
-            assertEquals(1, result.getContent().size());
-            verify(usersRepository).findAll(any(Specification.class), eq(pageable));
-        }
-
-        /**
-         * Test: Search users with all parameters.
-         */
-        @Test
-        @Order(54)
-        @DisplayName("Search users with all filters")
-        @SuppressWarnings("unchecked")
-        void shouldSearchUsersWithAllFilters() {
-            Pageable pageable = Pageable.unpaged();
-            Users user = Users.builder().id(uid(1)).username("admin").verified(true).build();
-            Page<Users> page = new PageImpl<>(List.of(user));
-
-            when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-
-            Page<Users> result = userService.searchUsers("adm", "ADMIN", true, pageable);
-
-            assertEquals(1, result.getContent().size());
-            verify(usersRepository).findAll(any(Specification.class), eq(pageable));
-        }
-
-        /**
-         * Test: Search users with no filters (all null).
-         */
-        @Test
-        @Order(55)
-        @DisplayName("Search users with no filters")
-        @SuppressWarnings("unchecked")
-        void shouldSearchUsersWithNoFilters() {
-            Pageable pageable = Pageable.unpaged();
-            Users user1 = Users.builder().id(uid(1)).username("user1").build();
-            Users user2 = Users.builder().id(uid(2)).username("user2").build();
-            Page<Users> page = new PageImpl<>(List.of(user1, user2));
-
-            when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-
-            Page<Users> result = userService.searchUsers(null, null, null, pageable);
-
-            assertEquals(2, result.getContent().size());
-            verify(usersRepository).findAll(any(Specification.class), eq(pageable));
-        }
-
-        /**
-         * Test: Search users skips blank query.
-         */
-        @Test
-        @Order(56)
-        @DisplayName("Search users skips blank query")
-        @SuppressWarnings("unchecked")
-        void shouldSkipBlankQueryInSearch() {
-            Pageable pageable = Pageable.unpaged();
-            Page<Users> page = new PageImpl<>(List.of());
-
-            when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-
-            userService.searchUsers("   ", null, null, pageable);
-
-            verify(usersRepository).findAll(any(Specification.class), eq(pageable));
-        }
-
-        /**
-         * Test: Search users skips blank role.
-         */
-        @Test
-        @Order(57)
-        @DisplayName("Search users skips blank role")
-        @SuppressWarnings("unchecked")
-        void shouldSkipBlankRoleInSearch() {
-            Pageable pageable = Pageable.unpaged();
-            Page<Users> page = new PageImpl<>(List.of());
-
-            when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-
-            userService.searchUsers(null, "  ", null, pageable);
-
-            verify(usersRepository).findAll(any(Specification.class), eq(pageable));
-        }
-
-        /**
          * Test: Should throw exception if manager not found during complete
          * invite.
          */
@@ -1678,69 +1434,5 @@ class UserServiceTest {
             }
         }
 
-        /**
-         * Test: searchUsers with TenantContext applies organization filter.
-         */
-        @Test
-        @Order(64)
-        @DisplayName("Search users with TenantContext applies organization filter")
-        @SuppressWarnings("unchecked")
-        void shouldSearchUsersWithTenantContext() {
-            Pageable pageable = Pageable.unpaged();
-            Users user = Users.builder().id(uid(1)).username("orguser").build();
-            Page<Users> page = new PageImpl<>(List.of(user));
-
-            TenantContext.set(uid(4));
-            try {
-                when(usersRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
-
-                Page<Users> result = userService.searchUsers(null, null, null, pageable);
-
-                assertEquals(1, result.getContent().size());
-                verify(usersRepository).findAll(any(Specification.class), eq(pageable));
-            } finally {
-                TenantContext.clear();
-            }
-        }
-
-        /**
-         * Test: searchUsers with TenantContext builds an organization-id predicate
-         * that matches the tenant's organization.
-         */
-        @Test
-        @Order(65)
-        @DisplayName("Search users with TenantContext applies organization filter predicate")
-        @SuppressWarnings("unchecked")
-        void shouldApplyOrganizationFilterPredicateWithTenantContext() {
-            Pageable pageable = Pageable.unpaged();
-            Page<Users> page = new PageImpl<>(List.of());
-
-            Root<Users> root = mock(Root.class);
-            CriteriaQuery<?> query = mock(CriteriaQuery.class);
-            CriteriaBuilder cb = mock(CriteriaBuilder.class);
-            Path<Object> orgPath = mock(Path.class);
-            Path<Object> idPath = mock(Path.class);
-            Predicate orgPredicate = mock(Predicate.class);
-
-            when(root.<Object>get("organization")).thenReturn(orgPath);
-            when(orgPath.<Object>get("id")).thenReturn(idPath);
-            when(cb.equal(idPath, uid(4))).thenReturn(orgPredicate);
-
-            ArgumentCaptor<Specification> captor = ArgumentCaptor.forClass(Specification.class);
-            when(usersRepository.findAll(captor.capture(), eq(pageable))).thenReturn(page);
-
-            TenantContext.set(uid(4));
-            try {
-                userService.searchUsers(null, null, null, pageable);
-            } finally {
-                TenantContext.clear();
-            }
-
-            @SuppressWarnings("unchecked")
-            Specification<Users> captured = captor.getValue();
-            Predicate result = captured.toPredicate(root, query, cb);
-
-            assertEquals(orgPredicate, result);
-        }
     }
 }

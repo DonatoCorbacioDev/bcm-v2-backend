@@ -1,6 +1,5 @@
 package com.donatodev.bcm_backend.controller;
 
-import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -100,25 +99,6 @@ class RoleControllerTest {
         }
 
         /**
-         * Tests retrieving a specific role by its ID.
-         */
-        @Test
-        @Order(3)
-        @DisplayName("The role with given ID has been retrieved successfully")
-        @WithMockUser(roles = "ADMIN")
-        void shouldGetRoleById() throws Exception {
-            Roles savedEntity = repository.save(
-                    Roles.builder().role("TESTER").build()
-            );
-
-            mockMvc.perform(get("/roles/{id}", savedEntity.getId()))
-                    .andExpect(status().isOk())
-                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(jsonPath("$.id").value(savedEntity.getId().toString()))
-                    .andExpect(jsonPath("$.role").value("TESTER"));
-        }
-
-        /**
          * Roles are shared by every organization: no admin may create,
          * rename or delete one (renaming MANAGER to ADMIN would promote every
          * manager of every organization).
@@ -133,26 +113,15 @@ class RoleControllerTest {
 
             mockMvc.perform(post("/roles").contentType(MediaType.APPLICATION_JSON).content(rename))
                     .andExpect(status().isMethodNotAllowed());
+            // No single role is exposed at all (OWASP API9): nothing at /roles/{id} to change.
             mockMvc.perform(put("/roles/{id}", manager.getId()).contentType(MediaType.APPLICATION_JSON).content(rename))
-                    .andExpect(status().isMethodNotAllowed());
+                    .andExpect(status().isNotFound());
             mockMvc.perform(delete("/roles/{id}", manager.getId()))
-                    .andExpect(status().isMethodNotAllowed());
+                    .andExpect(status().isNotFound());
 
             org.junit.jupiter.api.Assertions.assertEquals(1, repository.count());
             org.junit.jupiter.api.Assertions.assertEquals("MANAGER",
                     repository.findById(manager.getId()).orElseThrow().getRole());
-        }
-
-        /**
-         * Tests retrieving a non-existent role, expecting 404 Not Found.
-         */
-        @Test
-        @Order(6)
-        @DisplayName("Role not found when searching by invalid ID")
-        @WithMockUser(roles = "ADMIN")
-        void shouldReturnNotFoundForInvalidId() throws Exception {
-            mockMvc.perform(get("/roles/{id}", uid(9999)))
-                    .andExpect(status().isNotFound());
         }
 
         /**

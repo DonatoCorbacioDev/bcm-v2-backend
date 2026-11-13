@@ -27,7 +27,7 @@ the same organization; this does not allow access across organizations.
 | Surface | Coverage |
 | --- | --- |
 | Contracts, areas, managers, users, counterparties, financial types, budgets, templates, financial values | `BolaAuthorizationMatrixTest`: reads, updates and deletes with foreign and missing IDs, own reads and admin-only role checks |
-| Contract manager assignment, collaborators and financial generation | JWT matrix for parent scope and roles; `ContractCollaboratorsAuthorizationIT` for committed writes and rollback |
+| Contract manager assignment and financial generation | JWT matrix for parent scope and roles; a foreign manager in a contract's body is refused (`foreignReferenceWrites`). The separate assign-manager and collaborators endpoints were removed (OWASP API9, 2026-11-13) |
 | Contract history | JWT matrix for entry IDs and parent IDs, empty history, unassigned contracts and users without a manager profile |
 | Document upload, versions, diff, download, terms, extraction and clause analysis | JWT matrix for parent scope, manager ownership and child/parent mismatch; domain services remain real |
 | Invoice upload, list, metadata, download, deletion, payment details and matching | JWT matrix for parent scope, roles and child/parent mismatch; `InvoiceMatchAndNotificationAuthorizationTest` also exercises candidate scope and unchanged match state |
