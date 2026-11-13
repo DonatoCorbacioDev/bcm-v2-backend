@@ -166,8 +166,11 @@ public class OrganizationRegistrationService {
             int attempts = pending.getFailedAttempts() + 1;
             if (attempts >= MAX_FAILED_ATTEMPTS) {
                 // Closed, not deleted: the row keeps the count of codes sent to the address.
+                // A minute back, not "now": expires_at has whole seconds and the database
+                // rounds, so "now" could be stored up to half a second ahead and the right
+                // code still accepted in that window.
                 pending.setFailedAttempts(attempts);
-                pending.setExpiresAt(now());
+                pending.setExpiresAt(now().minusMinutes(1));
                 pendingRepository.save(pending);
                 throw new RegistrationCodeException(TOO_MANY_ATTEMPTS);
             }
@@ -218,8 +221,7 @@ public class OrganizationRegistrationService {
     private PendingRegistration findLive(String registrationId) {
         PendingRegistration pending = pendingRepository.findByPublicId(registrationId)
                 .orElseThrow(() -> new RegistrationCodeException(REGISTRATION_EXPIRED));
-        // Expired at its expiry instant too: a registration closed after too many
-        // wrong codes expires "now", which the next request can read as the same instant.
+        // Expired at its expiry instant too.
         if (!pending.getExpiresAt().isAfter(now())) {
             throw new RegistrationCodeException(REGISTRATION_EXPIRED);
         }
