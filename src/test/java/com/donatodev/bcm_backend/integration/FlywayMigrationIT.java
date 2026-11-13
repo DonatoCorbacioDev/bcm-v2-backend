@@ -173,14 +173,20 @@ class FlywayMigrationIT extends AbstractMySQLIntegrationTest {
                 Integer.class);
         assertEquals(0, foreignKeys);
 
+        // Ids of an organization and user that don't exist, as text: since V55 the
+        // columns hold UUIDs, and comparing them with a number makes MySQL cast every
+        // row's UUID to DOUBLE, an error in strict mode as soon as another test has
+        // left a real acceptance behind (CI ran OrganizationPurgeIT first, 2026-11-13).
+        String goneOrg = "00000000-0000-0000-0000-0000000f423f";
+        String goneUser = "00000000-0000-0000-0000-0000000f4240";
         jdbc.update("INSERT INTO terms_acceptances (id, organization_id, organization_name, user_id, username, "
                 + "signer_email, terms_version, onerous_clauses, professional_use_declared, signature_method, "
-                + "code_sent_at, accepted_at, request_ip, confirm_ip) VALUES (UUID(), 999999, 'Gone Srl', 999999, 'gone', "
+                + "code_sent_at, accepted_at, request_ip, confirm_ip) VALUES (UUID(), ?, 'Gone Srl', ?, 'gone', "
                 + "'gone@corp.it', '2026-10-21', '5, 9, 11, 12, 13, 15', TRUE, 'EMAIL_OTP', NOW(), NOW(), "
-                + "'2001:db8:85a3:0:0:8a2e:370:7334', '203.0.113.9')");
+                + "'2001:db8:85a3:0:0:8a2e:370:7334', '203.0.113.9')", goneOrg, goneUser);
         assertEquals(1, jdbc.queryForObject(
-                "SELECT COUNT(*) FROM terms_acceptances WHERE organization_id = 999999", Integer.class));
-        jdbc.update("DELETE FROM terms_acceptances WHERE organization_id = 999999");
+                "SELECT COUNT(*) FROM terms_acceptances WHERE organization_id = ?", Integer.class, goneOrg));
+        jdbc.update("DELETE FROM terms_acceptances WHERE organization_id = ?", goneOrg);
     }
 
     @Test
