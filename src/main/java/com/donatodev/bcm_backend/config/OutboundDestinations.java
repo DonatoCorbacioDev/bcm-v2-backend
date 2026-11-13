@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
  * OutboundRequestsTest} keeps it that way.
  */
 @Component
-public class OutboundDestinations {
+public final class OutboundDestinations {
 
     private static final Set<String> SCHEMES = Set.of("http", "https");
 

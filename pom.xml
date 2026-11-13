@@ -552,8 +552,10 @@
                 <executions>
                     <execution>
                         <phase>verify</phase>
+                        <!-- check, not spotbugs: the spotbugs goal is a report and
+                             is skipped in the build, so a finding never failed it. -->
                         <goals>
-                            <goal>spotbugs</goal>
+                            <goal>check</goal>
                         </goals>
                     </execution>
                 </executions>

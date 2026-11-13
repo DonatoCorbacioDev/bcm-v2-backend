@@ -123,7 +123,7 @@ public class SecurityEvents {
                     type.action(), entityType, entityId, username, orgId, details));
         } catch (RuntimeException e) {
             // The refusal itself must still happen: losing its record is the lesser harm.
-            logger.warn("Could not store security event {}: {}", type, e.getMessage());
+            logger.warn("Could not store security event {}: {}", type, oneLine(e.getMessage()));
         }
     }
 
