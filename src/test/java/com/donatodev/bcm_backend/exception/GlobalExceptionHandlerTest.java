@@ -264,4 +264,74 @@ class GlobalExceptionHandlerTest {
             assertEquals("Not Found", response.getBody().message());
         }
     }
+
+    @Nested
+    @DisplayName("Exceptions no other handler names (OWASP API8)")
+    class UnexpectedHandlers {
+
+        private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+
+        @Test
+        @DisplayName("Should answer an unknown path 404")
+        void shouldKeep404ForUnknownPath() {
+            ResponseEntity<ApiErrorResponse> response = handler.handleUnexpected(
+                    new org.springframework.web.servlet.resource.NoResourceFoundException(
+                            org.springframework.http.HttpMethod.GET, "/nonexistent", "nonexistent"));
+
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Risorsa non trovata", response.getBody().message());
+        }
+
+        @Test
+        @DisplayName("Should answer an unsupported method 405, listing the allowed ones")
+        void shouldKeep405WithAllowHeader() {
+            ResponseEntity<ApiErrorResponse> response = handler.handleUnexpected(
+                    new org.springframework.web.HttpRequestMethodNotSupportedException(
+                            "DELETE", java.util.List.of("GET", "POST")));
+
+            assertEquals(HttpStatus.METHOD_NOT_ALLOWED, response.getStatusCode());
+            assertEquals("Metodo non consentito", response.getBody().message());
+            assertEquals(java.util.Set.of(org.springframework.http.HttpMethod.GET, org.springframework.http.HttpMethod.POST),
+                    response.getHeaders().getAllow());
+        }
+
+        @Test
+        @DisplayName("Should answer a too large upload 413")
+        void shouldKeep413ForLargeUpload() {
+            ResponseEntity<ApiErrorResponse> response = handler.handleUnexpected(
+                    new org.springframework.web.multipart.MaxUploadSizeExceededException(10L));
+
+            assertEquals(HttpStatus.CONTENT_TOO_LARGE, response.getStatusCode());
+            assertEquals("File troppo grande", response.getBody().message());
+        }
+
+        @Test
+        @DisplayName("Should answer 406 without a body the client could not accept")
+        void shouldAnswer406WithoutBody() {
+            ResponseEntity<ApiErrorResponse> response = handler.handleUnexpected(
+                    new org.springframework.web.HttpMediaTypeNotAcceptableException(java.util.List.of()));
+
+            assertEquals(HttpStatus.NOT_ACCEPTABLE, response.getStatusCode());
+            assertEquals(null, response.getBody());
+        }
+
+        @Test
+        @DisplayName("Should answer nothing when the client has gone away")
+        void shouldAnswerNothingToAGoneClient() {
+            ResponseEntity<ApiErrorResponse> response = handler.handleUnexpected(
+                    new org.springframework.web.context.request.async.AsyncRequestNotUsableException("gone"));
+
+            assertEquals(null, response);
+        }
+
+        @Test
+        @DisplayName("Should answer any other exception 500 without its detail")
+        void shouldHideDetailOfAServerBug() {
+            ResponseEntity<ApiErrorResponse> response = handler.handleUnexpected(
+                    new IllegalStateException("secret internal detail"));
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals(GlobalExceptionHandler.INTERNAL_ERROR, response.getBody().message());
+        }
+    }
 }

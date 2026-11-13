@@ -8,16 +8,20 @@ package com.donatodev.bcm_backend.exception;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -29,6 +33,10 @@ import org.springframework.web.server.ResponseStatusException;
  */
 @ControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    static final String INTERNAL_ERROR = "Errore interno del server";
 
     /**
      * Handles cases where a contract is not found.
@@ -236,6 +244,45 @@ public class GlobalExceptionHandler {
         HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
         String message = ex.getReason() != null ? ex.getReason() : status.getReasonPhrase();
         return buildErrorResponse(status, message);
+    }
+
+    /**
+     * Answers every exception no handler above names, so none reaches the
+     * servlet container's error dispatch to {@code /error}: that dispatch carries
+     * no JWT, the security chain answered it 401, and the frontend logs out on
+     * any 401 — a server bug signed the user out (OWASP API8). Spring's own
+     * exceptions keep the status they carry (unknown path 404, wrong method 405,
+     * file too large 413...); anything else is a 500 whose detail goes to the
+     * log only, never to the client.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiErrorResponse> handleUnexpected(Exception ex) {
+        if (ex instanceof AsyncRequestNotUsableException) {
+            // The client went away (a download cut short): there is no one to answer.
+            return null;
+        }
+        if (ex instanceof ErrorResponse errorResponse) {
+            HttpStatus status = HttpStatus.valueOf(errorResponse.getStatusCode().value());
+            if (status == HttpStatus.NOT_ACCEPTABLE) {
+                // The client accepts no JSON: a JSON body could not be written.
+                return ResponseEntity.status(status).headers(errorResponse.getHeaders()).build();
+            }
+            ApiErrorResponse body = new ApiErrorResponse(status.value(), clientMessage(status),
+                    LocalDateTime.now(ZoneId.systemDefault()));
+            return ResponseEntity.status(status).headers(errorResponse.getHeaders()).body(body);
+        }
+        logger.error("Unhandled exception", ex);
+        return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_ERROR);
+    }
+
+    private static String clientMessage(HttpStatus status) {
+        return switch (status) {
+            case NOT_FOUND -> "Risorsa non trovata";
+            case METHOD_NOT_ALLOWED -> "Metodo non consentito";
+            case CONTENT_TOO_LARGE -> "File troppo grande";
+            case UNSUPPORTED_MEDIA_TYPE -> "Formato della richiesta non supportato";
+            default -> status.is5xxServerError() ? INTERNAL_ERROR : "Richiesta non valida";
+        };
     }
 
     /**

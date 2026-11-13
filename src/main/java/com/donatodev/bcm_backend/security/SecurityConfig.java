@@ -5,6 +5,8 @@
 
 package com.donatodev.bcm_backend.security;
 
+import jakarta.servlet.DispatcherType;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -63,6 +65,12 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                // The container's error dispatch to /error carries no JWT: refused,
+                // every error (a 404, a 500) reached the client as a 401 and the
+                // frontend logged out (OWASP API8). GlobalExceptionHandler answers
+                // errors raised in controllers; this covers those raised in filters.
+                // The error body never carries details in prod (server.error.*).
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // /actuator/prometheus alongside /actuator/health: both are read-only,
                 // low-sensitivity ops endpoints meant to be polled by infra (a scraper
