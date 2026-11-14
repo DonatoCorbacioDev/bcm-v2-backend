@@ -40,15 +40,16 @@ public record OrganizationRegistrationRequest(
 
         @NotBlank(message = "Email amministratore obbligatoria")
         @Email(message = "L'email amministratore non è valida")
+        @Size(max = 100, message = "L'email non può superare 100 caratteri")
         String adminEmail,
-
         @NotBlank(message = "Nome amministratore obbligatorio")
+        @Size(max = 50, message = "Il nome non può superare 50 caratteri")
         String adminFirstName,
-
         @NotBlank(message = "Cognome amministratore obbligatorio")
+        @Size(max = 50, message = "Il cognome non può superare 50 caratteri")
         String adminLastName,
-
         @NotBlank(message = "Versione dei Termini di servizio mancante")
+        @Size(max = 20, message = "Versione dei Termini di servizio non valida")
         String termsVersion,
 
         @AssertTrue(message = "È necessario accettare i Termini di servizio")

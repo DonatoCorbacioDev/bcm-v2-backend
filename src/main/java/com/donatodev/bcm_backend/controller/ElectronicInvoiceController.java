@@ -107,7 +107,7 @@ public class ElectronicInvoiceController {
     public ResponseEntity<ElectronicInvoiceDTO> confirmMatch(
             @PathVariable UUID contractId,
             @PathVariable UUID invoiceId,
-            @RequestBody(required = false) ConfirmInvoiceMatchRequest request) {
+            @Valid @RequestBody(required = false) ConfirmInvoiceMatchRequest request) {
         return ResponseEntity.ok(invoiceService.confirmMatch(contractId, invoiceId, request));
     }
 

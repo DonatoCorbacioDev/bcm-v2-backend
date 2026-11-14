@@ -7,6 +7,12 @@ package com.donatodev.bcm_backend.dto;
 
 import java.util.UUID;
 import com.donatodev.bcm_backend.entity.FinancialCategory;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import com.donatodev.bcm_backend.validation.InputLimits;
 
 /**
  * Data Transfer Object for Budget.
@@ -27,11 +33,13 @@ import com.donatodev.bcm_backend.entity.FinancialCategory;
  */
 public record BudgetDTO(
         UUID id,
-        UUID businessAreaId,
+        @NotNull(message = "Area aziendale obbligatoria") UUID businessAreaId,
         String areaName,
-        FinancialCategory category,
-        int year,
-        double targetAmount,
+        @NotNull(message = "Categoria obbligatoria") FinancialCategory category,
+        @Min(value = InputLimits.MIN_YEAR, message = "Anno non valido")
+        @Max(value = InputLimits.MAX_YEAR, message = "Anno non valido") int year,
+        @DecimalMin(value = "0", message = "L'obiettivo non può essere negativo")
+        @DecimalMax(value = InputLimits.MAX_AMOUNT, message = "Importo troppo grande") double targetAmount,
         double actualAmount,
         double percentUsed
 ) {}

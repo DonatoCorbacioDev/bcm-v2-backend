@@ -12,6 +12,7 @@ import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.Pattern;
 
 @Data
 @NoArgsConstructor
@@ -23,6 +24,7 @@ public class InviteUserRequest {
     private String username;
 
     @NotBlank
+    @Pattern(regexp = "ADMIN|MANAGER", message = "Ruolo non valido")
     private String role;
 
     @NotNull

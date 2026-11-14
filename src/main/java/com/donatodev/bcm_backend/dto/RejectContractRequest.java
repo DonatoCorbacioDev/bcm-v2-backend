@@ -5,5 +5,9 @@
 
 package com.donatodev.bcm_backend.dto;
 
-public record RejectContractRequest(String comment) {
+import jakarta.validation.constraints.Size;
+import com.donatodev.bcm_backend.validation.InputLimits;
+
+public record RejectContractRequest(
+        @Size(max = InputLimits.COMMENT, message = "Il commento non può superare 2000 caratteri") String comment) {
 }

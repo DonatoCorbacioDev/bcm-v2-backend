@@ -174,7 +174,7 @@ public class AuthController {
      * @return 200 OK with a generic confirmation message
      */
     @PostMapping("/forgot-password")
-    public ResponseEntity<String> forgotPassword(@RequestBody ForgotPasswordRequestDTO request) {
+    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDTO request) {
         // Looked up and sent off the request thread: the answer takes the same
         // time, and is the same, whether the address has an account or not.
         passwordResetMailer.requestReset(request.email());

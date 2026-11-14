@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.donatodev.bcm_backend.dto.BusinessAreaDTO;
 import com.donatodev.bcm_backend.service.BusinessAreaService;
+import jakarta.validation.Valid;
 
 /**
  * REST controller for managing Business Areas.
@@ -65,7 +66,7 @@ public class BusinessAreaController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<BusinessAreaDTO> createArea(@RequestBody BusinessAreaDTO dto) {
+    public ResponseEntity<BusinessAreaDTO> createArea(@Valid @RequestBody BusinessAreaDTO dto) {
         BusinessAreaDTO newArea = businessAreaService.createArea(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(newArea);
     }
@@ -79,7 +80,7 @@ public class BusinessAreaController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<BusinessAreaDTO> updateArea(@PathVariable UUID id, @RequestBody BusinessAreaDTO dto) {
+    public ResponseEntity<BusinessAreaDTO> updateArea(@PathVariable UUID id, @Valid @RequestBody BusinessAreaDTO dto) {
         BusinessAreaDTO updatedArea = businessAreaService.updateArea(id, dto);
         return ResponseEntity.ok(updatedArea);
     }

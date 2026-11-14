@@ -9,10 +9,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import com.donatodev.bcm_backend.validation.ValidPassword;
+import com.donatodev.bcm_backend.validation.InputLimits;
 
 public class CompleteInviteRequest {
 	
     @NotBlank
+    @Size(max = InputLimits.TOKEN, message = "Token non valido")
     private String token;
 
     @ValidPassword

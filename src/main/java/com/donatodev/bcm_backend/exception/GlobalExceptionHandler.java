@@ -223,8 +223,23 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    /**
+     * The database refused a row. Request DTOs bound every field first, so
+     * this is the safety net for a path that skipped them (OWASP Input
+     * Validation Cheat Sheet): a value too long or a missing required field
+     * is the caller's input, 400; only a duplicate of a unique value is a
+     * conflict, 409. Neither message names the column or the constraint.
+     */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        String cause = String.valueOf(ex.getMostSpecificCause().getMessage()).toLowerCase(java.util.Locale.ROOT);
+        if (cause.contains("too long")) {
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "Un valore supera la lunghezza consentita");
+        }
+        if (cause.contains("cannot be null") || cause.contains("not allowed for column")
+                || cause.contains("null not allowed")) {
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "Manca un campo obbligatorio");
+        }
         return buildErrorResponse(HttpStatus.CONFLICT, "Conflitto: esiste già un record con lo stesso valore univoco");
     }
 

@@ -7,6 +7,9 @@ package com.donatodev.bcm_backend.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Pattern;
 
 /**
  * Payload for confirming or disputing a risk score shown for a contract.
@@ -16,13 +19,16 @@ import jakarta.validation.constraints.NotNull;
 public record RiskFeedbackRequest(
 
         @NotNull(message = "Punteggio di rischio obbligatorio")
+        @DecimalMin(value = "0", message = "Il punteggio va da 0 a 1")
+        @DecimalMax(value = "1", message = "Il punteggio va da 0 a 1")
         Double riskScore,
-
         @NotBlank(message = "Livello di rischio obbligatorio")
+        @Pattern(regexp = "HIGH|MEDIUM|LOW", message = "Livello di rischio non valido")
         String level,
-
+        @DecimalMin(value = "0", message = "Il punteggio va da 0 a 1")
+        @DecimalMax(value = "1", message = "Il punteggio va da 0 a 1")
         Double mlScore,
-
+        @Pattern(regexp = "HIGH|MEDIUM|LOW", message = "Livello di rischio non valido")
         String mlLevel,
 
         @NotNull(message = "Conferma obbligatoria")

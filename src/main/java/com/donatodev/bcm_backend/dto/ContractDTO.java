@@ -15,6 +15,10 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Size;
+import com.donatodev.bcm_backend.validation.InputLimits;
 
 /**
  * Data Transfer Object for Contract.
@@ -51,9 +55,10 @@ public record ContractDTO(
         UUID id,
         @NotNull(message = "Controparte obbligatoria") UUID counterpartyId,
         CounterpartyDTO counterparty,
-        @NotBlank(message = "Numero contratto obbligatorio") String contractNumber,
-        String wbsCode,
-        String projectName,
+        @NotBlank(message = "Numero contratto obbligatorio")
+        @Size(max = 255, message = "Il numero contratto non può superare 255 caratteri") String contractNumber,
+        @Size(max = 50, message = "Il codice WBS non può superare 50 caratteri") String wbsCode,
+        @Size(max = 100, message = "Il nome progetto non può superare 100 caratteri") String projectName,
         ContractStatus status,
         @NotNull(message = "Data inizio obbligatoria") LocalDate startDate,
         @NotNull(message = "Data fine obbligatoria") LocalDate endDate,
@@ -65,7 +70,8 @@ public record ContractDTO(
         Integer daysUntilExpiry,
         WorkflowStage workflowStage,
         UUID financialTypeId,
-        Double annualValue,
+        @DecimalMin(value = "0", message = "Il valore annuo non può essere negativo")
+        @DecimalMax(value = InputLimits.MAX_AMOUNT, message = "Importo troppo grande") Double annualValue,
         BillingFrequency billingFrequency,
         Boolean autoRenew,
         @Min(value = 0, message = "Il preavviso non può essere negativo")

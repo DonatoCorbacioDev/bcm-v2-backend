@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.donatodev.bcm_backend.dto.BudgetDTO;
 import com.donatodev.bcm_backend.service.BudgetService;
+import jakarta.validation.Valid;
 
 /**
  * REST controller for managing Budgets.
@@ -65,7 +66,7 @@ public class BudgetController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<BudgetDTO> createBudget(@RequestBody BudgetDTO dto) {
+    public ResponseEntity<BudgetDTO> createBudget(@Valid @RequestBody BudgetDTO dto) {
         BudgetDTO newBudget = budgetService.createBudget(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(newBudget);
     }
@@ -79,7 +80,7 @@ public class BudgetController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<BudgetDTO> updateBudget(@PathVariable UUID id, @RequestBody BudgetDTO dto) {
+    public ResponseEntity<BudgetDTO> updateBudget(@PathVariable UUID id, @Valid @RequestBody BudgetDTO dto) {
         BudgetDTO updatedBudget = budgetService.updateBudget(id, dto);
         return ResponseEntity.ok(updatedBudget);
     }

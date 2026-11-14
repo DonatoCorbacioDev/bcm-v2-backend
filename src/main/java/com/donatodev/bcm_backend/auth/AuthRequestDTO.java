@@ -6,6 +6,8 @@
 package com.donatodev.bcm_backend.auth;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import com.donatodev.bcm_backend.validation.InputLimits;
 
 /**
  * Data Transfer Object (DTO) for authentication requests.
@@ -18,9 +20,11 @@ import jakarta.validation.constraints.NotBlank;
  *                          used to disambiguate usernames shared across organizations
  */
 public record AuthRequestDTO(
-        @NotBlank(message = "Username is required") String username,
-        @NotBlank(message = "Password is required") String password,
-        String organizationSlug
+        @NotBlank(message = "Username is required")
+        @Size(max = 255, message = "Username non valido") String username,
+        @NotBlank(message = "Password is required")
+        @Size(max = InputLimits.PASSWORD_CHECKED, message = "Password non valida") String password,
+        @Size(max = 100, message = "Organizzazione non valida") String organizationSlug
 ) {
     public AuthRequestDTO(String username, String password) {
         this(username, password, null);

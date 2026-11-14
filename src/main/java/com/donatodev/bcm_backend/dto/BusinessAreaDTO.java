@@ -6,6 +6,9 @@
 package com.donatodev.bcm_backend.dto;
 
 import java.util.UUID;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import com.donatodev.bcm_backend.validation.InputLimits;
 
 /**
  * Data Transfer Object for Business Area.
@@ -18,6 +21,7 @@ import java.util.UUID;
  */
 public record BusinessAreaDTO(
         UUID id,
-        String name,
-        String description
+        @NotBlank(message = "Nome obbligatorio")
+        @Size(max = 255, message = "Il nome non può superare 255 caratteri") String name,
+        @Size(max = InputLimits.LONG_TEXT, message = "La descrizione è troppo lunga") String description
 ) {}

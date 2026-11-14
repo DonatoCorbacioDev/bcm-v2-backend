@@ -7,6 +7,7 @@ package com.donatodev.bcm_backend.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * DTO used to handle forgot password requests.
@@ -18,5 +19,6 @@ import jakarta.validation.constraints.NotBlank;
 public record ForgotPasswordRequestDTO(
         @Email(message = "Formato email non valido")
         @NotBlank(message = "Email obbligatoria")
+        @Size(max = 255, message = "Email non valida")
         String email
 ) {}

@@ -15,6 +15,10 @@ import org.springframework.web.bind.annotation.*;
 
 import com.donatodev.bcm_backend.dto.ManagerDTO;
 import com.donatodev.bcm_backend.service.ManagerService;
+import jakarta.validation.Valid;
+import jakarta.validation.groups.Default;
+import org.springframework.validation.annotation.Validated;
+import com.donatodev.bcm_backend.validation.OnCreate;
 
 /**
  * REST controller for managing company managers.
@@ -69,7 +73,7 @@ public class ManagerController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<ManagerDTO> createManager(@RequestBody ManagerDTO managerDTO) {
+    public ResponseEntity<ManagerDTO> createManager(@Validated({Default.class, OnCreate.class}) @RequestBody ManagerDTO managerDTO) {
         ManagerDTO newManager = managerService.createManager(managerDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(newManager);
     }
@@ -83,7 +87,7 @@ public class ManagerController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("{id}")
-    public ResponseEntity<ManagerDTO> updateManager(@PathVariable UUID id, @RequestBody ManagerDTO managerDTO) {
+    public ResponseEntity<ManagerDTO> updateManager(@PathVariable UUID id, @Validated({Default.class, OnCreate.class}) @RequestBody ManagerDTO managerDTO) {
         ManagerDTO updatedManager = managerService.updateManager(id, managerDTO);
         return ResponseEntity.ok(updatedManager);
     }
@@ -103,7 +107,7 @@ public class ManagerController {
     
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}")
-    public ResponseEntity<ManagerDTO> patchManager(@PathVariable UUID id, @RequestBody ManagerDTO managerDTO) {
+    public ResponseEntity<ManagerDTO> patchManager(@PathVariable UUID id, @Valid @RequestBody ManagerDTO managerDTO) {
         ManagerDTO updated = managerService.updateManager(id, managerDTO);
         return ResponseEntity.ok(updated);
     }

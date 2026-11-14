@@ -625,6 +625,12 @@ class BolaAuthorizationMatrixTest {
             // A valid body (UserDTO requires roleId), so the request reaches the access check.
             case "users" -> "{\"username\":\"updated-user\",\"roleId\":" + q(admin.getRole().getId()) + "}";
             case "contract-templates" -> "{\"name\":\"Updated\"}";
+            // Valid bodies too (OWASP input validation runs first and would answer 400).
+            case "business-areas" -> "{\"name\":\"Updated area\"}";
+            case "financial-types" -> "{\"name\":\"Updated type\",\"category\":\"REVENUE\"}";
+            case "managers" -> "{\"firstName\":\"Updated\",\"lastName\":\"Manager\",\"email\":\"" + UUID.randomUUID() + "@example.com\"}";
+            case "budgets" -> "{\"businessAreaId\":" + q(own.area().getId()) + ",\"year\":2027,\"category\":\"REVENUE\",\"targetAmount\":100}";
+            case "financial-values" -> financialBody(own, own, own);
             case "sepa" -> "{\"invoiceIds\":[" + q(own.invoice().getId()) + "],\"executionDate\":\"2027-01-01\"}";
             case "reject" -> "{\"comment\":\"Rejected for testing\"}";
             case "risk" -> "{\"riskScore\":0.5,\"level\":\"LOW\",\"agree\":true}";

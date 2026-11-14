@@ -211,7 +211,20 @@ public class ContractService {
     /**
      * Creates a new contract.
      */
+    /**
+     * A contract cannot end before it starts (OWASP Input Validation Cheat
+     * Sheet, business rules): checked here so the form, a template and the
+     * CSV import, which all come through this service, are refused alike.
+     */
+    private static void requireEndNotBeforeStart(ContractDTO contractDTO) {
+        if (contractDTO != null && contractDTO.startDate() != null && contractDTO.endDate() != null
+                && contractDTO.endDate().isBefore(contractDTO.startDate())) {
+            throw new IllegalArgumentException("La data di fine non può precedere la data di inizio");
+        }
+    }
+
     public ContractDTO createContract(ContractDTO contractDTO) {
+        requireEndNotBeforeStart(contractDTO);
         Contracts contract = contractMapper.toEntity(contractDTO);
         if (contract == null) {
             throw new IllegalArgumentException("Dati contratto obbligatori");
@@ -233,6 +246,7 @@ public class ContractService {
      * automatically created.
      */
     public ContractDTO updateContract(UUID id, ContractDTO contractDTO) {
+        requireEndNotBeforeStart(contractDTO);
         Contracts contract = findContractInScope(id)
                 .orElseThrow(() -> new ContractNotFoundException("Contratto non trovato"));
 

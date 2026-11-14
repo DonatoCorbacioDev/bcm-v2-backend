@@ -17,13 +17,20 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.donatodev.bcm_backend.dto.AuditLogDTO;
 import com.donatodev.bcm_backend.service.AuditLogService;
+import java.util.Set;
+import com.donatodev.bcm_backend.util.PageLimits;
 
 @RestController
 @RequestMapping("/audit-logs")
 public class AuditLogController {
 
-    private final AuditLogService auditLogService;
+    /**
+     * The columns a client may sort the audit by (OWASP Input Validation Cheat
+     * Sheet): any other name is refused with 400 instead of reaching the query.
+     */
+    static final Set<String> SORTABLE = Set.of("timestamp", "action", "entityType", "username");
 
+    private final AuditLogService auditLogService;
     public AuditLogController(AuditLogService auditLogService) {
         this.auditLogService = auditLogService;
     }
@@ -32,6 +39,14 @@ public class AuditLogController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<AuditLogDTO>> getAuditLogs(
             @PageableDefault(size = 20, sort = "timestamp", direction = Sort.Direction.DESC) Pageable pageable) {
+        for (Sort.Order order : pageable.getSort()) {
+            if (!SORTABLE.contains(order.getProperty())) {
+                throw new IllegalArgumentException("Ordinamento non consentito: " + String.join(", ", SORTABLE.stream().sorted().toList()));
+            }
+        }
+        if (pageable.getPageSize() > PageLimits.MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException("La dimensione della pagina deve essere tra 1 e " + PageLimits.MAX_PAGE_SIZE);
+        }
         return ResponseEntity.ok(auditLogService.findAll(pageable));
     }
 }

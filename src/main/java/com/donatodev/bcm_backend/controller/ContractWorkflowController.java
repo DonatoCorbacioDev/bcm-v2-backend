@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.donatodev.bcm_backend.dto.ContractWorkflowEventDTO;
 import com.donatodev.bcm_backend.dto.RejectContractRequest;
 import com.donatodev.bcm_backend.service.ContractWorkflowService;
+import jakarta.validation.Valid;
 
 /**
  * REST controller for the contract approval workflow: submit for review,
@@ -51,7 +52,7 @@ public class ContractWorkflowController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @PostMapping("/reject")
-    public ResponseEntity<Void> reject(@PathVariable UUID contractId, @RequestBody RejectContractRequest request) {
+    public ResponseEntity<Void> reject(@PathVariable UUID contractId, @Valid @RequestBody RejectContractRequest request) {
         contractWorkflowService.reject(contractId, request.comment());
         return ResponseEntity.noContent().build();
     }

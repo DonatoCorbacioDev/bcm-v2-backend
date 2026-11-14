@@ -6,6 +6,7 @@
 package com.donatodev.bcm_backend.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * @param registrationId id returned when the registration was requested
@@ -13,5 +14,6 @@ import jakarta.validation.constraints.NotBlank;
 public record ResendRegistrationCodeRequest(
 
         @NotBlank(message = "Registrazione non indicata")
+        @Size(max = 64, message = "Registrazione non valida")
         String registrationId
 ) {}

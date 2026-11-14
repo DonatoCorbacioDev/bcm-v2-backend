@@ -7,6 +7,7 @@ package com.donatodev.bcm_backend.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 /**
  * Typing the emailed code back confirms the registration and signs the
@@ -18,6 +19,7 @@ import jakarta.validation.constraints.Pattern;
 public record ConfirmRegistrationRequest(
 
         @NotBlank(message = "Registrazione non indicata")
+        @Size(max = 64, message = "Registrazione non valida")
         String registrationId,
 
         @NotBlank(message = "Codice di conferma obbligatorio")

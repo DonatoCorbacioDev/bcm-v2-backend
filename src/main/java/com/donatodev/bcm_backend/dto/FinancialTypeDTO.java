@@ -7,6 +7,10 @@ package com.donatodev.bcm_backend.dto;
 
 import java.util.UUID;
 import com.donatodev.bcm_backend.entity.FinancialCategory;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import com.donatodev.bcm_backend.validation.InputLimits;
 
 /**
  * Data Transfer Object for Financial Types.
@@ -20,7 +24,8 @@ import com.donatodev.bcm_backend.entity.FinancialCategory;
  */
 public record FinancialTypeDTO(
         UUID id,
-        String name,
-        String description,
-        FinancialCategory category
+        @NotBlank(message = "Nome obbligatorio")
+        @Size(max = 255, message = "Il nome non può superare 255 caratteri") String name,
+        @Size(max = InputLimits.LONG_TEXT, message = "La descrizione è troppo lunga") String description,
+        @NotNull(message = "Categoria obbligatoria") FinancialCategory category
 ) {}

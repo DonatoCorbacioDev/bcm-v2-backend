@@ -8,6 +8,11 @@ package com.donatodev.bcm_backend.dto;
 import java.util.UUID;
 import com.donatodev.bcm_backend.entity.FinancialCategory;
 import com.donatodev.bcm_backend.entity.FinancialValueSource;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import com.donatodev.bcm_backend.validation.InputLimits;
 
 /**
  * Data Transfer Object for Financial Values.
@@ -30,9 +35,12 @@ import com.donatodev.bcm_backend.entity.FinancialValueSource;
  */
 public record FinancialValueDTO(
         UUID id,
-        int month,
-        int year,
-        double financialAmount,
+        @Min(value = 1, message = "Il mese va da 1 a 12")
+        @Max(value = 12, message = "Il mese va da 1 a 12") int month,
+        @Min(value = InputLimits.MIN_YEAR, message = "Anno non valido")
+        @Max(value = InputLimits.MAX_YEAR, message = "Anno non valido") int year,
+        @DecimalMin(value = InputLimits.MIN_AMOUNT, message = "Importo troppo grande")
+        @DecimalMax(value = InputLimits.MAX_AMOUNT, message = "Importo troppo grande") double financialAmount,
         UUID financialTypeId,
         UUID businessAreaId,
         UUID contractId,

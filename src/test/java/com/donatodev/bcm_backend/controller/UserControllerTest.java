@@ -392,10 +392,11 @@ class UserControllerTest {
                             .department("Dev")
                             .build());
 
-            Roles role = rolesRepository.save(
+            // Only ADMIN and MANAGER exist, and the request's role is now checked against them.
+            Roles role = rolesRepository.findByRole("MANAGER").orElseGet(() -> rolesRepository.save(
                     Roles.builder()
-                            .role("EMPLOYEE")
-                            .build());
+                            .role("MANAGER")
+                            .build()));
 
             Users existingUser = usersRepository.save(
                     Users.builder().organization(testOrg)

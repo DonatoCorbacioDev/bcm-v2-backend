@@ -12,6 +12,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import com.donatodev.bcm_backend.validation.ValidPassword;
+import jakarta.validation.constraints.Pattern;
 
 @Data
 @NoArgsConstructor
@@ -21,6 +22,7 @@ public class UpdateUserRequest {
     @Size(min = 4, max = 30, message = "Lo username deve avere tra 4 e 30 caratteri")
     private String username;
 
+    @Pattern(regexp = "ADMIN|MANAGER", message = "Ruolo non valido")
     private String role;
 
     private UUID managerId;

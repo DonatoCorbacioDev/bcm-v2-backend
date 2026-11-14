@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.donatodev.bcm_backend.dto.FinancialTypeDTO;
 import com.donatodev.bcm_backend.service.FinancialTypeService;
+import jakarta.validation.Valid;
 
 /**
  * REST controller for managing financial types.
@@ -64,7 +65,7 @@ public class FinancialTypeController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<FinancialTypeDTO> createType(@RequestBody FinancialTypeDTO dto) {
+    public ResponseEntity<FinancialTypeDTO> createType(@Valid @RequestBody FinancialTypeDTO dto) {
         FinancialTypeDTO newType = financialTypeService.createType(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(newType);
     }
@@ -78,7 +79,7 @@ public class FinancialTypeController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<FinancialTypeDTO> updateType(@PathVariable UUID id, @RequestBody FinancialTypeDTO dto) {
+    public ResponseEntity<FinancialTypeDTO> updateType(@PathVariable UUID id, @Valid @RequestBody FinancialTypeDTO dto) {
         FinancialTypeDTO updated = financialTypeService.updateType(id, dto);
         return ResponseEntity.ok(updated);
     }
