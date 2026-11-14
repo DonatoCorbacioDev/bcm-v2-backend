@@ -16,6 +16,7 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 import com.donatodev.bcm_backend.validation.PasswordPolicy;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,7 @@ public class UserService {
 
 	private static final String ERR_USER_ID = "Utente ID ";
 	private static final String ERR_NOT_FOUND = " non trovato";
+	private static final String ROLE_ADMIN = "ADMIN";
 
 	private final UsersRepository usersRepository;
 	private final UserMapper userMapper;
@@ -188,6 +190,9 @@ public class UserService {
 	public UserDTO updateUser(UUID id, UserDTO dto) {
 		Users user = findUserInScope(id)
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
+		if (dto.password() != null && !dto.password().isBlank()) {
+			requireMaySetPasswordOf(user);
+		}
 
 		user.setUsername(dto.username());
 		// No password in the request keeps the current one: encode(null) would
@@ -384,6 +389,9 @@ public class UserService {
 	public Users updateUserPartial(UUID id, String username, String role, UUID managerId, String rawPassword) {
 		Users user = findUserInScope(id)
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
+		if (rawPassword != null && !rawPassword.isBlank()) {
+			requireMaySetPasswordOf(user);
+		}
 
 		if (username != null && !username.isBlank()) {
 			if (!username.equals(user.getUsername()) && usersRepository.existsByUsername(username)) {
@@ -415,6 +423,22 @@ public class UserService {
 			sessionRevocationService.credentialsChanged(saved);
 		}
 		return saved;
+	}
+
+	/**
+	 * An administrator may set a manager's password (account recovery) but
+	 * not another administrator's: that would let one admin sign in as
+	 * another and act under their name, a horizontal escalation between
+	 * equals (OWASP Authorization Cheat Sheet). The other admin recovers
+	 * their own account through "Password dimenticata". Checked on the role
+	 * the account has now, before any field of the request is applied.
+	 */
+	private void requireMaySetPasswordOf(Users target) {
+		boolean targetIsAdmin = target.getRole() != null && ROLE_ADMIN.equals(target.getRole().getRole());
+		if (targetIsAdmin && !target.getUsername().equals(AuthenticatedUserUtils.getUsernameOrNull())) {
+			throw new AccessDeniedException(
+					"non puoi impostare la password di un altro amministratore: può reimpostarla da \"Password dimenticata\"");
+		}
 	}
 
 	public Users getEntityById(UUID id) {

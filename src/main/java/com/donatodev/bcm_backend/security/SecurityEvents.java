@@ -25,10 +25,12 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.donatodev.bcm_backend.config.TenantContext;
+import com.donatodev.bcm_backend.jwt.JwtAuthenticationFilter;
 import com.donatodev.bcm_backend.service.AuditLogService;
 import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Makes refused abuse visible (OWASP API6): each refusal counts in the
@@ -64,7 +66,14 @@ public class SecurityEvents {
         /** A second payment of invoices already in a SEPA batch. */
         DUPLICATE_PAYMENT_REFUSED("SECURITY_DUPLICATE_PAYMENT_REFUSED", false),
         /** A SEPA payment to an IBAN other than the supplier's verified one. */
-        SEPA_IBAN_MISMATCH_BLOCKED("SEPA_IBAN_MISMATCH_BLOCKED", false);
+        SEPA_IBAN_MISMATCH_BLOCKED("SEPA_IBAN_MISMATCH_BLOCKED", false),
+        /**
+         * A function or a record refused to the caller's role or account (OWASP
+         * Authorization Cheat Sheet): repeated refusals are how a stolen account
+         * or a curious colleague shows. Records of another organization answer
+         * 404 and are not counted here, being indistinguishable from a stale link.
+         */
+        ACCESS_DENIED("SECURITY_ACCESS_DENIED", true);
 
         private final String action;
         private final boolean throttled;
@@ -125,6 +134,11 @@ public class SecurityEvents {
             // The refusal itself must still happen: losing its record is the lesser harm.
             logger.warn("Could not store security event {}: {}", type, oneLine(e.getMessage()));
         }
+    }
+
+    /** Records an authorization refusal of the given request: "GET /api/v1/users". */
+    public void accessDenied(HttpServletRequest request) {
+        record(Type.ACCESS_DENIED, request.getMethod() + " " + JwtAuthenticationFilter.loggablePath(request.getRequestURI()));
     }
 
     /** The refused endpoint, by name: "UserController.changeOwnPassword". */

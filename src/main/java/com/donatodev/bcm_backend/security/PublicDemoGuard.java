@@ -51,8 +51,17 @@ public class PublicDemoGuard implements HandlerInterceptor {
                 && method.hasMethodAnnotation(DisabledInPublicDemo.class)
                 && isPublicDemo(AuthenticatedUserUtils.getUsernameOrNull())) {
             securityEvents.record(SecurityEvents.Type.DEMO_BLOCKED, SecurityEvents.operation(method));
-            throw new AccessDeniedException(MESSAGE);
+            throw new DemoBlockedException();
         }
         return true;
+    }
+
+    /** A refusal already recorded as {@code DEMO_BLOCKED}, so not again as an access denial. */
+    public static final class DemoBlockedException extends AccessDeniedException {
+        private static final long serialVersionUID = 1L;
+
+        DemoBlockedException() {
+            super(MESSAGE);
+        }
     }
 }

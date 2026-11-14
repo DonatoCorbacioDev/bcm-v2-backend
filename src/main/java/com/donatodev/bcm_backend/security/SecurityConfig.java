@@ -6,6 +6,7 @@
 package com.donatodev.bcm_backend.security;
 
 import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -50,7 +51,8 @@ public class SecurityConfig {
             JwtAuthenticationFilter jwtAuthenticationFilter,
             JwtAuthEntryPoint jwtAuthEntryPoint,
             CustomUserDetailsService userDetailsService,
-            AuthenticationManager authenticationManager) {
+            AuthenticationManager authenticationManager,
+            SecurityEvents securityEvents) {
 
         http
                 .cors(Customizer.withDefaults())
@@ -98,7 +100,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/users/invite").hasRole("ADMIN")
                 .anyRequest().authenticated()
                 )
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthEntryPoint))
+                // A refusal by the URL rules above (the actuator, /users/invite) is
+                // recorded like the ones from @PreAuthorize (GlobalExceptionHandler).
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthEntryPoint)
+                        .accessDeniedHandler((request, response, denied) -> {
+                            securityEvents.accessDenied(request);
+                            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                        }))
                 .authenticationManager(authenticationManager)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

@@ -45,7 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * bearer secret, the only one carried in a path, so it is masked: a log
      * reader must not be able to subscribe to someone's deadlines.
      */
-    static String loggablePath(String requestUri) {
+    public static String loggablePath(String requestUri) {
         return requestUri == null ? null : CALENDAR_FEED_TOKEN.matcher(requestUri).replaceFirst("$1***$2");
     }
 

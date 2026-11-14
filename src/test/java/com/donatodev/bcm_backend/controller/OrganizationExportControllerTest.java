@@ -498,7 +498,9 @@ class OrganizationExportControllerTest {
     @DisplayName("A manager cannot export the organization")
     void managerIsForbidden() throws Exception {
         mockMvc.perform(get(EXPORT_URL)).andExpect(status().isForbidden());
-        assertThat(auditLogRepository.findAll()).isEmpty();
+        // No export is recorded, only the refusal (OWASP Authorization Cheat Sheet).
+        assertThat(auditLogRepository.findAll()).extracting(AuditLog::getAction)
+                .containsExactly("SECURITY_ACCESS_DENIED");
     }
 
     @Test

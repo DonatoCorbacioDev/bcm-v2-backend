@@ -10,6 +10,7 @@ import java.time.ZoneId;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +26,11 @@ import org.springframework.web.context.request.async.AsyncRequestNotUsableExcept
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.donatodev.bcm_backend.security.PublicDemoGuard;
+import com.donatodev.bcm_backend.security.SecurityEvents;
+
+import jakarta.servlet.http.HttpServletRequest;
+
 /**
  * Global exception handler for the entire application.
  * <p>
@@ -37,6 +43,14 @@ public class GlobalExceptionHandler {
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     static final String INTERNAL_ERROR = "Errore interno del server";
+
+    private SecurityEvents securityEvents;
+
+    /** Optional so the handler can still be built on its own in unit tests. */
+    @Autowired(required = false)
+    void setSecurityEvents(SecurityEvents securityEvents) {
+        this.securityEvents = securityEvents;
+    }
 
     /**
      * Handles cases where a contract is not found.
@@ -163,8 +177,18 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage());
     }
 
+    /**
+     * A role or account check refused the caller: {@code @PreAuthorize}, a
+     * service guard, a wrong internal key. Recorded as a security event
+     * (OWASP Authorization Cheat Sheet), except a public demo refusal, which
+     * its guard has already recorded as such.
+     */
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiErrorResponse> handleAccessDeniedException(AccessDeniedException ex) {
+    public ResponseEntity<ApiErrorResponse> handleAccessDeniedException(AccessDeniedException ex,
+            HttpServletRequest request) {
+        if (securityEvents != null && !(ex instanceof PublicDemoGuard.DemoBlockedException)) {
+            securityEvents.accessDenied(request);
+        }
         return buildErrorResponse(HttpStatus.FORBIDDEN, "Accesso negato: " + ex.getMessage());
     }
 
