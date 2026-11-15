@@ -60,7 +60,7 @@ class TwoFactorAuthServiceTest {
         twoFactorAuthService = new TwoFactorAuthService(
                 usersRepository, recoveryCodeRepository, totpEncryptionService,
                 passwordEncoder, jwtUtils, refreshTokenService, new CurrentUserResolver(usersRepository),
-                sessionRevocationService);
+                sessionRevocationService, loginAttemptMonitor);
         // pass-through "encryption" so plaintext secrets can be asserted on directly
         lenient().when(totpEncryptionService.encrypt(anyString())).thenAnswer(inv -> "ENC(" + inv.getArgument(0) + ")");
         lenient().when(totpEncryptionService.decrypt(anyString())).thenAnswer(inv -> {
@@ -85,6 +85,7 @@ class TwoFactorAuthServiceTest {
     @Mock private JwtUtils jwtUtils;
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private SessionRevocationService sessionRevocationService;
+    @Mock private com.donatodev.bcm_backend.auth.LoginAttemptMonitor loginAttemptMonitor;
 
     private TwoFactorAuthService twoFactorAuthService;
 
@@ -480,6 +481,9 @@ class TwoFactorAuthServiceTest {
             assertEquals(LoginLockout.MAX_FAILED_ATTEMPTS, user.getFailedLoginAttempts());
             assertNotNull(user.getLockedUntil());
             verify(usersRepository).save(user);
+            // Recorded, and the owner told of the lock.
+            verify(loginAttemptMonitor).codeFailed(user);
+            verify(loginAttemptMonitor).locked(user);
         }
 
         @Test

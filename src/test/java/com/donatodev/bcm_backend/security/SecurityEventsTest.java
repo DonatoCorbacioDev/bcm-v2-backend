@@ -193,4 +193,20 @@ class SecurityEventsTest {
             return this;
         }
     }
+
+    @Test
+    @DisplayName("an event before anyone is signed in is stored for the given account, not the request's user")
+    void recordForTheGivenAccount() {
+        SecurityContextHolder.clearContext();
+        TenantContext.clear();
+        UUID other = UUID.fromString("00000000-0000-4000-8000-000000000002");
+
+        events.recordFor(SecurityEvents.Type.LOGIN_FAILED, "bob", other, null);
+        events.recordFor(SecurityEvents.Type.REFRESH_REUSE, "bob", other, null);
+        events.recordFor(SecurityEvents.Type.REFRESH_REUSE, "bob", other, null);
+
+        verify(audit).save("SECURITY_LOGIN_FAILED", "Security", null, "bob", other, "ip=203.0.113.7");
+        // A replay is never throttled: each one ended sessions.
+        verify(audit, times(2)).save("SECURITY_REFRESH_REUSE", "Security", null, "bob", other, "ip=203.0.113.7");
+    }
 }

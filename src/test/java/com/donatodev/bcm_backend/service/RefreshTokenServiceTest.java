@@ -1,52 +1,54 @@
 package com.donatodev.bcm_backend.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
-import org.mockito.MockedStatic;
 import org.mockito.Mock;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import com.donatodev.bcm_backend.auth.TwoFactorPolicy;
 import com.donatodev.bcm_backend.entity.RefreshToken;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.RefreshTokenException;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.RefreshTokenRepository;
+import com.donatodev.bcm_backend.security.PublicDemoGuard;
+import com.donatodev.bcm_backend.security.SecurityEvents;
 
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
 class RefreshTokenServiceTest {
 
-    @Mock
-    private RefreshTokenRepository refreshTokenRepository;
-
-    @Mock
-    private JwtUtils jwtUtils;
-
-    @Mock
-    private com.donatodev.bcm_backend.auth.TwoFactorPolicy twoFactorPolicy;
+    @Mock private RefreshTokenRepository refreshTokenRepository;
+    @Mock private JwtUtils jwtUtils;
+    @Mock private TwoFactorPolicy twoFactorPolicy;
+    @Mock private SessionRevocationService sessionRevocationService;
+    @Mock private PublicDemoGuard publicDemoGuard;
+    @Mock private SecurityEvents securityEvents;
 
     @InjectMocks
     private RefreshTokenService refreshTokenService;
@@ -63,195 +65,240 @@ class RefreshTokenServiceTest {
         }
     }
 
+    private RefreshToken active(String raw, Users user, Instant expiry) {
+        RefreshToken token = RefreshToken.builder().id(UUID.randomUUID()).token(sha256(raw))
+                .user(user).expiryDate(expiry).revoked(false).build();
+        when(refreshTokenRepository.findByToken(sha256(raw))).thenReturn(Optional.of(token));
+        return token;
+    }
+
     @Nested
-    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-    @DisplayName("Unit Test: RefreshTokenService")
-    @SuppressWarnings("unused")
-    class VerifyRefreshTokenService {
+    @DisplayName("Unit Test: RefreshTokenService login and rotation")
+    class Rotation {
 
         @Test
-        @Order(1)
-        @DisplayName("createRefreshToken returns a raw UUID token string")
+        @DisplayName("a login ends the account's live sessions and returns a 256-bit random token")
         void shouldCreateRefreshToken() {
             Users user = Users.builder().username("testuser").build();
-            RefreshToken saved = RefreshToken.builder().token(sha256("any")).user(user)
-                    .expiryDate(Instant.parse("2030-01-01T00:00:00Z")).build();
 
-            when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(saved);
+            String first = refreshTokenService.createRefreshToken(user);
+            String second = refreshTokenService.createRefreshToken(user);
 
-            String result = refreshTokenService.createRefreshToken(user);
-
-            assertNotNull(result);
-            assertFalse(result.isEmpty());
-            verify(refreshTokenRepository).deleteAllByUser(user);
-            verify(refreshTokenRepository).save(any(RefreshToken.class));
+            assertTrue(first.matches("[A-Za-z0-9_-]{43}"), "32 random bytes in base64url: " + first);
+            assertNotEquals(first, second);
+            verify(refreshTokenRepository, times(2)).deleteActiveByUser(user);
         }
 
         @Test
-        @Order(2)
-        @DisplayName("createRefreshToken stores the SHA-256 hash, not the raw token")
+        @DisplayName("only the SHA-256 hash is stored, expiring after the session's length")
         void shouldStoreHashNotRawToken() {
             Users user = Users.builder().username("testuser").build();
-            when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(inv -> inv.getArgument(0));
+            ReflectionTestUtils.setField(refreshTokenService, "refreshExpirationMs", 60_000L);
+            ArgumentCaptor<RefreshToken> saved = ArgumentCaptor.forClass(RefreshToken.class);
 
             String raw = refreshTokenService.createRefreshToken(user);
 
-            verify(refreshTokenRepository).save(any(RefreshToken.class));
-            // raw token is a UUID — it should NOT equal its own SHA-256 hash
-            assertNotEquals(raw, sha256(raw), "raw is a UUID-style token");
+            verify(refreshTokenRepository).save(saved.capture());
+            assertEquals(sha256(raw), saved.getValue().getToken());
+            assertTrue(saved.getValue().getExpiryDate().isBefore(Instant.now().plusSeconds(61)));
         }
 
         @Test
-        @Order(3)
-        @DisplayName("refreshAccessToken rotates the refresh token and returns both tokens")
+        @DisplayName("a login on the shared demo account keeps the other visitors' sessions")
+        void demoLoginKeepsOtherVisitors() {
+            when(publicDemoGuard.isPublicDemo("demo")).thenReturn(true);
+
+            refreshTokenService.createRefreshToken(Users.builder().username("demo").build());
+
+            verify(refreshTokenRepository, never()).deleteActiveByUser(any());
+        }
+
+        @Test
+        @DisplayName("a refresh rotates the token, and the new one ends when the old one did")
         void shouldRefreshAccessToken() {
             Users user = Users.builder().username("testuser").build();
-            String incomingRaw = "valid-token";
-            RefreshToken token = RefreshToken.builder()
-                    .token(sha256(incomingRaw))
-                    .user(user)
-                    .expiryDate(Instant.parse("2030-01-01T00:00:00Z"))
-                    .revoked(false)
-                    .build();
-            RefreshToken newToken = RefreshToken.builder()
-                    .token(sha256("new-uuid"))
-                    .user(user)
-                    .expiryDate(Instant.parse("2030-01-01T00:00:00Z"))
-                    .revoked(false)
-                    .build();
-
-            when(refreshTokenRepository.findByToken(sha256(incomingRaw))).thenReturn(Optional.of(token));
-            when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(token, newToken);
+            Instant sessionEnd = Instant.now().plusSeconds(3600);
+            RefreshToken token = active("valid-token", user, sessionEnd);
+            when(refreshTokenRepository.revokeIfActive(token.getId())).thenReturn(1);
             when(jwtUtils.generateToken(user)).thenReturn("new-access-token");
+            ArgumentCaptor<RefreshToken> saved = ArgumentCaptor.forClass(RefreshToken.class);
 
-            RefreshTokenService.RotatedTokens result = refreshTokenService.refreshAccessToken(incomingRaw);
+            RefreshTokenService.RotatedTokens result = refreshTokenService.refreshAccessToken("valid-token");
 
             assertEquals("new-access-token", result.accessToken());
-            assertNotNull(result.refreshToken());
-            assertFalse(result.refreshToken().isEmpty());
-            assertTrue(token.isRevoked());
+            verify(refreshTokenRepository).save(saved.capture());
+            assertEquals(sha256(result.refreshToken()), saved.getValue().getToken());
+            assertEquals(sessionEnd, saved.getValue().getExpiryDate());
         }
 
         @Test
-        @DisplayName("refreshAccessToken ends the session of an account that must set 2FA up")
+        @DisplayName("a refresh ends the session of an account that must set 2FA up")
         void shouldNotRenewASessionThatNeedsTwoFactor() {
             Users admin = Users.builder().username("boss").build();
-            RefreshToken token = RefreshToken.builder().token(sha256("valid-token")).user(admin)
-                    .expiryDate(Instant.parse("2030-01-01T00:00:00Z")).revoked(false).build();
-            when(refreshTokenRepository.findByToken(sha256("valid-token"))).thenReturn(Optional.of(token));
+            RefreshToken token = active("valid-token", admin, Instant.now().plusSeconds(3600));
+            when(refreshTokenRepository.revokeIfActive(token.getId())).thenReturn(1);
             when(twoFactorPolicy.blocksSession(admin)).thenReturn(true);
 
-            org.junit.jupiter.api.Assertions.assertThrows(com.donatodev.bcm_backend.exception.RefreshTokenException.class,
-                    () -> refreshTokenService.refreshAccessToken("valid-token"));
-            assertTrue(token.isRevoked());
-            org.mockito.Mockito.verify(jwtUtils, org.mockito.Mockito.never()).generateToken(any());
+            assertThrows(RefreshTokenException.class, () -> refreshTokenService.refreshAccessToken("valid-token"));
+
+            verify(refreshTokenRepository).revokeIfActive(token.getId());
+            verify(jwtUtils, never()).generateToken(any());
         }
 
         @Test
-        @Order(4)
-        @DisplayName("refreshAccessToken throws when token not found")
+        @DisplayName("an unknown token gets the one generic answer")
         void shouldThrowWhenTokenNotFound() {
             when(refreshTokenRepository.findByToken(sha256("ghost"))).thenReturn(Optional.empty());
 
-            assertThrows(RefreshTokenException.class,
+            RefreshTokenException ex = assertThrows(RefreshTokenException.class,
                     () -> refreshTokenService.refreshAccessToken("ghost"));
+
+            assertEquals(RefreshTokenService.INVALID_SESSION, ex.getMessage());
         }
 
         @Test
-        @Order(5)
-        @DisplayName("refreshAccessToken detects reuse of a revoked token and revokes all user tokens")
-        void shouldThrowWhenTokenRevoked() {
+        @DisplayName("an expired token is deleted, not treated as a replay")
+        void shouldDeleteWhenTokenExpired() {
+            RefreshToken token = active("expired-token", Users.builder().username("late").build(),
+                    Instant.parse("2020-01-01T00:00:00Z"));
+
+            RefreshTokenException ex = assertThrows(RefreshTokenException.class,
+                    () -> refreshTokenService.refreshAccessToken("expired-token"));
+
+            assertEquals(RefreshTokenService.INVALID_SESSION, ex.getMessage());
+            verify(refreshTokenRepository).delete(token);
+            verify(refreshTokenRepository, never()).revokeIfActive(any());
+            verify(sessionRevocationService, never()).endSessions(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("Unit Test: RefreshTokenService replay")
+    class Replay {
+
+        @Test
+        @DisplayName("a rotated token presented again ends every session of the account and is recorded")
+        void shouldEndSessionsWhenTokenRevoked() {
             Users user = Users.builder().username("victim").build();
-            String revokedRaw = "revoked-token";
-            RefreshToken token = RefreshToken.builder()
-                    .token(sha256(revokedRaw))
-                    .user(user)
-                    .expiryDate(Instant.parse("2030-01-01T00:00:00Z"))
-                    .revoked(true)
-                    .build();
+            active("revoked-token", user, Instant.now().plusSeconds(3600)).setRevoked(true);
 
-            when(refreshTokenRepository.findByToken(sha256(revokedRaw))).thenReturn(Optional.of(token));
+            RefreshTokenException ex = assertThrows(RefreshTokenException.class,
+                    () -> refreshTokenService.refreshAccessToken("revoked-token"));
 
-            assertThrows(RefreshTokenException.class,
-                    () -> refreshTokenService.refreshAccessToken(revokedRaw));
-
-            verify(refreshTokenRepository).revokeAllByUser(user);
+            assertEquals(RefreshTokenService.INVALID_SESSION, ex.getMessage());
+            verify(sessionRevocationService).endSessions(user);
+            verify(securityEvents).recordFor(SecurityEvents.Type.REFRESH_REUSE, "victim", null, null);
         }
 
         @Test
-        @Order(6)
-        @DisplayName("refreshAccessToken throws and marks revoked when token expired")
-        void shouldThrowAndRevokeWhenTokenExpired() {
-            String expiredRaw = "expired-token";
-            RefreshToken token = RefreshToken.builder()
-                    .token(sha256(expiredRaw))
-                    .user(Users.builder().build())
-                    .expiryDate(Instant.parse("2020-01-01T00:00:00Z"))
-                    .revoked(false)
-                    .build();
+        @DisplayName("of two refreshes with the same token at once, the one losing the race is a replay")
+        void lostRaceIsAReplay() {
+            Users user = Users.builder().username("victim").build();
+            RefreshToken token = active("raced-token", user, Instant.now().plusSeconds(3600));
+            when(refreshTokenRepository.revokeIfActive(token.getId())).thenReturn(0);
 
-            when(refreshTokenRepository.findByToken(sha256(expiredRaw))).thenReturn(Optional.of(token));
-            when(refreshTokenRepository.save(any())).thenReturn(token);
+            assertThrows(RefreshTokenException.class, () -> refreshTokenService.refreshAccessToken("raced-token"));
 
-            assertThrows(RefreshTokenException.class,
-                    () -> refreshTokenService.refreshAccessToken(expiredRaw));
-
-            verify(refreshTokenRepository).save(token);
+            verify(sessionRevocationService).endSessions(user);
+            verify(refreshTokenRepository, never()).save(any());
         }
 
         @Test
-        @Order(7)
-        @DisplayName("revokeToken marks token as revoked")
-        void shouldRevokeToken() {
-            String rawToken = "to-revoke";
-            RefreshToken token = RefreshToken.builder()
-                    .token(sha256(rawToken))
-                    .user(Users.builder().build())
-                    .expiryDate(Instant.parse("2030-01-01T00:00:00Z"))
-                    .revoked(false)
-                    .build();
+        @DisplayName("a replay on the shared demo account is recorded but ends no other visitor's session")
+        void demoReplayEndsNoOtherSession() {
+            active("demo-token", Users.builder().username("demo").build(), Instant.now().plusSeconds(3600))
+                    .setRevoked(true);
+            when(publicDemoGuard.isPublicDemo("demo")).thenReturn(true);
 
-            when(refreshTokenRepository.findByToken(sha256(rawToken))).thenReturn(Optional.of(token));
-            when(refreshTokenRepository.save(any())).thenReturn(token);
+            assertThrows(RefreshTokenException.class, () -> refreshTokenService.refreshAccessToken("demo-token"));
 
-            refreshTokenService.revokeToken(rawToken);
+            verify(securityEvents).recordFor(SecurityEvents.Type.REFRESH_REUSE, "demo", null, null);
+            verify(sessionRevocationService, never()).endSessions(any());
+        }
+    }
 
-            verify(refreshTokenRepository).save(token);
+    @Nested
+    @DisplayName("Unit Test: RefreshTokenService logout and cleanup")
+    class Logout {
+
+        @Test
+        @DisplayName("a logout ends the account's session, the access token included")
+        void shouldEndSessionsOnLogout() {
+            Users user = Users.builder().username("leaving").build();
+            active("to-revoke", user, Instant.now().plusSeconds(3600));
+
+            refreshTokenService.revokeToken("to-revoke");
+
+            verify(sessionRevocationService).endSessions(user);
         }
 
         @Test
-        @Order(8)
-        @DisplayName("revokeToken does nothing when token not found")
+        @DisplayName("a logout on the shared demo account deletes only the visitor's own token")
+        void demoLogoutEndsOnlyItsOwnSession() {
+            RefreshToken token = active("demo-token", Users.builder().username("demo").build(),
+                    Instant.now().plusSeconds(3600));
+            when(publicDemoGuard.isPublicDemo("demo")).thenReturn(true);
+
+            refreshTokenService.revokeToken("demo-token");
+
+            verify(refreshTokenRepository).delete(token);
+            verify(sessionRevocationService, never()).endSessions(any());
+        }
+
+        @Test
+        @DisplayName("a logout with a token already rotated away changes nothing")
+        void logoutWithARotatedTokenChangesNothing() {
+            active("rotated", Users.builder().username("old").build(), Instant.now().plusSeconds(3600))
+                    .setRevoked(true);
+
+            refreshTokenService.revokeToken("rotated");
+
+            verify(sessionRevocationService, never()).endSessions(any());
+            verify(refreshTokenRepository, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("a logout with an unknown token changes nothing")
         void shouldDoNothingWhenTokenNotFoundOnRevoke() {
             when(refreshTokenRepository.findByToken(sha256("ghost"))).thenReturn(Optional.empty());
 
             refreshTokenService.revokeToken("ghost");
 
-            verify(refreshTokenRepository).findByToken(sha256("ghost"));
+            verify(sessionRevocationService, never()).endSessions(any());
         }
 
         @Test
-        @Order(9)
+        @DisplayName("the nightly cleanup drops tokens 30 days past their expiry")
+        void nightlyCleanup() {
+            ArgumentCaptor<Instant> cutoff = ArgumentCaptor.forClass(Instant.class);
+
+            refreshTokenService.deleteExpiredTokens();
+
+            verify(refreshTokenRepository).deleteExpiredBefore(cutoff.capture());
+            Instant expected = Instant.now().minus(RefreshTokenService.KEEP_AFTER_EXPIRY);
+            assertTrue(Math.abs(cutoff.getValue().getEpochSecond() - expected.getEpochSecond()) < 5);
+        }
+    }
+
+    @Nested
+    @DisplayName("Unit Test: RefreshTokenService hashing")
+    class Hashing {
+
+        @Test
         @DisplayName("hashToken produces consistent 64-char hex for the same input")
         void hashTokenIsConsistentAndHexEncoded() {
             String h1 = RefreshTokenService.hashToken("test-input");
-            String h2 = RefreshTokenService.hashToken("test-input");
-            assertEquals(h1, h2);
-            assertEquals(64, h1.length());
+            assertEquals(h1, RefreshTokenService.hashToken("test-input"));
             assertTrue(h1.matches("[0-9a-f]{64}"));
         }
 
         @Test
-        @Order(10)
         @DisplayName("hashToken produces different hashes for different inputs")
         void hashTokenIsDifferentForDifferentInputs() {
-            String h1 = RefreshTokenService.hashToken("token-a");
-            String h2 = RefreshTokenService.hashToken("token-b");
-            assertNotEquals(h1, h2);
+            assertNotEquals(RefreshTokenService.hashToken("token-a"), RefreshTokenService.hashToken("token-b"));
         }
 
         @Test
-        @Order(11)
         @DisplayName("hashToken wraps NoSuchAlgorithmException in an IllegalStateException")
         void hashTokenWrapsNoSuchAlgorithmException() {
             try (MockedStatic<MessageDigest> mocked = mockStatic(MessageDigest.class)) {

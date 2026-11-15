@@ -49,9 +49,21 @@ public class SessionRevocationService {
 
     @Transactional
     public void credentialsChanged(Users user) {
+        endSessions(user);
+        passwordResetTokenRepository.findByUser(user).ifPresent(passwordResetTokenRepository::delete);
+    }
+
+    /**
+     * Ends every session of the user at once (OWASP JWT Cheat Sheet: logout and
+     * revocation): the live refresh tokens are deleted, and the access tokens issued
+     * before now are refused by {@code JwtUtils} although not yet expired. Used
+     * on logout, since an account has one session at a time, and when a stolen
+     * refresh token is replayed.
+     */
+    @Transactional
+    public void endSessions(Users user) {
         user.setCredentialsChangedAt(clock.instant().getEpochSecond());
         usersRepository.save(user);
-        refreshTokenRepository.revokeAllByUser(user);
-        passwordResetTokenRepository.findByUser(user).ifPresent(passwordResetTokenRepository::delete);
+        refreshTokenRepository.deleteActiveByUser(user);
     }
 }

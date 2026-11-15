@@ -35,6 +35,9 @@ import jakarta.validation.Valid;
 @RequestMapping("/auth")
 public class AuthController {
 
+    /** One answer for an unknown, used or expired reset link: none tells which (OWASP JWT Cheat Sheet). */
+    static final String INVALID_RESET_LINK = "Link non valido o scaduto: richiedine uno nuovo.";
+
     private final AuthService authService;
     private final UserService userService;
     private final PasswordResetMailer passwordResetMailer;
@@ -145,7 +148,7 @@ public class AuthController {
     public ResponseEntity<AccessTokenResponse> refresh(
             @CookieValue(name = RefreshCookieFactory.COOKIE_NAME, required = false) String refreshToken) {
         if (refreshToken == null || refreshToken.isBlank()) {
-            throw new RefreshTokenException("Refresh token non trovato");
+            throw new RefreshTokenException(RefreshTokenService.INVALID_SESSION);
         }
         RefreshTokenService.RotatedTokens rotated = refreshTokenService.refreshAccessToken(refreshToken);
         return ResponseEntity.ok()
@@ -193,7 +196,7 @@ public class AuthController {
             PasswordResetToken token = passwordResetTokenService.getByToken(request.token());
 
             if (token.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.systemDefault()))) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token scaduto.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(INVALID_RESET_LINK);
             }
 
             Users user = token.getUser();
@@ -203,7 +206,7 @@ public class AuthController {
 
             return ResponseEntity.ok("Password reimpostata con successo.");
         } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token non valido.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(INVALID_RESET_LINK);
         }
     }
 

@@ -317,13 +317,14 @@
         <Method name="search"/>
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
-    <!-- CRLF_INJECTION_LOGS in SecurityEvents.record: every value logged (user,
-         address, detail, exception message) goes through oneLine(), which
-         replaces line breaks; FindSecBugs doesn't track a Pattern replaceAll as
-         a sanitizer. The type is an enum. -->
+    <!-- CRLF_INJECTION_LOGS in SecurityEvents.store (behind record and
+         recordFor): every value logged (user, address, detail, exception
+         message) goes through oneLine(), which replaces line breaks;
+         FindSecBugs doesn't track a Pattern replaceAll as a sanitizer. The
+         type is an enum. -->
     <Match>
         <Class name="com.donatodev.bcm_backend.security.SecurityEvents"/>
-        <Method name="record"/>
+        <Method name="store"/>
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
 </FindBugsFilter>

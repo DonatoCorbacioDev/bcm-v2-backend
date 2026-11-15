@@ -56,7 +56,7 @@ class SessionRevocationServiceTest {
         assertEquals(NOW.getEpochSecond(), user.getCredentialsChangedAt());
         InOrder order = inOrder(usersRepository, refreshTokenRepository);
         order.verify(usersRepository).save(user);
-        order.verify(refreshTokenRepository).revokeAllByUser(user);
+        order.verify(refreshTokenRepository).deleteActiveByUser(user);
         verify(passwordResetTokenRepository).delete(pending);
     }
 
@@ -68,7 +68,20 @@ class SessionRevocationServiceTest {
 
         service.credentialsChanged(user);
 
-        verify(refreshTokenRepository).revokeAllByUser(user);
+        verify(refreshTokenRepository).deleteActiveByUser(user);
         verify(passwordResetTokenRepository, never()).delete(ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("ending the sessions (logout, a replayed token) refuses the access tokens too, and keeps a reset link")
+    void endSessionsKeepsTheResetLink() {
+        Users user = Users.builder().id(uid(3)).username("carol").build();
+
+        service.endSessions(user);
+
+        assertEquals(NOW.getEpochSecond(), user.getCredentialsChangedAt());
+        verify(usersRepository).save(user);
+        verify(refreshTokenRepository).deleteActiveByUser(user);
+        verify(passwordResetTokenRepository, never()).findByUser(ArgumentMatchers.any());
     }
 }

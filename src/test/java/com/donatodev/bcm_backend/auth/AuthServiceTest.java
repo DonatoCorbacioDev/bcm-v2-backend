@@ -17,13 +17,12 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.mockito.Mock;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.LockedException;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -55,14 +54,22 @@ class AuthServiceTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
+    @Mock
+    private LoginAttemptMonitor loginAttemptMonitor;
+
+    @Mock
+    private com.donatodev.bcm_backend.security.PublicDemoGuard publicDemoGuard;
+
     private AuthService authService;
 
     // The real SessionIssuer and policy over the mocks: what a password leads
     // to is part of what this class decides. "demo_admin" is exempt, as in production.
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
+        when(passwordEncoder.encode(org.mockito.ArgumentMatchers.anyString())).thenReturn("dummy-hash");
         authService = new AuthService(usersRepository, passwordEncoder,
-                new SessionIssuer(jwtUtils, refreshTokenService, new TwoFactorPolicy("demo_admin")));
+                new SessionIssuer(jwtUtils, refreshTokenService, new TwoFactorPolicy("demo_admin")),
+                loginAttemptMonitor, publicDemoGuard);
     }
 
     /**
@@ -108,9 +115,12 @@ class AuthServiceTest {
         void shouldThrowIfUsernameNotFound() {
             when(usersRepository.findAllByUsername("ghost")).thenReturn(List.of());
 
-            UsernameNotFoundException ex =
-                    assertThrows(UsernameNotFoundException.class, () -> authService.authenticate("ghost", "password"));
+            BadCredentialsException ex =
+                    assertThrows(BadCredentialsException.class, () -> authService.authenticate("ghost", "password"));
             assertEquals("Nome utente o password non validi", ex.getMessage());
+            // As long as a real check, so the timing does not tell the name is unknown.
+            org.mockito.Mockito.verify(passwordEncoder).matches("password", "dummy-hash");
+            org.mockito.Mockito.verifyNoInteractions(loginAttemptMonitor);
         }
 
         /**
@@ -166,6 +176,7 @@ class AuthServiceTest {
             Users userOrgB = Users.builder().username("admin").passwordHash("hashedpwd").verified(true).build();
 
             when(usersRepository.findAllByUsername("admin")).thenReturn(List.of(userOrgA, userOrgB));
+            when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
 
             AmbiguousUsernameException ex = assertThrows(AmbiguousUsernameException.class,
                     () -> authService.authenticate("admin", "password"));
@@ -206,7 +217,7 @@ class AuthServiceTest {
         void shouldThrowIfOrganizationSlugDoesNotMatch() {
             when(usersRepository.findByUsernameAndOrganizationSlug("admin", "unknown-org")).thenReturn(Optional.empty());
 
-            UsernameNotFoundException ex = assertThrows(UsernameNotFoundException.class,
+            BadCredentialsException ex = assertThrows(BadCredentialsException.class,
                     () -> authService.authenticate("admin", "password", "unknown-org"));
             assertEquals("Nome utente o password non validi", ex.getMessage());
         }
@@ -313,6 +324,8 @@ class AuthServiceTest {
 
             assertEquals(3, user.getFailedLoginAttempts());
             assertEquals(null, user.getLockedUntil());
+            org.mockito.Mockito.verify(loginAttemptMonitor).passwordFailed(user);
+            org.mockito.Mockito.verify(loginAttemptMonitor, org.mockito.Mockito.never()).locked(user);
         }
 
         @Test
@@ -334,6 +347,8 @@ class AuthServiceTest {
 
             assertEquals(5, user.getFailedLoginAttempts());
             assertTrue(user.getLockedUntil().isAfter(LocalDateTime.now()));
+            org.mockito.Mockito.verify(loginAttemptMonitor).passwordFailed(user);
+            org.mockito.Mockito.verify(loginAttemptMonitor).locked(user);
         }
 
         @Test
@@ -349,10 +364,14 @@ class AuthServiceTest {
                     .build();
 
             when(usersRepository.findAllByUsername("admin")).thenReturn(List.of(user));
+            when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
 
-            LockedException ex = assertThrows(LockedException.class,
+            // Answered like a wrong password: saying "locked" would tell the account exists.
+            BadCredentialsException ex = assertThrows(BadCredentialsException.class,
                     () -> authService.authenticate("admin", "password"));
-            assertTrue(ex.getMessage().contains("bloccato"));
+            assertEquals("Nome utente o password non validi", ex.getMessage());
+            assertEquals(5, user.getFailedLoginAttempts());
+            org.mockito.Mockito.verifyNoInteractions(loginAttemptMonitor, refreshTokenService);
         }
 
         @Test
@@ -398,6 +417,59 @@ class AuthServiceTest {
             authService.authenticate("admin", "password");
 
             assertEquals(0, user.getFailedLoginAttempts());
+        }
+
+        @Test
+        @DisplayName("An ambiguous name with a wrong password gets the generic answer, not the ambiguity")
+        void ambiguousNameWithAWrongPassword() {
+            Users userOrgA = Users.builder().username("admin").passwordHash("hashA").verified(true).build();
+            Users userOrgB = Users.builder().username("admin").passwordHash("hashB").verified(true).build();
+            when(usersRepository.findAllByUsername("admin")).thenReturn(List.of(userOrgA, userOrgB));
+
+            BadCredentialsException ex = assertThrows(BadCredentialsException.class,
+                    () -> authService.authenticate("admin", "wrong"));
+
+            assertEquals("Nome utente o password non validi", ex.getMessage());
+            assertEquals(1, userOrgA.getFailedLoginAttempts());
+            assertEquals(1, userOrgB.getFailedLoginAttempts());
+        }
+
+        @Test
+        @DisplayName("An ambiguous name whose password is right for one account signs that one in")
+        void ambiguousNameRightForOneAccount() {
+            Users userOrgA = Users.builder().username("admin").passwordHash("hashA").verified(true).build();
+            Users userOrgB = Users.builder().username("admin").passwordHash("hashB").verified(true).build();
+            when(usersRepository.findAllByUsername("admin")).thenReturn(List.of(userOrgA, userOrgB));
+            org.mockito.Mockito.lenient().when(passwordEncoder.matches(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString())).thenReturn(false);
+            when(passwordEncoder.matches("password", "hashB")).thenReturn(true);
+            when(jwtUtils.generateToken(userOrgB)).thenReturn("access-b");
+            when(refreshTokenService.createRefreshToken(userOrgB)).thenReturn("refresh-b");
+
+            LoginOutcome outcome = authService.authenticate("admin", "password");
+
+            assertEquals("access-b", outcome.tokens().token());
+            assertEquals(0, userOrgA.getFailedLoginAttempts());
+        }
+
+        @Test
+        @DisplayName("The public demo account, whose password is public, is never locked")
+        void publicDemoIsNeverLocked() {
+            Users demo = Users.builder().username("demo").passwordHash("hashedpwd").verified(true)
+                    .failedLoginAttempts(4).lockedUntil(LocalDateTime.now().plusMinutes(10)).build();
+            when(usersRepository.findAllByUsername("demo")).thenReturn(List.of(demo));
+            org.mockito.Mockito.lenient().when(passwordEncoder.matches(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString())).thenReturn(false);
+            when(publicDemoGuard.isPublicDemo("demo")).thenReturn(true);
+            when(passwordEncoder.matches("password", "hashedpwd")).thenReturn(true);
+            when(jwtUtils.generateToken(demo)).thenReturn("access");
+            when(refreshTokenService.createRefreshToken(demo)).thenReturn("refresh");
+
+            assertThrows(BadCredentialsException.class, () -> authService.authenticate("demo", "wrong"));
+            assertEquals(4, demo.getFailedLoginAttempts());
+            org.mockito.Mockito.verify(loginAttemptMonitor).passwordFailed(demo);
+            org.mockito.Mockito.verify(loginAttemptMonitor, org.mockito.Mockito.never()).locked(any());
+
+            // A lock left from before the rule does not keep the visitors out either.
+            assertEquals("access", authService.authenticate("demo", "password").tokens().token());
         }
     }
 }

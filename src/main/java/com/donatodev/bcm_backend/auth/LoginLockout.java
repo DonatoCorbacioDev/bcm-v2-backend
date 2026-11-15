@@ -26,29 +26,49 @@ public final class LoginLockout {
     }
 
     /**
-     * Refuses a locked account. A lock that has run out is cleared, and the
-     * attempt count starts again from zero.
+     * Refuses a locked account, saying so: used at the 2FA step, where the
+     * caller has already proved the password. A lock that has run out is
+     * cleared, and the attempt count starts again from zero.
      *
      * @throws LockedException while the lock is still running
      */
     public static void ensureNotLocked(Users user, LocalDateTime now) {
+        if (isLocked(user, now)) {
+            throw new LockedException(LOCKED_MESSAGE);
+        }
+    }
+
+    /**
+     * Whether the lock is still running, without saying so to the caller: the
+     * password step answers a locked account like a wrong password, or the
+     * answer would tell that the account exists. A lock that has run out is
+     * cleared, and the attempt count starts again from zero.
+     */
+    public static boolean isLocked(Users user, LocalDateTime now) {
         if (user.getLockedUntil() == null) {
-            return;
+            return false;
         }
         if (user.getLockedUntil().isAfter(now)) {
-            throw new LockedException(LOCKED_MESSAGE);
+            return true;
         }
         user.setLockedUntil(null);
         user.setFailedLoginAttempts(0);
+        return false;
     }
 
-    /** Counts one failed attempt, locking the account once the limit is reached. */
-    public static void recordFailure(Users user, LocalDateTime now) {
+    /**
+     * Counts one failed attempt, locking the account once the limit is reached.
+     *
+     * @return whether this attempt locked the account
+     */
+    public static boolean recordFailure(Users user, LocalDateTime now) {
         int attempts = user.getFailedLoginAttempts() + 1;
         user.setFailedLoginAttempts(attempts);
         if (attempts >= MAX_FAILED_ATTEMPTS) {
             user.setLockedUntil(now.plusMinutes(LOCKOUT_MINUTES));
+            return true;
         }
+        return false;
     }
 
     /**

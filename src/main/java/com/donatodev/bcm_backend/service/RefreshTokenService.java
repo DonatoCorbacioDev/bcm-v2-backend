@@ -5,10 +5,15 @@
 
 package com.donatodev.bcm_backend.service;
 
+import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
-import java.util.UUID;
+import java.util.Base64;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,10 +23,33 @@ import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.RefreshTokenException;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.RefreshTokenRepository;
+import com.donatodev.bcm_backend.security.PublicDemoGuard;
+import com.donatodev.bcm_backend.security.SecurityEvents;
 import com.donatodev.bcm_backend.util.TokenHash;
 
+/**
+ * Refresh tokens, after the OWASP JWT Cheat Sheet: 256 random bits, stored
+ * only as a hash; rotated on every use, a session ending at the latest
+ * {@code jwt.refreshExpirationMs} after the login however often it is
+ * renewed; one session per account, so a login or a logout ends the others;
+ * and a token presented again after its rotation ends every session of the
+ * account, the access tokens included. Revoked means rotated away and
+ * nothing else; a session ended otherwise has its token deleted.
+ * <p>
+ * The public demo account is shared by every visitor: there each visitor
+ * keeps their own session, and a logout or a replay touches only that one.
+ */
 @Service
 public class RefreshTokenService {
+
+    private static final Logger logger = LoggerFactory.getLogger(RefreshTokenService.class);
+
+    /** The only answer to a refresh refused for the token itself: the cause goes to the audit. */
+    public static final String INVALID_SESSION = "Sessione non valida o scaduta: accedi di nuovo";
+    /** Revoked tokens are kept this long past their expiry, so a replay is still recognised. */
+    static final Duration KEEP_AFTER_EXPIRY = Duration.ofDays(30);
+    private static final int TOKEN_BYTES = 32;
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     @Value("${jwt.refreshExpirationMs:604800000}")
     private long refreshExpirationMs;
@@ -29,82 +57,128 @@ public class RefreshTokenService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtUtils jwtUtils;
     private final TwoFactorPolicy twoFactorPolicy;
+    private final SessionRevocationService sessionRevocationService;
+    private final PublicDemoGuard publicDemoGuard;
+    private final SecurityEvents securityEvents;
 
     public RefreshTokenService(RefreshTokenRepository refreshTokenRepository, JwtUtils jwtUtils,
-            TwoFactorPolicy twoFactorPolicy) {
+            TwoFactorPolicy twoFactorPolicy, SessionRevocationService sessionRevocationService,
+            PublicDemoGuard publicDemoGuard, SecurityEvents securityEvents) {
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtUtils = jwtUtils;
         this.twoFactorPolicy = twoFactorPolicy;
-    }
-
-    @Transactional
-    public String createRefreshToken(Users user) {
-        refreshTokenRepository.deleteAllByUser(user);
-        return issueToken(user).rawToken();
+        this.sessionRevocationService = sessionRevocationService;
+        this.publicDemoGuard = publicDemoGuard;
+        this.securityEvents = securityEvents;
     }
 
     /**
-     * Rotates the refresh token on every use: the presented token is revoked
-     * and a brand new one is issued alongside the new access token. If a
-     * caller presents a token that is already revoked, that token has either
-     * expired naturally or already been rotated away - presenting it again
-     * means it was stolen and replayed, so every refresh token belonging to
-     * the user is revoked to force re-authentication on all sessions.
+     * Opens the session of a login. The account's other live sessions end
+     * here, except on the shared demo account; their rotated tokens stay, so
+     * a replay of one of them is still recognised.
+     */
+    @Transactional
+    public String createRefreshToken(Users user) {
+        if (!isPublicDemo(user)) {
+            refreshTokenRepository.deleteActiveByUser(user);
+        }
+        return issueToken(user, Instant.now().plusMillis(refreshExpirationMs));
+    }
+
+    /**
+     * Rotates the refresh token: the presented one is revoked and a new one is
+     * issued with the new access token, expiring when the presented one did.
+     * A token already rotated away presented again means it was stolen and
+     * replayed: every session of the account ends. One ended by a logout, a
+     * new login or a credential change is gone, and gets only the 401.
      */
     @Transactional(noRollbackFor = RefreshTokenException.class)
     public RotatedTokens refreshAccessToken(String tokenValue) {
         RefreshToken refreshToken = refreshTokenRepository.findByToken(hashToken(tokenValue))
-                .orElseThrow(() -> new RefreshTokenException("Refresh token non trovato"));
+                .orElseThrow(() -> new RefreshTokenException(INVALID_SESSION));
+        Users user = refreshToken.getUser();
 
         if (refreshToken.isRevoked()) {
-            refreshTokenRepository.revokeAllByUser(refreshToken.getUser());
-            throw new RefreshTokenException("Riutilizzo del refresh token rilevato; tutte le sessioni sono state revocate");
+            replayed(user);
+            throw new RefreshTokenException(INVALID_SESSION);
         }
-
-        if (refreshToken.getExpiryDate().isBefore(Instant.now())) {
-            refreshToken.setRevoked(true);
-            refreshTokenRepository.save(refreshToken);
-            throw new RefreshTokenException("Il refresh token è scaduto");
+        if (!refreshToken.getExpiryDate().isAfter(Instant.now())) {
+            // Just old, not stolen: removed, so presenting it again is no replay either.
+            refreshTokenRepository.delete(refreshToken);
+            throw new RefreshTokenException(INVALID_SESSION);
         }
-
-        refreshToken.setRevoked(true);
-        refreshTokenRepository.save(refreshToken);
+        // Lost a race with another refresh of the same token: one of the two is not its owner.
+        if (refreshTokenRepository.revokeIfActive(refreshToken.getId()) == 0) {
+            replayed(user);
+            throw new RefreshTokenException(INVALID_SESSION);
+        }
 
         // A session opened before 2FA became required for this account (an
         // admin from before the rule, a user just made admin) is not renewed:
         // the next login asks to set 2FA up.
-        if (twoFactorPolicy.blocksSession(refreshToken.getUser())) {
+        if (twoFactorPolicy.blocksSession(user)) {
             throw new RefreshTokenException("Configura l'autenticazione a due fattori: accedi di nuovo");
         }
 
-        IssuedToken newToken = issueToken(refreshToken.getUser());
-        String newAccessToken = jwtUtils.generateToken(refreshToken.getUser());
-
-        return new RotatedTokens(newAccessToken, newToken.rawToken());
+        String newRefreshToken = issueToken(user, refreshToken.getExpiryDate());
+        return new RotatedTokens(jwtUtils.generateToken(user), newRefreshToken);
     }
 
-    private IssuedToken issueToken(Users user) {
-        String rawToken = UUID.randomUUID().toString();
-        RefreshToken token = RefreshToken.builder()
+    private void replayed(Users user) {
+        securityEvents.recordFor(SecurityEvents.Type.REFRESH_REUSE, user.getUsername(),
+                user.getOrganization() == null ? null : user.getOrganization().getId(), null);
+        if (!isPublicDemo(user)) {
+            sessionRevocationService.endSessions(user);
+        }
+    }
+
+    /**
+     * Logout: ends the session, the access token included. An account has
+     * one session at a time, so that is all of them; on the shared demo
+     * account only the visitor's own refresh token is deleted.
+     */
+    @Transactional
+    public void revokeToken(String tokenValue) {
+        refreshTokenRepository.findByToken(hashToken(tokenValue)).ifPresent(token -> {
+            if (token.isRevoked()) {
+                return;
+            }
+            if (isPublicDemo(token.getUser())) {
+                refreshTokenRepository.delete(token);
+            } else {
+                sessionRevocationService.endSessions(token.getUser());
+            }
+        });
+    }
+
+    /** Nightly: tokens past their expiry by {@link #KEEP_AFTER_EXPIRY} are of no further use. */
+    @Scheduled(cron = "0 40 3 * * *")
+    @Transactional
+    public void deleteExpiredTokens() {
+        int deleted = refreshTokenRepository.deleteExpiredBefore(Instant.now().minus(KEEP_AFTER_EXPIRY));
+        if (deleted > 0) {
+            logger.info("Deleted {} expired refresh token(s)", deleted);
+        }
+    }
+
+    private String issueToken(Users user, Instant expiry) {
+        byte[] bytes = new byte[TOKEN_BYTES];
+        RANDOM.nextBytes(bytes);
+        String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        refreshTokenRepository.save(RefreshToken.builder()
                 .user(user)
                 .token(hashToken(rawToken))
-                .expiryDate(Instant.now().plusMillis(refreshExpirationMs))
+                .expiryDate(expiry)
                 .revoked(false)
-                .build();
-        return new IssuedToken(rawToken, refreshTokenRepository.save(token));
+                .build());
+        return rawToken;
+    }
+
+    private boolean isPublicDemo(Users user) {
+        return publicDemoGuard.isPublicDemo(user.getUsername());
     }
 
     public record RotatedTokens(String accessToken, String refreshToken) {}
-
-    private record IssuedToken(String rawToken, RefreshToken entity) {}
-
-    @Transactional
-    public void revokeToken(String tokenValue) {
-        refreshTokenRepository.findByToken(hashToken(tokenValue)).ifPresent(t -> {
-            t.setRevoked(true);
-            refreshTokenRepository.save(t);
-        });
-    }
 
     public long getRefreshExpirationMs() {
         return refreshExpirationMs;

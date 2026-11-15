@@ -130,4 +130,24 @@ class SecurityReportServiceTest {
         return Arrays.stream(SecurityEvents.Type.values())
                 .collect(Collectors.toMap(SecurityEvents.Type::action, t -> t));
     }
+
+    @Test
+    @DisplayName("every kind of event has its label: a missing one would fail the whole report")
+    void everyTypeHasALabel() {
+        assertThat(SecurityReportService.LABELS.keySet()).containsExactlyInAnyOrder(SecurityEvents.Type.values());
+    }
+
+    @Test
+    @DisplayName("a week with one event of every kind still sends the report, each with its label")
+    void everyKindInOneWeek() {
+        List<AuditLog> events = Arrays.stream(SecurityEvents.Type.values())
+                .map(type -> event(type.action(), "anna", "ip=203.0.113.7")).toList();
+        when(repository.findByActionInAndTimestampAfter(any(), any())).thenReturn(events);
+
+        service("ops@example.com").sendWeeklyReport();
+
+        ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(email).sendEmail(eq("ops@example.com"), eq(SecurityReportService.SUBJECT), body.capture());
+        assertThat(body.getValue()).contains("Sessioni rubate", "Account bloccati", "Funzioni o dati negati");
+    }
 }

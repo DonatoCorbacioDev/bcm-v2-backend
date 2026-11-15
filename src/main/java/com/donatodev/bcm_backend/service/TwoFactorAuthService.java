@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.auth.AuthResponseDTO;
+import com.donatodev.bcm_backend.auth.LoginAttemptMonitor;
 import com.donatodev.bcm_backend.auth.LoginLockout;
 import com.donatodev.bcm_backend.dto.TotpConfirmResponse;
 import com.donatodev.bcm_backend.dto.TotpSetupResponse;
@@ -53,6 +54,7 @@ public class TwoFactorAuthService {
     private final RefreshTokenService refreshTokenService;
     private final CurrentUserResolver currentUserResolver;
     private final SessionRevocationService sessionRevocationService;
+    private final LoginAttemptMonitor loginAttemptMonitor;
 
     public TwoFactorAuthService(UsersRepository usersRepository,
                                 TotpRecoveryCodeRepository recoveryCodeRepository,
@@ -61,7 +63,8 @@ public class TwoFactorAuthService {
                                 JwtUtils jwtUtils,
                                 RefreshTokenService refreshTokenService,
                                 CurrentUserResolver currentUserResolver,
-                                SessionRevocationService sessionRevocationService) {
+                                SessionRevocationService sessionRevocationService,
+                                LoginAttemptMonitor loginAttemptMonitor) {
         this.usersRepository = usersRepository;
         this.recoveryCodeRepository = recoveryCodeRepository;
         this.totpEncryptionService = totpEncryptionService;
@@ -70,6 +73,7 @@ public class TwoFactorAuthService {
         this.refreshTokenService = refreshTokenService;
         this.currentUserResolver = currentUserResolver;
         this.sessionRevocationService = sessionRevocationService;
+        this.loginAttemptMonitor = loginAttemptMonitor;
     }
 
     @Transactional
@@ -223,8 +227,12 @@ public class TwoFactorAuthService {
 
         String secret = totpEncryptionService.decrypt(user.getTotpSecretEncrypted());
         if (!acceptTotpCode(user, secret, code) && !consumeRecoveryCodeIfValid(user, code)) {
-            LoginLockout.recordFailure(user, now);
+            boolean lockedNow = LoginLockout.recordFailure(user, now);
             usersRepository.save(user);
+            loginAttemptMonitor.codeFailed(user);
+            if (lockedNow) {
+                loginAttemptMonitor.locked(user);
+            }
             throw new BadCredentialsException(INVALID_CODE);
         }
         LoginLockout.recordSuccess(user);

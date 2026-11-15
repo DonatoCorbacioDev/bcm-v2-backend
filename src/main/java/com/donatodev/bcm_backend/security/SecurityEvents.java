@@ -73,7 +73,19 @@ public class SecurityEvents {
          * or a curious colleague shows. Records of another organization answer
          * 404 and are not counted here, being indistinguishable from a stale link.
          */
-        ACCESS_DENIED("SECURITY_ACCESS_DENIED", true);
+        ACCESS_DENIED("SECURITY_ACCESS_DENIED", true),
+        /**
+         * A wrong password for an existing account (OWASP JWT Cheat Sheet: watch
+         * suspicious sign-ins). A name that matches no account is not stored:
+         * what was typed there is sometimes the password itself.
+         */
+        LOGIN_FAILED("SECURITY_LOGIN_FAILED", true),
+        /** A wrong two-factor or recovery code after the right password. */
+        MFA_FAILED("SECURITY_MFA_FAILED", true),
+        /** An account locked by repeated failures; its owner is told by email. */
+        ACCOUNT_LOCKED("SECURITY_ACCOUNT_LOCKED", false),
+        /** A refresh token presented again after it was rotated: a stolen session. */
+        REFRESH_REUSE("SECURITY_REFRESH_REUSE", false);
 
         private final String action;
         private final boolean throttled;
@@ -116,7 +128,18 @@ public class SecurityEvents {
 
     /** As {@link #record(Type, String)}, about a given entity (the counterparty of a blocked payment). */
     public void record(Type type, String entityType, UUID entityId, String detail) {
-        String username = currentUsername();
+        store(type, entityType, entityId, currentUsername(), TenantContext.get(), detail);
+    }
+
+    /**
+     * Records an event about an account before anyone is signed in (a failed
+     * login, a lock, a replayed refresh token), from the current request's address.
+     */
+    public void recordFor(Type type, String username, UUID orgId, String detail) {
+        store(type, ENTITY_TYPE, null, username, orgId, detail);
+    }
+
+    private void store(Type type, String entityType, UUID entityId, String username, UUID orgId, String detail) {
         String ip = currentIp();
         meters.counter("bcm.security.events", "type", type.name()).increment();
         if (logger.isWarnEnabled()) {
@@ -125,7 +148,6 @@ public class SecurityEvents {
         if (type.throttled && !firstInWindow(type, username, ip)) {
             return;
         }
-        UUID orgId = TenantContext.get();
         String details = details(ip, detail);
         try {
             ownTransaction.executeWithoutResult(status -> auditLogService.save(

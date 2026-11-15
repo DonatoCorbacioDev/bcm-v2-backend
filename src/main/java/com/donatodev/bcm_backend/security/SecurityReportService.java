@@ -46,13 +46,19 @@ public class SecurityReportService {
     static final int TOP = 5;
     static final String SUBJECT = "BCM: segnali di abuso della settimana";
 
-    private static final Map<SecurityEvents.Type, String> LABELS = Map.of(
-            SecurityEvents.Type.RATE_LIMITED, "Troppi tentativi di accesso, reset o registrazione da un indirizzo",
-            SecurityEvents.Type.COST_LIMITED, "Budget delle operazioni costose superato",
-            SecurityEvents.Type.DEMO_BLOCKED, "Azioni disattivate tentate dalla demo pubblica",
-            SecurityEvents.Type.REGISTRATION_CODE_REFUSED, "Codici di registrazione rifiutati",
-            SecurityEvents.Type.DUPLICATE_PAYMENT_REFUSED, "Pagamenti SEPA duplicati rifiutati",
-            SecurityEvents.Type.SEPA_IBAN_MISMATCH_BLOCKED, "Pagamenti SEPA bloccati per IBAN cambiato");
+    /** One per {@link SecurityEvents.Type}: a type without one would fail the whole report. */
+    static final Map<SecurityEvents.Type, String> LABELS = Map.ofEntries(
+            Map.entry(SecurityEvents.Type.RATE_LIMITED, "Troppi tentativi di accesso, reset o registrazione da un indirizzo"),
+            Map.entry(SecurityEvents.Type.COST_LIMITED, "Budget delle operazioni costose superato"),
+            Map.entry(SecurityEvents.Type.DEMO_BLOCKED, "Azioni disattivate tentate dalla demo pubblica"),
+            Map.entry(SecurityEvents.Type.REGISTRATION_CODE_REFUSED, "Codici di registrazione rifiutati"),
+            Map.entry(SecurityEvents.Type.DUPLICATE_PAYMENT_REFUSED, "Pagamenti SEPA duplicati rifiutati"),
+            Map.entry(SecurityEvents.Type.SEPA_IBAN_MISMATCH_BLOCKED, "Pagamenti SEPA bloccati per IBAN cambiato"),
+            Map.entry(SecurityEvents.Type.ACCESS_DENIED, "Funzioni o dati negati al ruolo dell'utente"),
+            Map.entry(SecurityEvents.Type.LOGIN_FAILED, "Password sbagliate su account esistenti"),
+            Map.entry(SecurityEvents.Type.MFA_FAILED, "Codici di verifica 2FA sbagliati"),
+            Map.entry(SecurityEvents.Type.ACCOUNT_LOCKED, "Account bloccati per troppi tentativi falliti"),
+            Map.entry(SecurityEvents.Type.REFRESH_REUSE, "Sessioni rubate: refresh token riusato, sessioni chiuse"));
 
     private final AuditLogRepository auditLogRepository;
     private final IEmailService emailService;

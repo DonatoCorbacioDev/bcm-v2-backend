@@ -322,7 +322,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString("Token scaduto")));
+                .andExpect(content().string(AuthController.INVALID_RESET_LINK));
     }
 
     /**
@@ -337,7 +337,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString("Token non valido")));
+                .andExpect(content().string(AuthController.INVALID_RESET_LINK));
     }
 
     /**
@@ -635,7 +635,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/auth/refresh")
                 .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, originalRefreshToken)))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value(containsString("Riutilizzo del refresh token rilevato")));
+                .andExpect(jsonPath("$.message").value(containsString("Sessione non valida o scaduta")));
 
         mockMvc.perform(post("/auth/refresh")
                 .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, rotatedRefreshToken)))
@@ -651,7 +651,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/auth/refresh")
                 .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, "nonexistent-token")))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value(containsString("Refresh token non trovato")));
+                .andExpect(jsonPath("$.message").value(containsString("Sessione non valida o scaduta")));
     }
 
     /**
@@ -662,7 +662,7 @@ class AuthControllerTest {
     void shouldReturnUnauthorizedWhenRefreshCookieMissing() throws Exception {
         mockMvc.perform(post("/auth/refresh"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value(containsString("Refresh token non trovato")));
+                .andExpect(jsonPath("$.message").value(containsString("Sessione non valida o scaduta")));
     }
 
     /**
@@ -675,7 +675,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/auth/refresh")
                 .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, "")))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value(containsString("Refresh token non trovato")));
+                .andExpect(jsonPath("$.message").value(containsString("Sessione non valida o scaduta")));
     }
 
     /**
