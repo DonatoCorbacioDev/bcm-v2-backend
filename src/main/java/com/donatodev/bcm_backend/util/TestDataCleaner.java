@@ -5,6 +5,7 @@
 
 package com.donatodev.bcm_backend.util;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import com.donatodev.bcm_backend.repository.BudgetRepository;
@@ -30,10 +31,18 @@ import com.donatodev.bcm_backend.repository.VerificationTokenRepository;
  * Utility component for cleaning all test data from the database.
  * <p>
  * This class deletes all entries from repositories to reset the database state,
- * useful for integration testing or resetting the development environment.
+ * between tests.
+ * <p>
+ * It deletes every organization's data at once, so it exists only under the
+ * {@code test} profile: never in production, deny by default (OWASP
+ * Multi-Tenant Security Cheat Sheet).
  */
 @Component
+@Profile(TestDataCleaner.PROFILE)
 public class TestDataCleaner {
+
+    /** The only profile this bean is created in. */
+    public static final String PROFILE = "test";
 
     private final VerificationTokenRepository verificationTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
