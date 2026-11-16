@@ -35,7 +35,10 @@ import jakarta.validation.Valid;
 @RequestMapping("/auth")
 public class AuthController {
 
-    /** One answer for an unknown, used or expired reset link: none tells which (OWASP JWT Cheat Sheet). */
+    /**
+     * One answer for an unknown, used or expired reset link: none tells which
+     * (OWASP Authentication and Session Management Cheat Sheet).
+     */
     static final String INVALID_RESET_LINK = "Link non valido o scaduto: richiedine uno nuovo.";
 
     private final AuthService authService;

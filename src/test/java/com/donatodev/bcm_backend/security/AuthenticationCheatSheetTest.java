@@ -54,7 +54,7 @@ import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * OWASP JSON Web Token Cheat Sheet, through the real endpoints: one answer to
+ * OWASP Authentication and Session Management Cheat Sheet, through the real endpoints: one answer to
  * a wrong name, a wrong password and a locked account; a session with an end
  * however often it is renewed; rotation that never forks a session; logout
  * and replay that end the access token too; the shared demo account that no
@@ -64,8 +64,8 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@TestPropertySource(properties = "bcm.demo.locked-username=" + JwtCheatSheetTest.DEMO)
-class JwtCheatSheetTest {
+@TestPropertySource(properties = "bcm.demo.locked-username=" + AuthenticationCheatSheetTest.DEMO)
+class AuthenticationCheatSheetTest {
 
     static final String DEMO = "jwt_demo_visitor";
     private static final String PASSWORD = "Password1!";

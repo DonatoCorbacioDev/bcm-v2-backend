@@ -35,7 +35,10 @@ public class AuthService {
      * known username - this is the per-account backstop.
      */
 
-    /** The one answer to a wrong name, a wrong password or a locked account (OWASP JWT Cheat Sheet). */
+    /**
+     * The one answer to a wrong name, a wrong password or a locked account
+     * (OWASP Authentication and Session Management Cheat Sheet).
+     */
     static final String INVALID_CREDENTIALS = "Nome utente o password non validi";
 
     private final UsersRepository usersRepository;

@@ -28,7 +28,7 @@ import com.donatodev.bcm_backend.security.SecurityEvents;
 import com.donatodev.bcm_backend.util.TokenHash;
 
 /**
- * Refresh tokens, after the OWASP JWT Cheat Sheet: 256 random bits, stored
+ * Refresh tokens, after the OWASP Authentication and Session Management Cheat Sheet: 256 random bits, stored
  * only as a hash; rotated on every use, a session ending at the latest
  * {@code jwt.refreshExpirationMs} after the login however often it is
  * renewed; one session per account, so a login or a logout ends the others;

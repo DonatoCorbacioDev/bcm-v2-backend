@@ -21,7 +21,10 @@ import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.security.SecurityEvents;
 import com.donatodev.bcm_backend.service.IEmailService;
 
-/** OWASP JWT Cheat Sheet: suspicious sign-ins are recorded, and a locked account's owner is told. */
+/**
+ * OWASP Authentication and Session Management Cheat Sheet: suspicious sign-ins
+ * are recorded, and a locked account's owner is told.
+ */
 class LoginAttemptMonitorTest {
 
     private static final UUID ORG = UUID.randomUUID();

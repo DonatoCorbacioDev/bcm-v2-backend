@@ -54,7 +54,7 @@ public class SessionRevocationService {
     }
 
     /**
-     * Ends every session of the user at once (OWASP JWT Cheat Sheet: logout and
+     * Ends every session of the user at once (OWASP Authentication and Session Management Cheat Sheet: logout and
      * revocation): the live refresh tokens are deleted, and the access tokens issued
      * before now are refused by {@code JwtUtils} although not yet expired. Used
      * on logout, since an account has one session at a time, and when a stolen

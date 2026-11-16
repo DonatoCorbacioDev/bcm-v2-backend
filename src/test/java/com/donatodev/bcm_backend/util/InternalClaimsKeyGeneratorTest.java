@@ -2,14 +2,18 @@ package com.donatodev.bcm_backend.util;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.security.KeyFactory;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
-import org.slf4j.LoggerFactory;
-
-import ch.qos.logback.classic.Level;
 
 /**
  * Unit tests for the {@link InternalClaimsKeyGenerator} utility class, mirroring
@@ -22,17 +26,18 @@ class InternalClaimsKeyGeneratorTest {
         assertDoesNotThrow(() -> InternalClaimsKeyGenerator.main(new String[]{}));
     }
 
+    /** One RSA pair, at least 2048 bits, in the formats the backend and the ML service read. */
     @Test
-    void testMainMethodWithInfoLoggingDisabled() {
-        ch.qos.logback.classic.Logger keyGeneratorLogger =
-                (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(InternalClaimsKeyGenerator.class);
-        Level originalLevel = keyGeneratorLogger.getLevel();
-        keyGeneratorLogger.setLevel(Level.OFF);
-        try {
-            assertDoesNotThrow(() -> InternalClaimsKeyGenerator.main(new String[]{}));
-        } finally {
-            keyGeneratorLogger.setLevel(originalLevel);
-        }
+    void generatesAMatchingRsaPair() throws Exception {
+        String[] keys = InternalClaimsKeyGenerator.generate();
+        KeyFactory rsa = KeyFactory.getInstance("RSA");
+        RSAPrivateKey privateKey = (RSAPrivateKey) rsa.generatePrivate(
+                new PKCS8EncodedKeySpec(Base64.getDecoder().decode(keys[0])));
+        RSAPublicKey publicKey = (RSAPublicKey) rsa.generatePublic(
+                new X509EncodedKeySpec(Base64.getDecoder().decode(keys[1])));
+
+        assertEquals(publicKey.getModulus(), privateKey.getModulus());
+        assertTrue(publicKey.getModulus().bitLength() >= 2048);
     }
 
     @Test

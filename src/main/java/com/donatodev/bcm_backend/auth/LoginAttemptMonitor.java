@@ -26,7 +26,7 @@ import com.donatodev.bcm_backend.service.IEmailService;
 import jakarta.annotation.PreDestroy;
 
 /**
- * Watches the sign-ins (OWASP JWT Cheat Sheet: monitor suspicious login
+ * Watches the sign-ins (OWASP Authentication and Session Management Cheat Sheet: monitor suspicious login
  * attempts): a wrong password or 2FA code on an existing account, and the
  * lock that follows too many of them, become security events in the audit
  * and the weekly report. The owner of a locked account is told by email,

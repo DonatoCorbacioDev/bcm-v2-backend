@@ -8,9 +8,6 @@ package com.donatodev.bcm_backend.util;
 import java.security.KeyPair;
 import java.util.Base64;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.jsonwebtoken.Jwts;
 
 /**
@@ -25,34 +22,32 @@ import io.jsonwebtoken.Jwts;
  * <p>
  * Run this utility once to obtain a key pair, then set
  * {@code ml.claims.private-key} (backend) and the FastAPI service's
- * {@code INTERNAL_CLAIMS_PUBLIC_KEY} (ml) from its output.
+ * {@code INTERNAL_CLAIMS_PUBLIC_KEY} (ml) from its output. It prints to
+ * standard output, never through a logger: a private key must not reach a
+ * log file or a log collector (OWASP JWT Cheat Sheet).
  */
 public final class InternalClaimsKeyGenerator {
-
-    private static final Logger logger = LoggerFactory.getLogger(InternalClaimsKeyGenerator.class);
-    private static final String CRLF_REGEX = "[\r\n]";
 
     private InternalClaimsKeyGenerator() {
         throw new UnsupportedOperationException("Utility class");
     }
 
-    public static void main(String[] args) {
+    /** A new RS256 key pair: the private key (PKCS8) and the public one (X.509), base64-encoded. */
+    static String[] generate() {
         KeyPair keyPair = Jwts.SIG.RS256.keyPair().build();
-
-        String privateKeyBase64 = Base64.getEncoder().encodeToString(keyPair.getPrivate().getEncoded());
-        String publicKeyBase64 = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
-
-        logger.info("ML claims private key (PKCS8, base64) — set as ml.claims.private-key on the BACKEND only:");
-        if (logger.isInfoEnabled()) {
-            logger.info("{}", safe(privateKeyBase64));
-        }
-        logger.info("ML claims public key (X.509, base64) — set as INTERNAL_CLAIMS_PUBLIC_KEY on the ML service:");
-        if (logger.isInfoEnabled()) {
-            logger.info("{}", safe(publicKeyBase64));
-        }
+        Base64.Encoder base64 = Base64.getEncoder();
+        return new String[] {
+            base64.encodeToString(keyPair.getPrivate().getEncoded()),
+            base64.encodeToString(keyPair.getPublic().getEncoded())
+        };
     }
 
-    private static String safe(String value) {
-        return value.replaceAll(CRLF_REGEX, "_");
+    @SuppressWarnings("java:S106") // the console is the point: see the class comment
+    public static void main(String[] args) {
+        String[] keys = generate();
+        System.out.println("ML claims private key (PKCS8, base64) — set as ml.claims.private-key on the BACKEND only:");
+        System.out.println(keys[0]);
+        System.out.println("ML claims public key (X.509, base64) — set as INTERNAL_CLAIMS_PUBLIC_KEY on the ML service:");
+        System.out.println(keys[1]);
     }
 }

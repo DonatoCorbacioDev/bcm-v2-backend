@@ -75,7 +75,7 @@ public class SecurityEvents {
          */
         ACCESS_DENIED("SECURITY_ACCESS_DENIED", true),
         /**
-         * A wrong password for an existing account (OWASP JWT Cheat Sheet: watch
+         * A wrong password for an existing account (OWASP Authentication and Session Management Cheat Sheet: watch
          * suspicious sign-ins). A name that matches no account is not stored:
          * what was typed there is sometimes the password itself.
          */
