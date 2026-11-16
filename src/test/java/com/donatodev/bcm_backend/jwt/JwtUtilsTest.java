@@ -186,10 +186,10 @@ class JwtUtilsTest {
     void shouldValidateTokenStructure() {
         String token = jwtUtils.generateToken(testUser);
 
-        assertTrue(jwtUtils.validateJwtToken(token));
+        assertTrue(jwtUtils.validateJwtToken(token, springUser));
 
         // Invalid token should return false
-        assertFalse(jwtUtils.validateJwtToken("invalid.token.here"));
+        assertFalse(jwtUtils.validateJwtToken("invalid.token.here", springUser));
     }
 
     /**
@@ -246,13 +246,13 @@ class JwtUtilsTest {
      */
     @Test
     @Order(10)
-    @DisplayName("Should handle malformed token in validateJwtToken(String)")
+    @DisplayName("Should handle malformed token in validateJwtToken(String, UserDetails)")
     void shouldHandleMalformedTokenInValidateJwtToken() {
         // Test with various malformed tokens
-        assertFalse(jwtUtils.validateJwtToken(""));
-        assertFalse(jwtUtils.validateJwtToken("not.a.token"));
-        assertFalse(jwtUtils.validateJwtToken("malformed"));
-        assertFalse(jwtUtils.validateJwtToken("header.payload")); // Missing signature
+        assertFalse(jwtUtils.validateJwtToken("", springUser));
+        assertFalse(jwtUtils.validateJwtToken("not.a.token", springUser));
+        assertFalse(jwtUtils.validateJwtToken("malformed", springUser));
+        assertFalse(jwtUtils.validateJwtToken("header.payload", springUser)); // Missing signature
     }
 
     /**
@@ -260,7 +260,7 @@ class JwtUtilsTest {
      */
     @Test
     @Order(11)
-    @DisplayName("Should handle signature validation failure in validateJwtToken(String)")
+    @DisplayName("Should handle signature validation failure in validateJwtToken(String, UserDetails)")
     void shouldHandleSignatureExceptionInValidateJwtToken() {
         String token = jwtUtils.generateToken(testUser);
 
@@ -268,7 +268,7 @@ class JwtUtilsTest {
         String tamperedToken = token + "tampered";
 
         // This should catch SignatureException and return false
-        assertFalse(jwtUtils.validateJwtToken(tamperedToken));
+        assertFalse(jwtUtils.validateJwtToken(tamperedToken, springUser));
     }
 
     /**
@@ -317,7 +317,7 @@ class JwtUtilsTest {
     }
 
     /**
-     * Test: validateJwtToken(String) should return false for null or empty
+     * Test: validateJwtToken(String, UserDetails) should return false for null or empty
      * token.
      */
     @Test
@@ -325,19 +325,19 @@ class JwtUtilsTest {
     @DisplayName("Should handle null or empty token gracefully")
     void shouldHandleNullOrEmptyToken() {
         // Empty token should return false (catches IllegalArgumentException)
-        assertFalse(jwtUtils.validateJwtToken(""));
+        assertFalse(jwtUtils.validateJwtToken("", springUser));
 
         // Malformed tokens should also return false
-        assertFalse(jwtUtils.validateJwtToken("invalid"));
-        assertFalse(jwtUtils.validateJwtToken("invalid.token"));
+        assertFalse(jwtUtils.validateJwtToken("invalid", springUser));
+        assertFalse(jwtUtils.validateJwtToken("invalid.token", springUser));
     }
 
     /**
-     * Test: validateJwtToken(String) should handle expired token.
+     * Test: validateJwtToken(String, UserDetails) should handle expired token.
      */
     @Test
     @Order(16)
-    @DisplayName("Should handle expired token in validateJwtToken(String)")
+    @DisplayName("Should handle expired token in validateJwtToken(String, UserDetails)")
     void shouldHandleExpiredTokenInValidateJwtTokenString() {
         // Create a clock set in the past to generate an already-expired token
         Clock pastClock = Clock.fixed(
@@ -353,7 +353,7 @@ class JwtUtilsTest {
         jwtUtils.setClock(Clock.fixed(Instant.parse("2027-01-15T12:00:00Z"), ZoneId.of("UTC")));
 
         // This should catch ExpiredJwtException and return false
-        assertFalse(jwtUtils.validateJwtToken(expiredToken));
+        assertFalse(jwtUtils.validateJwtToken(expiredToken, springUser));
     }
 
     /**
@@ -405,6 +405,30 @@ class JwtUtilsTest {
         org.junit.jupiter.api.Assertions.assertNull(orgId);
     }
 
+    /**
+     * A token without an expiry is refused everywhere, as a clean JWT error:
+     * the two-factor step checks read no expiry of their own, so without this
+     * an MFA-pending token with no exp would be good forever.
+     */
+    @Test
+    @DisplayName("a token without exp or iat is refused, the two-factor step one too")
+    void tokenWithoutExpiryOrIssueTimeIsRefused() {
+        javax.crypto.SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
+        java.util.Date now = new java.util.Date();
+        String noExpiry = Jwts.builder().issuer(JwtUtils.ISSUER).audience().add(JwtUtils.AUDIENCE_MFA).and()
+                .subject("john").issuedAt(now).claim("mfaPending", true).signWith(key).compact();
+        String noIssueTime = Jwts.builder().issuer(JwtUtils.ISSUER).audience().add(JwtUtils.AUDIENCE_MFA).and()
+                .subject("john").expiration(new java.util.Date(now.getTime() + 60_000))
+                .claim("mfaPending", true).signWith(key).compact();
+
+        for (String token : java.util.List.of(noExpiry, noIssueTime)) {
+            assertFalse(jwtUtils.isMfaPendingToken(token));
+            assertFalse(jwtUtils.validateJwtToken(token, springUser));
+            org.junit.jupiter.api.Assertions.assertThrows(io.jsonwebtoken.MissingClaimException.class,
+                    () -> jwtUtils.getUsernameFromToken(token));
+        }
+    }
+
     @Test
     @Order(19)
     @DisplayName("getOrganizationIdFromToken returns null when the orgId claim is text but not a UUID")
@@ -413,6 +437,8 @@ class JwtUtilsTest {
         String token = Jwts.builder()
                 .issuer(JwtUtils.ISSUER)
                 .subject("orguser")
+                .issuedAt(new java.util.Date())
+                .expiration(new java.util.Date(System.currentTimeMillis() + 60_000))
                 .claim("orgId", "not-a-uuid")
                 .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret)))
                 .compact();

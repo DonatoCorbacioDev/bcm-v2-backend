@@ -21,25 +21,23 @@ import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.security.AuthenticatedUser;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MissingClaimException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SignatureException;
-import lombok.extern.slf4j.Slf4j;
+import io.jsonwebtoken.security.MacAlgorithm;
 
 /**
  * Utility component for generating, validating, and extracting claims from
- * JWT access tokens (JJWT 0.12.x).
+ * JWT access tokens (JJWT 0.12.x). Nothing here logs a token or a parser
+ * message, which can quote one (OWASP JWT Cheat Sheet).
  */
 @Component
-@Slf4j
 public class JwtUtils {
-
-    private static final String CRLF_REGEX = "[\r\n]";
 
     private Clock clock = Clock.systemDefaultZone();
 
@@ -92,7 +90,7 @@ public class JwtUtils {
         Instant expiration = now.plusMillis(jwtExpirationMs);
 
         return baseToken(userPrincipal.getUsername(), AUDIENCE_API, now, expiration)
-                .signWith(getSigningKey())
+                .signWith(getSigningKey(), algorithm())
                 .compact();
     }
 
@@ -116,7 +114,7 @@ public class JwtUtils {
 
         return baseToken(user.getUsername(), AUDIENCE_API, now, expiration)
                 .claim(CLAIM_ORG_ID, orgId != null ? orgId.toString() : null)
-                .signWith(getSigningKey())
+                .signWith(getSigningKey(), algorithm())
                 .compact();
     }
 
@@ -145,7 +143,7 @@ public class JwtUtils {
         return baseToken(user.getUsername(), AUDIENCE_MFA, now, expiration)
                 .claim(CLAIM_ORG_ID, orgId != null ? orgId.toString() : null)
                 .claim(CLAIM_MFA_PENDING, true)
-                .signWith(getSigningKey())
+                .signWith(getSigningKey(), algorithm())
                 .compact();
     }
 
@@ -164,7 +162,7 @@ public class JwtUtils {
                 .claim(CLAIM_ORG_ID, orgId != null ? orgId.toString() : null)
                 .claim(CLAIM_MFA_PENDING, true)
                 .claim(CLAIM_MFA_SETUP, true)
-                .signWith(getSigningKey())
+                .signWith(getSigningKey(), algorithm())
                 .compact();
     }
 
@@ -181,7 +179,7 @@ public class JwtUtils {
     /**
      * True if the token is a short-lived MFA-pending token rather than a
      * real access token. Returns false (not an exception) for malformed or
-     * expired input, matching {@link #validateJwtToken(String)}'s style.
+     * expired input.
      */
     public boolean isMfaPendingToken(String token) {
         try {
@@ -248,26 +246,6 @@ public class JwtUtils {
     }
 
     /**
-     * Structural validation only (signature and expiration, no username
-     * comparison). Logs and returns false on any parsing failure instead of
-     * throwing.
-     */
-    public boolean validateJwtToken(String authToken) {
-        try {
-            getJwtParser().parseSignedClaims(authToken);
-            return true;
-        } catch (ExpiredJwtException e) {
-            log.warn("JWT token is expired: {}", sanitizeLogMessage(e));
-        } catch (SignatureException e) {
-            log.error("JWT signature validation failed: {}", sanitizeLogMessage(e));
-        } catch (JwtException | IllegalArgumentException e) {
-            log.error("Invalid JWT token: {}", sanitizeLogMessage(e));
-        }
-
-        return false;
-    }
-
-    /**
      * Whether the token predates the user's last credential change (OWASP API2):
      * a new password or 2FA setting ends the sessions opened before it at once.
      * Compared in whole seconds, like the {@code iat} claim, so the token issued
@@ -285,11 +263,34 @@ public class JwtUtils {
         return getExpirationInstantFromToken(token).isBefore(clock.instant());
     }
 
+    /**
+     * Accepts the one algorithm the backend signs with: a token naming any
+     * other, even another HMAC the key would allow, is refused (OWASP JWT
+     * Cheat Sheet). Unsigned tokens are refused by JJWT itself.
+     */
     private JwtParser getJwtParser() {
+        SecretKey key = getSigningKey();
         return Jwts.parser()
-                .verifyWith(getSigningKey())
+                .sig().clear().add(algorithmFor(key)).and()
+                .verifyWith(key)
                 .requireIssuer(ISSUER)
                 .build();
+    }
+
+    /**
+     * The HMAC the key is long enough for, the same JJWT would pick: HS384
+     * for the production key. Fixed here so signing and checking agree on it.
+     */
+    public static MacAlgorithm algorithmFor(SecretKey key) {
+        int bits = key.getEncoded().length * Byte.SIZE;
+        if (bits >= 512) {
+            return Jwts.SIG.HS512;
+        }
+        return bits >= 384 ? Jwts.SIG.HS384 : Jwts.SIG.HS256;
+    }
+
+    private MacAlgorithm algorithm() {
+        return algorithmFor(getSigningKey());
     }
 
     /** Whether the token is meant for the given audience; a token with none is meant for nothing. */
@@ -298,16 +299,24 @@ public class JwtUtils {
         return audiences != null && audiences.contains(audience);
     }
 
+    /**
+     * Reads a claim of a token that passed the checks, and also has an expiry
+     * and an issue time: a token without either is refused, never taken as
+     * valid forever or as issued after the last credential change.
+     */
     private <T> T getClaimFromToken(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = getJwtParser()
-                .parseSignedClaims(token)
-                .getPayload();
-
+        Jws<Claims> jws = getJwtParser().parseSignedClaims(token);
+        Claims claims = jws.getPayload();
+        requireClaim(jws, Claims.EXPIRATION, claims.getExpiration());
+        requireClaim(jws, Claims.ISSUED_AT, claims.getIssuedAt());
         return claimsResolver.apply(claims);
     }
 
-    private String sanitizeLogMessage(Exception e) {
-        return e.getMessage().replaceAll(CRLF_REGEX, "_");
+    private static void requireClaim(Jws<Claims> jws, String name, Object value) {
+        if (value == null) {
+            throw new MissingClaimException(jws.getHeader(), jws.getPayload(), name, null,
+                    "JWT without the required " + name + " claim");
+        }
     }
 
     /**

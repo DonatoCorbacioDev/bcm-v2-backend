@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 import javax.crypto.SecretKey;
@@ -37,6 +38,7 @@ import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.MacAlgorithm;
 
 import jakarta.persistence.EntityManager;
 
@@ -114,6 +116,26 @@ class JwtOverHttpTest {
     @DisplayName("an unsigned token (alg none): 401")
     void unsignedToken() throws Exception {
         call(validToken(admin).compact()).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("a token signed with the right key but another algorithm: 401")
+    void otherAlgorithm() throws Exception {
+        SecretKey key = key();
+        MacAlgorithm pinned = JwtUtils.algorithmFor(key);
+        call(validToken(admin).signWith(key, pinned).compact()).andExpect(status().isOk());
+        for (MacAlgorithm other : List.of(Jwts.SIG.HS256, Jwts.SIG.HS384, Jwts.SIG.HS512)) {
+            if (!other.equals(pinned)) {
+                call(validToken(admin).signWith(key, other).compact()).andExpect(status().isUnauthorized());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("a token without an expiry, or without an issue time: 401")
+    void missingExpiryOrIssueTime() throws Exception {
+        call(validToken(admin).expiration(null).signWith(key()).compact()).andExpect(status().isUnauthorized());
+        call(validToken(admin).issuedAt(null).signWith(key()).compact()).andExpect(status().isUnauthorized());
     }
 
     @Test

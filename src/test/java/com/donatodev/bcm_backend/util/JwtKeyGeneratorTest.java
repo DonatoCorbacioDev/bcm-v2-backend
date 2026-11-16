@@ -27,6 +27,15 @@ class JwtKeyGeneratorTest {
 	    assertDoesNotThrow(() -> JwtKeyGenerator.main(new String[]{}));
 	}
 
+    /** A key for HS384, the algorithm JwtUtils pins: 384 bits. */
+    @Test
+    void generatesAKeyForHs384() {
+        byte[] key = java.util.Base64.getDecoder().decode(JwtKeyGenerator.generate());
+        org.junit.jupiter.api.Assertions.assertEquals(48, key.length);
+        org.junit.jupiter.api.Assertions.assertEquals(io.jsonwebtoken.Jwts.SIG.HS384,
+                com.donatodev.bcm_backend.jwt.JwtUtils.algorithmFor(io.jsonwebtoken.security.Keys.hmacShaKeyFor(key)));
+    }
+
     /**
      * Verifies that the private constructor of {@link JwtKeyGenerator} throws
      * {@link UnsupportedOperationException} when accessed via reflection.
