@@ -59,7 +59,7 @@ class EmailServiceTest {
         EmailService withoutFrom = new EmailService(mailSender, null, "smtp-user@bcm.test");
         when(mailSender.createMimeMessage()).thenReturn(message);
 
-        withoutFrom.sendResetPasswordEmail(RECIPIENT, "http://reset-link");
+        withoutFrom.sendResetPasswordEmail(RECIPIENT, "http://reset-link", "anna", "Alfa Srl");
 
         assertThat(message.getFrom()[0].toString()).contains("smtp-user@bcm.test");
     }
@@ -69,9 +69,21 @@ class EmailServiceTest {
     void shouldSendResetPasswordEmail() {
         when(mailSender.createMimeMessage()).thenReturn(message);
 
-        assertDoesNotThrow(() -> emailService.sendResetPasswordEmail(RECIPIENT, "http://reset-link"));
+        assertDoesNotThrow(() -> emailService.sendResetPasswordEmail(RECIPIENT, "http://reset-link", "anna", "Alfa Srl"));
 
         verify(mailSender).send(message);
+    }
+
+    /** One address may hold accounts in several organizations: each link says which one it resets. */
+    @Test
+    @DisplayName("the reset email names the account and its organization, with their HTML escaped")
+    void resetEmailNamesTheAccount() throws Exception {
+        when(mailSender.createMimeMessage()).thenReturn(message);
+
+        emailService.sendResetPasswordEmail(RECIPIENT, "http://reset-link", "anna.rossi", "Alfa & <Beta>");
+
+        assertThat(htmlPart()).contains("<strong>anna.rossi</strong>")
+                .contains("<strong>Alfa &amp; &lt;Beta&gt;</strong>").doesNotContain("<Beta>");
     }
 
     @Test
@@ -182,7 +194,7 @@ class EmailServiceTest {
         }).when(mailSender).send(message);
 
         RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> emailService.sendResetPasswordEmail(RECIPIENT, "http://fail"));
+                () -> emailService.sendResetPasswordEmail(RECIPIENT, "http://fail", "anna", "Alfa Srl"));
 
         assertTrue(ex.getMessage().contains("Error sending reset password email"));
     }

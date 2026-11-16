@@ -22,8 +22,6 @@ import com.donatodev.bcm_backend.entity.AuditLog;
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
 
-    Page<AuditLog> findAllByOrderByTimestampDesc(Pageable pageable);
-
     /**
      * Finds all audit log entries for the given organization, ordered by
      * timestamp descending. Used to prevent cross-tenant access to audit logs.

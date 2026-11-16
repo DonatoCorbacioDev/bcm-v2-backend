@@ -32,14 +32,6 @@ import com.donatodev.bcm_backend.entity.Contracts;
 public interface ContractsRepository extends JpaRepository<Contracts, UUID> {
 
     /**
-     * Finds all contracts with the specified status.
-     *
-     * @param status the contract status to filter by
-     * @return a list of matching {@link Contracts}
-     */
-    List<Contracts> findByStatus(ContractStatus status);
-
-    /**
      * Checks whether a contract with the given contract number already
      * exists in the specified organization. Used by bulk import to reject duplicate rows before hitting
      * the database's unique constraint.
@@ -101,26 +93,14 @@ public interface ContractsRepository extends JpaRepository<Contracts, UUID> {
      */
     List<Contracts> findByManagerIdAndStatus(UUID managerId, ContractStatus status);
 
-    @Query("SELECT COUNT(c) FROM Contracts c")
-    int countAllContracts();
-
     @Query("SELECT COUNT(c) FROM Contracts c WHERE c.organization.id = :orgId")
     int countAllContractsByOrg(@Param("orgId") UUID orgId);
-
-    @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE")
-    int countActiveContracts();
 
     @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE AND c.organization.id = :orgId")
     int countActiveContractsByOrg(@Param("orgId") UUID orgId);
 
-    @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.EXPIRED")
-    int countExpiredContracts();
-
     @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.EXPIRED AND c.organization.id = :orgId")
     int countExpiredContractsByOrg(@Param("orgId") UUID orgId);
-
-    @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.DRAFT")
-    int countDraftContracts();
 
     @Query("SELECT COUNT(c) FROM Contracts c WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.DRAFT AND c.organization.id = :orgId")
     int countDraftContractsByOrg(@Param("orgId") UUID orgId);
@@ -147,13 +127,6 @@ public interface ContractsRepository extends JpaRepository<Contracts, UUID> {
           SELECT COUNT(c) FROM Contracts c
           WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE
             AND c.endDate BETWEEN CURRENT_DATE AND :endDate
-        """)
-    int countExpiringContracts(@Param("endDate") LocalDate endDate);
-
-    @Query("""
-          SELECT COUNT(c) FROM Contracts c
-          WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE
-            AND c.endDate BETWEEN CURRENT_DATE AND :endDate
             AND c.organization.id = :orgId
         """)
     int countExpiringContractsByOrg(@Param("endDate") LocalDate endDate, @Param("orgId") UUID orgId);
@@ -165,22 +138,6 @@ public interface ContractsRepository extends JpaRepository<Contracts, UUID> {
             AND c.manager.id = :managerId
         """)
     int countExpiringContractsByManager(@Param("endDate") LocalDate endDate, @Param("managerId") UUID managerId);
-
-    /**
-     * Finds all ACTIVE contracts that will expire between today and a future
-     * date.
-     *
-     * @param today the current date
-     * @param futureDate the end date for the expiry window
-     * @return a list of expiring {@link Contracts}
-     */
-    @Query("""
-        SELECT c FROM Contracts c
-        WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE
-          AND c.endDate BETWEEN :today AND :futureDate
-        ORDER BY c.endDate ASC
-      """)
-    List<Contracts> findExpiringContracts(@Param("today") LocalDate today, @Param("futureDate") LocalDate futureDate);
 
     @Query("""
         SELECT c FROM Contracts c
@@ -205,12 +162,6 @@ public interface ContractsRepository extends JpaRepository<Contracts, UUID> {
             @Param("today") LocalDate today,
             @Param("futureDate") LocalDate futureDate,
             @Param("managerId") UUID managerId);
-
-    @EntityGraph("contracts.withManagerAndArea")
-    Page<Contracts> findAllBy(Pageable pageable);
-
-    @EntityGraph("contracts.withManagerAndArea")
-    Page<Contracts> findByStatus(ContractStatus status, Pageable pageable);
 
     /**
      * Paged listing of contracts belonging to the given organization. Used to
@@ -259,16 +210,6 @@ public interface ContractsRepository extends JpaRepository<Contracts, UUID> {
             Pageable pageable);
 
     @EntityGraph("contracts.withManagerAndArea")
-    Page<Contracts> findByContractNumberContainingIgnoreCaseOrCounterpartyNameContainingIgnoreCase(
-            String contractNumber, String counterpartyName, Pageable pageable);
-
-    @EntityGraph("contracts.withManagerAndArea")
-    Page<Contracts> findByStatusAndContractNumberContainingIgnoreCaseOrStatusAndCounterpartyNameContainingIgnoreCase(
-            ContractStatus s1, String contractNumber,
-            ContractStatus s2, String counterpartyName,
-            Pageable pageable);
-
-    @EntityGraph("contracts.withManagerAndArea")
     Page<Contracts> findByManagerId(UUID managerId, Pageable pageable);
 
     @EntityGraph("contracts.withManagerAndArea")
@@ -285,23 +226,6 @@ public interface ContractsRepository extends JpaRepository<Contracts, UUID> {
             UUID managerId1, ContractStatus status1, String contractNumber,
             UUID managerId2, ContractStatus status2, String counterpartyName,
             Pageable pageable);
-
-    /**
-     * Count contracts grouped by business area.
-     *
-     * @return list of business area names with contract counts
-     */
-    @Query("""
-        SELECT new com.donatodev.bcm_backend.dto.ContractsByAreaDTO(
-            ba.name,
-            COUNT(c.id)
-        )
-        FROM Contracts c
-        JOIN c.businessArea ba
-        GROUP BY ba.id, ba.name
-        ORDER BY COUNT(c.id) DESC
-    """)
-    List<ContractsByAreaDTO> countContractsByArea();
 
     @Query("""
         SELECT new com.donatodev.bcm_backend.dto.ContractsByAreaDTO(
@@ -328,26 +252,6 @@ public interface ContractsRepository extends JpaRepository<Contracts, UUID> {
         ORDER BY COUNT(c.id) DESC
     """)
     List<ContractsByAreaDTO> countContractsByAreaAndManager(@Param("managerId") UUID managerId);
-
-    /**
-     * Count contracts started (by start_date) per month from a given window
-     * start onward. Uses HQL with EXTRACT functions for cross-database
-     * compatibility. The caller zero-fills months with no matches.
-     *
-     * @param windowStart the first day of the earliest month to include
-     * @return list of Object arrays containing [year, month, count]
-     */
-    @Query("""
-    SELECT
-        EXTRACT(YEAR FROM c.startDate),
-        EXTRACT(MONTH FROM c.startDate),
-        COUNT(c)
-    FROM Contracts c
-    WHERE c.startDate >= :windowStart
-    GROUP BY EXTRACT(YEAR FROM c.startDate), EXTRACT(MONTH FROM c.startDate)
-    ORDER BY EXTRACT(YEAR FROM c.startDate), EXTRACT(MONTH FROM c.startDate)
-""")
-    List<Object[]> countContractsByMonth(@Param("windowStart") LocalDate windowStart);
 
     @Query("""
     SELECT
@@ -378,26 +282,6 @@ public interface ContractsRepository extends JpaRepository<Contracts, UUID> {
     List<Object[]> countContractsByMonthAndManager(
             @Param("windowStart") LocalDate windowStart,
             @Param("managerId") UUID managerId);
-
-    /**
-     * Get top managers by number of assigned contracts.
-     *
-     * @param pageable pagination info (limit to top 5)
-     * @return list of top managers with contract counts
-     */
-    @Query("""
-        SELECT new com.donatodev.bcm_backend.dto.TopManagerDTO(
-            m.id,
-            CONCAT(m.firstName, ' ', m.lastName),
-            COUNT(c.id)
-        )
-        FROM Contracts c
-        JOIN c.manager m
-        WHERE m IS NOT NULL
-        GROUP BY m.id, m.firstName, m.lastName
-        ORDER BY COUNT(c.id) DESC
-    """)
-    List<TopManagerDTO> findTopManagers(Pageable pageable);
 
     @Query("""
         SELECT new com.donatodev.bcm_backend.dto.TopManagerDTO(
@@ -432,20 +316,6 @@ public interface ContractsRepository extends JpaRepository<Contracts, UUID> {
         GROUP BY m.id, m.firstName, m.lastName
     """)
     List<TopManagerDTO> findTopManagerForManager(@Param("managerId") UUID managerId);
-
-    /**
-     * Find contracts by status and end date within a date range.
-     *
-     * @param status the contract status
-     * @param startDate the start date of the range
-     * @param endDate the end date of the range
-     * @return list of contracts matching the criteria
-     */
-    List<Contracts> findByStatusAndEndDateBetween(
-            ContractStatus status,
-            LocalDate startDate,
-            LocalDate endDate
-    );
 
     /**
      * Finds all contracts with the given status whose end date is before the specified date.

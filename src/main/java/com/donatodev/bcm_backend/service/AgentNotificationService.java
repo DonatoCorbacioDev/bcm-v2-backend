@@ -42,15 +42,19 @@ public class AgentNotificationService {
 
     /**
      * The user account of the person who follows the contract, if there is
-     * one and it belongs to an organization: who the contract notifications go to.
+     * one: who the contract notifications go to. Found through the account's
+     * own link to that manager, never through the email, which is unique only
+     * within an organization: the same accountant may follow two companies,
+     * and one company's contracts must not reach the other's account.
      */
     private Optional<Users> managerUser(Contracts contract) {
         Managers manager = contract.getManager();
-        if (manager == null || manager.getEmail() == null) {
+        if (manager == null || contract.getOrganization() == null) {
             return Optional.empty();
         }
-        return usersRepository.findByManagerEmailIgnoreCase(manager.getEmail())
-                .filter(user -> user.getOrganization() != null);
+        UUID orgId = contract.getOrganization().getId();
+        return usersRepository.findByManagerId(manager.getId())
+                .filter(user -> user.getOrganization() != null && orgId.equals(user.getOrganization().getId()));
     }
 
     public void notifyExpiringContract(Contracts contract) {

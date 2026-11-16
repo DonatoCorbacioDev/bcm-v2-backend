@@ -66,10 +66,10 @@ class AgentNotificationServiceTest {
                     .status(ContractStatus.ACTIVE)
                     .startDate(LocalDate.of(2026, Month.DECEMBER, 15))
                     .endDate(LocalDate.of(2027, Month.JULY, 5))
-                    .manager(manager).build();
+                    .organization(org).manager(manager).build();
 
             Users user = Users.builder().id(uid(5)).username("mgr").organization(org).build();
-            when(usersRepository.findByManagerEmailIgnoreCase("manager@test.com"))
+            when(usersRepository.findByManagerId(uid(1)))
                     .thenReturn(Optional.of(user));
 
             agentNotificationService.notifyExpiringContract(contract);
@@ -92,10 +92,10 @@ class AgentNotificationServiceTest {
                     .counterparty(Counterparty.builder().name("Client A").type(CounterpartyType.CUSTOMER).build())
                     .status(ContractStatus.ACTIVE)
                     .endDate(LocalDate.now().plusDays(1))
-                    .manager(manager).build();
+                    .organization(org).manager(manager).build();
 
             Users user = Users.builder().id(uid(5)).username("mgr").organization(org).build();
-            when(usersRepository.findByManagerEmailIgnoreCase("manager@test.com"))
+            when(usersRepository.findByManagerId(uid(1)))
                     .thenReturn(Optional.of(user));
 
             agentNotificationService.notifyExpiringContract(contract);
@@ -147,10 +147,10 @@ class AgentNotificationServiceTest {
             Contracts contract = Contracts.builder()
                     .id(uid(1)).contractNumber("CNT-004")
                     .endDate(LocalDate.of(2027, Month.JUNE, 25))
-                    .manager(manager).build();
+                    .organization(Organization.builder().id(uid(10)).build()).manager(manager).build();
 
             Users user = Users.builder().id(uid(5)).username("orphan").organization(null).build();
-            when(usersRepository.findByManagerEmailIgnoreCase("noorg@test.com"))
+            when(usersRepository.findByManagerId(uid(1)))
                     .thenReturn(Optional.of(user));
 
             agentNotificationService.notifyExpiringContract(contract);
@@ -171,10 +171,10 @@ class AgentNotificationServiceTest {
                     .id(uid(1)).contractNumber("CNT-RISK-001")
                     .counterparty(Counterparty.builder().name("Risky Client").type(CounterpartyType.CUSTOMER).build())
                     .endDate(LocalDate.of(2027, Month.SEPTEMBER, 15))
-                    .manager(manager).build();
+                    .organization(org).manager(manager).build();
 
             Users user = Users.builder().id(uid(5)).username("mgr").organization(org).build();
-            when(usersRepository.findByManagerEmailIgnoreCase("manager@test.com"))
+            when(usersRepository.findByManagerId(uid(1)))
                     .thenReturn(Optional.of(user));
 
             agentNotificationService.notifyHighRisk(contract, 0.85);
@@ -206,10 +206,10 @@ class AgentNotificationServiceTest {
 
             Contracts contract = Contracts.builder()
                     .id(uid(1)).contractNumber("CNT-ANOM-001")
-                    .manager(manager).build();
+                    .organization(org).manager(manager).build();
 
             Users user = Users.builder().id(uid(5)).username("mgr").organization(org).build();
-            when(usersRepository.findByManagerEmailIgnoreCase("manager@test.com"))
+            when(usersRepository.findByManagerId(uid(1)))
                     .thenReturn(Optional.of(user));
 
             assertDoesNotThrow(() ->
@@ -246,10 +246,10 @@ class AgentNotificationServiceTest {
             Contracts contract = Contracts.builder()
                     .id(uid(1)).contractNumber("CNT-RISK-004")
                     .endDate(LocalDate.of(2027, Month.SEPTEMBER, 15))
-                    .manager(manager).build();
+                    .organization(Organization.builder().id(uid(10)).build()).manager(manager).build();
 
             Users user = Users.builder().id(uid(5)).username("orphan").organization(null).build();
-            when(usersRepository.findByManagerEmailIgnoreCase("noorg@risk.com"))
+            when(usersRepository.findByManagerId(uid(1)))
                     .thenReturn(Optional.of(user));
 
             agentNotificationService.notifyHighRisk(contract, 0.85);
@@ -294,10 +294,10 @@ class AgentNotificationServiceTest {
             manager.setEmail("noorg@anom.com");
 
             Contracts contract = Contracts.builder()
-                    .id(uid(1)).contractNumber("CNT-ANOM-004").manager(manager).build();
+                    .id(uid(1)).contractNumber("CNT-ANOM-004").organization(Organization.builder().id(uid(10)).build()).manager(manager).build();
 
             Users user = Users.builder().id(uid(5)).username("orphan").organization(null).build();
-            when(usersRepository.findByManagerEmailIgnoreCase("noorg@anom.com"))
+            when(usersRepository.findByManagerId(uid(1)))
                     .thenReturn(Optional.of(user));
 
             agentNotificationService.notifyAnomalyDetected(contract, "Anomaly");
@@ -351,10 +351,10 @@ class AgentNotificationServiceTest {
             manager.setId(uid(1));
             manager.setEmail("manager@test.com");
             Contracts contract = Contracts.builder()
-                    .id(uid(1)).contractNumber("CNT-WF-003").manager(manager).build();
+                    .id(uid(1)).contractNumber("CNT-WF-003").organization(org).manager(manager).build();
 
             Users user = Users.builder().id(uid(5)).username("mgr").organization(org).build();
-            when(usersRepository.findByManagerEmailIgnoreCase("manager@test.com")).thenReturn(Optional.of(user));
+            when(usersRepository.findByManagerId(uid(1))).thenReturn(Optional.of(user));
 
             agentNotificationService.notifyWorkflowApproved(contract);
 
@@ -379,10 +379,10 @@ class AgentNotificationServiceTest {
             manager.setId(uid(1));
             manager.setEmail("manager@test.com");
             Contracts contract = Contracts.builder()
-                    .id(uid(1)).contractNumber("CNT-WF-005").manager(manager).build();
+                    .id(uid(1)).contractNumber("CNT-WF-005").organization(org).manager(manager).build();
 
             Users user = Users.builder().id(uid(5)).username("mgr").organization(org).build();
-            when(usersRepository.findByManagerEmailIgnoreCase("manager@test.com")).thenReturn(Optional.of(user));
+            when(usersRepository.findByManagerId(uid(1))).thenReturn(Optional.of(user));
 
             agentNotificationService.notifyWorkflowRejected(contract, "Manca l'allegato");
 
@@ -391,14 +391,20 @@ class AgentNotificationServiceTest {
         }
 
         @Test
-        @DisplayName("Should skip rejection notification when the manager has no email")
-        void skipsRejectionWhenManagerHasNoEmail() {
+        @DisplayName("An account in another organization is never told about this one's contract")
+        void skipsAnAccountOfAnotherOrganization() {
+            Organization alfa = Organization.builder().id(uid(10)).name("Alfa").build();
+            Organization beta = Organization.builder().id(uid(20)).name("Beta").build();
             Managers manager = new Managers();
             manager.setId(uid(1));
-            manager.setEmail(null);
-            Contracts contract = Contracts.builder().id(uid(1)).contractNumber("CNT-WF-006").manager(manager).build();
+            Contracts contract = Contracts.builder().id(uid(1)).contractNumber("CNT-WF-006")
+                    .counterparty(Counterparty.builder().name("Client A").type(CounterpartyType.CUSTOMER).build())
+                    .endDate(LocalDate.now().plusDays(30)).organization(alfa).manager(manager).build();
+            when(usersRepository.findByManagerId(uid(1)))
+                    .thenReturn(Optional.of(Users.builder().id(uid(5)).username("anna").organization(beta).build()));
 
             agentNotificationService.notifyWorkflowRejected(contract, "no");
+            agentNotificationService.notifyExpiringContract(contract);
 
             verify(notificationService, never()).createForUser(any(UUID.class), any(UUID.class), anyString(), anyString(), any());
         }
@@ -416,7 +422,7 @@ class AgentNotificationServiceTest {
                     .counterparty(Counterparty.builder().name("Rossi Impianti").type(CounterpartyType.SUPPLIER).build())
                     .status(ContractStatus.ACTIVE).startDate(LocalDate.of(2026, Month.JANUARY, 1))
                     .endDate(endDate).autoRenew(true).noticeDays(noticeDays).renewalMonths(12)
-                    .manager(manager).build();
+                    .organization(org).manager(manager).build();
         }
 
         private Managers manager() {
@@ -427,7 +433,7 @@ class AgentNotificationServiceTest {
         }
 
         private void userInOrg() {
-            when(usersRepository.findByManagerEmailIgnoreCase("manager@test.com"))
+            when(usersRepository.findByManagerId(uid(1)))
                     .thenReturn(Optional.of(Users.builder().id(uid(5)).username("mgr").organization(org).build()));
         }
 
@@ -463,7 +469,7 @@ class AgentNotificationServiceTest {
             Managers noEmail = manager();
             noEmail.setEmail(null);
             agentNotificationService.notifyNoticeDeadline(renewing(noEmail, LocalDate.now().plusDays(40), 30));
-            when(usersRepository.findByManagerEmailIgnoreCase("manager@test.com"))
+            when(usersRepository.findByManagerId(uid(1)))
                     .thenReturn(Optional.empty())
                     .thenReturn(Optional.of(Users.builder().id(uid(5)).username("mgr").build()));
             agentNotificationService.notifyNoticeDeadline(renewing(manager(), LocalDate.now().plusDays(40), 30));

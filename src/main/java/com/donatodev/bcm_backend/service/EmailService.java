@@ -73,9 +73,11 @@ public class EmailService implements IEmailService {
     }
 
     @Override
-    public void sendResetPasswordEmail(String to, String resetLink) {
+    public void sendResetPasswordEmail(String to, String resetLink, String username, String organizationName) {
         send(to, "Reimposta la tua password BCM",
-                "<p>Ciao!</p><p>Clicca sul link qui sotto per reimpostare la password:</p>"
+                "<p>Ciao!</p><p>Clicca sul link qui sotto per reimpostare la password dell'account <strong>"
+                + HtmlUtils.htmlEscape(String.valueOf(username)) + "</strong> dell'organizzazione <strong>"
+                + HtmlUtils.htmlEscape(String.valueOf(organizationName)) + "</strong>:</p>"
                 + "<p><a href=\"" + resetLink + "\">Reimposta password</a></p>",
                 "Error sending reset password email");
     }

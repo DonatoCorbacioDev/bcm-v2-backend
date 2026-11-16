@@ -572,14 +572,14 @@ class UserServiceTest {
         @ParameterizedTest(name = "{0}")
         @MethodSource("findByEmailCases")
         @Order(8)
-        void findByEmail(String description, String email, Optional<Users> repoResponse, boolean expectedPresent) {
-            when(usersRepository.findByManagerEmailIgnoreCase(email)).thenReturn(repoResponse);
+        void findByEmail(String description, String email, List<Users> repoResponse, boolean expectedPresent) {
+            when(usersRepository.findAllByManagerEmailIgnoreCase(email)).thenReturn(repoResponse);
 
-            Optional<Users> result = userService.findByEmail(email);
+            List<Users> result = userService.findAllByEmail(email);
 
-            assertEquals(expectedPresent, result.isPresent());
+            assertEquals(expectedPresent, !result.isEmpty());
             if (expectedPresent) {
-                assertEquals("managerUser", result.get().getUsername());
+                assertEquals("managerUser", result.get(0).getUsername());
             }
         }
 
@@ -590,10 +590,10 @@ class UserServiceTest {
                     .manager(Managers.builder().email("found@example.com").build())
                     .build();
             return Stream.of(
-                    Arguments.of("found by manager email", "found@example.com", Optional.of(found), true),
-                    Arguments.of("email not found returns empty", "notfound@example.com", Optional.empty(), false),
-                    Arguments.of("manager is null returns empty", "email@example.com", Optional.empty(), false),
-                    Arguments.of("manager email is null returns empty", "email@example.com", Optional.empty(), false)
+                    Arguments.of("found by manager email", "found@example.com", List.of(found), true),
+                    Arguments.of("email not found returns empty", "notfound@example.com", List.of(), false),
+                    Arguments.of("manager is null returns empty", "email@example.com", List.of(), false),
+                    Arguments.of("manager email is null returns empty", "email@example.com", List.of(), false)
             );
         }
 

@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.service.IEmailService;
 import com.donatodev.bcm_backend.service.PasswordResetTokenService;
 import com.donatodev.bcm_backend.service.UserService;
@@ -93,13 +94,15 @@ public class PasswordResetMailer {
 
     private void send(String email) {
         try {
-            userService.findByEmail(email).ifPresent(user -> {
+            // One link per account: the same address may hold one in several organizations.
+            for (Users user : userService.findAllByEmail(email)) {
                 if (passwordResetTokenService.sentWithinMinutes(user, RESEND_COOLDOWN_MINUTES)) {
-                    return;
+                    continue;
                 }
                 String token = passwordResetTokenService.createToken(user);
-                emailService.sendResetPasswordEmail(email, frontendBaseUrl + "/reset-password?token=" + token);
-            });
+                emailService.sendResetPasswordEmail(email, frontendBaseUrl + "/reset-password?token=" + token,
+                        user.getUsername(), user.getOrganization() != null ? user.getOrganization().getName() : "");
+            }
         } catch (RuntimeException e) {
             // The exception's message may carry the address: only its type is logged.
             logger.error("Password reset email not sent: {}", e.getClass().getSimpleName());

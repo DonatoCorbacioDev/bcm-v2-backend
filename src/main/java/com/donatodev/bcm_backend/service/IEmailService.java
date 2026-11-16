@@ -20,8 +20,11 @@ public interface IEmailService {
      *
      * @param to the recipient's email address
      * @param resetLink the password reset link to be included in the email
+     * @param username the account the link resets: one address may hold
+     *        accounts in several organizations, each with its own link
+     * @param organizationName the organization of that account
      */
-    void sendResetPasswordEmail(String to, String resetLink);
+    void sendResetPasswordEmail(String to, String resetLink, String username, String organizationName);
 
     /**
      * Sends the one-time code that confirms a self-service registration and

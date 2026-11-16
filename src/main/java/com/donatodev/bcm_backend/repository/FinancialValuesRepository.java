@@ -74,14 +74,6 @@ public interface FinancialValuesRepository extends JpaRepository<FinancialValues
     @Query("""
             SELECT COALESCE(SUM(fv.financialAmount), 0.0)
             FROM FinancialValues fv
-            WHERE fv.financialType.category = com.donatodev.bcm_backend.entity.FinancialCategory.COST
-              AND fv.year = :year AND fv.month <= :month
-            """)
-    double sumCostUpToMonth(@Param("year") int year, @Param("month") int month);
-
-    @Query("""
-            SELECT COALESCE(SUM(fv.financialAmount), 0.0)
-            FROM FinancialValues fv
             WHERE fv.contract.manager.id = :managerId
               AND fv.financialType.category = com.donatodev.bcm_backend.entity.FinancialCategory.COST
               AND fv.year = :year AND fv.month <= :month

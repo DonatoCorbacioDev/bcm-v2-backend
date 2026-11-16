@@ -9,6 +9,8 @@ import java.util.UUID;
 import java.util.List;
 
 import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,7 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
 @Service
 public class NotificationService {
 
+    private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
     private static final int TITLE_MAX_LENGTH = 200;
 
     private final NotificationRepository notificationRepository;
@@ -44,10 +47,21 @@ public class NotificationService {
         this.contractsRepository = contractsRepository;
     }
 
+    /**
+     * Stores a notification for a user of the given organization. A user of
+     * another organization gets nothing: a notification carries a contract's
+     * number and counterparty, which must never cross tenants. Refused with a
+     * warning rather than an exception, which would roll back the whole
+     * nightly job the caller runs in.
+     */
     @Transactional
     public void createForUser(UUID userId, UUID orgId, String title, String message, NotificationType type) {
         Users user = usersRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("Utente non trovato: " + userId));
+        if (orgId == null || user.getOrganization() == null || !orgId.equals(user.getOrganization().getId())) {
+            logger.warn("Notification refused: the user is not in the notification's organization");
+            return;
+        }
 
         notificationRepository.save(Notification.builder()
                 .user(user)

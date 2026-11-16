@@ -48,12 +48,18 @@ public interface UsersRepository extends JpaRepository<Users, UUID>, JpaSpecific
     boolean existsByUsername(String username);
 
     /**
-     * Finds a user whose associated manager has the given email (case-insensitive).
-     *
-     * @param email the manager's email address
-     * @return an {@link Optional} containing the matching user, or empty if none found
+     * The account linked to the given manager: at most one ({@code users.manager_id}
+     * is unique). The way to reach the person who follows a contract.
      */
-    Optional<Users> findByManagerEmailIgnoreCase(String email);
+    Optional<Users> findByManagerId(UUID managerId);
+
+    /**
+     * Every account whose manager has the given email (case-insensitive), in
+     * any organization: the email is unique only within one, so the same
+     * person may hold an account in several. Only for "forgot password",
+     * where each of them gets its own link at that address.
+     */
+    List<Users> findAllByManagerEmailIgnoreCase(String email);
 
     /**
      * Users of one organization with the given role. Always scoped: there is

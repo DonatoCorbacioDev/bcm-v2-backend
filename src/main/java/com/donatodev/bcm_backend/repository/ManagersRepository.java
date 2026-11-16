@@ -19,8 +19,6 @@ import com.donatodev.bcm_backend.entity.Managers;
 @Repository
 public interface ManagersRepository extends JpaRepository<Managers, UUID> {
 
-    Managers findByEmail(String email);
-
     boolean existsByEmail(String email);
 
     Page<Managers> findByOrganizationId(UUID organizationId, Pageable pageable);

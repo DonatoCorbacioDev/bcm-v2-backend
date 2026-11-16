@@ -40,6 +40,7 @@ import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Notification;
 import com.donatodev.bcm_backend.entity.NotificationType;
 import com.donatodev.bcm_backend.entity.Roles;
+import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.NotificationNotFoundException;
@@ -94,12 +95,29 @@ class NotificationServiceTest {
         @Order(1)
         @DisplayName("Should create notification for existing user")
         void shouldCreateNotificationForExistingUser() {
-            Users user = Users.builder().id(USER_ID).username(USERNAME).build();
+            Users user = Users.builder().id(USER_ID).username(USERNAME)
+                    .organization(Organization.builder().id(ORG_ID).build()).build();
             when(usersRepository.findById(USER_ID)).thenReturn(Optional.of(user));
 
             notificationService.createForUser(USER_ID, ORG_ID, "Title", "Message", NotificationType.INFO);
 
             verify(notificationRepository).save(any(Notification.class));
+        }
+
+        @Test
+        @DisplayName("A user of another organization, or of none, is never notified for this one")
+        void refusesAUserOutsideTheOrganization() {
+            Users other = Users.builder().id(USER_ID).username(USERNAME)
+                    .organization(Organization.builder().id(uid(77)).build()).build();
+            Users none = Users.builder().id(uid(2)).username("orphan").build();
+            when(usersRepository.findById(USER_ID)).thenReturn(Optional.of(other));
+            when(usersRepository.findById(uid(2))).thenReturn(Optional.of(none));
+
+            notificationService.createForUser(USER_ID, ORG_ID, "T", "M", NotificationType.INFO);
+            notificationService.createForUser(uid(2), ORG_ID, "T", "M", NotificationType.INFO);
+            notificationService.createForUser(USER_ID, null, "T", "M", NotificationType.INFO);
+
+            verify(notificationRepository, never()).save(any());
         }
 
         @Test

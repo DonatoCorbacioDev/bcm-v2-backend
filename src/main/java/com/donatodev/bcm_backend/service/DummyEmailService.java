@@ -41,7 +41,7 @@ public class DummyEmailService implements IEmailService {
      * @param resetLink the password reset link to include in the email
      */
     @Override
-    public void sendResetPasswordEmail(String to, String resetLink) {
+    public void sendResetPasswordEmail(String to, String resetLink, String username, String organizationName) {
         if (logger.isInfoEnabled()) {
             logger.info("[TEST] Fake password reset email sent to: {} with link: {}",
                     sanitize(to), sanitize(resetLink));

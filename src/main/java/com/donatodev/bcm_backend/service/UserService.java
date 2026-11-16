@@ -240,13 +240,15 @@ public class UserService {
 	}
 
 	/**
-	 * Finds a user by the email of their associated manager.
+	 * Every account whose manager has the given email, in any organization:
+	 * the email is unique only within one, so the same person may hold
+	 * several accounts. Used by "forgot password" only.
 	 *
 	 * @param email the manager's email address
-	 * @return an {@link Optional} containing the found {@link Users} if any
+	 * @return the accounts at that address, possibly none
 	 */
-	public Optional<Users> findByEmail(String email) {
-		return usersRepository.findByManagerEmailIgnoreCase(email);
+	public List<Users> findAllByEmail(String email) {
+		return usersRepository.findAllByManagerEmailIgnoreCase(email);
 	}
 
 	/**

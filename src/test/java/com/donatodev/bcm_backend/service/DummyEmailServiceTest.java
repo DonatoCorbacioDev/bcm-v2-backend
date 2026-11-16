@@ -28,7 +28,7 @@ class DummyEmailServiceTest {
     @DisplayName("Should log reset password email without throwing exceptions")
     void shouldLogResetPasswordEmail() {
         assertDoesNotThrow(()
-                -> dummyEmailService.sendResetPasswordEmail("test@example.com", "http://reset-link")
+                -> dummyEmailService.sendResetPasswordEmail("test@example.com", "http://reset-link", "anna", "Alfa Srl")
         );
     }
 
@@ -50,7 +50,7 @@ class DummyEmailServiceTest {
     void shouldHandleNullParameters() {
         assertDoesNotThrow(() -> {
             dummyEmailService.sendEmail(null, null, null);
-            dummyEmailService.sendResetPasswordEmail(null, null);
+            dummyEmailService.sendResetPasswordEmail(null, null, "anna", "Alfa Srl");
         });
     }
 
@@ -59,7 +59,7 @@ class DummyEmailServiceTest {
     void shouldHandleEmptyStrings() {
         assertDoesNotThrow(() -> {
             dummyEmailService.sendEmail("", "", "");
-            dummyEmailService.sendResetPasswordEmail("", "");
+            dummyEmailService.sendResetPasswordEmail("", "", "anna", "Alfa Srl");
         });
     }
 
@@ -72,7 +72,7 @@ class DummyEmailServiceTest {
         logger.setLevel(ch.qos.logback.classic.Level.WARN);
         try {
             assertDoesNotThrow(() -> {
-                dummyEmailService.sendResetPasswordEmail("a@b.com", "http://reset");
+                dummyEmailService.sendResetPasswordEmail("a@b.com", "http://reset", "anna", "Alfa Srl");
                 dummyEmailService.sendEmail("a@b.com", "Subject", "Body");
                 dummyEmailService.sendRegistrationCode("a@b.com", "123456", 15);
                 dummyEmailService.sendOrganizationDeletionCode("a@b.com", "Acme", "123456", 15);
