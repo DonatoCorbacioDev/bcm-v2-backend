@@ -1,5 +1,10 @@
 package com.donatodev.bcm_backend.support;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+
 import org.junit.jupiter.api.Tag;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -47,15 +52,49 @@ public abstract class AbstractMySQLIntegrationTest {
             .withPassword("bcm_it_password")
             .withCommand("--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci");
 
+    /**
+     * The account the application runs with, as in production (OWASP SQL
+     * Injection Prevention Cheat Sheet, least privilege): it reads and writes
+     * rows and nothing else. Only Flyway uses the owner account above, which
+     * can change the schema. Every integration test runs on this one, so a
+     * feature needing more than these privileges fails here, not in production.
+     */
+    public static final String APP_USER = "bcm_it_app";
+    static final String APP_PASSWORD = "bcm_it_app_password";
+    /** The same privileges ops/mysql/create-app-runtime-user.sh grants in production. */
+    public static final String APP_PRIVILEGES = "SELECT, INSERT, UPDATE, DELETE";
+
     static {
         MYSQL.start();
+        createAppAccount();
+    }
+
+    /**
+     * A connection as the schema owner, for what in production runs as root
+     * outside the application (the demo reset's seed script), never through it.
+     */
+    protected static Connection ownerConnection() throws SQLException {
+        return DriverManager.getConnection(MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword());
+    }
+
+    private static void createAppAccount() {
+        try (Connection root = DriverManager.getConnection(MYSQL.getJdbcUrl(), "root", MYSQL.getPassword());
+                Statement sql = root.createStatement()) {
+            sql.execute("CREATE USER IF NOT EXISTS '" + APP_USER + "'@'%' IDENTIFIED BY '" + APP_PASSWORD + "'");
+            sql.execute("GRANT " + APP_PRIVILEGES + " ON `" + MYSQL.getDatabaseName() + "`.* TO '" + APP_USER + "'@'%'");
+        } catch (SQLException e) {
+            throw new IllegalStateException("Could not create the application's MySQL account", e);
+        }
     }
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
-        registry.add("spring.datasource.username", MYSQL::getUsername);
-        registry.add("spring.datasource.password", MYSQL::getPassword);
+        registry.add("spring.datasource.username", () -> APP_USER);
+        registry.add("spring.datasource.password", () -> APP_PASSWORD);
+        // The schema is built by the owner account, as in production.
+        registry.add("spring.flyway.user", MYSQL::getUsername);
+        registry.add("spring.flyway.password", MYSQL::getPassword);
         registry.add("spring.datasource.driver-class-name", MYSQL::getDriverClassName);
         // Override the "test" profile's H2/no-Flyway defaults: real schema,
         // built by the real migrations, validated (not generated) by Hibernate.

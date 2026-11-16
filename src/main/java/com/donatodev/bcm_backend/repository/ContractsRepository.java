@@ -180,28 +180,30 @@ public interface ContractsRepository extends JpaRepository<Contracts, UUID> {
 
     /**
      * Paged search by contract number or counterparty name, scoped to the
-     * given organization. Used by the ADMIN "term only" search.
+     * given organization. Used by the ADMIN "term only" search. The term must
+     * come through {@code LikePattern.literal}: its % and _ then match only themselves.
      */
     @EntityGraph("contracts.withManagerAndArea")
     @Query("""
         SELECT c FROM Contracts c
         WHERE c.organization.id = :orgId
-          AND (LOWER(c.contractNumber) LIKE LOWER(CONCAT('%', :term, '%'))
-               OR LOWER(c.counterparty.name) LIKE LOWER(CONCAT('%', :term, '%')))
+          AND (LOWER(c.contractNumber) LIKE LOWER(CONCAT('%', :term, '%')) ESCAPE '!'
+               OR LOWER(c.counterparty.name) LIKE LOWER(CONCAT('%', :term, '%')) ESCAPE '!')
         """)
     Page<Contracts> findByOrgAndTerm(@Param("orgId") UUID orgId, @Param("term") String term, Pageable pageable);
 
     /**
      * Paged search by status and (contract number or counterparty name),
      * scoped to the given organization. Used by the ADMIN "status and term" search.
+     * The term must come through {@code LikePattern.literal}.
      */
     @EntityGraph("contracts.withManagerAndArea")
     @Query("""
         SELECT c FROM Contracts c
         WHERE c.organization.id = :orgId
           AND c.status = :status
-          AND (LOWER(c.contractNumber) LIKE LOWER(CONCAT('%', :term, '%'))
-               OR LOWER(c.counterparty.name) LIKE LOWER(CONCAT('%', :term, '%')))
+          AND (LOWER(c.contractNumber) LIKE LOWER(CONCAT('%', :term, '%')) ESCAPE '!'
+               OR LOWER(c.counterparty.name) LIKE LOWER(CONCAT('%', :term, '%')) ESCAPE '!')
         """)
     Page<Contracts> findByOrgAndStatusAndTerm(
             @Param("orgId") UUID orgId,

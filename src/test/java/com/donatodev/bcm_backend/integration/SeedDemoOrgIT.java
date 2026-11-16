@@ -73,7 +73,8 @@ class SeedDemoOrgIT extends AbstractMySQLIntegrationTest {
     private void runSeed() throws IOException, SQLException {
         // The file selects the production database by name; the container's is bcm_it.
         String sql = Files.readString(SEED, StandardCharsets.UTF_8).replace("USE bcm;", "");
-        try (Connection connection = dataSource.getConnection()) {
+        // In production ops/demo/demo-reset.sh runs it as root, not the application's account.
+        try (Connection connection = ownerConnection()) {
             ScriptUtils.executeSqlScript(connection,
                     new EncodedResource(new ByteArrayResource(sql.getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8));
         }

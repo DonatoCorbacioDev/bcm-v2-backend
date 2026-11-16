@@ -30,6 +30,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import com.donatodev.bcm_backend.util.LikePattern;
 import com.donatodev.bcm_backend.util.PageLimits;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ContractDTO;
@@ -475,11 +476,11 @@ public class ContractService {
 
     private Page<Contracts> searchPagedAdminForOrg(UUID orgId, ContractStatus status, boolean hasTerm, String term, Pageable pageable) {
         if (status != null && hasTerm) {
-            return contractsRepository.findByOrgAndStatusAndTerm(orgId, status, term, pageable);
+            return contractsRepository.findByOrgAndStatusAndTerm(orgId, status, LikePattern.literal(term), pageable);
         } else if (status != null) {
             return contractsRepository.findByStatusAndOrganization_Id(status, orgId, pageable);
         } else if (hasTerm) {
-            return contractsRepository.findByOrgAndTerm(orgId, term, pageable);
+            return contractsRepository.findByOrgAndTerm(orgId, LikePattern.literal(term), pageable);
         } else {
             return contractsRepository.findByOrganization_Id(orgId, pageable);
         }
