@@ -92,6 +92,16 @@
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
 
+    <!-- CRLF_INJECTION_LOGS in StoredFileRescan: every logged value goes
+         through oneLine(), which replaces CR and LF; the rest are an entity
+         type constant and an exception's Class.getSimpleName(). File names
+         are deliberately never logged. FindSecBugs does not track
+         String.replace as a sanitizer. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.upload.StoredFileRescan"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
     <!-- CRLF_INJECTION_LOGS in BillingService: the only logged values are a
          Long org id, a SubscriptionTier enum constant and an exception's
          Class.getSimpleName() - none of these types can carry CR/LF. Webhook

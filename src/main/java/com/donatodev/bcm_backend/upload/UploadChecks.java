@@ -65,23 +65,71 @@ public class UploadChecks {
             throw new IllegalArgumentException("Sono supportati solo file PDF");
         }
         scan(bytes, "pdf");
-        Optional<String> active;
-        try (PDDocument document = Loader.loadPDF(bytes)) {
-            if (document.getNumberOfPages() < 1) {
-                throw new IllegalArgumentException("Il PDF non contiene pagine");
+        Optional<PdfProblem> problem = pdfStructure(bytes);
+        if (problem.isPresent()) {
+            if (problem.get().unsafe()) {
+                securityEvents.record(SecurityEvents.Type.UNSAFE_UPLOAD, "pdf " + problem.get().reason());
+                throw new UnsafeFileException(problem.get().message());
             }
-            active = PdfActiveContent.find(document);
-        } catch (InvalidPasswordException e) {
-            throw new IllegalArgumentException("I PDF protetti da password non sono supportati");
-        } catch (IOException e) {
-            throw new IllegalArgumentException("Il file non è un PDF valido");
-        }
-        if (active.isPresent()) {
-            securityEvents.record(SecurityEvents.Type.UNSAFE_UPLOAD, "pdf active content: " + active.get());
-            throw new UnsafeFileException("Il PDF contiene contenuti attivi (JavaScript, azioni automatiche "
-                    + "o file incorporati) e non può essere caricato");
+            throw new IllegalArgumentException(problem.get().message());
         }
         return bytes;
+    }
+
+    /**
+     * Why a PDF already stored would be refused if it were uploaded today
+     * ("active content: JS", "malware: Eicar-Test-Signature", ...), or empty
+     * when it passes: the same checks as {@link #pdf}, on the content alone.
+     * Records nothing: the caller decides what a finding means.
+     *
+     * @throws com.donatodev.bcm_backend.exception.MalwareScanUnavailableException when ClamAV gives no clear answer
+     */
+    public Optional<String> recheckPdf(byte[] bytes) {
+        if (bytes.length == 0 || !startsWith(bytes, PDF_MAGIC)) {
+            return Optional.of("not a pdf");
+        }
+        Optional<String> signature = scanner.scan(bytes);
+        if (signature.isPresent()) {
+            return Optional.of("malware: " + signature.get());
+        }
+        return pdfStructure(bytes).map(PdfProblem::reason);
+    }
+
+    /**
+     * As {@link #recheckPdf}, for a FatturaPA invoice already stored.
+     *
+     * @throws com.donatodev.bcm_backend.exception.MalwareScanUnavailableException when ClamAV gives no clear answer
+     */
+    public Optional<String> recheckFatturaPa(byte[] bytes) {
+        if (!looksLikeXml(bytes)) {
+            return Optional.of("not xml");
+        }
+        return scanner.scan(bytes).map(signature -> "malware: " + signature);
+    }
+
+    /** Whether the antivirus really runs: a recheck with it off would call everything clean. */
+    public boolean scanning() {
+        return scanner.enabled();
+    }
+
+    /** What is wrong with a PDF's structure: a reason for the record, a message for the user. */
+    private record PdfProblem(String reason, String message, boolean unsafe) {
+    }
+
+    private static Optional<PdfProblem> pdfStructure(byte[] bytes) {
+        try (PDDocument document = Loader.loadPDF(bytes)) {
+            if (document.getNumberOfPages() < 1) {
+                return Optional.of(new PdfProblem("no pages", "Il PDF non contiene pagine", false));
+            }
+            return PdfActiveContent.find(document).map(active -> new PdfProblem("active content: " + active,
+                    "Il PDF contiene contenuti attivi (JavaScript, azioni automatiche "
+                    + "o file incorporati) e non può essere caricato", true));
+        } catch (InvalidPasswordException e) {
+            return Optional.of(new PdfProblem("password protected",
+                    "I PDF protetti da password non sono supportati", false));
+        } catch (IOException e) {
+            return Optional.of(new PdfProblem("unreadable", "Il file non è un PDF valido", false));
+        }
     }
 
     /** A FatturaPA invoice: an XML file (the schema is checked by its parser). Returns its bytes. */

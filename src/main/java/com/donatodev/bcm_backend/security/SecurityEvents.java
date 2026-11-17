@@ -137,6 +137,14 @@ public class SecurityEvents {
     }
 
     /**
+     * Records an event found by the application itself, outside any request
+     * (the recheck of stored files): about a given entity of a given organization.
+     */
+    public void recordAbout(Type type, String entityType, UUID entityId, UUID orgId, String detail) {
+        store(type, entityType, entityId, null, orgId, detail);
+    }
+
+    /**
      * Records an event about an account before anyone is signed in (a failed
      * login, a lock, a replayed refresh token), from the current request's address.
      */

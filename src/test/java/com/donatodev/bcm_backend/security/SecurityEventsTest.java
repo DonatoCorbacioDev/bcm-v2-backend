@@ -209,4 +209,18 @@ class SecurityEventsTest {
         // A replay is never throttled: each one ended sessions.
         verify(audit, times(2)).save("SECURITY_REFRESH_REUSE", "Security", null, "bob", other, "ip=203.0.113.7");
     }
+
+    @Test
+    @DisplayName("an event the application finds itself names the entity and organization, and no user")
+    void recordAboutAStoredFile() {
+        SecurityContextHolder.clearContext();
+        TenantContext.clear();
+        UUID org = UUID.fromString("00000000-0000-4000-8000-000000000003");
+        UUID document = UUID.fromString("00000000-0000-4000-8000-000000000004");
+
+        events.recordAbout(SecurityEvents.Type.UNSAFE_UPLOAD, "ContractDocument", document, org, "stored file: not a pdf");
+
+        verify(audit).save("SECURITY_UNSAFE_UPLOAD", "ContractDocument", document, null, org,
+                "ip=203.0.113.7 | stored file: not a pdf");
+    }
 }

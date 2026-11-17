@@ -504,6 +504,91 @@ class UploadChecksTest {
         }
     }
 
+    @Nested
+    class RecheckOfStoredFiles {
+
+        @Test
+        void aCleanPdfHasNoFinding() {
+            assertThat(checks.recheckPdf(TestUploads.pdf())).isEmpty();
+            verify(scanner).scan(any());
+            verifyNoInteractions(securityEvents);
+        }
+
+        @Test
+        void aPdfWithJavaScriptIsReportedNotThrown() {
+            byte[] pdf = TestUploads.pdf(document -> document.getDocumentCatalog()
+                    .setOpenAction(new PDActionJavaScript("app.alert(1)")));
+
+            assertThat(checks.recheckPdf(pdf)).contains("active content: JS");
+            verifyNoInteractions(securityEvents);
+        }
+
+        @Test
+        void malwareInAPdfIsReported() {
+            when(scanner.scan(any())).thenReturn(Optional.of("Win.Test.EICAR_HDB-1"));
+
+            assertThat(checks.recheckPdf(TestUploads.pdf())).contains("malware: Win.Test.EICAR_HDB-1");
+        }
+
+        @Test
+        void notAPdfIsReportedWithoutScanning() {
+            assertThat(checks.recheckPdf("<html>".getBytes(StandardCharsets.US_ASCII))).contains("not a pdf");
+            assertThat(checks.recheckPdf(new byte[0])).contains("not a pdf");
+            verify(scanner, never()).scan(any());
+        }
+
+        @Test
+        void aBrokenOrProtectedPdfIsReported() {
+            assertThat(checks.recheckPdf("%PDF-1.4\nnope".getBytes(StandardCharsets.US_ASCII))).contains("unreadable");
+            PDDocument locked = new PDDocument();
+            locked.addPage(new PDPage());
+            protect(locked, "utente");
+            assertThat(checks.recheckPdf(save(locked))).contains("password protected");
+        }
+
+        @Test
+        void aPdfWithNoPagesIsReported() {
+            assertThat(checks.recheckPdf(save(new PDDocument()))).contains("no pages");
+        }
+
+        @Test
+        void aCleanInvoiceHasNoFinding() {
+            assertThat(checks.recheckFatturaPa("<?xml version=\"1.0\"?><a/>".getBytes(StandardCharsets.UTF_8))).isEmpty();
+            verify(scanner).scan(any());
+        }
+
+        @Test
+        void malwareInAnInvoiceIsReported() {
+            when(scanner.scan(any())).thenReturn(Optional.of("Xml.Test"));
+
+            assertThat(checks.recheckFatturaPa("<a/>".getBytes(StandardCharsets.UTF_8))).contains("malware: Xml.Test");
+        }
+
+        @Test
+        void anInvoiceThatIsNotXmlIsReportedWithoutScanning() {
+            assertThat(checks.recheckFatturaPa("%PDF-1.4".getBytes(StandardCharsets.US_ASCII))).contains("not xml");
+            verify(scanner, never()).scan(any());
+        }
+
+        @Test
+        void clamAvDownIsThrownNotCalledClean() {
+            when(scanner.scan(any())).thenThrow(new MalwareScanUnavailableException("down", null));
+
+            assertThatThrownBy(() -> checks.recheckPdf(TestUploads.pdf()))
+                    .isInstanceOf(MalwareScanUnavailableException.class);
+            assertThatThrownBy(() -> checks.recheckFatturaPa("<a/>".getBytes(StandardCharsets.UTF_8)))
+                    .isInstanceOf(MalwareScanUnavailableException.class);
+        }
+
+        @Test
+        void scanningFollowsTheScanner() {
+            when(scanner.enabled()).thenReturn(true);
+            assertThat(checks.scanning()).isTrue();
+            when(scanner.enabled()).thenReturn(false);
+            assertThat(checks.scanning()).isFalse();
+        }
+    }
+
     private static void link(PDDocument document, COSDictionary action) {
         PDAnnotationLink link = new PDAnnotationLink();
         link.getCOSObject().setItem(COSName.A, action);
