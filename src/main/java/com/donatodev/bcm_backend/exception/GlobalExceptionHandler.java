@@ -166,6 +166,19 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, "Ricerca semantica temporaneamente non disponibile");
     }
 
+    /** An uploaded file refused as dangerous: recognised by the antivirus, or a PDF with active content. */
+    @ExceptionHandler(UnsafeFileException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnsafeFile(UnsafeFileException ex) {
+        return buildErrorResponse(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage());
+    }
+
+    /** The antivirus gave no answer: the upload is refused, never stored unscanned. */
+    @ExceptionHandler(MalwareScanUnavailableException.class)
+    public ResponseEntity<ApiErrorResponse> handleMalwareScanUnavailable(MalwareScanUnavailableException ex) {
+        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE,
+                "Analisi antivirus non disponibile: riprova tra qualche minuto");
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiErrorResponse> handleAuthenticationException(AuthenticationException ex) {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Non autorizzato: " + ex.getMessage());

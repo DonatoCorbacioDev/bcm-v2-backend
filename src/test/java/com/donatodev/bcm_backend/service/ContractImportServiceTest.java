@@ -85,7 +85,8 @@ class ContractImportServiceTest {
 
     private void setupImportService() {
         importService = new ContractImportService(
-                contractsRepository, businessAreasRepository, managersRepository, contractService, counterpartyService);
+                contractsRepository, businessAreasRepository, managersRepository, contractService, counterpartyService,
+                com.donatodev.bcm_backend.support.TestUploads.checks());
         // lenient: most tests reach parseRow and need a counterparty resolved, a
         // few fail validation before ever getting there and never touch this mock.
         org.mockito.Mockito.lenient().when(counterpartyService.resolveOrCreateByName(org.mockito.ArgumentMatchers.anyString()))

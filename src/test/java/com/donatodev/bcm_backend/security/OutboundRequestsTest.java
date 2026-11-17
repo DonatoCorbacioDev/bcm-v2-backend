@@ -41,7 +41,9 @@ class OutboundRequestsTest {
             "config/RestTemplateConfig.java",
             "builds the one client for the ML service: no redirects, URL from ml.fastapi.url (OutboundDestinations)",
             "service/MlProxyService.java",
-            "calls the ML service at fixed paths; users pass only numbers, ids and a question in the JSON body");
+            "calls the ML service at fixed paths; users pass only numbers, ids and a question in the JSON body",
+            "upload/MalwareScanner.java",
+            "sends uploaded files to clamd for scanning; host and port fixed by app.malware-scan.*, never from a request");
 
     @Test
     @DisplayName("only the listed classes open connections, and every listed class still does")

@@ -6,6 +6,7 @@
 package com.donatodev.bcm_backend.service;
 
 import java.util.UUID;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.Normalizer;
@@ -24,11 +25,11 @@ import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.openxml4j.util.ZipSecureFile;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -44,6 +45,7 @@ import com.donatodev.bcm_backend.exception.ContractImportRowException;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
+import com.donatodev.bcm_backend.upload.UploadChecks;
 
 /**
  * Bulk-imports contracts from an uploaded .xlsx spreadsheet. Each row is
@@ -56,6 +58,19 @@ import com.donatodev.bcm_backend.repository.ManagersRepository;
 public class ContractImportService {
 
     private static final int MAX_DATA_ROWS = 5000;
+
+    /**
+     * Zip bomb limits for every .xlsx POI opens (OWASP File Upload Cheat Sheet):
+     * an entry may expand at most 100 times its compressed size, and to at most
+     * 100 MB (POI's own default allows 4 GB). A 5000-row sheet is a few MB.
+     */
+    static final double MIN_INFLATE_RATIO = 0.01;
+    static final long MAX_ENTRY_BYTES = 100L * 1024 * 1024;
+
+    static {
+        ZipSecureFile.setMinInflateRatio(MIN_INFLATE_RATIO);
+        ZipSecureFile.setMaxEntrySize(MAX_ENTRY_BYTES);
+    }
 
     private static final int COL_CONTRACT_NUMBER = 0;
     private static final int COL_COUNTERPARTY = 1;
@@ -78,18 +93,35 @@ public class ContractImportService {
     private final ManagersRepository managersRepository;
     private final ContractService contractService;
     private final CounterpartyService counterpartyService;
+    private final UploadChecks uploadChecks;
 
     public ContractImportService(
             ContractsRepository contractsRepository,
             BusinessAreasRepository businessAreasRepository,
             ManagersRepository managersRepository,
             ContractService contractService,
-            CounterpartyService counterpartyService) {
+            CounterpartyService counterpartyService,
+            UploadChecks uploadChecks) {
         this.contractsRepository = contractsRepository;
         this.businessAreasRepository = businessAreasRepository;
         this.managersRepository = managersRepository;
         this.contractService = contractService;
         this.counterpartyService = counterpartyService;
+        this.uploadChecks = uploadChecks;
+    }
+
+    /**
+     * Opens the bytes as an .xlsx workbook and nothing else: WorkbookFactory
+     * would also open the older binary .xls (and whatever else POI reads) by
+     * looking at the content, whatever the file was called. Anything that is
+     * not a readable .xlsx, a zip bomb included, is the caller's input: 400.
+     */
+    static Workbook openXlsx(byte[] bytes) {
+        try {
+            return new XSSFWorkbook(new ByteArrayInputStream(bytes));
+        } catch (IOException | RuntimeException e) {
+            throw new IllegalArgumentException("Il file non è un file Excel .xlsx valido", e);
+        }
     }
 
     /**
@@ -101,16 +133,13 @@ public class ContractImportService {
      * @return a per-row report of what was imported and what was rejected
      */
     public ContractImportResultDTO importFromExcel(MultipartFile file) throws IOException {
-        String filename = file.getOriginalFilename();
-        if (filename == null || !filename.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
-            throw new IllegalArgumentException("Sono supportati solo file .xlsx");
-        }
+        byte[] bytes = uploadChecks.xlsx(file);
 
         UUID orgId = TenantContext.require();
         List<BusinessAreas> areas = businessAreasRepository.findAllByOrganizationId(orgId);
         List<Managers> managers = managersRepository.findAllByOrganizationId(orgId);
 
-        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
+        try (Workbook workbook = openXlsx(bytes)) {
             if (workbook.getNumberOfSheets() == 0) {
                 throw new IllegalArgumentException("Il file non contiene nessun foglio");
             }

@@ -71,7 +71,7 @@ class ElectronicInvoiceServiceTest {
         TenantContext.set(TENANT);
         electronicInvoiceService = new ElectronicInvoiceService(
                 invoiceRepository, contractAccessGuard, localStorageService, fatturaPaXmlParserService,
-                invoiceMatchingService);
+                invoiceMatchingService, com.donatodev.bcm_backend.support.TestUploads.checks());
         ReflectionTestUtils.setField(electronicInvoiceService, "backendBaseUrl", BACKEND_URL);
 
         SecurityContext ctx = SecurityContextHolder.createEmptyContext();
@@ -405,6 +405,45 @@ class ElectronicInvoiceServiceTest {
             assertNotNull(result.bytes());
             assertEquals("invoice.xml", result.fileName());
             assertEquals("application/xml", result.contentType());
+        }
+
+        @Test
+        @Order(13)
+        @DisplayName("downloadInvoice: always served as XML, whatever type was stored with it")
+        void downloadIsAlwaysServedAsXml() {
+            Contracts contract = fakeContract();
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
+            invoice.setContentType("text/html");
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID)).thenReturn(Optional.of(invoice));
+            when(localStorageService.readDocument(invoice.getStoragePath())).thenReturn(VALID_XML);
+
+            assertEquals("application/xml", electronicInvoiceService.downloadInvoice(CONTRACT_ID, INVOICE_ID).contentType());
+        }
+
+        @Test
+        @Order(13)
+        @DisplayName("uploadInvoice: stores the cleaned name and the real size, not the browser's")
+        void uploadStoresCleanedNameAndRealSize() throws IOException {
+            Contracts contract = fakeContract();
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(fatturaPaXmlParserService.parse(any())).thenReturn(sampleParsedData());
+            when(localStorageService.storeInvoice(any(), eq(CONTRACT_ID), any())).thenReturn("invoices/x.xml");
+            when(invoiceRepository.save(any(ElectronicInvoice.class))).thenReturn(fakeInvoice(contract, sampleLineItems()));
+            MockMultipartFile file = new MockMultipartFile("file", "../../IT0123‮_001.xml", "text/html", VALID_XML) {
+                @Override
+                public long getSize() {
+                    return 1;
+                }
+            };
+
+            electronicInvoiceService.uploadInvoice(CONTRACT_ID, file);
+
+            org.mockito.ArgumentCaptor<ElectronicInvoice> saved = org.mockito.ArgumentCaptor.forClass(ElectronicInvoice.class);
+            org.mockito.Mockito.verify(invoiceRepository, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
+            assertEquals("IT0123_001.xml", saved.getAllValues().get(0).getFileName());
+            assertEquals(VALID_XML.length, saved.getAllValues().get(0).getFileSize());
+            assertEquals("application/xml", saved.getAllValues().get(0).getContentType());
         }
 
         @Test

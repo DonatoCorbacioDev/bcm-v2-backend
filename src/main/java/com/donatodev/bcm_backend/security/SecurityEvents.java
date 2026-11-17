@@ -85,7 +85,12 @@ public class SecurityEvents {
         /** An account locked by repeated failures; its owner is told by email. */
         ACCOUNT_LOCKED("SECURITY_ACCOUNT_LOCKED", false),
         /** A refresh token presented again after it was rotated: a stolen session. */
-        REFRESH_REUSE("SECURITY_REFRESH_REUSE", false);
+        REFRESH_REUSE("SECURITY_REFRESH_REUSE", false),
+        /**
+         * An uploaded file refused as dangerous (OWASP File Upload Cheat Sheet):
+         * recognised by the antivirus, or a PDF carrying active content.
+         */
+        UNSAFE_UPLOAD("SECURITY_UNSAFE_UPLOAD", false);
 
         private final String action;
         private final boolean throttled;

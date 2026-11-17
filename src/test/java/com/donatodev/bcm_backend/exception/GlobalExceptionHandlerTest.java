@@ -216,6 +216,26 @@ class GlobalExceptionHandlerTest {
         }
 
         @Test
+        @DisplayName("Should return 422 with its message for a file refused as dangerous")
+        void shouldReturn422ForUnsafeFile() {
+            ResponseEntity<ApiErrorResponse> response =
+                    handler.handleUnsafeFile(new UnsafeFileException("Il file è stato rifiutato dall'antivirus"));
+
+            assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
+            assertEquals("Il file è stato rifiutato dall'antivirus", response.getBody().message());
+        }
+
+        @Test
+        @DisplayName("Should return 503 without internal detail when the antivirus gives no answer")
+        void shouldReturn503WhenMalwareScanUnavailable() {
+            ResponseEntity<ApiErrorResponse> response = handler.handleMalwareScanUnavailable(
+                    new MalwareScanUnavailableException("clamd unreachable: ConnectException", null));
+
+            assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
+            assertEquals("Analisi antivirus non disponibile: riprova tra qualche minuto", response.getBody().message());
+        }
+
+        @Test
         @DisplayName("Should return 409 for an IBAN mismatch")
         void shouldReturn409ForIbanMismatch() {
             ResponseEntity<ApiErrorResponse> response =

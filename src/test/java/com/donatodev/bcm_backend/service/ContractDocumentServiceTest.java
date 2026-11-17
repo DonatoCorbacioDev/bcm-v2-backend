@@ -79,7 +79,11 @@ class ContractDocumentServiceTest {
     @InjectMocks
     private ContractDocumentService contractDocumentService;
 
-    private static final byte[] VALID_PDF = "%PDF-1.4 test".getBytes();
+    private static final byte[] VALID_PDF = com.donatodev.bcm_backend.support.TestUploads.pdf();
+
+    @Spy
+    private com.donatodev.bcm_backend.upload.UploadChecks uploadChecks =
+            com.donatodev.bcm_backend.support.TestUploads.checks();
     private static final UUID CONTRACT_ID = uid(1);
     private static final UUID DOC_ID = uid(10);
     private static final String BACKEND_URL = "http://localhost:8090/api/v1";
@@ -357,6 +361,82 @@ class ContractDocumentServiceTest {
             assertNotNull(result.bytes());
             assertEquals("contract.pdf", result.fileName());
             assertEquals("application/pdf", result.contentType());
+        }
+
+        @Test
+        @Order(13)
+        @DisplayName("downloadDocument: always served as a PDF, whatever type was stored with it")
+        void downloadIsAlwaysServedAsPdf() {
+            Contracts contract = fakeContract();
+            ContractDocument doc = fakeDoc(contract);
+            doc.setContentType("text/html");
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(doc));
+            when(localStorageService.readDocument(doc.getStoragePath())).thenReturn(VALID_PDF);
+
+            assertEquals("application/pdf", contractDocumentService.downloadDocument(CONTRACT_ID, DOC_ID).contentType());
+        }
+
+        @Test
+        @Order(13)
+        @DisplayName("uploadDocument: stores the cleaned name, the real size and the PDF type, not the browser's")
+        void uploadStoresCleanedMetadataNotTheBrowsers() throws IOException {
+            Contracts contract = fakeContract();
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(localStorageService.storeDocument(any(), eq(CONTRACT_ID), any())).thenReturn("contracts/x.pdf");
+            when(documentRepository.save(any(ContractDocument.class))).thenAnswer(inv -> {
+                ContractDocument saved = inv.getArgument(0);
+                saved.setId(DOC_ID);
+                return saved;
+            });
+            MockMultipartFile file = new MockMultipartFile("file", "C:\\fakepath\\<b>contratto</b>\r\n.pdf",
+                    "text/html", VALID_PDF) {
+                @Override
+                public long getSize() {
+                    return 1;
+                }
+            };
+
+            ContractDocumentDTO result = contractDocumentService.uploadDocument(CONTRACT_ID, file);
+
+            org.mockito.ArgumentCaptor<ContractDocument> saved = org.mockito.ArgumentCaptor.forClass(ContractDocument.class);
+            verify(documentRepository, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
+            ContractDocument stored = saved.getValue();
+            assertEquals("b.pdf", stored.getFileName());
+            assertEquals(VALID_PDF.length, stored.getFileSize());
+            assertEquals("application/pdf", stored.getContentType());
+            assertEquals("application/pdf", result.contentType());
+            verify(localStorageService).storeDocument(any(), eq(CONTRACT_ID), eq(VALID_PDF));
+        }
+
+        @Test
+        @Order(13)
+        @DisplayName("uploadNewVersion: the new version goes through the same checks")
+        void newVersionGoesThroughTheChecks() {
+            Contracts contract = fakeContract();
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.of(fakeDoc(contract)));
+            MockMultipartFile html = new MockMultipartFile("file", "v2.pdf", "application/pdf",
+                    "<html>".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> contractDocumentService.uploadNewVersion(CONTRACT_ID, DOC_ID, html));
+            verify(localStorageService, never()).storeDocument(any(), any(), any());
+        }
+
+        @Test
+        @Order(13)
+        @DisplayName("uploadNewVersion: a document of another contract is a 404 before the file is even looked at")
+        void newVersionOfAnotherContractsDocumentIsNotFoundBeforeTheChecks() throws IOException {
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(fakeContract());
+            when(documentRepository.findByIdAndContractId(DOC_ID, CONTRACT_ID)).thenReturn(Optional.empty());
+            MockMultipartFile html = new MockMultipartFile("file", "v2.pdf", "application/pdf",
+                    "<html>".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+
+            assertThrows(ContractNotFoundException.class,
+                    () -> contractDocumentService.uploadNewVersion(CONTRACT_ID, DOC_ID, html));
+            verify(uploadChecks, never()).pdf(any());
         }
 
         @Test

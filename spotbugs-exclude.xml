@@ -58,6 +58,23 @@
         <Bug pattern="IMPROPER_UNICODE"/>
     </Match>
 
+    <!-- IMPROPER_UNICODE in SafeFileName: the name is normalized (NFC) first and
+         only then filtered character by character, the order the rule asks for;
+         toLowerCase(Locale.ROOT) only compares the extension. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.util.SafeFileName"/>
+        <Bug pattern="IMPROPER_UNICODE"/>
+    </Match>
+
+    <!-- UNENCRYPTED_SOCKET in MalwareScanner: clamd speaks plain TCP only (no
+         TLS). The socket goes to the clamav container on the compose network,
+         which is not published outside the host; host and port come from
+         configuration, never from a request. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.upload.MalwareScanner"/>
+        <Bug pattern="UNENCRYPTED_SOCKET"/>
+    </Match>
+
     <!-- CRLF_INJECTION_LOGS: the logged string is stripped of CRLF characters
          (String.replaceAll) before reaching the logger. FindSecBugs does not
          track replaceAll as a sanitizer for taint analysis, so these are

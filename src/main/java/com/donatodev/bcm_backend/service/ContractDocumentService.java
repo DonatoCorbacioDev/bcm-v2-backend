@@ -31,6 +31,8 @@ import com.donatodev.bcm_backend.entity.ContractDocument;
 import com.donatodev.bcm_backend.entity.Contracts;
 import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
+import com.donatodev.bcm_backend.upload.UploadChecks;
+import com.donatodev.bcm_backend.util.SafeFileName;
 import com.github.difflib.text.DiffRow;
 import com.github.difflib.text.DiffRowGenerator;
 
@@ -39,8 +41,12 @@ public class ContractDocumentService {
 
     private static final Logger logger = LoggerFactory.getLogger(ContractDocumentService.class);
 
-    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024L;
-    private static final byte[] PDF_MAGIC = {'%', 'P', 'D', 'F'};
+    /**
+     * The type every document is served with: stored files are PDFs (checked
+     * at upload), whatever type the browser declared when sending them.
+     */
+    static final String PDF_CONTENT_TYPE = "application/pdf";
+    private static final String FALLBACK_NAME = "documento.pdf";
     private static final String DOC_NOT_FOUND = "Documento ID %s non trovato per il contratto %s";
     private static final String LINE_SPLIT_REGEX = "\\r\\n|\\r|\\n";
     private static final String CRLF_REGEX = "[\r\n]";
@@ -55,6 +61,7 @@ public class ContractDocumentService {
     private final MlProxyService mlProxyService;
     private final SemanticSearchService semanticSearchService;
     private final ContractTermsExtractor termsExtractor;
+    private final UploadChecks uploadChecks;
 
     public ContractDocumentService(ContractDocumentRepository documentRepository,
                                    ContractAccessGuard contractAccessGuard,
@@ -62,7 +69,8 @@ public class ContractDocumentService {
                                    PdfBoxService pdfBoxService,
                                    MlProxyService mlProxyService,
                                    SemanticSearchService semanticSearchService,
-                                   ContractTermsExtractor termsExtractor) {
+                                   ContractTermsExtractor termsExtractor,
+                                   UploadChecks uploadChecks) {
         this.documentRepository = documentRepository;
         this.contractAccessGuard = contractAccessGuard;
         this.localStorageService = localStorageService;
@@ -70,16 +78,17 @@ public class ContractDocumentService {
         this.mlProxyService = mlProxyService;
         this.semanticSearchService = semanticSearchService;
         this.termsExtractor = termsExtractor;
+        this.uploadChecks = uploadChecks;
     }
 
     @Transactional(rollbackFor = IOException.class)
     public ContractDocumentDTO uploadDocument(UUID contractId, MultipartFile file) throws IOException {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
-        validateFile(file);
+        byte[] bytes = uploadChecks.pdf(file);
 
         UUID orgId = TenantContext.require();
-        ContractDocument doc = saveNewVersion(contract, orgId, file, null, 1);
+        ContractDocument doc = saveNewVersion(contract, orgId, bytes, displayName(file), null, 1);
         return toDTO(doc, 1);
     }
 
@@ -87,11 +96,12 @@ public class ContractDocumentService {
     public ContractDocumentDTO uploadNewVersion(UUID contractId, UUID documentId, MultipartFile file) throws IOException {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
-        validateFile(file);
-
+        // Who may touch which document comes first: a document of another
+        // contract is a 404 whatever file is sent, never a 400 that confirms it exists.
         ContractDocument existing = documentRepository.findByIdAndContractId(documentId, contractId)
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(DOC_NOT_FOUND, documentId, contractId)));
+        byte[] bytes = uploadChecks.pdf(file);
 
         List<ContractDocument> siblings = documentRepository
                 .findByVersionGroupIdOrderByVersionNumberDesc(existing.getVersionGroupId());
@@ -100,7 +110,8 @@ public class ContractDocumentService {
                 : siblings.get(0).getVersionNumber() + 1;
 
         UUID orgId = TenantContext.require();
-        ContractDocument doc = saveNewVersion(contract, orgId, file, existing.getVersionGroupId(), nextVersion);
+        ContractDocument doc = saveNewVersion(contract, orgId, bytes, displayName(file),
+                existing.getVersionGroupId(), nextVersion);
         return toDTO(doc, siblings.size() + 1);
     }
 
@@ -220,7 +231,7 @@ public class ContractDocumentService {
                         String.format(DOC_NOT_FOUND, documentId, contractId)));
 
         byte[] bytes = localStorageService.readDocument(doc.getStoragePath());
-        return new FileDownload(bytes, doc.getFileName(), doc.getContentType());
+        return new FileDownload(bytes, doc.getFileName(), PDF_CONTENT_TYPE);
     }
 
     @Transactional
@@ -235,17 +246,16 @@ public class ContractDocumentService {
         documentRepository.delete(doc);
     }
 
-    private ContractDocument saveNewVersion(Contracts contract, UUID orgId, MultipartFile file,
-                                             UUID versionGroupId, int versionNumber) throws IOException {
-        byte[] bytes = file.getBytes();
+    private ContractDocument saveNewVersion(Contracts contract, UUID orgId, byte[] bytes, String fileName,
+                                             UUID versionGroupId, int versionNumber) {
         String storagePath = localStorageService.storeDocument(orgId, contract.getId(), bytes);
 
         ContractDocument doc = documentRepository.save(ContractDocument.builder()
                 .contract(contract)
                 .storagePath(storagePath)
-                .fileName(file.getOriginalFilename())
-                .fileSize(file.getSize())
-                .contentType(file.getContentType())
+                .fileName(fileName)
+                .fileSize((long) bytes.length)
+                .contentType(PDF_CONTENT_TYPE)
                 .orgId(orgId)
                 .versionGroupId(versionGroupId)
                 .versionNumber(versionNumber)
@@ -301,19 +311,9 @@ public class ContractDocumentService {
         return message == null ? null : message.replaceAll(CRLF_REGEX, "_");
     }
 
-    private void validateFile(MultipartFile file) throws IOException {
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("Il file è vuoto");
-        }
-        if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("Il file supera il limite di 10 MB");
-        }
-        byte[] header = file.getBytes();
-        if (header.length < 4 ||
-                header[0] != PDF_MAGIC[0] || header[1] != PDF_MAGIC[1] ||
-                header[2] != PDF_MAGIC[2] || header[3] != PDF_MAGIC[3]) {
-            throw new IllegalArgumentException("Sono supportati solo file PDF");
-        }
+    /** The name it is shown and downloaded under: the browser's, cleaned (never used on disk). */
+    private static String displayName(MultipartFile file) {
+        return SafeFileName.of(file.getOriginalFilename(), ".pdf", FALLBACK_NAME);
     }
 
     private ContractDocumentDTO toDTO(ContractDocument doc, int versionCount) {
@@ -324,7 +324,7 @@ public class ContractDocumentService {
                 doc.getContract().getId(),
                 doc.getFileName(),
                 doc.getFileSize(),
-                doc.getContentType(),
+                PDF_CONTENT_TYPE,
                 doc.getUploadedAt(),
                 downloadUrl,
                 doc.getVersionGroupId(),

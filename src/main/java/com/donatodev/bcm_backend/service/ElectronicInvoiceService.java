@@ -8,7 +8,6 @@ package com.donatodev.bcm_backend.service;
 import java.util.UUID;
 import java.math.BigDecimal;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -36,13 +35,16 @@ import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.DuplicateInvoiceException;
 import com.donatodev.bcm_backend.mapper.CounterpartyMapper;
 import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
+import com.donatodev.bcm_backend.upload.UploadChecks;
 import com.donatodev.bcm_backend.util.IbanValidator;
+import com.donatodev.bcm_backend.util.SafeFileName;
 
 @Service
 public class ElectronicInvoiceService {
 
     private static final Logger logger = LoggerFactory.getLogger(ElectronicInvoiceService.class);
-    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024L;
+    /** The type every invoice is served with: stored files are XML (checked at upload). */
+    static final String XML_CONTENT_TYPE = "application/xml";
     private static final String INVOICE_NOT_FOUND = "Fattura ID %s non trovata per il contratto %s";
     private static final String CRLF_REGEX = "[\r\n]";
 
@@ -54,17 +56,20 @@ public class ElectronicInvoiceService {
     private final LocalStorageService localStorageService;
     private final FatturaPaXmlParserService fatturaPaXmlParserService;
     private final InvoiceMatchingService invoiceMatchingService;
+    private final UploadChecks uploadChecks;
 
     public ElectronicInvoiceService(ElectronicInvoiceRepository invoiceRepository,
                                      ContractAccessGuard contractAccessGuard,
                                      LocalStorageService localStorageService,
                                      FatturaPaXmlParserService fatturaPaXmlParserService,
-                                     InvoiceMatchingService invoiceMatchingService) {
+                                     InvoiceMatchingService invoiceMatchingService,
+                                     UploadChecks uploadChecks) {
         this.invoiceRepository = invoiceRepository;
         this.contractAccessGuard = contractAccessGuard;
         this.localStorageService = localStorageService;
         this.fatturaPaXmlParserService = fatturaPaXmlParserService;
         this.invoiceMatchingService = invoiceMatchingService;
+        this.uploadChecks = uploadChecks;
     }
 
     @Transactional(rollbackFor = IOException.class)
@@ -72,9 +77,7 @@ public class ElectronicInvoiceService {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
 
-        validateFile(file);
-
-        byte[] bytes = file.getBytes();
+        byte[] bytes = uploadChecks.fatturaPa(file);
         FatturaPaInvoiceData parsed = fatturaPaXmlParserService.parse(bytes);
 
         UUID orgId = TenantContext.require();
@@ -90,9 +93,9 @@ public class ElectronicInvoiceService {
         ElectronicInvoice invoice = ElectronicInvoice.builder()
                 .contract(contract)
                 .storagePath(storagePath)
-                .fileName(file.getOriginalFilename())
-                .fileSize(file.getSize())
-                .contentType("application/xml")
+                .fileName(SafeFileName.of(file.getOriginalFilename(), ".xml", "fattura.xml"))
+                .fileSize((long) bytes.length)
+                .contentType(XML_CONTENT_TYPE)
                 .orgId(orgId)
                 .supplierName(parsed.supplierName())
                 .supplierVatNumber(parsed.supplierVatNumber())
@@ -152,7 +155,7 @@ public class ElectronicInvoiceService {
                         String.format(INVOICE_NOT_FOUND, invoiceId, contractId)));
 
         byte[] bytes = localStorageService.readDocument(invoice.getStoragePath());
-        return new FileDownload(bytes, invoice.getFileName(), invoice.getContentType());
+        return new FileDownload(bytes, invoice.getFileName(), XML_CONTENT_TYPE);
     }
 
     @Transactional
@@ -223,19 +226,6 @@ public class ElectronicInvoiceService {
     public List<ElectronicInvoiceDTO> recomputeMatches(UUID contractId) {
         contractAccessGuard.checkManagerCanAccess(contractAccessGuard.getContractInScope(contractId));
         return invoiceMatchingService.recomputeForContract(contractId).stream().map(this::toDTO).toList();
-    }
-
-    private void validateFile(MultipartFile file) throws IOException {
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("Il file è vuoto");
-        }
-        if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("Il file supera il limite di 5 MB");
-        }
-        String content = new String(file.getBytes(), StandardCharsets.UTF_8).trim();
-        if (!content.startsWith("<?xml") && !content.startsWith("<")) {
-            throw new IllegalArgumentException("Sono supportati solo file XML");
-        }
     }
 
     /**
