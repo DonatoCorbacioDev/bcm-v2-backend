@@ -71,9 +71,24 @@ public class JwtUtils {
         this.clock = clock;
     }
 
+    /**
+     * The signing key before the current one, during a rotation (OWASP Secrets
+     * Management Cheat Sheet): tokens it signed are still checked against it
+     * until they expire, nothing is ever signed with it. Empty otherwise.
+     */
+    @Value("${jwt.previous-secret:}")
+    private String previousJwtSecret;
+
     private SecretKey getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    private SecretKey getPreviousKey() {
+        if (previousJwtSecret == null || previousJwtSecret.isBlank()) {
+            return null;
+        }
+        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(previousJwtSecret));
     }
 
     /**
@@ -268,8 +283,7 @@ public class JwtUtils {
      * other, even another HMAC the key would allow, is refused (OWASP JWT
      * Cheat Sheet). Unsigned tokens are refused by JJWT itself.
      */
-    private JwtParser getJwtParser() {
-        SecretKey key = getSigningKey();
+    private static JwtParser parserFor(SecretKey key) {
         return Jwts.parser()
                 .sig().clear().add(algorithmFor(key)).and()
                 .verifyWith(key)
@@ -305,11 +319,28 @@ public class JwtUtils {
      * valid forever or as issued after the last credential change.
      */
     private <T> T getClaimFromToken(String token, Function<Claims, T> claimsResolver) {
-        Jws<Claims> jws = getJwtParser().parseSignedClaims(token);
+        Jws<Claims> jws = parseSigned(token);
         Claims claims = jws.getPayload();
         requireClaim(jws, Claims.EXPIRATION, claims.getExpiration());
         requireClaim(jws, Claims.ISSUED_AT, claims.getIssuedAt());
         return claimsResolver.apply(claims);
+    }
+
+    /**
+     * Checks the token against the current key and, only when that signature
+     * does not match and a rotation is under way, against the previous one.
+     * Every other check (algorithm, issuer, expiry) is the same for both.
+     */
+    private Jws<Claims> parseSigned(String token) {
+        try {
+            return parserFor(getSigningKey()).parseSignedClaims(token);
+        } catch (io.jsonwebtoken.security.SignatureException e) {
+            SecretKey previous = getPreviousKey();
+            if (previous == null) {
+                throw e;
+            }
+            return parserFor(previous).parseSignedClaims(token);
+        }
     }
 
     private static void requireClaim(Jws<Claims> jws, String name, Object value) {

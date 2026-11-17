@@ -102,6 +102,14 @@
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
 
+    <!-- CRLF_INJECTION_LOGS in TotpKeyMigration: the only logged values are a
+         user's UUID id and two int counts - none can carry CR/LF. The secret,
+         encrypted or not, is deliberately never logged. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.TotpKeyMigration"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
     <!-- CRLF_INJECTION_LOGS in BillingService: the only logged values are a
          Long org id, a SubscriptionTier enum constant and an exception's
          Class.getSimpleName() - none of these types can carry CR/LF. Webhook

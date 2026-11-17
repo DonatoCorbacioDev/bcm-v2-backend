@@ -22,12 +22,73 @@ class SecurityStartupValidatorTest {
     private static final String SHORT_SECRET =
             Base64.getEncoder().encodeToString("tooshort".getBytes()); // < 32 bytes
 
+    private static final String TOTP_KEY = Base64.getEncoder().encodeToString(new byte[32]);
+    private static final String OTHER_SECRET = Base64.getEncoder().encodeToString(new byte[48]);
+
     private SecurityStartupValidator validator(String secret, String mlKey, String mlUrl) {
+        return validator(secret, "", TOTP_KEY, mlKey, mlUrl);
+    }
+
+    private SecurityStartupValidator validator(String secret, String previous, String totpKey,
+                                               String mlKey, String mlUrl) {
         SecurityStartupValidator v = new SecurityStartupValidator();
         ReflectionTestUtils.setField(v, "jwtSecret", secret);
+        ReflectionTestUtils.setField(v, "previousJwtSecret", previous);
+        ReflectionTestUtils.setField(v, "totpEncryptionKey", totpKey);
         ReflectionTestUtils.setField(v, "mlInternalApiKey", mlKey);
         ReflectionTestUtils.setField(v, "mlFastapiUrl", mlUrl);
         return v;
+    }
+
+    @Nested
+    @DisplayName("Secrets Management: known, missing, reused and malformed keys")
+    @SuppressWarnings("unused")
+    class SecretsTests {
+
+        private static final String LOCAL = "http://localhost:8000";
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.MethodSource(
+                "com.donatodev.bcm_backend.config.SecurityStartupValidatorTest#placeholders")
+        @DisplayName("refuses every JWT placeholder published in the project's files")
+        void shouldRefusePlaceholders(String placeholder) {
+            var v = validator(placeholder, "k", LOCAL);
+            IllegalStateException e = assertThrows(IllegalStateException.class, () -> v.run(null));
+            org.assertj.core.api.Assertions.assertThat(e.getMessage()).contains("placeholder")
+                    .doesNotContain(placeholder);
+        }
+
+        @Test
+        @DisplayName("refuses a JWT secret that is not Base64, naming the variable only")
+        void shouldRefuseNonBase64Secret() {
+            var v = validator("not base64 at all!", "k", LOCAL);
+            IllegalStateException e = assertThrows(IllegalStateException.class, () -> v.run(null));
+            org.assertj.core.api.Assertions.assertThat(e.getMessage()).isEqualTo("JWT_SECRET must be Base64.");
+        }
+
+        @Test
+        @DisplayName("refuses a missing or malformed TOTP encryption key")
+        void shouldRefuseMissingTotpKey() {
+            assertThrows(IllegalStateException.class, () -> validator(VALID_SECRET, "", "", "k", LOCAL).run(null));
+            assertThrows(IllegalStateException.class, () -> validator(VALID_SECRET, "", null, "k", LOCAL).run(null));
+            assertThrows(IllegalStateException.class, () -> validator(VALID_SECRET, "", SHORT_SECRET, "k", LOCAL).run(null));
+            assertThrows(IllegalStateException.class, () -> validator(VALID_SECRET, "", "%%%", "k", LOCAL).run(null));
+        }
+
+        @Test
+        @DisplayName("accepts a previous JWT secret during a rotation, refuses it when reused or short")
+        void shouldCheckThePreviousSecret() {
+            assertDoesNotThrow(() -> validator(VALID_SECRET, OTHER_SECRET, TOTP_KEY, "k", LOCAL).run(null));
+            assertDoesNotThrow(() -> validator(VALID_SECRET, null, TOTP_KEY, "k", LOCAL).run(null));
+            assertThrows(IllegalStateException.class,
+                    () -> validator(VALID_SECRET, VALID_SECRET, TOTP_KEY, "k", LOCAL).run(null));
+            assertThrows(IllegalStateException.class,
+                    () -> validator(VALID_SECRET, SHORT_SECRET, TOTP_KEY, "k", LOCAL).run(null));
+        }
+    }
+
+    static java.util.stream.Stream<String> placeholders() {
+        return SecurityStartupValidator.KNOWN_PLACEHOLDERS.stream();
     }
 
     @Nested

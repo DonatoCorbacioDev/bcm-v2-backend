@@ -23,6 +23,9 @@ import com.donatodev.bcm_backend.entity.Users;
 @Repository
 public interface UsersRepository extends JpaRepository<Users, UUID>, JpaSpecificationExecutor<Users> {
 
+    /** Users with a two-factor secret stored: the ones TotpKeyMigration looks at. */
+    java.util.List<Users> findByTotpSecretEncryptedIsNotNull();
+
     /**
      * Finds a {@link Users} entity by its username.
      *

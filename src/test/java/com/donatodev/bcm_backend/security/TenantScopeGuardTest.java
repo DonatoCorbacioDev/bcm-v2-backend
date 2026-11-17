@@ -92,6 +92,8 @@ class TenantScopeGuardTest {
             Map.entry("UsersRepository.findByManagerId",
                     "one account per manager (unique) and a manager in one organization; callers also check it"),
             Map.entry("UsersRepository.existsByManagerId", "one account per manager: answers only yes or no"),
+            Map.entry("UsersRepository.findByTotpSecretEncryptedIsNotNull",
+                    "startup re-encryption of two-factor secrets (TotpKeyMigration): every organization, no request"),
             Map.entry("UsersRepository.findAllByManagerEmailIgnoreCase",
                     "forgot password: each account at that address gets its own link, sent only to that address"),
             Map.entry("UsersRepository.findByCalendarToken",

@@ -1,0 +1,16 @@
+# Secret scanning (gitleaks, in CI and on the whole history): the default
+# rules, with an exception for exactly two test files whose keys are fakes
+# made for the tests, never used anywhere else. Any other file is scanned in
+# full; a new exception names its file and says why it holds no real secret.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test-only fake keys"
+paths = [
+  # jwt.secret and totp.encryption-key of the test profile: Base64 of plain
+  # ASCII text ("test...", "test-totp-key-not-a-real-one-32b").
+  '''src/test/resources/application-test\.properties''',
+  # "fake-key-for-disabled-checkout-test", to check checkout stays disabled.
+  '''src/test/java/com/donatodev/bcm_backend/controller/BillingCheckoutDisabledTest\.java''',
+]

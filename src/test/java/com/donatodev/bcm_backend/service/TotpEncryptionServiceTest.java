@@ -1,82 +1,137 @@
 package com.donatodev.bcm_backend.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
+
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
 import javax.crypto.Cipher;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import static org.mockito.ArgumentMatchers.anyString;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import org.springframework.test.util.ReflectionTestUtils;
 
+/** Two-factor secrets at rest: their own key, the old format still read during the move. */
 class TotpEncryptionServiceTest {
 
     private static final String JWT_SECRET = Base64.getEncoder().encodeToString(
             "01234567890123456789012345678901".getBytes());
+    private static final String OTHER_JWT_SECRET = Base64.getEncoder().encodeToString(
+            "differentsecretdifferentsecret!!".getBytes());
+    private static final String TOTP_KEY = Base64.getEncoder().encodeToString(
+            "abcdefghijabcdefghijabcdefghij12".getBytes());
+    private static final String PLAIN = "JBSWY3DPEHPK3PXP";
 
-    private TotpEncryptionService encryptionService;
+    private static TotpEncryptionService withKey() {
+        return new TotpEncryptionService(TOTP_KEY, JWT_SECRET, "");
+    }
 
-    @BeforeEach
-    void setup() {
-        encryptionService = new TotpEncryptionService();
-        ReflectionTestUtils.setField(encryptionService, "jwtSecret", JWT_SECRET);
+    private static TotpEncryptionService legacyOnly(String jwtSecret) {
+        return new TotpEncryptionService("", jwtSecret, "");
     }
 
     @Test
-    @DisplayName("decrypt(encrypt(x)) returns the original plaintext")
-    void shouldRoundTrip() {
-        String plain = "JBSWY3DPEHPK3PXP";
-        String encrypted = encryptionService.encrypt(plain);
+    @DisplayName("with the dedicated key, values are stored as v2: and read back")
+    void shouldRoundTripWithTheDedicatedKey() {
+        String encrypted = withKey().encrypt(PLAIN);
 
-        assertNotEquals(plain, encrypted);
-        assertEquals(plain, encryptionService.decrypt(encrypted));
+        assertThat(encrypted).startsWith("v2:").doesNotContain(PLAIN);
+        assertThat(withKey().decrypt(encrypted)).isEqualTo(PLAIN);
+    }
+
+    @Test
+    @DisplayName("the dedicated key does not depend on the JWT secret: rotating it changes nothing")
+    void shouldSurviveAJwtKeyRotation() {
+        String encrypted = withKey().encrypt(PLAIN);
+
+        assertThat(new TotpEncryptionService(TOTP_KEY, OTHER_JWT_SECRET, "").decrypt(encrypted)).isEqualTo(PLAIN);
+    }
+
+    @Test
+    @DisplayName("a value in the old format is still read, and flagged for re-encryption")
+    void shouldReadTheOldFormat() {
+        String old = legacyOnly(JWT_SECRET).encrypt(PLAIN);
+
+        assertThat(old).doesNotStartWith("v2:");
+        assertThat(withKey().decrypt(old)).isEqualTo(PLAIN);
+        assertThat(withKey().needsReEncryption(old)).isTrue();
+        assertThat(withKey().needsReEncryption(withKey().encrypt(PLAIN))).isFalse();
+        assertThat(legacyOnly(JWT_SECRET).needsReEncryption(old)).isFalse();
+    }
+
+    @Test
+    @DisplayName("an old value is read with the previous JWT secret while it is being rotated")
+    void shouldReadTheOldFormatWithThePreviousJwtSecret() {
+        String old = legacyOnly(JWT_SECRET).encrypt(PLAIN);
+
+        assertThat(new TotpEncryptionService(TOTP_KEY, OTHER_JWT_SECRET, JWT_SECRET).decrypt(old)).isEqualTo(PLAIN);
+        assertThatThrownBy(() -> new TotpEncryptionService(TOTP_KEY, OTHER_JWT_SECRET, "").decrypt(old))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("a v2 value cannot be read without the dedicated key")
+    void shouldRefuseANewValueWithoutTheKey() {
+        String encrypted = withKey().encrypt(PLAIN);
+
+        assertThatThrownBy(() -> legacyOnly(JWT_SECRET).decrypt(encrypted))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("TOTP_ENCRYPTION_KEY");
     }
 
     @Test
     @DisplayName("encrypting the same plaintext twice yields different ciphertext (random IV)")
     void shouldUseRandomIv() {
-        String plain = "JBSWY3DPEHPK3PXP";
-        assertNotEquals(encryptionService.encrypt(plain), encryptionService.encrypt(plain));
+        assertThat(withKey().encrypt(PLAIN)).isNotEqualTo(withKey().encrypt(PLAIN));
     }
 
     @Test
     @DisplayName("decrypt fails on tampered ciphertext (GCM authentication)")
     void shouldRejectTamperedCiphertext() {
-        String encrypted = encryptionService.encrypt("JBSWY3DPEHPK3PXP");
-        byte[] bytes = Base64.getDecoder().decode(encrypted);
-        bytes[bytes.length - 1] ^= 0x01; // flip a bit in the ciphertext
-        String tampered = Base64.getEncoder().encodeToString(bytes);
+        String encrypted = withKey().encrypt(PLAIN);
+        byte[] bytes = Base64.getDecoder().decode(encrypted.substring(3));
+        bytes[bytes.length - 1] ^= 0x01;
+        String tampered = "v2:" + Base64.getEncoder().encodeToString(bytes);
 
-        assertThrows(IllegalStateException.class, () -> encryptionService.decrypt(tampered));
+        assertThrows(IllegalStateException.class, () -> withKey().decrypt(tampered));
+        assertThrows(IllegalStateException.class, () -> withKey().decrypt("v2:not base64!"));
     }
 
     @Test
-    @DisplayName("a different key cannot decrypt data encrypted with another key")
+    @DisplayName("a different dedicated key cannot decrypt")
     void shouldNotDecryptWithDifferentKey() {
-        String encrypted = encryptionService.encrypt("JBSWY3DPEHPK3PXP");
+        String encrypted = withKey().encrypt(PLAIN);
+        String otherKey = Base64.getEncoder().encodeToString("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz".getBytes());
 
-        TotpEncryptionService otherService = new TotpEncryptionService();
-        ReflectionTestUtils.setField(otherService, "jwtSecret",
-                Base64.getEncoder().encodeToString("differentsecretdifferentsecret!!".getBytes()));
+        assertThrows(IllegalStateException.class,
+                () -> new TotpEncryptionService(otherKey, JWT_SECRET, "").decrypt(encrypted));
+    }
 
-        assertThrows(IllegalStateException.class, () -> otherService.decrypt(encrypted));
+    @Test
+    @DisplayName("a malformed dedicated key is refused at startup")
+    void shouldRefuseAMalformedKey() {
+        String shortKey = Base64.getEncoder().encodeToString(new byte[16]);
+
+        assertThatThrownBy(() -> new TotpEncryptionService(shortKey, JWT_SECRET, ""))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("32 bytes");
+        assertThatThrownBy(() -> new TotpEncryptionService("not base64!", JWT_SECRET, ""))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("Base64");
+        assertThat(new TotpEncryptionService("  ", JWT_SECRET, null).hasDedicatedKey()).isFalse();
     }
 
     @Test
     @DisplayName("encrypt wraps a GeneralSecurityException as IllegalStateException")
     void shouldWrapEncryptionFailure() {
+        TotpEncryptionService service = withKey();
         try (MockedStatic<Cipher> mockedCipher = Mockito.mockStatic(Cipher.class)) {
             mockedCipher.when(() -> Cipher.getInstance(anyString()))
                     .thenThrow(new NoSuchAlgorithmException("no such algorithm"));
 
-            assertThrows(IllegalStateException.class, () -> encryptionService.encrypt("JBSWY3DPEHPK3PXP"));
+            assertThrows(IllegalStateException.class, () -> service.encrypt(PLAIN));
         }
     }
 }
