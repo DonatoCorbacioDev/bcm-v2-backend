@@ -13,7 +13,7 @@ import org.testcontainers.mysql.MySQLContainer;
 
 /**
  * Base for integration tests (*IT.java, run via `mvn verify`/failsafe, never
- * by `mvn test`) that need to exercise real MySQL 8.0 behavior the H2
+ * by `mvn test`) that need to exercise real MySQL 8.4 behavior the H2
  * "MySQL mode" used by the fast unit suite can't guarantee — real Flyway
  * migrations, real ENUM/JSON column semantics, real FK constraints.
  *
@@ -39,14 +39,17 @@ import org.testcontainers.mysql.MySQLContainer;
 @Tag("integration")
 public abstract class AbstractMySQLIntegrationTest {
 
+    /** Production's version: bcm-v2-docker/mysql/Dockerfile builds on it. */
+    public static final String MYSQL_IMAGE = "mysql:8.4.13";
+
     // Server-level collation must match the real setup (CLAUDE.md's
     // `CREATE DATABASE ... COLLATE utf8mb4_unicode_ci`), or the auto-created
-    // "bcm_it" database gets mysql:8.0's own compiled-in default
+    // "bcm_it" database gets MySQL 8's own compiled-in default
     // (utf8mb4_0900_ai_ci) instead — which then clashes with migrations that
     // explicitly declare utf8mb4_unicode_ci (e.g. V37's `counterparties`
     // table) with "Illegal mix of collations" the moment a query compares a
     // column from each.
-    static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.0")
+    static final MySQLContainer MYSQL = new MySQLContainer(MYSQL_IMAGE)
             .withDatabaseName("bcm_it")
             .withUsername("bcm_it")
             .withPassword("bcm_it_password")

@@ -48,7 +48,7 @@ class UuidMigrationIT {
 
     // Same server collation as production and the other MySQL ITs: the database
     // default differing from some tables' collation is exactly what V55 must survive.
-    private static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.0")
+    private static final MySQLContainer MYSQL = new MySQLContainer(com.donatodev.bcm_backend.support.AbstractMySQLIntegrationTest.MYSQL_IMAGE)
             .withDatabaseName("bcm_uuid")
             .withUsername("bcm_it")
             .withPassword("bcm_it_password")

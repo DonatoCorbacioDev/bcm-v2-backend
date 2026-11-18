@@ -30,7 +30,7 @@ import com.donatodev.bcm_backend.util.TokenHash;
 @Tag("integration")
 class TokenHashMigrationIT {
 
-    private static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.0")
+    private static final MySQLContainer MYSQL = new MySQLContainer(com.donatodev.bcm_backend.support.AbstractMySQLIntegrationTest.MYSQL_IMAGE)
             .withDatabaseName("bcm_tokens")
             .withUsername("bcm_it")
             .withPassword("bcm_it_password")
