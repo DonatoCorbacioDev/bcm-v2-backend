@@ -115,6 +115,9 @@ class UserServiceTest {
     @Mock
     private SessionRevocationService sessionRevocationService;
 
+    @Mock
+    private AuditLogService auditLogService;
+
     @InjectMocks
     private UserService userService;
 
@@ -407,6 +410,7 @@ class UserServiceTest {
             assertEquals(0, user.getFailedLoginAttempts());
             org.junit.jupiter.api.Assertions.assertNull(user.getLockedUntil());
             verify(sessionRevocationService).credentialsChanged(user);
+            verify(auditLogService).saveAboutUser("PASSWORD_RESET", user, "via emailed link");
         }
 
         @Test
@@ -521,6 +525,7 @@ class UserServiceTest {
 
             assertEquals("new-hash", user.getPasswordHash());
             verify(usersRepository).save(user);
+            verify(auditLogService).saveAboutUser("PASSWORD_CHANGED", user, null);
         }
 
         @Test
@@ -829,6 +834,13 @@ class UserServiceTest {
             // The link carries the token, the database only its hash (OWASP API2).
             String token = result.substring(result.indexOf("token=") + "token=".length());
             assertEquals(TokenHash.sha256Hex(token), saved.getValue().getToken());
+            // Who was invited is recorded, the link never.
+            ArgumentCaptor<String> details = ArgumentCaptor.forClass(String.class);
+            verify(auditLogService).save(org.mockito.ArgumentMatchers.eq("USER_INVITED"),
+                    org.mockito.ArgumentMatchers.eq("Manager"), org.mockito.ArgumentMatchers.eq(uid(1)),
+                    any(), org.mockito.ArgumentMatchers.eq(TENANT), details.capture());
+            assertEquals("username=newmanager role=MANAGER", details.getValue());
+            assertFalse(details.getValue().contains(token));
         }
 
         /**
@@ -913,6 +925,7 @@ class UserServiceTest {
             assertEquals(organization, userCaptor.getValue().getOrganization());
             verify(inviteTokenRepository).save(any(InviteToken.class));
             assertTrue(inviteToken.isUsed());
+            verify(auditLogService).saveAboutUser("INVITE_ACCEPTED", userCaptor.getValue(), "role=MANAGER");
         }
 
         /**

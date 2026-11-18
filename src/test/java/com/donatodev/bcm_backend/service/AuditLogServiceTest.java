@@ -86,6 +86,28 @@ class AuditLogServiceTest {
         }
 
         @Test
+        @Order(1)
+        @DisplayName("saveAboutUser records under the account's own name and organization")
+        void shouldSaveAboutUser() {
+            com.donatodev.bcm_backend.entity.Users user = com.donatodev.bcm_backend.entity.Users.builder()
+                    .id(uid(7)).username("mario")
+                    .organization(com.donatodev.bcm_backend.entity.Organization.builder().id(uid(10)).build())
+                    .build();
+
+            auditLogService.saveAboutUser("PASSWORD_RESET", user, "via emailed link");
+
+            ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
+            verify(auditLogRepository).save(captor.capture());
+            AuditLog saved = captor.getValue();
+            assertEquals("PASSWORD_RESET", saved.getAction());
+            assertEquals("User", saved.getEntityType());
+            assertEquals(uid(7), saved.getEntityId());
+            assertEquals("mario", saved.getUsername());
+            assertEquals(uid(10), saved.getOrgId());
+            assertEquals("via emailed link", saved.getDetails());
+        }
+
+        @Test
         @Order(2)
         @DisplayName("findAll returns page of AuditLogDTOs")
         void shouldReturnPageOfAuditLogs() {

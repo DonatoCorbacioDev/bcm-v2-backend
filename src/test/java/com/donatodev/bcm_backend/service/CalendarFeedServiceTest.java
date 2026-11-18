@@ -52,7 +52,7 @@ class CalendarFeedServiceTest {
     void setup() {
         TenantContext.set(TENANT);
         calendarFeedService = new CalendarFeedService(
-                usersRepository, contractsRepository, new CurrentUserResolver(usersRepository));
+                usersRepository, contractsRepository, new CurrentUserResolver(usersRepository), auditLogService);
         ReflectionTestUtils.setField(calendarFeedService, "backendBaseUrl", BACKEND_URL);
     }
 
@@ -68,6 +68,7 @@ class CalendarFeedServiceTest {
 
     @Mock private UsersRepository usersRepository;
     @Mock private ContractsRepository contractsRepository;
+    @Mock private AuditLogService auditLogService;
 
     private CalendarFeedService calendarFeedService;
 
@@ -146,6 +147,7 @@ class CalendarFeedServiceTest {
 
             assertNotEquals(BACKEND_URL + "/calendar/old-token.ics", url);
             verify(usersRepository).save(user);
+            verify(auditLogService).saveAboutUser("CALENDAR_FEED_REGENERATED", user, null);
         }
 
         @Test

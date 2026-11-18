@@ -60,7 +60,7 @@ class TwoFactorAuthServiceTest {
         twoFactorAuthService = new TwoFactorAuthService(
                 usersRepository, recoveryCodeRepository, totpEncryptionService,
                 passwordEncoder, jwtUtils, refreshTokenService, new CurrentUserResolver(usersRepository),
-                sessionRevocationService, loginAttemptMonitor);
+                sessionRevocationService, loginAttemptMonitor, auditLogService);
         // pass-through "encryption" so plaintext secrets can be asserted on directly
         lenient().when(totpEncryptionService.encrypt(anyString())).thenAnswer(inv -> "ENC(" + inv.getArgument(0) + ")");
         lenient().when(totpEncryptionService.decrypt(anyString())).thenAnswer(inv -> {
@@ -86,6 +86,7 @@ class TwoFactorAuthServiceTest {
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private SessionRevocationService sessionRevocationService;
     @Mock private com.donatodev.bcm_backend.auth.LoginAttemptMonitor loginAttemptMonitor;
+    @Mock private AuditLogService auditLogService;
 
     private TwoFactorAuthService twoFactorAuthService;
 
@@ -230,6 +231,7 @@ class TwoFactorAuthServiceTest {
             verify(recoveryCodeRepository).deleteByUserId(uid(1));
             // Sessions opened without 2FA end.
             verify(sessionRevocationService).credentialsChanged(user);
+            verify(auditLogService).saveAboutUser("TOTP_ENABLED", user, null);
 
             ArgumentCaptor<List<TotpRecoveryCode>> captor = ArgumentCaptor.forClass(List.class);
             verify(recoveryCodeRepository).saveAll(captor.capture());
@@ -280,6 +282,7 @@ class TwoFactorAuthServiceTest {
             assertNull(user.getTotpSecretEncrypted());
             verify(recoveryCodeRepository).deleteByUserId(uid(1));
             verify(sessionRevocationService).credentialsChanged(user);
+            verify(auditLogService).saveAboutUser("TOTP_DISABLED", user, null);
         }
 
         @Test

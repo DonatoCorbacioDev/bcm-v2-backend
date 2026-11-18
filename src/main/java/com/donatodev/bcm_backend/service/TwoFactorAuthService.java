@@ -30,6 +30,7 @@ import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.TotpRecoveryCodeRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+import com.donatodev.bcm_backend.security.SecurityEvents;
 import com.donatodev.bcm_backend.util.TotpUtil;
 
 /**
@@ -55,6 +56,7 @@ public class TwoFactorAuthService {
     private final CurrentUserResolver currentUserResolver;
     private final SessionRevocationService sessionRevocationService;
     private final LoginAttemptMonitor loginAttemptMonitor;
+    private final AuditLogService auditLogService;
 
     public TwoFactorAuthService(UsersRepository usersRepository,
                                 TotpRecoveryCodeRepository recoveryCodeRepository,
@@ -64,7 +66,8 @@ public class TwoFactorAuthService {
                                 RefreshTokenService refreshTokenService,
                                 CurrentUserResolver currentUserResolver,
                                 SessionRevocationService sessionRevocationService,
-                                LoginAttemptMonitor loginAttemptMonitor) {
+                                LoginAttemptMonitor loginAttemptMonitor,
+                                AuditLogService auditLogService) {
         this.usersRepository = usersRepository;
         this.recoveryCodeRepository = recoveryCodeRepository;
         this.totpEncryptionService = totpEncryptionService;
@@ -74,6 +77,7 @@ public class TwoFactorAuthService {
         this.currentUserResolver = currentUserResolver;
         this.sessionRevocationService = sessionRevocationService;
         this.loginAttemptMonitor = loginAttemptMonitor;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional
@@ -127,6 +131,7 @@ public class TwoFactorAuthService {
         recoveryCodeRepository.saveAll(entities);
         // Sessions opened without 2FA end: from now on a session needs the code.
         sessionRevocationService.credentialsChanged(user);
+        auditLogService.saveAboutUser("TOTP_ENABLED", user, null);
 
         return new TotpConfirmResponse(plainCodes);
     }
@@ -148,6 +153,7 @@ public class TwoFactorAuthService {
         usersRepository.save(user);
         recoveryCodeRepository.deleteByUserId(user.getId());
         sessionRevocationService.credentialsChanged(user);
+        auditLogService.saveAboutUser("TOTP_DISABLED", user, null);
     }
 
     /**
@@ -168,6 +174,7 @@ public class TwoFactorAuthService {
     public EnrollmentResult enrollConfirm(String setupToken, String code) {
         Users user = userFromSetupToken(setupToken);
         TotpConfirmResponse codes = confirmFor(user, code);
+        SecurityEvents.signedIn(user, "totp-enrollment");
         AuthResponseDTO session = new AuthResponseDTO(jwtUtils.generateToken(user),
                 refreshTokenService.createRefreshToken(user));
         return new EnrollmentResult(codes.recoveryCodes(), session);
@@ -237,6 +244,7 @@ public class TwoFactorAuthService {
         }
         LoginLockout.recordSuccess(user);
         usersRepository.save(user);
+        SecurityEvents.signedIn(user, "totp");
 
         String accessToken = jwtUtils.generateToken(user);
         String refreshToken = refreshTokenService.createRefreshToken(user);

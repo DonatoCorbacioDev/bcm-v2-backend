@@ -362,4 +362,22 @@
         <Method name="store"/>
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
+    <!-- CRLF_INJECTION_LOGS in SecurityEvents.signedIn (a successful sign-in):
+         the username and the address go through oneLine(), which replaces
+         line breaks (SecurityEventsTest.signInIsOneLogLine); the organization
+         is a UUID and the method a constant from the callers. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.security.SecurityEvents"/>
+        <Method name="signedIn"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <!-- CRLF_INJECTION_LOGS in GlobalExceptionHandler.ownMessage: it logs an
+         exception's class name and the class name of the frame that threw it,
+         JVM identifiers that cannot hold CR/LF; the message, which can carry
+         the caller's input, is deliberately never logged. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.exception.GlobalExceptionHandler"/>
+        <Method name="ownMessage"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
 </FindBugsFilter>

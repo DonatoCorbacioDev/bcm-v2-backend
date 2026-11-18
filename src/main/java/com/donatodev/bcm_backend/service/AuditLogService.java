@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.AuditLogDTO;
 import com.donatodev.bcm_backend.entity.AuditLog;
+import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.repository.AuditLogRepository;
 
 @Service
@@ -39,6 +40,18 @@ public class AuditLogService {
                 .details(details)
                 .build();
         auditLogRepository.save(log);
+    }
+
+    /**
+     * A change to an account's credentials or access (OWASP Logging Cheat
+     * Sheet: sensitive operations), recorded under the account's own name and
+     * organization: a password reset has no signed-in user to take them from.
+     * Never the secret itself, only what happened.
+     */
+    @Transactional
+    public void saveAboutUser(String action, Users user, String details) {
+        UUID orgId = user.getOrganization() == null ? null : user.getOrganization().getId();
+        save(action, "User", user.getId(), user.getUsername(), orgId, details);
     }
 
     public Page<AuditLogDTO> findAll(Pageable pageable) {

@@ -43,6 +43,8 @@ public class GlobalExceptionHandler {
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     static final String INTERNAL_ERROR = "Errore interno del server";
+    static final String INVALID_REQUEST = "Richiesta non valida";
+    private static final String OWN_PACKAGE = "com.donatodev.";
 
     private SecurityEvents securityEvents;
 
@@ -181,7 +183,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiErrorResponse> handleAuthenticationException(AuthenticationException ex) {
-        return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Non autorizzato: " + ex.getMessage());
+        return buildErrorResponse(HttpStatus.UNAUTHORIZED, ownMessage(ex)
+                .map(message -> "Non autorizzato: " + message)
+                .orElse("Non autorizzato"));
     }
 
     /** A per-user limit on a costly operation (OWASP API4). */
@@ -202,7 +206,9 @@ public class GlobalExceptionHandler {
         if (securityEvents != null && !(ex instanceof PublicDemoGuard.DemoBlockedException)) {
             securityEvents.accessDenied(request);
         }
-        return buildErrorResponse(HttpStatus.FORBIDDEN, "Accesso negato: " + ex.getMessage());
+        return buildErrorResponse(HttpStatus.FORBIDDEN, ownMessage(ex)
+                .map(message -> "Accesso negato: " + message)
+                .orElse("Accesso negato"));
     }
 
     /**
@@ -258,7 +264,27 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
-        return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, ownMessage(ex).orElse(INVALID_REQUEST));
+    }
+
+    /**
+     * The exception's message, when it is ours to show: thrown by this
+     * application's code, where messages are written for the user, in Italian.
+     * One thrown by Spring, a library or the JDK describes internals instead
+     * ("No enum constant com.donatodev...", "Access Denied", "Invalid UUID
+     * string: ..."; OWASP Error Handling Cheat Sheet): the client gets a fixed
+     * message and the log gets where it came from, never the text, which can
+     * carry the caller's input.
+     */
+    static java.util.Optional<String> ownMessage(Throwable ex) {
+        StackTraceElement[] trace = ex.getStackTrace();
+        String origin = trace.length == 0 ? "unknown" : trace[0].getClassName();
+        if (origin.startsWith(OWN_PACKAGE) && ex.getMessage() != null && !ex.getMessage().isBlank()) {
+            return java.util.Optional.of(ex.getMessage());
+        }
+        logger.warn("Request refused by {} from {}: message withheld from the client",
+                ex.getClass().getName(), origin);
+        return java.util.Optional.empty();
     }
 
     /**
@@ -333,7 +359,7 @@ public class GlobalExceptionHandler {
             case METHOD_NOT_ALLOWED -> "Metodo non consentito";
             case CONTENT_TOO_LARGE -> "File troppo grande";
             case UNSUPPORTED_MEDIA_TYPE -> "Formato della richiesta non supportato";
-            default -> status.is5xxServerError() ? INTERNAL_ERROR : "Richiesta non valida";
+            default -> status.is5xxServerError() ? INTERNAL_ERROR : INVALID_REQUEST;
         };
     }
 

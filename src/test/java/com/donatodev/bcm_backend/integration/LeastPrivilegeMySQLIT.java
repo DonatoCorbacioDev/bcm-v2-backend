@@ -68,6 +68,26 @@ class LeastPrivilegeMySQLIT extends AbstractMySQLIntegrationTest {
         assertThat(jdbc.update("DELETE FROM organizations WHERE id = ?", id)).isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("an audit log row cannot be changed, nor its guard dropped; it can still be deleted")
+    void auditLogRowsCannotBeChanged() {
+        String id = UUID.randomUUID().toString();
+        jdbc.update("INSERT INTO audit_logs (id, action, entity_type, username, details) VALUES (?, ?, ?, ?, ?)",
+                id, "PASSWORD_CHANGED", "User", "mario", "original");
+
+        assertThatThrownBy(() -> jdbc.update("UPDATE audit_logs SET details = 'rewritten' WHERE id = ?", id))
+                .isInstanceOf(DataAccessException.class)
+                .rootCause().hasMessageContaining("audit_logs rows cannot be changed");
+        assertThatThrownBy(() -> jdbc.execute("DROP TRIGGER audit_logs_no_update"))
+                .isInstanceOf(DataAccessException.class)
+                .rootCause().hasMessageContaining("denied");
+        assertThat(jdbc.queryForObject("SELECT details FROM audit_logs WHERE id = ?", String.class, id))
+                .isEqualTo("original");
+
+        // Retention and the GDPR purge of an organization delete rows.
+        assertThat(jdbc.update("DELETE FROM audit_logs WHERE id = ?", id)).isEqualTo(1);
+    }
+
     @ParameterizedTest(name = "{0}")
     @DisplayName("what an injection would try beyond rows is refused")
     @ValueSource(strings = {

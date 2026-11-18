@@ -69,6 +69,86 @@ class GlobalExceptionHandlerTest {
     }
 
     @Nested
+    @DisplayName("an exception's text reaches the client only when this application wrote it")
+    class OwnMessagesOnly {
+
+        private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+
+        /** As if thrown inside the given class, e.g. Spring's. */
+        private static <T extends Throwable> T thrownIn(String className, T ex) {
+            ex.setStackTrace(new StackTraceElement[] {new StackTraceElement(className, "check", "X.java", 1)});
+            return ex;
+        }
+
+        @Test
+        @DisplayName("an IllegalArgumentException of ours keeps its message")
+        void ownIllegalArgumentKeepsItsMessage() {
+            ResponseEntity<ApiErrorResponse> response =
+                    handler.handleIllegalArgument(new IllegalArgumentException("Username già esistente."));
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Username già esistente.", response.getBody().message());
+        }
+
+        @Test
+        @DisplayName("one from the JDK answers a fixed message, never its text")
+        void jdkIllegalArgumentIsWithheld() {
+            IllegalArgumentException fromJdk = org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalArgumentException.class, () -> java.util.UUID.fromString("<script>"));
+
+            ResponseEntity<ApiErrorResponse> response = handler.handleIllegalArgument(fromJdk);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Richiesta non valida", response.getBody().message());
+        }
+
+        @Test
+        @DisplayName("one from a library, naming our classes, answers the fixed message too")
+        void libraryIllegalArgumentIsWithheld() {
+            IllegalArgumentException fromLibrary = thrownIn("java.lang.Enum",
+                    new IllegalArgumentException("No enum constant com.donatodev.bcm_backend.entity.ContractStatus.X"));
+
+            assertEquals("Richiesta non valida", handler.handleIllegalArgument(fromLibrary).getBody().message());
+        }
+
+        @Test
+        @DisplayName("Spring's own access refusal says only that access is denied")
+        void springAccessDeniedIsWithheld() {
+            org.springframework.security.access.AccessDeniedException fromSpring = thrownIn(
+                    "org.springframework.security.authorization.method.AuthorizationManagerBeforeMethodInterceptor",
+                    new org.springframework.security.access.AccessDeniedException("Access Denied"));
+
+            ResponseEntity<ApiErrorResponse> response = handler.handleAccessDeniedException(fromSpring,
+                    new org.springframework.mock.web.MockHttpServletRequest());
+
+            assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+            assertEquals("Accesso negato", response.getBody().message());
+        }
+
+        @Test
+        @DisplayName("an authentication failure of ours keeps its message, Spring's does not")
+        void authenticationMessages() {
+            assertEquals("Non autorizzato: Nome utente o password non validi", handler.handleAuthenticationException(
+                    new org.springframework.security.authentication.BadCredentialsException(
+                            "Nome utente o password non validi")).getBody().message());
+
+            org.springframework.security.core.AuthenticationException fromSpring = thrownIn(
+                    "org.springframework.security.authentication.ProviderManager",
+                    new org.springframework.security.authentication.ProviderNotFoundException(
+                            "No AuthenticationProvider found for X"));
+            assertEquals("Non autorizzato", handler.handleAuthenticationException(fromSpring).getBody().message());
+        }
+
+        @Test
+        @DisplayName("a request without a session is told so in Italian, not in Spring's words")
+        void unauthenticatedRequestGetsFixedMessage() throws Exception {
+            mockMvc.perform(get("/contracts/" + uid(1)))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.message").value("Autenticazione richiesta"));
+        }
+    }
+
+    @Nested
     @DisplayName("404 Not Found handlers")
     class NotFoundHandlers {
 

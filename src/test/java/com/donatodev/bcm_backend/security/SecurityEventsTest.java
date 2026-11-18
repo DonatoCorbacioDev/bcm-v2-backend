@@ -68,6 +68,33 @@ class SecurityEventsTest {
     }
 
     @Test
+    @DisplayName("a sign-in is one log line with user, organization, address and method, never stored")
+    void signInIsOneLogLine() {
+        ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger)
+                org.slf4j.LoggerFactory.getLogger(SecurityEvents.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            com.donatodev.bcm_backend.entity.Users user = com.donatodev.bcm_backend.entity.Users.builder()
+                    .username("anna\r\nSign-in succeeded: user=admin")
+                    .organization(com.donatodev.bcm_backend.entity.Organization.builder().id(ORG).build())
+                    .build();
+
+            SecurityEvents.signedIn(user, "totp");
+
+            assertThat(appender.list).singleElement().satisfies(event -> assertThat(event.getFormattedMessage())
+                    .isEqualTo("Sign-in succeeded: user=anna__Sign-in succeeded: user=admin org=" + ORG
+                            + " ip=203.0.113.7 method=totp")
+                    .doesNotContain("\n", "\r"));
+            org.mockito.Mockito.verifyNoInteractions(audit);
+        } finally {
+            logger.detachAppender(appender);
+        }
+    }
+
+    @Test
     @DisplayName("an event is counted and stored with user, organization and address, in a transaction of its own")
     void storesInItsOwnTransaction() {
         events.record(SecurityEvents.Type.COST_LIMITED, "MlProxyController.askAgent");

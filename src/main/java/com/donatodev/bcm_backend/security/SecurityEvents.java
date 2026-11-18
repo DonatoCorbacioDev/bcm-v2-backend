@@ -25,6 +25,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.donatodev.bcm_backend.config.TenantContext;
+import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.jwt.JwtAuthenticationFilter;
 import com.donatodev.bcm_backend.service.AuditLogService;
 import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
@@ -168,6 +169,20 @@ public class SecurityEvents {
         } catch (RuntimeException e) {
             // The refusal itself must still happen: losing its record is the lesser harm.
             logger.warn("Could not store security event {}: {}", type, oneLine(e.getMessage()));
+        }
+    }
+
+    /**
+     * A session opened (OWASP Logging Cheat Sheet: successful authentication
+     * too), as a log line only: the public demo signs in many times a day,
+     * which would fill the audit log. {@code method} says what proved it:
+     * "password", "totp", "totp-enrollment".
+     */
+    public static void signedIn(Users user, String method) {
+        if (logger.isInfoEnabled()) {
+            UUID orgId = user.getOrganization() == null ? null : user.getOrganization().getId();
+            logger.info("Sign-in succeeded: user={} org={} ip={} method={}",
+                    oneLine(user.getUsername()), orgId, oneLine(currentIp()), method);
         }
     }
 

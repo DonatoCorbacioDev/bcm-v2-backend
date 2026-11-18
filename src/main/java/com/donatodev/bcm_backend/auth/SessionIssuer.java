@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
+import com.donatodev.bcm_backend.security.SecurityEvents;
 import com.donatodev.bcm_backend.service.RefreshTokenService;
 
 /**
@@ -41,6 +42,7 @@ public class SessionIssuer {
 
     /** A real session: an access token and a refresh token. */
     public AuthResponseDTO sessionFor(Users user) {
+        SecurityEvents.signedIn(user, "password");
         return new AuthResponseDTO(jwtUtils.generateToken(user), refreshTokenService.createRefreshToken(user));
     }
 }

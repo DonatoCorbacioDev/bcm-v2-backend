@@ -42,15 +42,17 @@ public class CalendarFeedService {
     private final UsersRepository usersRepository;
     private final ContractsRepository contractsRepository;
     private final CurrentUserResolver currentUserResolver;
+    private final AuditLogService auditLogService;
 
     @Value("${app.backend-base-url:http://localhost:8090/api/v1}")
     private String backendBaseUrl;
 
     public CalendarFeedService(UsersRepository usersRepository, ContractsRepository contractsRepository,
-                                CurrentUserResolver currentUserResolver) {
+                                CurrentUserResolver currentUserResolver, AuditLogService auditLogService) {
         this.usersRepository = usersRepository;
         this.contractsRepository = contractsRepository;
         this.currentUserResolver = currentUserResolver;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional
@@ -68,6 +70,8 @@ public class CalendarFeedService {
         Users user = currentUserResolver.resolve();
         user.setCalendarToken(generateToken());
         usersRepository.save(user);
+        // The old link stops working: recorded, the new token never is.
+        auditLogService.saveAboutUser("CALENDAR_FEED_REGENERATED", user, null);
         return buildUrl(user.getCalendarToken());
     }
 

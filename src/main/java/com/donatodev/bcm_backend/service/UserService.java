@@ -53,6 +53,7 @@ public class UserService {
 	private final InviteTokenRepository inviteTokenRepository;
 
 	private final SessionRevocationService sessionRevocationService;
+	private final AuditLogService auditLogService;
 
 	@Value("${app.frontend-base-url:http://localhost:3000}")
 	private String frontendBaseUrl;
@@ -69,7 +70,8 @@ public class UserService {
 			ManagersRepository managersRepository,
 			RolesRepository rolesRepository,
 			InviteTokenRepository inviteTokenRepository,
-			SessionRevocationService sessionRevocationService
+			SessionRevocationService sessionRevocationService,
+			AuditLogService auditLogService
 	) {
 		this.usersRepository = usersRepository;
 		this.userMapper = userMapper;
@@ -78,6 +80,7 @@ public class UserService {
 		this.rolesRepository = rolesRepository;
 		this.inviteTokenRepository = inviteTokenRepository;
 		this.sessionRevocationService = sessionRevocationService;
+		this.auditLogService = auditLogService;
 	}
 
 	/**
@@ -276,6 +279,7 @@ public class UserService {
 		user.setFailedLoginAttempts(0);
 		user.setLockedUntil(null);
 		updatePassword(user, newPassword);
+		auditLogService.saveAboutUser("PASSWORD_RESET", user, "via emailed link");
 	}
 
 	/**
@@ -319,6 +323,7 @@ public class UserService {
 			throw new IllegalArgumentException("La password attuale non è corretta");
 		}
 		updatePassword(user, newPassword);
+		auditLogService.saveAboutUser("PASSWORD_CHANGED", user, null);
 	}
 
 	public String inviteUser(String username, String role, UUID managerId) {
@@ -349,6 +354,9 @@ public class UserService {
 				.used(false)
 				.build();
 		inviteTokenRepository.save(it);
+		// The link itself is a credential: only who was invited is recorded.
+		auditLogService.save("USER_INVITED", "Manager", manager.getId(),
+				AuthenticatedUserUtils.getUsernameOrNull(), orgId, "username=" + username + " role=MANAGER");
 		return frontendBaseUrl + "/complete-invite?token=" + token;
 	}
 
@@ -385,6 +393,7 @@ public class UserService {
 
 		it.setUsed(true);
 		inviteTokenRepository.save(it);
+		auditLogService.saveAboutUser("INVITE_ACCEPTED", user, "role=" + it.getRole());
 	}
 
 	@Transactional

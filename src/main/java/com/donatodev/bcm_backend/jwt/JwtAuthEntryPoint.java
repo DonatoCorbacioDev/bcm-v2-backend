@@ -30,6 +30,8 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class JwtAuthEntryPoint implements AuthenticationEntryPoint {
 
+    static final String AUTHENTICATION_REQUIRED = "Autenticazione richiesta";
+
     private final ObjectMapper objectMapper;
 
     public JwtAuthEntryPoint(ObjectMapper objectMapper) {
@@ -47,7 +49,9 @@ public class JwtAuthEntryPoint implements AuthenticationEntryPoint {
 
         ApiErrorResponse errorResponse = new ApiErrorResponse(
                 HttpServletResponse.SC_UNAUTHORIZED,
-                "Unauthorized: " + authException.getMessage(),
+                // Fixed and in Italian like every other error: Spring's own text
+                // ("Full authentication is required...") describes its internals.
+                AUTHENTICATION_REQUIRED,
                 LocalDateTime.now(ZoneId.systemDefault())
         );
 
