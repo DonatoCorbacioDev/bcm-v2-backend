@@ -1,0 +1,73 @@
+name: CodeQL
+
+# OWASP Secure Code Review Cheat Sheet, static analysis with data flow:
+# CodeQL follows every value from where it enters (a request, a file, a
+# response from another service) to where it is used (a query, a path, a
+# page, a log) and reports the paths no check stops. On every push and every
+# Monday, with the security-extended queries; results in the repository's
+# Security tab. The job fails on a high or critical finding.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "30 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: CodeQL (java-kotlin)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Pinned by commit (v4.39.3): a tag can be moved.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: java-kotlin
+          build-mode: none
+          queries: security-extended
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: "/language:java-kotlin"
+          output: codeql-results
+
+      # The Security tab lists every finding; this step turns the serious
+      # ones (security severity 7.0 or more: high and critical) into a red
+      # build, so none goes unnoticed.
+      - name: Fail on high or critical findings
+        run: |
+          python3 - codeql-results <<'EOF'
+          import json, pathlib, sys
+          serious = []
+          for sarif in pathlib.Path(sys.argv[1]).glob("*.sarif"):
+              for run in json.loads(sarif.read_text())["runs"]:
+                  rules = {}
+                  for component in [run["tool"]["driver"], *run["tool"].get("extensions", [])]:
+                      for rule in component.get("rules", []):
+                          rules[rule["id"]] = rule
+                  for result in run.get("results", []):
+                      rule = rules.get(result.get("ruleId"), {})
+                      score = float(rule.get("properties", {}).get("security-severity", 0) or 0)
+                      if score >= 7.0:
+                          where = result["locations"][0]["physicalLocation"]
+                          serious.append(f'{score} {result["ruleId"]} '
+                                         f'{where["artifactLocation"]["uri"]}:{where.get("region", {}).get("startLine", "?")}')
+          for line in serious:
+              print(f"::error::{line}")
+          print(f"{len(serious)} high or critical finding(s)")
+          sys.exit(1 if serious else 0)
+          EOF

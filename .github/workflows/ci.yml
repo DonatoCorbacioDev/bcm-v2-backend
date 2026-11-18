@@ -56,6 +56,18 @@ jobs:
           path: target/classes/META-INF/sbom/application.cdx.json
           retention-days: 90
 
+      # OWASP Secure Code Review, dependency scanning: every library in the
+      # SBOM the build just wrote, checked by Trivy on this push, not only
+      # when the docker repo's image scan runs. Fails on a HIGH or CRITICAL
+      # vulnerability that a newer version fixes. The official image, pinned
+      # by digest (0.76.1), as in bcm-v2-docker's image-scan.yml.
+      - name: Scan dependencies (Trivy on the SBOM)
+        run: |
+          docker run --rm -v "$PWD/target/classes/META-INF/sbom:/sbom:ro" \
+            aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c \
+            sbom /sbom/application.cdx.json \
+            --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress
+
       - name: SonarCloud analysis
         run: |
           ./mvnw sonar:sonar --batch-mode -P test \
