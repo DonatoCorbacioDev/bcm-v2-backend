@@ -49,7 +49,8 @@ class RefreshCookieFactoryTest {
             assertEquals("the-refresh-token", cookie.getValue());
             assertTrue(cookie.isHttpOnly());
             assertTrue(cookie.isSecure());
-            assertEquals("Lax", cookie.getSameSite());
+            // Strict: sent only from this site (CSRF defense, with CORS refusing a foreign Origin).
+            assertEquals("Strict", cookie.getSameSite());
             assertEquals("/api/v1/auth", cookie.getPath());
             assertEquals(604800L, cookie.getMaxAge().getSeconds());
         }

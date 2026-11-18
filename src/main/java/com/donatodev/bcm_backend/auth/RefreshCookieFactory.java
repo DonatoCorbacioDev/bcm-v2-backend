@@ -55,7 +55,12 @@ public class RefreshCookieFactory {
         return ResponseCookie.from(COOKIE_NAME, value)
                 .httpOnly(true)
                 .secure(cookieSecure)
-                .sameSite("Lax")
+                // Strict: the browser sends it only on requests from this site; the
+                // refresh and the logout are calls from the app's own pages, never
+                // a navigation from elsewhere. A request from another origin, even a
+                // sibling subdomain, is refused (403) by CORS before reaching them
+                // (CorsConfig; AuthControllerTest.cookieEndpointsRefuseAForeignOrigin).
+                .sameSite("Strict")
                 .path(contextPath + "/auth");
     }
 }

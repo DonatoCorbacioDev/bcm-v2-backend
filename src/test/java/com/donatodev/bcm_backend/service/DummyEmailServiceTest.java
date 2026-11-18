@@ -32,6 +32,36 @@ class DummyEmailServiceTest {
         );
     }
 
+    /** A reset link is a credential: even this development stub never logs its token (CodeQL java/sensitive-log). */
+    @Test
+    @DisplayName("the token of a reset link never reaches the log, in the summary or in the body")
+    void neverLogsTheTokenOfALink() {
+        String token = "4f1c9e2a-7b3d-4e8f-9a6c-2d5b8e1f0a73";
+        String link = "http://localhost:3000/reset-password?token=" + token;
+        ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger)
+                LoggerFactory.getLogger(DummyEmailService.class);
+        ch.qos.logback.classic.Level original = logger.getLevel();
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(ch.qos.logback.classic.Level.DEBUG);
+        try {
+            dummyEmailService.sendResetPasswordEmail("a@b.com", link, "anna", "Alfa Srl");
+            dummyEmailService.sendEmail("a@b.com", "Reset", "<p><a href=\"" + link + "\">Reimposta</a></p>");
+
+            assertEquals("[TEST] Fake password reset email sent to: a@b.com with link: "
+                    + "http://localhost:3000/reset-password?token=***", appender.list.get(0).getFormattedMessage());
+            assertEquals("[TEST] Email body: <p><a href=\"http://localhost:3000/reset-password?token=***\">Reimposta</a></p>",
+                    appender.list.get(2).getFormattedMessage());
+            appender.list.forEach(event -> org.assertj.core.api.Assertions
+                    .assertThat(event.getFormattedMessage()).doesNotContain(token));
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(original);
+        }
+    }
+
     @Test
     @DisplayName("Should log generic email without throwing exceptions")
     void shouldLogGenericEmail() {

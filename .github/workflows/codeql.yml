@@ -52,6 +52,17 @@ jobs:
         run: |
           python3 - codeql-results <<'EOF'
           import json, pathlib, sys
+          # Findings reviewed and accepted, each for one file, with the reason.
+          # Still listed in the Security tab; not failing the build.
+          ACCEPTED = {
+              # CSRF tokens are off on purpose: every request authenticates with
+              # the Authorization header, which a browser never sends on its own.
+              # The one cookie (refresh) is SameSite=Strict and a foreign Origin
+              # is refused with 403 by CORS (AuthControllerTest
+              # .cookieEndpointsRefuseAForeignOrigin). Reviewed 2026-11-18.
+              ("java/spring-disabled-csrf-protection",
+               "src/main/java/com/donatodev/bcm_backend/security/SecurityConfig.java"),
+          }
           serious = []
           for sarif in pathlib.Path(sys.argv[1]).glob("*.sarif"):
               for run in json.loads(sarif.read_text())["runs"]:
@@ -64,8 +75,12 @@ jobs:
                       score = float(rule.get("properties", {}).get("security-severity", 0) or 0)
                       if score >= 7.0:
                           where = result["locations"][0]["physicalLocation"]
+                          uri = where["artifactLocation"]["uri"]
+                          if (result.get("ruleId"), uri) in ACCEPTED:
+                              print(f'accepted: {result["ruleId"]} {uri}')
+                              continue
                           serious.append(f'{score} {result["ruleId"]} '
-                                         f'{where["artifactLocation"]["uri"]}:{where.get("region", {}).get("startLine", "?")}')
+                                         f'{uri}:{where.get("region", {}).get("startLine", "?")}')
           for line in serious:
               print(f"::error::{line}")
           print(f"{len(serious)} high or critical finding(s)")

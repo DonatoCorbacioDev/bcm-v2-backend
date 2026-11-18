@@ -43,6 +43,29 @@ class TotpEncryptionServiceTest {
         assertThat(withKey().decrypt(encrypted)).isEqualTo(PLAIN);
     }
 
+    /**
+     * The layout did not change when the IV and the ciphertext stopped being
+     * joined through a length sum (CodeQL java/uncontrolled-arithmetic): a
+     * 12-byte IV, then the ciphertext with its 16-byte tag. A value built the
+     * old way, by hand here, is still read, so the secrets already stored are.
+     */
+    @Test
+    @DisplayName("the stored layout is unchanged: IV then ciphertext, and values written before still read")
+    void layoutIsUnchanged() throws Exception {
+        byte[] stored = Base64.getDecoder().decode(withKey().encrypt(PLAIN).substring("v2:".length()));
+        assertThat(stored).hasSize(12 + PLAIN.length() + 16);
+
+        byte[] iv = "fixed-iv-12b".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE,
+                new javax.crypto.spec.SecretKeySpec(Base64.getDecoder().decode(TOTP_KEY), "AES"),
+                new javax.crypto.spec.GCMParameterSpec(128, iv));
+        byte[] cipherText = cipher.doFinal(PLAIN.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        java.nio.ByteBuffer before = java.nio.ByteBuffer.allocate(iv.length + cipherText.length).put(iv).put(cipherText);
+
+        assertThat(withKey().decrypt("v2:" + Base64.getEncoder().encodeToString(before.array()))).isEqualTo(PLAIN);
+    }
+
     @Test
     @DisplayName("the dedicated key does not depend on the JWT secret: rotating it changes nothing")
     void shouldSurviveAJwtKeyRotation() {

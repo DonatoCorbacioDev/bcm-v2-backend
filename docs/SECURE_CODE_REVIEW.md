@@ -39,7 +39,7 @@ default: a new endpoint, query or upload must state what protects it.
 
 | Tool | Repository | What it checks | Fails the build on |
 |---|---|---|---|
-| CodeQL (`codeql.yml`, security-extended, also weekly) | backend, frontend, ml | Data flow: a value from a source reaching a sink with no check in between (injection, path traversal, XSS, SSRF, and more) | A finding of security severity 7.0 or more |
+| CodeQL (`codeql.yml`, security-extended, also weekly) | backend, frontend, ml | Data flow: a value from a source reaching a sink with no check in between (injection, path traversal, XSS, SSRF, and more) | A finding of security severity 7.0 or more, unless reviewed and accepted for one file with its reason (`ACCEPTED` in the backend's `codeql.yml`: only CSRF tokens being off, see `SecurityConfig`). First run, 2026-11-18: three findings in the backend, two fixed (a reset link's token in the development mail log; a length sum CodeQL could not bound), one accepted; none in the frontend or ml |
 | SpotBugs + FindSecBugs (`mvn verify`) | backend | Bug and security patterns in Java (log injection, weak crypto, unsafe XML) | Any finding not excluded with its reason in `spotbugs-exclude.xml` |
 | Bandit | ml | Security patterns in Python | Medium severity and up |
 | ESLint | frontend | Code patterns (React, Next.js) | Errors |

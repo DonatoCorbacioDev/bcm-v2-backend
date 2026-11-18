@@ -60,10 +60,13 @@ public class SecurityConfig {
                 // Authorization header (Bearer access token), which the browser
                 // never attaches automatically — that's what actually rules out CSRF.
                 // The only cookie in play is the HttpOnly refresh_token (see
-                // RefreshCookieFactory), scoped to /auth and SameSite=Lax, so it is
-                // not sent on cross-site requests; a forged cross-site call could at
-                // worst trigger a token refresh or a logout, neither state-changing
-                // nor able to leak the new token back to the attacker (blocked by CORS).
+                // RefreshCookieFactory), scoped to /auth and SameSite=Strict, so the
+                // browser sends it only from this site; its two endpoints, refresh
+                // and logout, are never reached from another origin, another
+                // subdomain included: CORS answers 403 to a foreign Origin (CorsConfig;
+                // OWASP CSRF Prevention, origin verification; tested in
+                // AuthControllerTest). CodeQL's java/spring-disabled-csrf-protection is
+                // accepted for this reason (.github/workflows/codeql.yml).
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth

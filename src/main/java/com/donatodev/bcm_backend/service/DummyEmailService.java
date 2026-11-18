@@ -26,6 +26,9 @@ public class DummyEmailService implements IEmailService {
 
     private static final Logger logger = LoggerFactory.getLogger(DummyEmailService.class);
     private static final String CRLF_REGEX = "[\r\n]";
+    /** The token of a link (reset, invitation) up to where the link ends. */
+    private static final java.util.regex.Pattern TOKEN_IN_LINK =
+            java.util.regex.Pattern.compile("token=[^&\\s\"'<]+");
 
     /**
      * Constructor that logs activation of the dummy email service.
@@ -44,7 +47,7 @@ public class DummyEmailService implements IEmailService {
     public void sendResetPasswordEmail(String to, String resetLink, String username, String organizationName) {
         if (logger.isInfoEnabled()) {
             logger.info("[TEST] Fake password reset email sent to: {} with link: {}",
-                    sanitize(to), sanitize(resetLink));
+                    sanitize(to), withoutToken(resetLink));
         }
     }
 
@@ -111,11 +114,21 @@ public class DummyEmailService implements IEmailService {
                     sanitize(to), sanitize(subject));
         }
         if (logger.isDebugEnabled()) {
-            logger.debug("[TEST] Email body: {}", sanitize(body));
+            logger.debug("[TEST] Email body: {}", withoutToken(body));
         }
     }
 
     private static String sanitize(String value) {
         return value == null ? null : value.replaceAll(CRLF_REGEX, "_");
+    }
+
+    /**
+     * The value on one line, with the token of any link in it masked: a reset
+     * or invitation link is a credential, and a development log gets shared
+     * and pasted (OWASP Logging Cheat Sheet; CodeQL java/sensitive-log).
+     */
+    static String withoutToken(String value) {
+        // Line breaks removed last, by sanitize(), the step FindSecBugs knows.
+        return value == null ? null : sanitize(TOKEN_IN_LINK.matcher(value).replaceAll("token=***"));
     }
 }

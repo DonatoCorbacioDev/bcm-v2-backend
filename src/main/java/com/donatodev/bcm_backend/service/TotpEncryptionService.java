@@ -5,7 +5,7 @@
 
 package com.donatodev.bcm_backend.service;
 
-import java.nio.ByteBuffer;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
@@ -114,9 +114,12 @@ public final class TotpEncryptionService {
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
             byte[] cipherText = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
 
-            ByteBuffer combined = ByteBuffer.allocate(iv.length + cipherText.length);
-            combined.put(iv).put(cipherText);
-            return Base64.getEncoder().encodeToString(combined.array());
+            // iv | ciphertext, written one after the other: no length arithmetic
+            // (CodeQL java/uncontrolled-arithmetic flagged the sum of the two).
+            ByteArrayOutputStream combined = new ByteArrayOutputStream();
+            combined.writeBytes(iv);
+            combined.writeBytes(cipherText);
+            return Base64.getEncoder().encodeToString(combined.toByteArray());
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("Failed to encrypt TOTP secret", e);
         }

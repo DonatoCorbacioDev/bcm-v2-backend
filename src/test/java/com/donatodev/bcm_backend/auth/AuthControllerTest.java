@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.auth;
 
+import org.junit.jupiter.params.ParameterizedTest;
+import org.springframework.http.HttpHeaders;
 import java.util.UUID;
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -33,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.mockito.Mockito.verify;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -486,6 +489,42 @@ class AuthControllerTest {
 
         String rotatedRefreshToken = refreshResponse.getCookie(RefreshCookieFactory.COOKIE_NAME).getValue();
         assertThat(rotatedRefreshToken).isNotEqualTo(refreshToken);
+    }
+
+    /**
+     * CSRF on the two endpoints the refresh cookie authenticates (OWASP CSRF
+     * Prevention, origin verification): a request from another origin, a
+     * sibling subdomain included (the same "site" to SameSite), is refused
+     * with 403 by Spring's CORS processing (CorsConfig) before the endpoint
+     * runs, so the session neither rotates nor ends; the frontend's own
+     * origin still works.
+     */
+    @ParameterizedTest(name = "{0} from {1}")
+    @org.junit.jupiter.params.provider.CsvSource({
+            "/auth/refresh, https://attacker.example",
+            "/auth/logout, https://attacker.example",
+            "/auth/refresh, https://evil.donatocorbacio.dev",
+            "/auth/logout, https://evil.donatocorbacio.dev"})
+    @Order(23)
+    void cookieEndpointsRefuseAForeignOrigin(String path, String origin) throws Exception {
+        String username = "csrf" + Integer.toHexString((path + origin).hashCode());
+        verifiedUser(username, "pass123");
+        String refreshToken = mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AuthRequestDTO(username, "pass123"))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getCookie(RefreshCookieFactory.COOKIE_NAME).getValue();
+
+        mockMvc.perform(post(path).header(HttpHeaders.ORIGIN, origin)
+                        .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, refreshToken)))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+
+        // The forged call changed nothing: the same token still refreshes, from the app's origin.
+        mockMvc.perform(post("/auth/refresh").header(HttpHeaders.ORIGIN, "http://localhost:3000")
+                        .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, refreshToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").exists());
     }
 
     /** A verified user inside an organization: its tokens authenticate (the JWT filter needs the org). */
