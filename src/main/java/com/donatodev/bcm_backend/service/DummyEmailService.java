@@ -45,9 +45,9 @@ public class DummyEmailService implements IEmailService {
      */
     @Override
     public void sendResetPasswordEmail(String to, String resetLink, String username, String organizationName) {
+        // The link is a credential: not logged at all (CodeQL java/sensitive-log).
         if (logger.isInfoEnabled()) {
-            logger.info("[TEST] Fake password reset email sent to: {} with link: {}",
-                    sanitize(to), withoutToken(resetLink));
+            logger.info("[TEST] Fake password reset email sent to: {} (link not logged)", sanitize(to));
         }
     }
 

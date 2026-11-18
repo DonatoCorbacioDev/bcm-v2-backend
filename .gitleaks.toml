@@ -1,7 +1,9 @@
 # Secret scanning (gitleaks, in CI and on the whole history): the default
 # rules, with an exception for exactly two test files whose keys are fakes
-# made for the tests, never used anywhere else. Any other file is scanned in
-# full; a new exception names its file and says why it holds no real secret.
+# made for the tests, never used anywhere else, and for one past commit whose
+# test held a fake the next commit replaced. Any other file is scanned in
+# full; a new exception names its file or commit and says why it holds no
+# real secret.
 [extend]
 useDefault = true
 
@@ -13,4 +15,9 @@ paths = [
   '''src/test/resources/application-test\.properties''',
   # "fake-key-for-disabled-checkout-test", to check checkout stays disabled.
   '''src/test/java/com/donatodev/bcm_backend/controller/BillingCheckoutDisabledTest\.java''',
+]
+commits = [
+  # DummyEmailServiceTest as first committed: a made-up UUID standing for a
+  # reset token; the next commit replaced it with a plain fake.
+  "f325ebc79d0d8258fde39160e64b8e5c3434349a",
 ]
