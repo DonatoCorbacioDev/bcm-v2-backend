@@ -55,14 +55,26 @@ class MigrationSeparationIT extends AbstractMySQLIntegrationTest {
 
     @Test
     @DisplayName("the application's account cannot apply a migration, and nothing changes")
-    void theApplicationAccountCannotMigrate() {
-        assertThatThrownBy(() -> asApplication("classpath:db/migration", PENDING).migrate())
-                .isInstanceOf(FlywayException.class)
-                .hasStackTraceContaining("denied");
+    void theApplicationAccountCannotMigrate() throws java.sql.SQLException {
+        try {
+            assertThatThrownBy(() -> asApplication("classpath:db/migration", PENDING).migrate())
+                    .isInstanceOf(FlywayException.class)
+                    .hasStackTraceContaining("denied");
 
-        assertThat(jdbc.queryForObject(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'pending_check'",
-                Integer.class)).isZero();
+            assertThat(jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'pending_check'",
+                    Integer.class)).isZero();
+            // MySQL cannot roll back DDL, so Flyway records the refused attempt as failed.
+            assertThat(jdbc.queryForObject(
+                    "SELECT success FROM flyway_schema_history WHERE version = '999'", Boolean.class)).isFalse();
+        } finally {
+            // The history is shared by every integration test (FlywayMigrationIT checks it
+            // holds no failed migration): the owner removes the row the attempt left.
+            try (java.sql.Connection owner = ownerConnection();
+                    java.sql.Statement sql = owner.createStatement()) {
+                sql.executeUpdate("DELETE FROM flyway_schema_history WHERE version = '999'");
+            }
+        }
     }
 
     @Test
