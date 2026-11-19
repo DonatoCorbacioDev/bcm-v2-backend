@@ -37,7 +37,58 @@ class SecurityStartupValidatorTest {
         ReflectionTestUtils.setField(v, "totpEncryptionKey", totpKey);
         ReflectionTestUtils.setField(v, "mlInternalApiKey", mlKey);
         ReflectionTestUtils.setField(v, "mlFastapiUrl", mlUrl);
+        ReflectionTestUtils.setField(v, "databaseUrl", VERIFIED_URL);
+        ReflectionTestUtils.setField(v, "databasePassword", STRONG_DB_PASSWORD);
         return v;
+    }
+
+    private static final String VERIFIED_URL =
+            "jdbc:mysql://mysql:3306/bcm?sslMode=VERIFY_CA&trustCertificateKeyStoreUrl=file:/run/secrets/MYSQL_TRUSTSTORE";
+    // A plain fake: long enough, and not shaped like a real secret (gitleaks).
+    private static final String STRONG_DB_PASSWORD = "test-database-password-long-enough";
+
+    @Nested
+    @DisplayName("Database: no development password, TLS with the certificate checked")
+    @SuppressWarnings("unused")
+    class DatabaseTests {
+
+        private SecurityStartupValidator withDatabase(String url, String password) {
+            var v = validator(VALID_SECRET, "k", "http://localhost:8000");
+            ReflectionTestUtils.setField(v, "databaseUrl", url);
+            ReflectionTestUtils.setField(v, "databasePassword", password);
+            return v;
+        }
+
+        @Test
+        @DisplayName("a verified TLS connection with a strong password starts")
+        void verifiedTlsAndStrongPassword() {
+            assertDoesNotThrow(() -> withDatabase(VERIFIED_URL, STRONG_DB_PASSWORD).run(null));
+            assertDoesNotThrow(() -> withDatabase(VERIFIED_URL.replace("VERIFY_CA", "VERIFY_IDENTITY"),
+                    STRONG_DB_PASSWORD).run(null));
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {
+                "bcm_password", "ci-app-password", "bcm_it_app_password", "short-password"})
+        @DisplayName("a development or short password stops it, without naming the password")
+        void developmentOrShortPassword(String password) {
+            IllegalStateException e = assertThrows(IllegalStateException.class,
+                    () -> withDatabase(VERIFIED_URL, password).run(null));
+            org.assertj.core.api.Assertions.assertThat(e.getMessage()).doesNotContain(password);
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {
+                "jdbc:mysql://mysql:3306/bcm?useSSL=false&allowPublicKeyRetrieval=true",
+                "jdbc:mysql://mysql:3306/bcm?sslMode=REQUIRED",
+                "jdbc:mysql://mysql:3306/bcm?sslMode=VERIFY_CA&allowPublicKeyRetrieval=true",
+                "jdbc:mysql://mysql:3306/bcm"})
+        @DisplayName("a connection without TLS, or without the certificate checked, stops it")
+        void unverifiedConnection(String url) {
+            IllegalStateException e = assertThrows(IllegalStateException.class,
+                    () -> withDatabase(url, STRONG_DB_PASSWORD).run(null));
+            org.assertj.core.api.Assertions.assertThat(e.getMessage()).contains("TLS");
+        }
     }
 
     @Nested
