@@ -43,12 +43,12 @@ class SecurityStartupValidatorTest {
     }
 
     private static final String VERIFIED_URL =
-            "jdbc:mysql://mysql:3306/bcm?sslMode=VERIFY_CA&trustCertificateKeyStoreUrl=file:/run/secrets/MYSQL_TRUSTSTORE";
+            "jdbc:mysql://mysql:3306/bcm?sslMode=VERIFY_IDENTITY&trustCertificateKeyStoreUrl=file:/run/secrets/MYSQL_TRUSTSTORE";
     // A plain fake: long enough, and not shaped like a real secret (gitleaks).
     private static final String STRONG_DB_PASSWORD = "test-database-password-long-enough";
 
     @Nested
-    @DisplayName("Database: no development password, TLS with the certificate checked")
+    @DisplayName("Database: no development password, TLS with the certificate and its name checked")
     @SuppressWarnings("unused")
     class DatabaseTests {
 
@@ -63,8 +63,6 @@ class SecurityStartupValidatorTest {
         @DisplayName("a verified TLS connection with a strong password starts")
         void verifiedTlsAndStrongPassword() {
             assertDoesNotThrow(() -> withDatabase(VERIFIED_URL, STRONG_DB_PASSWORD).run(null));
-            assertDoesNotThrow(() -> withDatabase(VERIFIED_URL.replace("VERIFY_CA", "VERIFY_IDENTITY"),
-                    STRONG_DB_PASSWORD).run(null));
         }
 
         @org.junit.jupiter.params.ParameterizedTest
@@ -81,9 +79,10 @@ class SecurityStartupValidatorTest {
         @org.junit.jupiter.params.provider.ValueSource(strings = {
                 "jdbc:mysql://mysql:3306/bcm?useSSL=false&allowPublicKeyRetrieval=true",
                 "jdbc:mysql://mysql:3306/bcm?sslMode=REQUIRED",
-                "jdbc:mysql://mysql:3306/bcm?sslMode=VERIFY_CA&allowPublicKeyRetrieval=true",
+                "jdbc:mysql://mysql:3306/bcm?sslMode=VERIFY_CA&trustCertificateKeyStoreUrl=file:/x",
+                "jdbc:mysql://mysql:3306/bcm?sslMode=VERIFY_IDENTITY&allowPublicKeyRetrieval=true",
                 "jdbc:mysql://mysql:3306/bcm"})
-        @DisplayName("a connection without TLS, or without the certificate checked, stops it")
+        @DisplayName("a connection without TLS, or without the certificate and its name checked, stops it")
         void unverifiedConnection(String url) {
             IllegalStateException e = assertThrows(IllegalStateException.class,
                     () -> withDatabase(url, STRONG_DB_PASSWORD).run(null));

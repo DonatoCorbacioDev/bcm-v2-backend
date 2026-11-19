@@ -75,9 +75,10 @@ public class SecurityStartupValidator implements ApplicationRunner {
 
     /**
      * The database account's password, and TLS to the database (OWASP Database
-     * Security, authentication and credentials): a development password, or a
-     * connection that is not encrypted with the server's certificate checked
-     * against the database's CA, stops the backend instead of running so.
+     * Security, authentication and secure connections): a development password,
+     * or a connection that is not encrypted with the server's certificate
+     * checked, its CA and its name (sslMode=VERIFY_IDENTITY), stops the backend
+     * instead of running so.
      */
     private void validateDatabase() {
         if (databasePassword == null || DEVELOPMENT_DB_PASSWORDS.contains(databasePassword.trim())) {
@@ -88,10 +89,11 @@ public class SecurityStartupValidator implements ApplicationRunner {
                     + " characters (ops/mysql/create-app-runtime-user.sh generates one).");
         }
         String url = databaseUrl == null ? "" : databaseUrl.toLowerCase(java.util.Locale.ROOT);
-        boolean verified = url.contains("sslmode=verify_ca") || url.contains("sslmode=verify_identity");
+        boolean verified = url.contains("sslmode=verify_identity");
         if (!verified || url.contains("allowpublickeyretrieval=true") || url.contains("usessl=false")) {
             throw new IllegalStateException("The database connection must use TLS with the server's certificate "
-                    + "verified (sslMode=VERIFY_CA, no allowPublicKeyRetrieval): see docker-compose.prod.yml.");
+                    + "and name verified (sslMode=VERIFY_IDENTITY, no allowPublicKeyRetrieval): "
+                    + "see docker-compose.prod.yml.");
         }
     }
 
