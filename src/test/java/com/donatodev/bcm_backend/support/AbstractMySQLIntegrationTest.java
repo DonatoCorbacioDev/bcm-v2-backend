@@ -49,7 +49,7 @@ public abstract class AbstractMySQLIntegrationTest {
     // explicitly declare utf8mb4_unicode_ci (e.g. V37's `counterparties`
     // table) with "Illegal mix of collations" the moment a query compares a
     // column from each.
-    static final MySQLContainer MYSQL = new MySQLContainer(MYSQL_IMAGE)
+    public static final MySQLContainer MYSQL = new MySQLContainer(MYSQL_IMAGE)
             .withDatabaseName("bcm_it")
             .withUsername("bcm_it")
             .withPassword("bcm_it_password")
@@ -66,7 +66,7 @@ public abstract class AbstractMySQLIntegrationTest {
      * feature needing more than these privileges fails here, not in production.
      */
     public static final String APP_USER = "bcm_it_app";
-    static final String APP_PASSWORD = "bcm_it_app_password";
+    public static final String APP_PASSWORD = "bcm_it_app_password";
     /** The same privileges ops/mysql/create-app-runtime-user.sh grants in production. */
     public static final String APP_PRIVILEGES = "SELECT, INSERT, UPDATE, DELETE";
 
