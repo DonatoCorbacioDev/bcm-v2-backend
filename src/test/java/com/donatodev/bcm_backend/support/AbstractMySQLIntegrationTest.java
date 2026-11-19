@@ -53,10 +53,11 @@ public abstract class AbstractMySQLIntegrationTest {
             .withDatabaseName("bcm_it")
             .withUsername("bcm_it")
             .withPassword("bcm_it_password")
-            // log-bin-trust-function-creators as in docker-compose.yml: lets the
-            // owner account, which has no SUPER, create V60's trigger.
+            // No binary log, as in docker-compose.yml: production runs without
+            // one, and so the owner account, which has no SUPER, creates V60's
+            // trigger with no extra setting.
             .withCommand("--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci",
-                    "--log-bin-trust-function-creators=1");
+                    "--skip-log-bin");
 
     /**
      * The account the application runs with, as in production (OWASP SQL

@@ -49,6 +49,9 @@ public class SecurityStartupValidator implements ApplicationRunner {
     @Value("${spring.datasource.password:}")
     private String databasePassword;
 
+    @Value("${redis.password:}")
+    private String redisPassword;
+
     @Value("${jwt.secret}")
     private String jwtSecret;
 
@@ -71,6 +74,20 @@ public class SecurityStartupValidator implements ApplicationRunner {
         validateTotpEncryptionKey();
         validateMlApiKey();
         validateDatabase();
+        validateRedis();
+    }
+
+    /**
+     * Redis's password (OWASP Database Security, authentication): without it the
+     * backend would use Redis's default user, which in production may only PING
+     * (bcm-v2-docker/ops/redis/create-acl.sh), and any container on the data
+     * network could do as much as the backend.
+     */
+    private void validateRedis() {
+        if (redisPassword == null || redisPassword.trim().length() < MIN_DB_PASSWORD_LENGTH) {
+            throw new IllegalStateException("REDIS_PASSWORD must be set in production (at least "
+                    + MIN_DB_PASSWORD_LENGTH + " characters): run bcm-v2-docker/ops/redis/create-acl.sh.");
+        }
     }
 
     /**

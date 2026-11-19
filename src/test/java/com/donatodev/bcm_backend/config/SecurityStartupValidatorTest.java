@@ -39,7 +39,18 @@ class SecurityStartupValidatorTest {
         ReflectionTestUtils.setField(v, "mlFastapiUrl", mlUrl);
         ReflectionTestUtils.setField(v, "databaseUrl", VERIFIED_URL);
         ReflectionTestUtils.setField(v, "databasePassword", STRONG_DB_PASSWORD);
+        ReflectionTestUtils.setField(v, "redisPassword", STRONG_DB_PASSWORD);
         return v;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "short-one"})
+    @DisplayName("without a Redis password, or with a short one, production does not start")
+    void redisPasswordRequired(String password) {
+        var v = validator(VALID_SECRET, "k", "http://localhost:8000");
+        ReflectionTestUtils.setField(v, "redisPassword", password);
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> v.run(null));
+        org.assertj.core.api.Assertions.assertThat(e.getMessage()).contains("REDIS_PASSWORD");
     }
 
     private static final String VERIFIED_URL =

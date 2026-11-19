@@ -43,9 +43,31 @@ public class RedisRateLimiterConfig {
     @Value("${redis.port:6379}")
     private int redisPort;
 
+    @Value("${redis.username:}")
+    private String redisUsername;
+
+    @Value("${redis.password:}")
+    private String redisPassword;
+
     @Bean(destroyMethod = "shutdown")
     public RedisClient rateLimitRedisClient() {
-        return RedisClient.create(RedisURI.Builder.redis(redisHost, redisPort).build());
+        return RedisClient.create(redisUri(redisHost, redisPort, redisUsername, redisPassword));
+    }
+
+    /**
+     * Where Redis is, and who the backend is to it (OWASP Database Security,
+     * authentication and least privilege): in production its own ACL user, whose
+     * password is a Docker secret and whose commands are only those the rate
+     * limiter needs (bcm-v2-docker/ops/redis/create-acl.sh). Without a password,
+     * on a laptop and in CI, Redis's default user.
+     */
+    public static RedisURI redisUri(String host, int port, String username, String password) {
+        RedisURI.Builder uri = RedisURI.Builder.redis(host, port);
+        if (password != null && !password.isBlank()) {
+            uri.withAuthentication(username == null || username.isBlank() ? "default" : username,
+                    password.trim().toCharArray());
+        }
+        return uri.build();
     }
 
     @Bean(destroyMethod = "close")
