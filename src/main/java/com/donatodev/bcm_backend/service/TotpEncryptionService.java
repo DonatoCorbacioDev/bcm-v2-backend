@@ -19,6 +19,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -35,6 +36,12 @@ import org.springframework.stereotype.Service;
  * {@link TotpKeyMigration} re-encrypts them once under the dedicated key.
  * Without the dedicated key (a laptop, never production: see
  * SecurityStartupValidator) new values keep the old format.
+ * <p>
+ * Rotating the dedicated key (OWASP Database Security, key rotation): the old
+ * one becomes {@code TOTP_ENCRYPTION_KEY_PREVIOUS} and a new one
+ * {@code TOTP_ENCRYPTION_KEY}. Values are read with either, and
+ * {@link TotpKeyMigration} re-encrypts those only the previous key opens, once,
+ * at startup; then the previous key is removed.
  */
 @Service
 public final class TotpEncryptionService {
@@ -53,15 +60,24 @@ public final class TotpEncryptionService {
 
     /** The dedicated key, or null when none is configured. */
     private final SecretKeySpec key;
+    /** The dedicated key before the current one, during a rotation, or null. */
+    private final SecretKeySpec previousKey;
     /** The key of values stored before the dedicated one, derived from the JWT secret. */
     private final SecretKeySpec legacyKey;
     /** The same, from the previous JWT secret during a rotation, or null. */
     private final SecretKeySpec legacyPreviousKey;
 
+    public TotpEncryptionService(String encryptionKey, String jwtSecret, String previousJwtSecret) {
+        this(encryptionKey, "", jwtSecret, previousJwtSecret);
+    }
+
+    @Autowired
     public TotpEncryptionService(@Value("${totp.encryption-key:}") String encryptionKey,
+                                 @Value("${totp.encryption-key-previous:}") String previousEncryptionKey,
                                  @Value("${jwt.secret}") String jwtSecret,
                                  @Value("${jwt.previous-secret:}") String previousJwtSecret) {
-        this.key = dedicatedKey(encryptionKey);
+        this.key = dedicatedKey(encryptionKey, "TOTP_ENCRYPTION_KEY");
+        this.previousKey = dedicatedKey(previousEncryptionKey, "TOTP_ENCRYPTION_KEY_PREVIOUS");
         this.legacyKey = derivedKey(jwtSecret);
         this.legacyPreviousKey = previousJwtSecret == null || previousJwtSecret.isBlank()
                 ? null : derivedKey(previousJwtSecret);
@@ -76,9 +92,26 @@ public final class TotpEncryptionService {
         return key != null;
     }
 
-    /** Whether a stored value is still in the old format and should be re-encrypted. */
+    /**
+     * Whether a stored value should be re-encrypted under the current key: it is
+     * still in the old format, or, during a rotation, only the previous key opens it.
+     */
     public boolean needsReEncryption(String stored) {
-        return key != null && stored != null && !stored.startsWith(PREFIX);
+        if (key == null || stored == null) {
+            return false;
+        }
+        if (!stored.startsWith(PREFIX)) {
+            return true;
+        }
+        if (previousKey == null) {
+            return false;
+        }
+        try {
+            decryptWith(key, stored.substring(PREFIX.length()));
+            return false;
+        } catch (IllegalStateException e) {
+            return true;
+        }
     }
 
     public String encrypt(String plainText) {
@@ -93,7 +126,15 @@ public final class TotpEncryptionService {
             if (key == null) {
                 throw new IllegalStateException("TOTP secret encrypted with TOTP_ENCRYPTION_KEY, which is not set");
             }
-            return decryptWith(key, stored.substring(PREFIX.length()));
+            String encoded = stored.substring(PREFIX.length());
+            try {
+                return decryptWith(key, encoded);
+            } catch (IllegalStateException e) {
+                if (previousKey == null) {
+                    throw e;
+                }
+                return decryptWith(previousKey, encoded);
+            }
         }
         try {
             return decryptWith(legacyKey, stored);
@@ -139,7 +180,7 @@ public final class TotpEncryptionService {
         }
     }
 
-    private static SecretKeySpec dedicatedKey(String encoded) {
+    private static SecretKeySpec dedicatedKey(String encoded, String name) {
         if (encoded == null || encoded.isBlank()) {
             return null;
         }
@@ -147,10 +188,10 @@ public final class TotpEncryptionService {
         try {
             bytes = Base64.getDecoder().decode(encoded.trim());
         } catch (IllegalArgumentException e) {
-            throw new IllegalStateException("TOTP_ENCRYPTION_KEY must be Base64", e);
+            throw new IllegalStateException(name + " must be Base64", e);
         }
         if (bytes.length != KEY_BYTES) {
-            throw new IllegalStateException("TOTP_ENCRYPTION_KEY must decode to exactly 32 bytes (AES-256)");
+            throw new IllegalStateException(name + " must decode to exactly 32 bytes (AES-256)");
         }
         return new SecretKeySpec(bytes, AES_ALGORITHM);
     }

@@ -40,7 +40,28 @@ class SecurityStartupValidatorTest {
         ReflectionTestUtils.setField(v, "databaseUrl", VERIFIED_URL);
         ReflectionTestUtils.setField(v, "databasePassword", STRONG_DB_PASSWORD);
         ReflectionTestUtils.setField(v, "redisPassword", STRONG_DB_PASSWORD);
+        ReflectionTestUtils.setField(v, "previousTotpEncryptionKey", "");
         return v;
+    }
+
+    @Test
+    @DisplayName("during a TOTP key rotation: the previous key must be a real, different one")
+    void previousTotpKey() {
+        var same = validator(VALID_SECRET, "k", "http://localhost:8000");
+        ReflectionTestUtils.setField(same, "previousTotpEncryptionKey", TOTP_KEY);
+        assertThrows(IllegalStateException.class, () -> same.run(null));
+
+        var shortKey = validator(VALID_SECRET, "k", "http://localhost:8000");
+        ReflectionTestUtils.setField(shortKey, "previousTotpEncryptionKey", SHORT_SECRET);
+        assertThrows(IllegalStateException.class, () -> shortKey.run(null));
+
+        var rotating = validator(VALID_SECRET, "k", "http://localhost:8000");
+        // A 32-byte key other than the current one: a valid rotation.
+        ReflectionTestUtils.setField(rotating, "previousTotpEncryptionKey",
+                Base64.getEncoder().encodeToString(new byte[] {
+                        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                        17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}));
+        assertDoesNotThrow(() -> rotating.run(null));
     }
 
     @org.junit.jupiter.params.ParameterizedTest

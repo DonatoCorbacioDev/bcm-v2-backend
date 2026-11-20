@@ -71,6 +71,26 @@ class TotpKeyMigrationTest {
         verifyNoInteractions(users);
     }
 
+    /** Rotating TOTP_ENCRYPTION_KEY: what only the previous key opens is moved to the new one, once. */
+    @Test
+    void aRotationMovesEveryValueToTheNewKey() {
+        String newKey = Base64.getEncoder().encodeToString("ZYXWVUTSRQZYXWVUTSRQZYXWVUTSRQ98".getBytes());
+        Users underOld = user(new TotpEncryptionService(TOTP_KEY, JWT_SECRET, "").encrypt("JBSWY3DPEHPK3PXP"));
+        TotpEncryptionService rotating = new TotpEncryptionService(newKey, TOTP_KEY, JWT_SECRET, "");
+        Users underNew = user(rotating.encrypt("KRSXG5CTMVRXEZLU"));
+        String underNewBefore = underNew.getTotpSecretEncrypted();
+        when(users.findByTotpSecretEncryptedIsNotNull()).thenReturn(List.of(underOld, underNew));
+
+        new TotpKeyMigration(users, rotating).migrate();
+
+        // Readable with the new key alone: the previous one can now be removed.
+        TotpEncryptionService afterRotation = new TotpEncryptionService(newKey, JWT_SECRET, "");
+        assertThat(afterRotation.decrypt(underOld.getTotpSecretEncrypted())).isEqualTo("JBSWY3DPEHPK3PXP");
+        assertThat(underNew.getTotpSecretEncrypted()).isEqualTo(underNewBefore);
+        verify(users).save(underOld);
+        verify(users, never()).save(underNew);
+    }
+
     @Test
     void aSecondRunFindsNothingToDo() {
         TotpEncryptionService encryption = new TotpEncryptionService(TOTP_KEY, JWT_SECRET, "");

@@ -11,6 +11,7 @@ import java.util.Base64;
 import javax.crypto.Cipher;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -64,6 +65,52 @@ class TotpEncryptionServiceTest {
         java.nio.ByteBuffer before = java.nio.ByteBuffer.allocate(iv.length + cipherText.length).put(iv).put(cipherText);
 
         assertThat(withKey().decrypt("v2:" + Base64.getEncoder().encodeToString(before.array()))).isEqualTo(PLAIN);
+    }
+
+    @Nested
+    @DisplayName("rotating TOTP_ENCRYPTION_KEY")
+    class Rotation {
+
+        private final String newKey = Base64.getEncoder().encodeToString("ZYXWVUTSRQZYXWVUTSRQZYXWVUTSRQ98".getBytes());
+
+        @Test
+        @DisplayName("a value under the previous key is still read, and flagged for re-encryption")
+        void previousKeyStillReads() {
+            String underOld = withKey().encrypt(PLAIN);
+            TotpEncryptionService rotating = new TotpEncryptionService(newKey, TOTP_KEY, JWT_SECRET, "");
+
+            assertThat(rotating.decrypt(underOld)).isEqualTo(PLAIN);
+            assertThat(rotating.needsReEncryption(underOld)).isTrue();
+            assertThat(rotating.needsReEncryption(rotating.encrypt(PLAIN))).isFalse();
+        }
+
+        @Test
+        @DisplayName("new values go under the new key, which alone reads them")
+        void newValuesUnderTheNewKey() {
+            TotpEncryptionService rotating = new TotpEncryptionService(newKey, TOTP_KEY, JWT_SECRET, "");
+            String stored = rotating.encrypt(PLAIN);
+
+            assertThat(new TotpEncryptionService(newKey, JWT_SECRET, "").decrypt(stored)).isEqualTo(PLAIN);
+            assertThatThrownBy(() -> withKey().decrypt(stored)).isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("a value under neither key is refused, not read as something else")
+        void neitherKey() {
+            String other = Base64.getEncoder().encodeToString("QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ".getBytes());
+            String underOther = new TotpEncryptionService(other, JWT_SECRET, "").encrypt(PLAIN);
+            TotpEncryptionService rotating = new TotpEncryptionService(newKey, TOTP_KEY, JWT_SECRET, "");
+
+            assertThatThrownBy(() -> rotating.decrypt(underOther)).isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("a malformed previous key is refused at startup, naming it")
+        void malformedPreviousKey() {
+            assertThatThrownBy(() -> new TotpEncryptionService(newKey, "dG9vc2hvcnQ=", JWT_SECRET, ""))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("TOTP_ENCRYPTION_KEY_PREVIOUS");
+        }
     }
 
     @Test

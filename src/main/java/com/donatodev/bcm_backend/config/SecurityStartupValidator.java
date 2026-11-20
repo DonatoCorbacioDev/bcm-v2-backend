@@ -61,6 +61,9 @@ public class SecurityStartupValidator implements ApplicationRunner {
     @Value("${totp.encryption-key:}")
     private String totpEncryptionKey;
 
+    @Value("${totp.encryption-key-previous:}")
+    private String previousTotpEncryptionKey;
+
     @Value("${ml.internal-api-key:}")
     private String mlInternalApiKey;
 
@@ -72,6 +75,7 @@ public class SecurityStartupValidator implements ApplicationRunner {
         validateJwtSecret();
         validatePreviousJwtSecret();
         validateTotpEncryptionKey();
+        validatePreviousTotpEncryptionKey();
         validateMlApiKey();
         validateDatabase();
         validateRedis();
@@ -145,6 +149,19 @@ public class SecurityStartupValidator implements ApplicationRunner {
         }
         if (decodedLength(totpEncryptionKey, "TOTP_ENCRYPTION_KEY") != 32) {
             throw new IllegalStateException("TOTP_ENCRYPTION_KEY must decode to exactly 32 bytes (AES-256).");
+        }
+    }
+
+    /** During a rotation only: a real, different key, which nothing else may be. */
+    private void validatePreviousTotpEncryptionKey() {
+        if (previousTotpEncryptionKey == null || previousTotpEncryptionKey.isBlank()) {
+            return;
+        }
+        if (previousTotpEncryptionKey.trim().equals(totpEncryptionKey == null ? "" : totpEncryptionKey.trim())) {
+            throw new IllegalStateException("TOTP_ENCRYPTION_KEY_PREVIOUS is the same as TOTP_ENCRYPTION_KEY: leave it empty.");
+        }
+        if (decodedLength(previousTotpEncryptionKey, "TOTP_ENCRYPTION_KEY_PREVIOUS") != 32) {
+            throw new IllegalStateException("TOTP_ENCRYPTION_KEY_PREVIOUS must decode to exactly 32 bytes (AES-256).");
         }
     }
 
