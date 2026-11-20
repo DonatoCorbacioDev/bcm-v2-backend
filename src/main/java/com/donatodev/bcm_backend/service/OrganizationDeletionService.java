@@ -17,6 +17,8 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.donatodev.bcm_backend.dto.DeletionCodeSentDTO;
 import com.donatodev.bcm_backend.dto.OrganizationDeletionDTO;
@@ -30,6 +32,7 @@ import com.donatodev.bcm_backend.exception.OrganizationNotFoundException;
 import com.donatodev.bcm_backend.repository.OrganizationDeletionCodeRepository;
 import com.donatodev.bcm_backend.repository.OrganizationRepository;
 import com.donatodev.bcm_backend.repository.UsersRepository;
+import com.donatodev.bcm_backend.util.AfterTransaction;
 
 /**
  * Self-service deletion of an organization (GDPR art. 17, Terms sez. 13),
@@ -48,6 +51,8 @@ import com.donatodev.bcm_backend.repository.UsersRepository;
  */
 @Service
 public class OrganizationDeletionService {
+
+    private static final Logger logger = LoggerFactory.getLogger(OrganizationDeletionService.class);
 
     static final int GRACE_DAYS = 30;
     static final int CODE_VALIDITY_MINUTES = 15;
@@ -125,7 +130,10 @@ public class OrganizationDeletionService {
         pending.setExpiresAt(now.plusMinutes(CODE_VALIDITY_MINUTES));
         codeRepository.save(pending);
 
-        emailService.sendOrganizationDeletionCode(email, org.getName(), code, CODE_VALIDITY_MINUTES);
+        // Sent once the code is committed: a rollback would leave a code that
+        // cannot work. A failure here reaches the admin, who can ask again.
+        String name = org.getName();
+        AfterTransaction.afterCommit(() -> emailService.sendOrganizationDeletionCode(email, name, code, CODE_VALIDITY_MINUTES));
         return new DeletionCodeSentDTO(CODE_VALIDITY_MINUTES, RESEND_COOLDOWN_SECONDS);
     }
 
@@ -173,9 +181,15 @@ public class OrganizationDeletionService {
 
         // Every admin hears about it, not just the one who asked: if that
         // account was misused, the others can still cancel in time.
+        // After the commit, so no one is told about a deletion that was rolled
+        // back; and a notice that fails is logged, not thrown: the deletion is
+        // scheduled either way, and the admin must not be told otherwise.
+        String name = org.getName();
+        String by = admin.getUsername();
+        java.time.LocalDate on = org.getDeletionScheduledFor().toLocalDate();
         for (String email : adminEmails(org)) {
-            emailService.sendOrganizationDeletionScheduled(email, org.getName(), admin.getUsername(),
-                    org.getDeletionScheduledFor().toLocalDate());
+            AfterTransaction.afterCommit(() -> notice(
+                    () -> emailService.sendOrganizationDeletionScheduled(email, name, by, on)));
         }
         return new OrganizationDeletionDTO(org.getDeletionScheduledFor());
     }
@@ -194,8 +208,20 @@ public class OrganizationDeletionService {
         organizationRepository.save(org);
         auditLogService.save("ORGANIZATION_DELETION_CANCELLED", "Organization", org.getId(),
                 admin.getUsername(), org.getId(), "Scheduled deletion cancelled");
+        String name = org.getName();
+        String by = admin.getUsername();
         for (String email : adminEmails(org)) {
-            emailService.sendOrganizationDeletionCancelled(email, org.getName(), admin.getUsername());
+            AfterTransaction.afterCommit(() -> notice(
+                    () -> emailService.sendOrganizationDeletionCancelled(email, name, by)));
+        }
+    }
+
+    /** Sends one notice about something already committed: a failure is logged, never thrown. */
+    private static void notice(Runnable send) {
+        try {
+            send.run();
+        } catch (RuntimeException e) {
+            logger.error("Organization deletion notice not sent to one admin: {}", e.getClass().getSimpleName());
         }
     }
 

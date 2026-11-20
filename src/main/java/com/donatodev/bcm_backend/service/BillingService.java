@@ -208,10 +208,7 @@ public class BillingService {
             return;
         }
         try {
-            if (stripeCustomerId != null) {
-                organizationService.linkStripeCustomer(orgId, stripeCustomerId);
-            }
-            organizationService.changeTier(orgId, tier, "stripe");
+            organizationService.applySubscription(orgId, tier, stripeCustomerId);
         } catch (OrganizationNotFoundException ex) {
             log.warn("Stripe webhook for unknown org {}, ignored (target tier {})", orgId, tier);
         }

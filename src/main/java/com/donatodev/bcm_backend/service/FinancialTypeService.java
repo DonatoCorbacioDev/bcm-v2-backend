@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.FinancialTypeDTO;
@@ -78,6 +79,7 @@ public class FinancialTypeService {
      * @param dto the financial type data transfer object
      * @return the created {@link FinancialTypeDTO}
      */
+    @Transactional
     public FinancialTypeDTO createType(FinancialTypeDTO dto) {
         FinancialTypes type = financialTypeMapper.toEntity(dto);
         // Creation must never merge an existing row selected by a client-supplied ID.
@@ -98,6 +100,7 @@ public class FinancialTypeService {
      * @return the updated {@link FinancialTypeDTO}
      * @throws FinancialTypeNotFoundException if the financial type is not found
      */
+    @Transactional
     public FinancialTypeDTO updateType(UUID id, FinancialTypeDTO dto) {
         FinancialTypes type = findTypeInScope(id)
                 .orElseThrow(() -> new FinancialTypeNotFoundException(FINANCIAL_TYPE_ID_PREFIX + id + NOT_FOUND_SUFFIX));
@@ -116,6 +119,7 @@ public class FinancialTypeService {
      * @param id the ID of the financial type to delete
      * @throws FinancialTypeNotFoundException if the financial type is not found
      */
+    @Transactional
     public void deleteType(UUID id) {
         FinancialTypes type = findTypeInScope(id)
                 .orElseThrow(() -> new FinancialTypeNotFoundException(FINANCIAL_TYPE_ID_PREFIX + id + NOT_FOUND_SUFFIX));

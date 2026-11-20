@@ -132,7 +132,8 @@ public class ContractMapper {
                 contract.getNoticeDays(),
                 contract.getRenewalMonths(),
                 noticeDeadline,
-                daysUntilNoticeDeadline
+                daysUntilNoticeDeadline,
+                contract.getVersion()
         );
     }
 

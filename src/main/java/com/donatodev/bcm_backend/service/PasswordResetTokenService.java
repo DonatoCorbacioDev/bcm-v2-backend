@@ -10,6 +10,7 @@ import java.time.ZoneId;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.entity.PasswordResetToken;
 import com.donatodev.bcm_backend.entity.Users;
@@ -30,6 +31,7 @@ public class PasswordResetTokenService {
     private static final int VALIDITY_MINUTES = 30;
 
     private final PasswordResetTokenRepository repository;
+    private final UserService userService;
 
     /**
      * Whether a link was sent to this user less than {@code minutes} ago
@@ -51,6 +53,7 @@ public class PasswordResetTokenService {
      * @param user the user for whom to create the token
      * @return the created {@link PasswordResetToken}
      */
+    @Transactional
     public String createToken(Users user) {
         repository.findByUser(user).ifPresent(repository::delete);
 
@@ -75,6 +78,30 @@ public class PasswordResetTokenService {
     public PasswordResetToken getByToken(String token) {
         return repository.findByToken(TokenHash.sha256Hex(token))
                 .orElseThrow(() -> new RuntimeException("Reset token not found"));
+    }
+
+    /**
+     * Sets a new password through an emailed reset link, all or nothing: the
+     * link is used up (deleted) and the password changed in one transaction,
+     * so a failure leaves the link valid and the password as it was, and of
+     * two requests with the same link only the first changes it.
+     *
+     * @param rawToken    the token from the link
+     * @param newPassword the new password, checked by the password policy
+     * @throws RuntimeException if the link is unknown, expired or already used,
+     *         or the password is refused: nothing is changed
+     */
+    @Transactional
+    public void resetPassword(String rawToken, String newPassword) {
+        PasswordResetToken token = getByToken(rawToken);
+        if (token.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.systemDefault()))) {
+            throw new IllegalStateException("Reset token expired");
+        }
+        Users user = token.getUser();
+        if (repository.deleteToUse(token.getId()) != 1) {
+            throw new IllegalStateException("Reset token already used");
+        }
+        userService.resetPassword(user, newPassword);
     }
 
     /**

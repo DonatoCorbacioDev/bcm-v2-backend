@@ -550,6 +550,51 @@ class OrganizationServiceTest {
     }
 
     @Nested
+    @DisplayName("applySubscription (Stripe webhook)")
+    @SuppressWarnings("unused")
+    class ApplySubscription {
+
+        @Test
+        @DisplayName("links the customer and changes the tier together")
+        void linksAndChangesTier() {
+            Organization org = savedOrg();
+            when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
+            when(organizationRepository.save(org)).thenReturn(org);
+
+            organizationService.applySubscription(uid(1), SubscriptionTier.PRO, "cus_1");
+
+            assertEquals("cus_1", org.getStripeCustomerId());
+            assertEquals(SubscriptionTier.PRO, org.getSubscriptionTier());
+        }
+
+        @Test
+        @DisplayName("without a customer, changes the tier only")
+        void tierOnly() {
+            Organization org = savedOrg();
+            org.setStripeCustomerId("cus_old");
+            org.setSubscriptionTier(SubscriptionTier.PRO);
+            when(organizationRepository.findById(uid(1))).thenReturn(Optional.of(org));
+            when(organizationRepository.save(org)).thenReturn(org);
+
+            organizationService.applySubscription(uid(1), SubscriptionTier.FREE, null);
+
+            assertEquals("cus_old", org.getStripeCustomerId());
+            assertEquals(SubscriptionTier.FREE, org.getSubscriptionTier());
+        }
+
+        @Test
+        @DisplayName("an unknown organization is refused, nothing written")
+        void unknownOrganization() {
+            when(organizationRepository.findById(uid(99))).thenReturn(Optional.empty());
+            UUID id99 = uid(99);
+
+            assertThrows(OrganizationNotFoundException.class,
+                    () -> organizationService.applySubscription(id99, SubscriptionTier.PRO, "cus_1"));
+            verify(organizationRepository, never()).save(any());
+        }
+    }
+
+    @Nested
     @DisplayName("changeTier")
     @SuppressWarnings("unused")
     class ChangeTier {

@@ -16,6 +16,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -38,6 +39,16 @@ public class Counterparty {
     @Id
     @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     private UUID id;
+
+    /**
+     * Optimistic locking (V61): checked and incremented on every update, so
+     * of two overlapping changes the second fails instead of overwriting the
+     * first. A primitive on purpose: Spring Data then tells a new row from an
+     * existing one by its id, as before, not by a missing version.
+     */
+    @Version
+    @Column(nullable = false)
+    private long version;
 
     @Column(name = "name", nullable = false)
     private String name;

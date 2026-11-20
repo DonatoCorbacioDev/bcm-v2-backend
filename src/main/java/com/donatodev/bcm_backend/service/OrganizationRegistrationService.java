@@ -31,6 +31,7 @@ import com.donatodev.bcm_backend.exception.RegistrationCodeException;
 import com.donatodev.bcm_backend.repository.PendingRegistrationRepository;
 import com.donatodev.bcm_backend.security.SecurityEvents;
 import com.donatodev.bcm_backend.validation.PasswordPolicy;
+import com.donatodev.bcm_backend.util.AfterTransaction;
 
 /**
  * Two-step self-service registration. Requesting it stores the data as a
@@ -123,7 +124,10 @@ public class OrganizationRegistrationService {
                 .requestUserAgent(origin.userAgent())
                 .build());
 
-        emailService.sendRegistrationCode(request.adminEmail(), code, CODE_VALIDITY_MINUTES);
+        // Sent once the pending registration is committed: a rollback would
+        // leave a code in the mailbox for a registration that does not exist.
+        String to = request.adminEmail();
+        AfterTransaction.afterCommit(() -> emailService.sendRegistrationCode(to, code, CODE_VALIDITY_MINUTES));
         return started(publicId);
     }
 
@@ -145,7 +149,8 @@ public class OrganizationRegistrationService {
         pending.setExpiresAt(now.plusMinutes(CODE_VALIDITY_MINUTES));
         pendingRepository.save(pending);
 
-        emailService.sendRegistrationCode(pending.getAdminEmail(), code, CODE_VALIDITY_MINUTES);
+        String to = pending.getAdminEmail();
+        AfterTransaction.afterCommit(() -> emailService.sendRegistrationCode(to, code, CODE_VALIDITY_MINUTES));
         return started(pending.getPublicId());
     }
 

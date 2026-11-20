@@ -57,8 +57,19 @@ public record CounterpartyDTO(
         @Size(max = 10, message = "Il CAP non può superare i 10 caratteri") String postalCode,
         @Size(max = 100, message = "Il comune non può superare i 100 caratteri") String city,
         @Pattern(regexp = "^$|^[A-Za-z]{2}$", message = "La provincia è una sigla di 2 lettere") String province,
-        @Pattern(regexp = "^$|^[A-Za-z]{2}$", message = "La nazione è un codice di 2 lettere") String country
+        @Pattern(regexp = "^$|^[A-Za-z]{2}$", message = "La nazione è un codice di 2 lettere") String country,
+        // The row's version when read (V61): sent back on an update, which is
+        // refused (409) if someone changed the counterparty meanwhile. Null: not checked.
+        Long version
 ) {
+
+    /** Without the version: call sites predating optimistic locking. */
+    public CounterpartyDTO(UUID id, String name, CounterpartyType type, String vatNumber, String taxCode,
+            String address, String contactName, String contactEmail, String contactPhone, String notes,
+            String verifiedIban, String verifiedBic, String postalCode, String city, String province, String country) {
+        this(id, name, type, vatNumber, taxCode, address, contactName, contactEmail, contactPhone, notes,
+                verifiedIban, verifiedBic, postalCode, city, province, country, null);
+    }
 
     /** Without the address parts: call sites predating them. */
     public CounterpartyDTO(UUID id, String name, CounterpartyType type, String vatNumber, String taxCode,

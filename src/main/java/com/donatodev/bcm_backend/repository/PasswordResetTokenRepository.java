@@ -9,6 +9,9 @@ import java.util.UUID;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.donatodev.bcm_backend.entity.PasswordResetToken;
 import com.donatodev.bcm_backend.entity.Users;
@@ -35,4 +38,17 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
      * @return an {@link Optional} containing the matching token if found, or empty otherwise
      */
     Optional<PasswordResetToken> findByUser(Users user);
+
+    /**
+     * Deletes one reset link, to use it: of two requests with the same link
+     * at the same time, MySQL lets one delete the row and the other find
+     * nothing, so a link sets a password once (OWASP Database Security,
+     * concurrent updates).
+     *
+     * @param id the link's id
+     * @return 1 if this call deleted it, 0 if it was already gone
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("DELETE FROM PasswordResetToken t WHERE t.id = :id")
+    int deleteToUse(@Param("id") UUID id);
 }

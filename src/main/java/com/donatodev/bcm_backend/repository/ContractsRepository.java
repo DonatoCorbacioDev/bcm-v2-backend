@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -23,6 +24,8 @@ import com.donatodev.bcm_backend.dto.TopManagerDTO;
 import com.donatodev.bcm_backend.entity.ContractStatus;
 import com.donatodev.bcm_backend.entity.Contracts;
 
+import jakarta.persistence.LockModeType;
+
 /**
  * Repository interface for accessing {@link Contracts} entities.
  * <p>
@@ -30,6 +33,21 @@ import com.donatodev.bcm_backend.entity.Contracts;
  */
 @Repository
 public interface ContractsRepository extends JpaRepository<Contracts, UUID> {
+
+    /**
+     * Locks a contract's row for the rest of the transaction (SELECT ... FOR
+     * UPDATE), before anything else is written. An operation that inserts rows
+     * pointing at the contract (workflow events, history, notifications) and
+     * then updates it would otherwise deadlock with another doing the same:
+     * each insert holds a shared lock on the contract through its foreign key,
+     * and neither can then take the exclusive one the update needs. Locked
+     * first, the two run one after the other. Call it once the caller's access
+     * to the contract has been checked; the organization is matched again, so
+     * a row of another one is never locked.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Contracts c WHERE c.id = :id AND c.organization.id = :orgId")
+    Optional<Contracts> findByIdForUpdate(@Param("id") UUID id, @Param("orgId") UUID orgId);
 
     /**
      * Checks whether a contract with the given contract number already

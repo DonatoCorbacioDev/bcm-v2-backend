@@ -271,6 +271,24 @@ public class OrganizationService {
         organizationRepository.save(org);
     }
 
+    /**
+     * Applies what a Stripe webhook says about an org's subscription, all or
+     * nothing: the customer (when the event carries one) and the tier are
+     * written in one transaction, so a failure leaves neither half applied
+     * and Stripe's redelivery starts again from a clean state. Both steps are
+     * idempotent, so a redelivered event changes nothing.
+     *
+     * @param stripeCustomerId the customer to link first, or null to leave it as it is
+     * @throws OrganizationNotFoundException if the organization does not exist: nothing is written
+     */
+    @Transactional
+    public void applySubscription(UUID orgId, SubscriptionTier tier, String stripeCustomerId) {
+        if (stripeCustomerId != null) {
+            linkStripeCustomer(orgId, stripeCustomerId);
+        }
+        changeTier(orgId, tier, "stripe");
+    }
+
     private Organization resolveCurrentOrganization() {
         return organizationRepository.findById(TenantContext.require())
                 .orElseThrow(() -> new OrganizationNotFoundException(ORGANIZATION_NOT_FOUND));

@@ -5,8 +5,6 @@
 
 package com.donatodev.bcm_backend.auth;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -20,7 +18,6 @@ import org.springframework.security.authentication.AuthenticationTrustResolver;
 import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
 
 import com.donatodev.bcm_backend.dto.*;
-import com.donatodev.bcm_backend.entity.*;
 import com.donatodev.bcm_backend.exception.RefreshTokenException;
 import com.donatodev.bcm_backend.service.*;
 import com.donatodev.bcm_backend.service.RefreshTokenService;
@@ -196,17 +193,9 @@ public class AuthController {
     @PostMapping("/reset-password")
     public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequestDTO request) {
         try {
-            PasswordResetToken token = passwordResetTokenService.getByToken(request.token());
-
-            if (token.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.systemDefault()))) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(INVALID_RESET_LINK);
-            }
-
-            Users user = token.getUser();
-            // Ends every session and pending link, and lifts a login lock.
-            userService.resetPassword(user, request.newPassword());
-            passwordResetTokenService.deleteToken(token);
-
+            // Link used up and password changed together, or neither; it also
+            // ends every session and pending link, and lifts a login lock.
+            passwordResetTokenService.resetPassword(request.token(), request.newPassword());
             return ResponseEntity.ok("Password reimpostata con successo.");
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(INVALID_RESET_LINK);

@@ -10,6 +10,7 @@ import java.util.List;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.dto.ContractWorkflowEventDTO;
 import com.donatodev.bcm_backend.entity.ContractStatus;
@@ -57,8 +58,11 @@ public class ContractWorkflowService {
      * Submits a DRAFT contract for review. Allowed for the contract's own
      * manager or an ADMIN (same ownership check used for editing).
      */
+    @Transactional
     public void submitForReview(UUID contractId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
+        // Locked before anything is written: simultaneous moves run one after the other.
+        contract = lockForUpdate(contract);
         contractAccessGuard.checkManagerCanAccess(contract);
         requireStage(contract, WorkflowStage.DRAFT, "Il contratto deve essere in bozza per essere inviato in revisione");
 
@@ -71,8 +75,11 @@ public class ContractWorkflowService {
      * Approves a contract IN_REVIEW: moves the workflow stage to APPROVED
      * and the contract status from DRAFT to ACTIVE in the same update.
      */
+    @Transactional
     public void approve(UUID contractId) {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
+        // Locked before anything is written: simultaneous moves run one after the other.
+        contract = lockForUpdate(contract);
         Users actor = requireApprover();
         requireStage(contract, WorkflowStage.IN_REVIEW, "Il contratto deve essere in revisione per poter essere approvato");
         requireSecondPerson(contract, actor);
@@ -86,11 +93,14 @@ public class ContractWorkflowService {
      * Rejects a contract IN_REVIEW, sending it back to DRAFT with a
      * mandatory comment explaining why.
      */
+    @Transactional
     public void reject(UUID contractId, String comment) {
         if (comment == null || comment.isBlank()) {
             throw new IllegalArgumentException("Un commento è obbligatorio per respingere un contratto");
         }
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
+        // Locked before anything is written: simultaneous moves run one after the other.
+        contract = lockForUpdate(contract);
         Users actor = requireApprover();
         requireStage(contract, WorkflowStage.IN_REVIEW, "Il contratto deve essere in revisione per poter essere respinto");
         requireSecondPerson(contract, actor);
@@ -182,5 +192,16 @@ public class ContractWorkflowService {
                 event.getComment(),
                 event.getCreatedAt()
         );
+    }
+
+    /**
+     * The contract, its row locked until the transaction ends (see
+     * ContractsRepository#findByIdForUpdate). organization_id is NOT NULL in
+     * the database, so the null branch only serves entities built in memory.
+     */
+    private Contracts lockForUpdate(Contracts contract) {
+        UUID orgId = contract.getOrganization() != null ? contract.getOrganization().getId() : null;
+        return orgId == null ? contract
+                : contractsRepository.findByIdForUpdate(contract.getId(), orgId).orElse(contract);
     }
 }

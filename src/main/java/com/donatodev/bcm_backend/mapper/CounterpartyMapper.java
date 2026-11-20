@@ -38,7 +38,8 @@ public class CounterpartyMapper {
                 counterparty.getPostalCode(),
                 counterparty.getCity(),
                 counterparty.getProvince(),
-                counterparty.getCountry()
+                counterparty.getCountry(),
+                counterparty.getVersion()
         );
     }
 

@@ -33,6 +33,7 @@ import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.repository.ContractDocumentRepository;
 import com.donatodev.bcm_backend.upload.UploadChecks;
 import com.donatodev.bcm_backend.util.SafeFileName;
+import com.donatodev.bcm_backend.util.AfterTransaction;
 import com.github.difflib.text.DiffRow;
 import com.github.difflib.text.DiffRowGenerator;
 
@@ -242,13 +243,18 @@ public class ContractDocumentService {
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(DOC_NOT_FOUND, documentId, contractId)));
 
-        localStorageService.deleteDocument(doc.getStoragePath());
+        // The row first, the file once that is committed: deleting the file
+        // first would lose it if the transaction then rolled back.
+        String storagePath = doc.getStoragePath();
         documentRepository.delete(doc);
+        AfterTransaction.afterCommit(() -> localStorageService.deleteQuietly(storagePath));
     }
 
     private ContractDocument saveNewVersion(Contracts contract, UUID orgId, byte[] bytes, String fileName,
                                              UUID versionGroupId, int versionNumber) {
         String storagePath = localStorageService.storeDocument(orgId, contract.getId(), bytes);
+        // No row will point at the file if the transaction rolls back.
+        AfterTransaction.onRollback(() -> localStorageService.deleteQuietly(storagePath));
 
         ContractDocument doc = documentRepository.save(ContractDocument.builder()
                 .contract(contract)

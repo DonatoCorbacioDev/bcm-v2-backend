@@ -466,8 +466,10 @@ class ContractDocumentServiceTest {
 
             contractDocumentService.deleteDocument(CONTRACT_ID, DOC_ID);
 
-            verify(localStorageService).deleteDocument(doc.getStoragePath());
-            verify(documentRepository).delete(doc);
+            // The row first, then the file (at once here: no transaction in a unit test).
+            org.mockito.InOrder order = org.mockito.Mockito.inOrder(documentRepository, localStorageService);
+            order.verify(documentRepository).delete(doc);
+            order.verify(localStorageService).deleteQuietly(doc.getStoragePath());
         }
 
         @Test

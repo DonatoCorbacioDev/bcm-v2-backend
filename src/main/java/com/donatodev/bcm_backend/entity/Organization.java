@@ -17,6 +17,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -35,6 +36,16 @@ public class Organization {
     @Id
     @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     private UUID id;
+
+    /**
+     * Optimistic locking (V61): checked and incremented on every update, so
+     * of two overlapping changes the second fails instead of overwriting the
+     * first. A primitive on purpose: Spring Data then tells a new row from an
+     * existing one by its id, as before, not by a missing version.
+     */
+    @Version
+    @Column(nullable = false)
+    private long version;
 
     /**
      * The numeric id this organization had before V55 (ADR-0009), null for

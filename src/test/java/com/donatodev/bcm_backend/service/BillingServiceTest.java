@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -30,7 +30,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -250,11 +249,11 @@ class BillingServiceTest {
 
             billingService.handleWebhook(payload, signature);
 
-            verify(organizationService).changeTier(uid(1), SubscriptionTier.PRO, "stripe");
+            verify(organizationService).applySubscription(uid(1), SubscriptionTier.PRO, null);
         }
 
         @Test
-        @DisplayName("links the checkout's Stripe customer to the org before upgrading it")
+        @DisplayName("links the checkout's Stripe customer to the org while upgrading it")
         void shouldLinkCustomerThenUpgrade() throws Exception {
             String payload = event("checkout.session.completed",
                     "{\"mode\":\"subscription\",\"payment_status\":\"paid\",\"client_reference_id\":\"00000000-0000-0000-0000-000000000001\","
@@ -263,9 +262,7 @@ class BillingServiceTest {
 
             billingService.handleWebhook(payload, signature);
 
-            InOrder order = inOrder(organizationService);
-            order.verify(organizationService).linkStripeCustomer(uid(1), "cus_new");
-            order.verify(organizationService).changeTier(uid(1), SubscriptionTier.PRO, "stripe");
+            verify(organizationService).applySubscription(uid(1), SubscriptionTier.PRO, "cus_new");
         }
 
         @Test
@@ -277,8 +274,7 @@ class BillingServiceTest {
 
             billingService.handleWebhook(payload, signature);
 
-            verify(organizationService).changeTier(uid(1), SubscriptionTier.FREE, "stripe");
-            verify(organizationService, never()).linkStripeCustomer(any(), any());
+            verify(organizationService).applySubscription(uid(1), SubscriptionTier.FREE, null);
         }
 
         @Test
@@ -287,7 +283,7 @@ class BillingServiceTest {
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                     () -> billingService.handleWebhook("not json {", "t=1,v1=abc"));
             assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
-            verify(organizationService, never()).changeTier(any(), any(), any());
+            verify(organizationService, never()).applySubscription(any(), any(), any());
         }
 
         @ParameterizedTest(name = "{0}")
@@ -306,7 +302,7 @@ class BillingServiceTest {
 
             billingService.handleWebhook(payload, signature);
 
-            verify(organizationService, never()).changeTier(any(), any(), any());
+            verify(organizationService, never()).applySubscription(any(), any(), any());
         }
 
         @Test
@@ -317,7 +313,7 @@ class BillingServiceTest {
 
             billingService.handleWebhook(payload, sign(payload, WEBHOOK_SECRET));
 
-            verify(organizationService).changeTier(uid(1), SubscriptionTier.FREE, "stripe");
+            verify(organizationService).applySubscription(uid(1), SubscriptionTier.FREE, null);
         }
 
         @Test
@@ -329,7 +325,7 @@ class BillingServiceTest {
             ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                     () -> billingService.handleWebhook(payload, forged));
             assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
-            verify(organizationService, never()).changeTier(any(), any(), any());
+            verify(organizationService, never()).applySubscription(any(), any(), any());
         }
 
         @Test
@@ -340,7 +336,7 @@ class BillingServiceTest {
             String tampered = payload.replace("\"client_reference_id\":\"00000000-0000-0000-0000-000000000001\"", "\"client_reference_id\":\"00000000-0000-0000-0000-000000000002\"");
 
             assertThrows(ResponseStatusException.class, () -> billingService.handleWebhook(tampered, signature));
-            verify(organizationService, never()).changeTier(any(), any(), any());
+            verify(organizationService, never()).applySubscription(any(), any(), any());
         }
 
         @ParameterizedTest(name = "header \"{0}\"")
@@ -370,8 +366,8 @@ class BillingServiceTest {
         void shouldAcknowledgeUnknownOrg() throws Exception {
             String payload = event("checkout.session.completed", PAID_SESSION);
             String signature = sign(payload, WEBHOOK_SECRET);
-            when(organizationService.changeTier(uid(1), SubscriptionTier.PRO, "stripe"))
-                    .thenThrow(new OrganizationNotFoundException("Organizzazione non trovata"));
+            doThrow(new OrganizationNotFoundException("Organizzazione non trovata"))
+                    .when(organizationService).applySubscription(uid(1), SubscriptionTier.PRO, null);
 
             assertDoesNotThrow(() -> billingService.handleWebhook(payload, signature));
         }

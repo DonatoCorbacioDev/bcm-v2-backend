@@ -11,6 +11,7 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.ManagerDTO;
@@ -79,6 +80,7 @@ public class ManagerService {
      * @param managerDTO the manager data transfer object
      * @return the created {@link ManagerDTO}
      */
+    @Transactional
     public ManagerDTO createManager(ManagerDTO managerDTO) {
         Managers manager = managerMapper.toEntity(managerDTO);
         // Creation must never merge an existing row selected by a client-supplied ID.
@@ -99,6 +101,7 @@ public class ManagerService {
      * @return the updated {@link ManagerDTO}
      * @throws ManagerNotFoundException if manager not found
      */
+    @Transactional
     public ManagerDTO updateManager(UUID id, ManagerDTO managerDTO) {
         Managers manager = findManagerInScope(id)
                 .orElseThrow(() -> new ManagerNotFoundException(MANAGER_ID_PREFIX + id + NOT_FOUND_SUFFIX));
@@ -119,6 +122,7 @@ public class ManagerService {
      * @param id the ID of the manager to delete
      * @throws ManagerNotFoundException if manager not found
      */
+    @Transactional
     public void deleteManager(UUID id) {
         Managers manager = findManagerInScope(id)
                 .orElseThrow(() -> new ManagerNotFoundException(MANAGER_ID_PREFIX + id + NOT_FOUND_SUFFIX));

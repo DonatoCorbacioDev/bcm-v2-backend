@@ -29,6 +29,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.util.LikePattern;
 import com.donatodev.bcm_backend.util.PageLimits;
@@ -56,6 +57,7 @@ import com.donatodev.bcm_backend.exception.ContractNotFoundException;
 import com.donatodev.bcm_backend.exception.CounterpartyNotFoundException;
 import com.donatodev.bcm_backend.exception.FinancialTypeNotFoundException;
 import com.donatodev.bcm_backend.exception.UserNotFoundException;
+import com.donatodev.bcm_backend.exception.StaleDataException;
 import com.donatodev.bcm_backend.mapper.ContractMapper;
 import com.donatodev.bcm_backend.repository.BusinessAreasRepository;
 import com.donatodev.bcm_backend.repository.ContractHistoryRepository;
@@ -224,6 +226,7 @@ public class ContractService {
         }
     }
 
+    @Transactional
     public ContractDTO createContract(ContractDTO contractDTO) {
         requireEndNotBeforeStart(contractDTO);
         Contracts contract = contractMapper.toEntity(contractDTO);
@@ -246,10 +249,16 @@ public class ContractService {
      * Updates an existing contract. If the status changes, a history record is
      * automatically created.
      */
+    @Transactional
     public ContractDTO updateContract(UUID id, ContractDTO contractDTO) {
         requireEndNotBeforeStart(contractDTO);
         Contracts contract = findContractInScope(id)
                 .orElseThrow(() -> new ContractNotFoundException("Contratto non trovato"));
+        // Locked before anything is written (the history row points at it): two
+        // simultaneous edits run one after the other instead of deadlocking.
+        contract = lockForUpdate(contract);
+        // Made from the version the user had open: refused if someone changed it since.
+        StaleDataException.check(contractDTO.version(), contract.getVersion());
 
         // Save previous status for history tracking
         ContractStatus previousStatus = contract.getStatus();
@@ -347,6 +356,7 @@ public class ContractService {
      *
      * @throws IllegalArgumentException if the contract has no financial terms set
      */
+    @Transactional
     public FinancialGenerationResultDTO regenerateFinancialValues(UUID contractId) {
         Contracts contract = findContractInScope(contractId)
                 .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + contractId));
@@ -359,6 +369,7 @@ public class ContractService {
     /**
      * Deletes a contract by its ID.
      */
+    @Transactional
     public void deleteContract(UUID id) {
         Contracts contract = findContractInScope(id)
                 .orElseThrow(() -> new ContractNotFoundException(MSG_CONTRACT_NOT_FOUND_PREFIX + id));
@@ -628,5 +639,16 @@ public class ContractService {
 
     private record AuthCtx(String role, UUID managerId) {
 
+    }
+
+    /**
+     * The contract, its row locked until the transaction ends (see
+     * ContractsRepository#findByIdForUpdate). organization_id is NOT NULL in
+     * the database, so the null branch only serves entities built in memory.
+     */
+    private Contracts lockForUpdate(Contracts contract) {
+        UUID orgId = contract.getOrganization() != null ? contract.getOrganization().getId() : null;
+        return orgId == null ? contract
+                : contractsRepository.findByIdForUpdate(contract.getId(), orgId).orElse(contract);
     }
 }

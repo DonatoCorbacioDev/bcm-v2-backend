@@ -38,6 +38,7 @@ import com.donatodev.bcm_backend.repository.ElectronicInvoiceRepository;
 import com.donatodev.bcm_backend.upload.UploadChecks;
 import com.donatodev.bcm_backend.util.IbanValidator;
 import com.donatodev.bcm_backend.util.SafeFileName;
+import com.donatodev.bcm_backend.util.AfterTransaction;
 
 @Service
 public class ElectronicInvoiceService {
@@ -89,6 +90,8 @@ public class ElectronicInvoiceService {
         }
 
         String storagePath = localStorageService.storeInvoice(orgId, contractId, bytes);
+        // No row will point at the file if the transaction rolls back.
+        AfterTransaction.onRollback(() -> localStorageService.deleteQuietly(storagePath));
 
         ElectronicInvoice invoice = ElectronicInvoice.builder()
                 .contract(contract)
@@ -166,8 +169,10 @@ public class ElectronicInvoiceService {
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(INVOICE_NOT_FOUND, invoiceId, contractId)));
 
-        localStorageService.deleteDocument(invoice.getStoragePath());
+        // The row first, the file once that is committed (see ContractDocumentService).
+        String storagePath = invoice.getStoragePath();
         invoiceRepository.delete(invoice);
+        AfterTransaction.afterCommit(() -> localStorageService.deleteQuietly(storagePath));
     }
 
     @Transactional

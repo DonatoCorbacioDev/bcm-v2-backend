@@ -25,6 +25,7 @@ import com.donatodev.bcm_backend.entity.Counterparty;
 import com.donatodev.bcm_backend.entity.CounterpartyType;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.exception.CounterpartyNotFoundException;
+import com.donatodev.bcm_backend.exception.StaleDataException;
 import com.donatodev.bcm_backend.mapper.CounterpartyMapper;
 import com.donatodev.bcm_backend.repository.ContractsRepository;
 import com.donatodev.bcm_backend.repository.CounterpartiesRepository;
@@ -119,6 +120,7 @@ public class CounterpartyService {
         return counterpartiesRepository.findByIdAndOrganizationId(id, orgId);
     }
 
+    @Transactional
     public CounterpartyDTO createCounterparty(CounterpartyDTO dto) {
         Counterparty counterparty = counterpartyMapper.toEntity(dto);
         // Creation must never merge an existing row selected by a client-supplied ID.
@@ -131,9 +133,12 @@ public class CounterpartyService {
         return counterpartyMapper.toDTO(counterparty);
     }
 
+    @Transactional
     public CounterpartyDTO updateCounterparty(UUID id, CounterpartyDTO dto) {
         Counterparty counterparty = findCounterpartyInScope(id)
                 .orElseThrow(() -> new CounterpartyNotFoundException(COUNTERPARTY_ID_PREFIX + id + NOT_FOUND_SUFFIX));
+        // Made from the version the user had open: refused if someone changed it since.
+        StaleDataException.check(dto.version(), counterparty.getVersion());
 
         counterparty.setName(dto.name());
         counterparty.setType(dto.type());
@@ -189,6 +194,7 @@ public class CounterpartyService {
         return counterpartyMapper.toDTO(counterparty);
     }
 
+    @Transactional
     public void deleteCounterparty(UUID id) {
         Counterparty counterparty = findCounterpartyInScope(id)
                 .orElseThrow(() -> new CounterpartyNotFoundException(COUNTERPARTY_ID_PREFIX + id + NOT_FOUND_SUFFIX));
@@ -201,6 +207,7 @@ public class CounterpartyService {
      * exists. Used by {@code ContractImportService} so an Excel import doesn't
      * force the user to pre-create every counterparty by hand first.
      */
+    @Transactional
     public Counterparty resolveOrCreateByName(String name) {
         UUID orgId = TenantContext.require();
         Optional<Counterparty> existing = counterpartiesRepository.findByNameIgnoreCaseAndOrganizationId(name, orgId);

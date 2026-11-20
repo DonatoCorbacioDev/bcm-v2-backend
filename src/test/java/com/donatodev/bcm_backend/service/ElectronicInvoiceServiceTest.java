@@ -473,8 +473,10 @@ class ElectronicInvoiceServiceTest {
 
             electronicInvoiceService.deleteInvoice(CONTRACT_ID, INVOICE_ID);
 
-            verify(localStorageService).deleteDocument(invoice.getStoragePath());
-            verify(invoiceRepository).delete(invoice);
+            // The row first, then the file (at once here: no transaction in a unit test).
+            org.mockito.InOrder order = org.mockito.Mockito.inOrder(invoiceRepository, localStorageService);
+            order.verify(invoiceRepository).delete(invoice);
+            order.verify(localStorageService).deleteQuietly(invoice.getStoragePath());
         }
 
         @Test

@@ -79,8 +79,24 @@ public record ContractDTO(
         @Min(value = 1, message = "La durata del rinnovo deve essere di almeno 1 mese")
         @Max(value = 120, message = "La durata del rinnovo non può superare i 120 mesi") Integer renewalMonths,
         LocalDate noticeDeadline,
-        Integer daysUntilNoticeDeadline
+        Integer daysUntilNoticeDeadline,
+        // The row's version when read (V61): sent back on an update, which is
+        // refused (409) if someone changed the contract meanwhile. Null: not checked.
+        Long version
         ) {
+
+    /** Without the version: call sites predating optimistic locking. */
+    public ContractDTO(UUID id, UUID counterpartyId, CounterpartyDTO counterparty, String contractNumber, String wbsCode,
+            String projectName, ContractStatus status, LocalDate startDate, LocalDate endDate,
+            UUID areaId, UUID managerId, String managerName, ManagerDTO manager, BusinessAreaDTO area,
+            Integer daysUntilExpiry, WorkflowStage workflowStage, UUID financialTypeId, Double annualValue,
+            BillingFrequency billingFrequency, Boolean autoRenew, Integer noticeDays, Integer renewalMonths,
+            LocalDate noticeDeadline, Integer daysUntilNoticeDeadline) {
+        this(id, counterpartyId, counterparty, contractNumber, wbsCode, projectName, status, startDate, endDate,
+                areaId, managerId, managerName, manager, area, daysUntilExpiry, workflowStage, financialTypeId,
+                annualValue, billingFrequency, autoRenew, noticeDays, renewalMonths, noticeDeadline,
+                daysUntilNoticeDeadline, null);
+    }
 
     /**
      * Compatibility constructor for call sites predating tacit renewal terms —

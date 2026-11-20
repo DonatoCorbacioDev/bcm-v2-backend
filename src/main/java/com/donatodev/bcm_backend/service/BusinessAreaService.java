@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.BusinessAreaDTO;
@@ -77,6 +78,7 @@ public class BusinessAreaService {
      * @param dto the business area data transfer object
      * @return the created {@link BusinessAreaDTO}
      */
+    @Transactional
     public BusinessAreaDTO createArea(BusinessAreaDTO dto) {
         BusinessAreas area = businessAreaMapper.toEntity(dto);
         // Creation must never merge an existing row selected by a client-supplied ID.
@@ -97,6 +99,7 @@ public class BusinessAreaService {
      * @return the updated {@link BusinessAreaDTO}
      * @throws BusinessAreaNotFoundException if the area is not found
      */
+    @Transactional
     public BusinessAreaDTO updateArea(UUID id, BusinessAreaDTO dto) {
         BusinessAreas area = findAreaInScope(id)
                 .orElseThrow(() -> new BusinessAreaNotFoundException(BUSINESS_AREA_ID_PREFIX + id + NOT_FOUND_SUFFIX));
@@ -114,6 +117,7 @@ public class BusinessAreaService {
      * @param id the ID of the business area to delete
      * @throws BusinessAreaNotFoundException if the area is not found
      */
+    @Transactional
     public void deleteArea(UUID id) {
         BusinessAreas area = findAreaInScope(id)
                 .orElseThrow(() -> new BusinessAreaNotFoundException(BUSINESS_AREA_ID_PREFIX + id + NOT_FOUND_SUFFIX));

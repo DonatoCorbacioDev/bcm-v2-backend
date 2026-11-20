@@ -136,6 +136,7 @@ public class UserService {
 	 * @throws IllegalArgumentException if username or manager is already in use,
 	 * or if the manager belongs to a different tenant than the caller
 	 */
+	@Transactional
 	public Users registerUser(UserDTO dto) {
 		UUID orgId = TenantContext.require();
 		if (usersRepository.existsByUsername(dto.username())) {
@@ -176,6 +177,7 @@ public class UserService {
 	 * @param dto the user data transfer object
 	 * @return the created {@link UserDTO}
 	 */
+	@Transactional
 	public UserDTO createUser(UserDTO dto) {
 		Users user = registerUser(dto);
 		return userMapper.toDTO(user);
@@ -190,6 +192,7 @@ public class UserService {
 	 * @throws UserNotFoundException if the user is not found
 	 * @throws IllegalArgumentException if referenced manager or role is not found
 	 */
+	@Transactional
 	public UserDTO updateUser(UUID id, UserDTO dto) {
 		Users user = findUserInScope(id)
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
@@ -227,6 +230,7 @@ public class UserService {
 	 * @param id the ID of the user to delete
 	 * @throws UserNotFoundException if the user is not found
 	 */
+	@Transactional
 	public void deleteUser(UUID id) {
 		Users user = findUserInScope(id)
 				.orElseThrow(() -> new UserNotFoundException(ERR_USER_ID + id + ERR_NOT_FOUND));
@@ -260,6 +264,7 @@ public class UserService {
 	 * @param user        the user entity whose password is to be updated
 	 * @param newPassword the new password (plain text, will be encoded)
 	 */
+	@Transactional
 	public void updatePassword(Users user, String newPassword) {
 		PasswordPolicy.require(newPassword);
 		user.setPasswordHash(passwordEncoder.encode(newPassword));
@@ -275,6 +280,7 @@ public class UserService {
 	 * @param user        the user the reset link belongs to
 	 * @param newPassword the new password (plain text, will be encoded)
 	 */
+	@Transactional
 	public void resetPassword(Users user, String newPassword) {
 		user.setFailedLoginAttempts(0);
 		user.setLockedUntil(null);
@@ -326,6 +332,7 @@ public class UserService {
 		auditLogService.saveAboutUser("PASSWORD_CHANGED", user, null);
 	}
 
+	@Transactional
 	public String inviteUser(String username, String role, UUID managerId) {
 
 		if (usersRepository.existsByUsername(username)) {
@@ -360,6 +367,7 @@ public class UserService {
 		return frontendBaseUrl + "/complete-invite?token=" + token;
 	}
 
+	@Transactional
 	public void completeInvite(String token, String rawPassword) {
 		InviteToken it = inviteTokenRepository.findByToken(TokenHash.sha256Hex(token))
 			.orElseThrow(() -> new IllegalArgumentException("Token di invito non valido"));

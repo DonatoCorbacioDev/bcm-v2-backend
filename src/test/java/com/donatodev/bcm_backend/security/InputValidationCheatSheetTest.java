@@ -186,6 +186,7 @@ class InputValidationCheatSheetTest {
             "Data too long for column 'wbs_code' at row 1 | 400 | Un valore supera la lunghezza consentita",
             "Column 'name' cannot be null                 | 400 | Manca un campo obbligatorio",
             "NULL not allowed for column \"NAME\"          | 400 | Manca un campo obbligatorio",
+            "Check constraint 'chk_contracts_dates' is violated. | 400 | Un valore non rispetta i limiti consentiti",
             "Duplicate entry 'C-1' for key 'contract_number' | 409 | Conflitto",
     })
     void databaseRefusals(String cause, int status, String message) {

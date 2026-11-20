@@ -19,9 +19,13 @@ import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class LocalStorageService {
+
+    private static final Logger logger = LoggerFactory.getLogger(LocalStorageService.class);
 
     @Value("${storage.upload-dir:uploads}")
     private String uploadDir;
@@ -151,6 +155,21 @@ public class LocalStorageService {
             Files.deleteIfExists(resolveWithinRoot(storagePath));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to delete document", e);
+        }
+    }
+
+    /**
+     * Deletes a stored file once its rows are settled: after the commit that
+     * removed them, or after the rollback of the rows written for it
+     * ({@link com.donatodev.bcm_backend.util.AfterTransaction}). Nothing is
+     * left to undo then, so a failure is logged instead of thrown: the file
+     * is an orphan to remove by hand, never a row pointing at nothing.
+     */
+    public void deleteQuietly(String storagePath) {
+        try {
+            deleteDocument(storagePath);
+        } catch (RuntimeException e) {
+            logger.error("A stored file no row points at could not be removed: {}", e.getClass().getSimpleName());
         }
     }
 }

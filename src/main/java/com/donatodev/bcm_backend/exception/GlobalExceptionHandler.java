@@ -232,6 +232,22 @@ public class GlobalExceptionHandler {
      * Handles cases where an organization has reached the resource limit of
      * its current subscription tier.
      */
+    /**
+     * A change made from an out-of-date copy (409): the version sent was not
+     * the row's ({@link StaleDataException}), or two overlapping requests
+     * changed the same row and JPA refused the second at its write
+     * (optimistic locking, V61). The message never names the row or the table.
+     */
+    @ExceptionHandler({StaleDataException.class,
+            org.springframework.dao.OptimisticLockingFailureException.class,
+            jakarta.persistence.OptimisticLockException.class,
+            // A deadlock or a lock wait timeout: MySQL gave up on this request
+            // because another was changing the same rows; it rolled back whole.
+            org.springframework.dao.PessimisticLockingFailureException.class})
+    public ResponseEntity<ApiErrorResponse> handleStaleData(RuntimeException ex) {
+        return buildErrorResponse(HttpStatus.CONFLICT, StaleDataException.MESSAGE);
+    }
+
     @ExceptionHandler(OrganizationDeletionConflictException.class)
     public ResponseEntity<ApiErrorResponse> handleOrganizationDeletionConflict(OrganizationDeletionConflictException ex) {
         return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
@@ -258,6 +274,10 @@ public class GlobalExceptionHandler {
         if (cause.contains("cannot be null") || cause.contains("not allowed for column")
                 || cause.contains("null not allowed")) {
             return buildErrorResponse(HttpStatus.BAD_REQUEST, "Manca un campo obbligatorio");
+        }
+        // A CHECK constraint (V62): a value outside the limits the database enforces.
+        if (cause.contains("check constraint")) {
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, "Un valore non rispetta i limiti consentiti");
         }
         return buildErrorResponse(HttpStatus.CONFLICT, "Conflitto: esiste già un record con lo stesso valore univoco");
     }

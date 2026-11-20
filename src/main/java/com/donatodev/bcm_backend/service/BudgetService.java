@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.BudgetDTO;
@@ -80,6 +81,7 @@ public class BudgetService {
      * @param dto the budget data transfer object
      * @return the created {@link BudgetDTO}
      */
+    @Transactional
     public BudgetDTO createBudget(BudgetDTO dto) {
         Budget budget = budgetMapper.toEntity(dto);
         // Creation must never merge an existing row selected by a client-supplied ID.
@@ -100,6 +102,7 @@ public class BudgetService {
      * @return the updated {@link BudgetDTO}
      * @throws BudgetNotFoundException if the budget is not found
      */
+    @Transactional
     public BudgetDTO updateBudget(UUID id, BudgetDTO dto) {
         UUID orgId = TenantContext.require();
         Budget budget = findBudgetInScope(id)
@@ -117,6 +120,7 @@ public class BudgetService {
      * @param id the ID of the budget to delete
      * @throws BudgetNotFoundException if the budget is not found
      */
+    @Transactional
     public void deleteBudget(UUID id) {
         Budget budget = findBudgetInScope(id)
                 .orElseThrow(() -> new BudgetNotFoundException(BUDGET_ID_PREFIX + id + NOT_FOUND_SUFFIX));

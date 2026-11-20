@@ -14,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.FinancialValueDTO;
@@ -119,6 +120,7 @@ public class FinancialValueService {
      * @param dto the financial value data transfer object
      * @return the created {@link FinancialValueDTO}
      */
+    @Transactional
     public FinancialValueDTO createValue(FinancialValueDTO dto) {
         UUID orgId = TenantContext.require();
         FinancialValues value = financialValueMapper.toEntity(dto, orgId);
@@ -143,6 +145,7 @@ public class FinancialValueService {
      * @throws UserNotFoundException if authenticated user not found
      * @throws SecurityException if access is denied
      */
+    @Transactional
     public FinancialValueDTO updateValue(UUID id, FinancialValueDTO dto) {
         UUID orgId = TenantContext.require();
         FinancialValues value = findValueInScope(id)
@@ -167,6 +170,7 @@ public class FinancialValueService {
      * @throws UserNotFoundException if authenticated user not found
      * @throws SecurityException if access is denied
      */
+    @Transactional
     public void deleteValue(UUID id) {
         UUID orgId = TenantContext.require();
         FinancialValues value = findValueInScope(id)
