@@ -1122,6 +1122,61 @@ class UserServiceTest {
             verify(usersRepository).save(user);
         }
 
+        @Test
+        @DisplayName("A change of role is audited by name, from and to")
+        void roleChangeIsAudited() {
+            Users user = Users.builder().id(uid(1)).username("mrossi")
+                    .role(Roles.builder().id(uid(3)).role("MANAGER").build()).build();
+            Roles admin = Roles.builder().id(uid(2)).role("ADMIN").build();
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
+            when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.of(admin));
+            when(usersRepository.save(user)).thenReturn(user);
+
+            userService.updateUserPartial(uid(1), null, "ADMIN", null, null);
+
+            verify(auditLogService).save(org.mockito.ArgumentMatchers.eq("ROLE_CHANGED"),
+                    org.mockito.ArgumentMatchers.eq("User"), org.mockito.ArgumentMatchers.eq(uid(1)),
+                    org.mockito.ArgumentMatchers.nullable(String.class), org.mockito.ArgumentMatchers.nullable(UUID.class),
+                    org.mockito.ArgumentMatchers.eq("user=mrossi role MANAGER -> ADMIN"));
+        }
+
+        @Test
+        @DisplayName("A change of role through the full update is audited too")
+        void roleChangeThroughFullUpdateIsAudited() {
+            Users user = Users.builder().id(uid(1)).username("mrossi")
+                    .role(Roles.builder().id(uid(3)).role("MANAGER").build()).build();
+            Roles admin = Roles.builder().id(uid(2)).role("ADMIN").build();
+            Managers manager = Managers.builder().id(uid(4)).build();
+            UserDTO dto = new UserDTO(uid(1), "mrossi", null, uid(4), uid(2), null, null);
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
+            when(managersRepository.findByIdAndOrganizationId(uid(4), TENANT)).thenReturn(Optional.of(manager));
+            when(rolesRepository.findById(uid(2))).thenReturn(Optional.of(admin));
+            when(usersRepository.save(user)).thenReturn(user);
+
+            userService.updateUser(uid(1), dto);
+
+            verify(auditLogService).save(org.mockito.ArgumentMatchers.eq("ROLE_CHANGED"),
+                    org.mockito.ArgumentMatchers.eq("User"), org.mockito.ArgumentMatchers.eq(uid(1)),
+                    org.mockito.ArgumentMatchers.nullable(String.class), org.mockito.ArgumentMatchers.nullable(UUID.class),
+                    org.mockito.ArgumentMatchers.eq("user=mrossi role MANAGER -> ADMIN"));
+        }
+
+        @Test
+        @DisplayName("The same role again, or no role in the request, records no change of role")
+        void sameRoleIsNotAudited() {
+            Roles manager = Roles.builder().id(uid(3)).role("MANAGER").build();
+            Users user = Users.builder().id(uid(1)).username("mrossi").role(manager).build();
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
+            when(rolesRepository.findByRole("MANAGER")).thenReturn(Optional.of(manager));
+            when(usersRepository.save(user)).thenReturn(user);
+
+            userService.updateUserPartial(uid(1), null, "MANAGER", null, null);
+            userService.updateUserPartial(uid(1), "mrossi2", null, null, null);
+
+            verify(auditLogService, never()).save(org.mockito.ArgumentMatchers.eq("ROLE_CHANGED"), any(), any(), any(),
+                    any(), any());
+        }
+
         /**
          * Test: Update user partial - fails if role not found.
          */

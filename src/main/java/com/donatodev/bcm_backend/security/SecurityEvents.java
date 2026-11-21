@@ -85,6 +85,13 @@ public class SecurityEvents {
         MFA_FAILED("SECURITY_MFA_FAILED", true),
         /** An account locked by repeated failures; its owner is told by email. */
         ACCOUNT_LOCKED("SECURITY_ACCOUNT_LOCKED", false),
+        /**
+         * A session token that is not one of ours: a wrong signature, a
+         * malformed token, another issuer (OWASP Logging Cheat Sheet: failed
+         * authentication). An expired token is not counted: every session
+         * shows one each time its access token lapses.
+         */
+        INVALID_TOKEN("SECURITY_INVALID_TOKEN", true),
         /** A refresh token presented again after it was rotated: a stolen session. */
         REFRESH_REUSE("SECURITY_REFRESH_REUSE", false),
         /**

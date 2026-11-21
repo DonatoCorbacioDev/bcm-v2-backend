@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.timeout;
@@ -22,7 +23,11 @@ import java.util.concurrent.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
@@ -233,6 +238,54 @@ class AuthenticationCheatSheetTest {
 
         mvc.perform(get("/auth/me").header("Authorization", "Bearer " + accessToken(second))).andExpect(status().isOk());
         refresh(refreshCookie(second)).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("a forged session token is recorded with its kind of failure, never the token itself")
+    void forgedTokenIsRecorded() throws Exception {
+        Users user = user(name(), PASSWORD);
+        String[] parts = accessToken(login(user.getUsername())).split("\\.");
+        String forged = parts[0] + "." + parts[1] + "." + new StringBuilder(parts[2]).reverse();
+        String address = "203.0.113.77";
+
+        mvc.perform(get("/auth/me").header("Authorization", "Bearer " + forged)
+                .with(request -> { request.setRemoteAddr(address); return request; }))
+                .andExpect(status().isUnauthorized());
+
+        List<AuditLog> recorded = auditLogs.findAll().stream()
+                .filter(log -> "SECURITY_INVALID_TOKEN".equals(log.getAction())
+                        && log.getDetails() != null && log.getDetails().startsWith("ip=" + address))
+                .toList();
+        assertThat(recorded).hasSize(1);
+        assertThat(recorded.get(0).getDetails()).contains("GET /auth/me").doesNotContain(parts[2]);
+    }
+
+    @Test
+    @DisplayName("signing in, a wrong password, a renewal and a password reset never write a password or a token to the log")
+    @ExtendWith(OutputCaptureExtension.class)
+    void credentialsNeverReachTheLog(CapturedOutput output) throws Exception {
+        Users user = user(name(), PASSWORD);
+        String wrong = "Typed-By-Mistake-7!";
+        String newPassword = "Brand-New-Pass-8!";
+
+        MockHttpServletResponse session = login(user.getUsername());
+        refusedLogin(user.getUsername(), wrong);
+        String renewed = refreshCookie(refresh(refreshCookie(session)).andExpect(status().isOk()).andReturn().getResponse());
+
+        String email = user.getManager().getEmail();
+        mvc.perform(post("/auth/forgot-password").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\"}")).andExpect(status().isOk());
+        ArgumentCaptor<String> link = ArgumentCaptor.forClass(String.class);
+        verify(emailService, timeout(5000)).sendResetPasswordEmail(eq(email), link.capture(), any(), any());
+        String resetToken = link.getValue().substring(link.getValue().indexOf("token=") + "token=".length());
+        mvc.perform(post("/auth/reset-password").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"token\":\"" + resetToken + "\",\"newPassword\":\"" + newPassword + "\"}"))
+                .andExpect(status().isOk());
+
+        // The capture works: the events themselves are there.
+        assertThat(output.getAll()).contains("Sign-in succeeded", "LOGIN_FAILED");
+        assertThat(output.getAll()).doesNotContain(PASSWORD, wrong, newPassword, accessToken(session),
+                refreshCookie(session), renewed, resetToken);
     }
 
     // --- helpers ---

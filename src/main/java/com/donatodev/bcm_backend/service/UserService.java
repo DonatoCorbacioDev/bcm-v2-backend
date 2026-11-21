@@ -212,12 +212,14 @@ public class UserService {
 		user.setManager(findManagerInScope(dto.managerId())
 				.orElseThrow(() -> new IllegalArgumentException("ID manager non trovato")));
 
+		String roleBefore = roleName(user.getRole());
 		user.setRole(rolesRepository.findById(dto.roleId())
 				.orElseThrow(() -> new IllegalArgumentException("ID ruolo non trovato")));
 
 		user.setCanApproveContracts(Boolean.TRUE.equals(dto.canApproveContracts()));
 
 		user = usersRepository.save(user);
+		auditRoleChange(user, roleBefore);
 		if (passwordChanged) {
 			sessionRevocationService.credentialsChanged(user);
 		}
@@ -419,6 +421,7 @@ public class UserService {
 			user.setUsername(username);
 		}
 
+		String roleBefore = roleName(user.getRole());
 		if (role != null && !role.isBlank()) {
 			Roles r = rolesRepository.findByRole(role)
 					.orElseThrow(() -> new IllegalArgumentException("Ruolo non trovato: " + role));
@@ -438,10 +441,31 @@ public class UserService {
 		}
 
 		Users saved = usersRepository.save(user);
+		auditRoleChange(saved, roleBefore);
 		if (passwordChanged) {
 			sessionRevocationService.credentialsChanged(saved);
 		}
 		return saved;
+	}
+
+	/**
+	 * A change of role is recorded by name, from and to (OWASP Logging Cheat
+	 * Sheet: changes of privilege): the generic UPDATE row would not say that a
+	 * manager became an administrator. The actor is whoever is signed in; the
+	 * row shares the update's transaction, so a change rolled back leaves none.
+	 */
+	private void auditRoleChange(Users user, String roleBefore) {
+		String roleAfter = roleName(user.getRole());
+		if (roleBefore == null ? roleAfter == null : roleBefore.equals(roleAfter)) {
+			return;
+		}
+		UUID orgId = user.getOrganization() == null ? null : user.getOrganization().getId();
+		auditLogService.save("ROLE_CHANGED", "User", user.getId(), AuthenticatedUserUtils.getUsernameOrNull(), orgId,
+				"user=" + user.getUsername() + " role " + roleBefore + " -> " + roleAfter);
+	}
+
+	private static String roleName(Roles role) {
+		return role == null ? null : role.getRole();
 	}
 
 	/**

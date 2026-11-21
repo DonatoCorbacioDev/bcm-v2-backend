@@ -18,8 +18,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.donatodev.bcm_backend.config.TenantContext;
+import com.donatodev.bcm_backend.security.SecurityEvents;
 import com.donatodev.bcm_backend.service.CustomUserDetailsService;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,10 +32,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private final JwtUtils jwtUtils;
     private final CustomUserDetailsService userDetailsService;
+    private final SecurityEvents securityEvents;
 
-    public JwtAuthenticationFilter(JwtUtils jwtUtils, CustomUserDetailsService userDetailsService) {
+    public JwtAuthenticationFilter(JwtUtils jwtUtils, CustomUserDetailsService userDetailsService,
+            SecurityEvents securityEvents) {
         this.jwtUtils = jwtUtils;
         this.userDetailsService = userDetailsService;
+        this.securityEvents = securityEvents;
     }
 
     /** The calendar feed's secret token in its path, e.g. {@code /calendar/<token>.ics}. */
@@ -67,7 +72,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 token = authHeader.substring(7);
                 try {
                     username = jwtUtils.getUsernameFromToken(token);
+                } catch (ExpiredJwtException e) {
+                    // Ordinary: the client refreshes it.
+                    username = null;
                 } catch (RuntimeException e) {
+                    // Not a token we issued: forged, tampered or garbage. The
+                    // request goes on unauthenticated, as before; only the
+                    // kind of failure is recorded, never the token.
+                    securityEvents.record(SecurityEvents.Type.INVALID_TOKEN, request.getMethod() + " "
+                            + loggablePath(request.getRequestURI()) + " | " + e.getClass().getSimpleName());
                     username = null;
                 }
             }

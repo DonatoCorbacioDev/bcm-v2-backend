@@ -58,7 +58,8 @@ public class SecurityReportService {
             Map.entry(SecurityEvents.Type.LOGIN_FAILED, "Password sbagliate su account esistenti"),
             Map.entry(SecurityEvents.Type.MFA_FAILED, "Codici di verifica 2FA sbagliati"),
             Map.entry(SecurityEvents.Type.ACCOUNT_LOCKED, "Account bloccati per troppi tentativi falliti"),
-            Map.entry(SecurityEvents.Type.REFRESH_REUSE, "Sessioni rubate: refresh token riusato, sessioni chiuse"),
+            Map.entry(SecurityEvents.Type.INVALID_TOKEN, "Token di sessione falsificati o malformati"),
+            Map.entry(SecurityEvents.Type.REFRESH_REUSE,"Sessioni rubate: refresh token riusato, sessioni chiuse"),
             Map.entry(SecurityEvents.Type.UNSAFE_UPLOAD, "File rifiutati: virus o PDF con contenuto attivo"));
 
     private final AuditLogRepository auditLogRepository;
