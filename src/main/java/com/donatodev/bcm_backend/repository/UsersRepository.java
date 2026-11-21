@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
@@ -60,8 +61,11 @@ public interface UsersRepository extends JpaRepository<Users, UUID>, JpaSpecific
      * Every account whose manager has the given email (case-insensitive), in
      * any organization: the email is unique only within one, so the same
      * person may hold an account in several. Only for "forgot password",
-     * where each of them gets its own link at that address.
+     * where each of them gets its own link at that address. The organization
+     * comes loaded: the email is written off the request thread, outside any
+     * transaction, and names it.
      */
+    @EntityGraph(attributePaths = "organization")
     List<Users> findAllByManagerEmailIgnoreCase(String email);
 
     /**
