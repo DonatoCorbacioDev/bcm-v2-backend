@@ -22,6 +22,7 @@ import com.donatodev.bcm_backend.exception.RefreshTokenException;
 import com.donatodev.bcm_backend.service.*;
 import com.donatodev.bcm_backend.service.RefreshTokenService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 /**
@@ -145,8 +146,9 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<AccessTokenResponse> refresh(
-            @CookieValue(name = RefreshCookieFactory.COOKIE_NAME, required = false) String refreshToken) {
+    public ResponseEntity<AccessTokenResponse> refresh(HttpServletRequest request) {
+        // Read by the factory: the cookie's name depends on whether it is Secure.
+        String refreshToken = refreshCookieFactory.read(request);
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new RefreshTokenException(RefreshTokenService.INVALID_SESSION);
         }
@@ -157,8 +159,8 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(
-            @CookieValue(name = RefreshCookieFactory.COOKIE_NAME, required = false) String refreshToken) {
+    public ResponseEntity<Void> logout(HttpServletRequest request) {
+        String refreshToken = refreshCookieFactory.read(request);
         if (refreshToken != null && !refreshToken.isBlank()) {
             refreshTokenService.revokeToken(refreshToken);
         }

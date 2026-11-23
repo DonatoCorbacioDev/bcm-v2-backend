@@ -2,6 +2,7 @@ package com.donatodev.bcm_backend.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
@@ -45,7 +46,7 @@ class RefreshCookieFactoryTest {
 
             ResponseCookie cookie = refreshCookieFactory.create("the-refresh-token");
 
-            assertEquals(RefreshCookieFactory.COOKIE_NAME, cookie.getName());
+            assertEquals(RefreshCookieFactory.SECURE_COOKIE_NAME, cookie.getName());
             assertEquals("the-refresh-token", cookie.getValue());
             assertTrue(cookie.isHttpOnly());
             assertTrue(cookie.isSecure());
@@ -77,9 +78,35 @@ class RefreshCookieFactoryTest {
 
             ResponseCookie cookie = refreshCookieFactory.clear();
 
-            assertEquals(RefreshCookieFactory.COOKIE_NAME, cookie.getName());
+            assertEquals(RefreshCookieFactory.SECURE_COOKIE_NAME, cookie.getName());
             assertEquals("", cookie.getValue());
             assertEquals(0L, cookie.getMaxAge().getSeconds());
+        }
+
+        @Test
+        @Order(4)
+        @DisplayName("Secure, the cookie carries the __Secure- prefix; over plain HTTP its plain name (ASVS 3.3.1)")
+        void nameFollowsSecure() {
+            ReflectionTestUtils.setField(refreshCookieFactory, "cookieSecure", true);
+            assertEquals("__Secure-refresh_token", refreshCookieFactory.name());
+            ReflectionTestUtils.setField(refreshCookieFactory, "cookieSecure", false);
+            assertEquals("refresh_token", refreshCookieFactory.name());
+        }
+
+        @Test
+        @Order(5)
+        @DisplayName("read() takes the token from this environment's name only: a cookie under the old name is not a session")
+        void readsOnlyItsOwnName() {
+            ReflectionTestUtils.setField(refreshCookieFactory, "cookieSecure", true);
+            org.springframework.mock.web.MockHttpServletRequest request = new org.springframework.mock.web.MockHttpServletRequest();
+            assertNull(refreshCookieFactory.read(request));
+
+            request.setCookies(new jakarta.servlet.http.Cookie("refresh_token", "old-session-value"));
+            assertNull(refreshCookieFactory.read(request));
+
+            request.setCookies(new jakarta.servlet.http.Cookie("refresh_token", "old-session-value"),
+                    new jakarta.servlet.http.Cookie("__Secure-refresh_token", "current-session-value"));
+            assertEquals("current-session-value", refreshCookieFactory.read(request));
         }
     }
 }

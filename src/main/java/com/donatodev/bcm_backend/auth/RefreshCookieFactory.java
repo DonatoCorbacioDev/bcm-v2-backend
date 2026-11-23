@@ -11,6 +11,9 @@ import org.springframework.stereotype.Component;
 
 import com.donatodev.bcm_backend.service.RefreshTokenService;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+
 /**
  * Builds the HttpOnly cookie used to carry the refresh token. Centralizing
  * cookie construction here keeps every issuer (login, organization
@@ -19,7 +22,18 @@ import com.donatodev.bcm_backend.service.RefreshTokenService;
 @Component
 public class RefreshCookieFactory {
 
+    /** Its name over plain HTTP (a laptop, the tests): the prefix below needs Secure. */
     public static final String COOKIE_NAME = "refresh_token";
+
+    /**
+     * Its name when Secure, as in production (OWASP ASVS 3.3.1): a browser
+     * accepts a cookie with this prefix only over HTTPS and only if Secure, so
+     * no page served over plain HTTP, on any subdomain, can plant one. __Host-
+     * would also tie it to this host, but needs Path=/, and this cookie is
+     * sent to /auth only. Since 2026-11-23: sessions held under the old name
+     * ended once, at that deploy.
+     */
+    public static final String SECURE_COOKIE_NAME = "__Secure-refresh_token";
 
     @Value("${app.cookie-secure:true}")
     private boolean cookieSecure;
@@ -51,8 +65,28 @@ public class RefreshCookieFactory {
                 .build();
     }
 
+    /** The cookie's name here: {@link #SECURE_COOKIE_NAME} when Secure, {@link #COOKIE_NAME} otherwise. */
+    public String name() {
+        return cookieSecure ? SECURE_COOKIE_NAME : COOKIE_NAME;
+    }
+
+    /** The refresh token the request carries under this environment's name, or null. */
+    public String read(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+        String name = name();
+        for (Cookie cookie : cookies) {
+            if (name.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
     private ResponseCookie.ResponseCookieBuilder baseCookie(String value) {
-        return ResponseCookie.from(COOKIE_NAME, value)
+        return ResponseCookie.from(name(), value)
                 .httpOnly(true)
                 .secure(cookieSecure)
                 // Strict: the browser sends it only on requests from this site; the

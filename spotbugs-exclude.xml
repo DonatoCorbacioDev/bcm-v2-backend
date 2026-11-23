@@ -19,6 +19,17 @@
         <Bug pattern="SPRING_CSRF_PROTECTION_DISABLED"/>
     </Match>
 
+    <!-- COOKIE_USAGE in RefreshCookieFactory: the refresh token is meant to be
+         in a cookie, the one place a script cannot read it (HttpOnly, Secure,
+         SameSite=Strict, sent to /auth only, __Secure- prefixed in production);
+         this class alone writes and reads it. Its name depends on Secure since
+         2026-11-23 (OWASP ASVS 3.3.1), so it is read here rather than through
+         @CookieValue, which hid the same reading from the analysis. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.auth.RefreshCookieFactory"/>
+        <Bug pattern="COOKIE_USAGE"/>
+    </Match>
+
     <!-- SERVLET_HEADER in JwtAuthenticationFilter: Reading the Authorization
          header is the correct and intentional behaviour for JWT authentication. -->
     <Match>
