@@ -29,6 +29,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.util.LikePattern;
@@ -226,7 +227,8 @@ public class ContractService {
         }
     }
 
-    @Transactional
+    // READ COMMITTED: the plan's limit is counted after locking the organization (QuotaTransactions).
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public ContractDTO createContract(ContractDTO contractDTO) {
         requireEndNotBeforeStart(contractDTO);
         Contracts contract = contractMapper.toEntity(contractDTO);
@@ -267,6 +269,8 @@ public class ContractService {
             throw new IllegalArgumentException(
                     "Impossibile cambiare stato mentre il contratto è in revisione; approvarlo o respingerlo");
         }
+        ContractStatusTransitions.requireAllowed(previousStatus, contractDTO.status(), contractDTO.endDate(),
+                LocalDate.now(ZoneId.systemDefault()));
 
         // Snapshot everything that affects financial-value generation, before
         // any of it is overwritten below, so we can tell afterwards whether

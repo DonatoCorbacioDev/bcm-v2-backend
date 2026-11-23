@@ -52,7 +52,12 @@ public class TierLimitService {
         if (orgId == null) {
             return;
         }
-        Organization organization = organizationRepository.findById(orgId).orElse(null);
+        // Locked, so the count below and the creation that follows it in the
+        // caller's transaction are one step: simultaneous creations (two tabs,
+        // an import beside the form) cannot each see room for the last one.
+        // The count must see what the others committed meanwhile: see QuotaTransactions.
+        QuotaTransactions.requireReadCommitted();
+        Organization organization = organizationRepository.findByIdForUpdate(orgId).orElse(null);
         if (organization == null) {
             return;
         }

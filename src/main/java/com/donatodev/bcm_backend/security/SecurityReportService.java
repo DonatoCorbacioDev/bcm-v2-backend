@@ -50,7 +50,8 @@ public class SecurityReportService {
     static final Map<SecurityEvents.Type, String> LABELS = Map.ofEntries(
             Map.entry(SecurityEvents.Type.RATE_LIMITED, "Troppi tentativi di accesso, reset o registrazione da un indirizzo"),
             Map.entry(SecurityEvents.Type.COST_LIMITED, "Budget delle operazioni costose superato"),
-            Map.entry(SecurityEvents.Type.DEMO_BLOCKED, "Azioni disattivate tentate dalla demo pubblica"),
+            Map.entry(SecurityEvents.Type.WRITE_LIMITED, "Budget delle modifiche al minuto superato"),
+            Map.entry(SecurityEvents.Type.DEMO_BLOCKED,"Azioni disattivate tentate dalla demo pubblica"),
             Map.entry(SecurityEvents.Type.REGISTRATION_CODE_REFUSED, "Codici di registrazione rifiutati"),
             Map.entry(SecurityEvents.Type.DUPLICATE_PAYMENT_REFUSED, "Pagamenti SEPA duplicati rifiutati"),
             Map.entry(SecurityEvents.Type.SEPA_IBAN_MISMATCH_BLOCKED, "Pagamenti SEPA bloccati per IBAN cambiato"),

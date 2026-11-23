@@ -29,6 +29,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.config.TenantContext;
@@ -60,7 +61,8 @@ import jakarta.persistence.EntityManager;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Transactional
+// READ COMMITTED like the requests it makes: creating a contract checks it (QuotaTransactions).
+@Transactional(isolation = Isolation.READ_COMMITTED)
 class PropertyLevelAuthorizationTest {
 
     private static final String VERIFIED_IBAN = "IT60X0542811101000000123456";

@@ -110,4 +110,8 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
     // Scoped through the contract rather than the row's own org_id column,
     // which older rows may lack: the contract is always set and always knows its org.
     List<ElectronicInvoice> findAllByContract_Organization_Id(UUID organizationId);
+
+    /** Bytes the organization's invoice files take (StorageQuotaService). */
+    @Query("SELECT COALESCE(SUM(ei.fileSize), 0) FROM ElectronicInvoice ei WHERE ei.contract.organization.id = :orgId")
+    long sumFileSizeByOrganization(@Param("orgId") UUID orgId);
 }

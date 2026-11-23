@@ -701,17 +701,15 @@ class ContractServiceTest {
         }
 
         /**
-         * Tests that editing a non-DRAFT contract into DRAFT starts the
-         * approval workflow, mirroring what happens on creation.
+         * A contract out of draft never goes back to it by editing
+         * (ContractStatusTransitions, docs/BUSINESS_RULES.md): refused, and
+         * nothing about it changes.
          */
         @Test
         @Order(101)
-        @DisplayName("Update contract sets workflowStage=DRAFT when status changes to DRAFT")
-        void shouldStartWorkflowWhenEditedIntoDraft() {
+        @DisplayName("Update contract refuses to move an active contract back to DRAFT")
+        void shouldRefuseEditingBackIntoDraft() {
             mockAuthentication("admin", "ADMIN");
-            Roles adminRole = Roles.builder().role("ADMIN").build();
-            Users adminUser = Users.builder().id(uid(100)).username("admin").role(adminRole).build();
-            when(usersRepository.findByUsername("admin")).thenReturn(Optional.of(adminUser));
 
             Contracts existing = Contracts.builder()
                     .id(uid(1))
@@ -728,22 +726,24 @@ class ContractServiceTest {
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(10), uid(1), uid(1), null, null, null, null);
 
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(existing));
-            when(contractsRepository.save(existing)).thenReturn(existing);
-            when(contractMapper.toDTO(existing)).thenReturn(updateDTO);
-            when(businessAreasRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(BusinessAreas.builder().id(uid(1)).name("Area").build()));
 
-            contractService.updateContract(uid(1), updateDTO);
+            IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                    () -> contractService.updateContract(uid(1), updateDTO));
 
-            assertEquals(com.donatodev.bcm_backend.entity.WorkflowStage.DRAFT, existing.getWorkflowStage());
+            assertEquals("Un contratto non può tornare in bozza", refused.getMessage());
+            assertEquals(ContractStatus.ACTIVE, existing.getStatus());
+            assertEquals(null, existing.getWorkflowStage());
+            verify(contractsRepository, never()).save(any());
         }
 
         /**
-         * Tests that editing a DRAFT contract into a non-DRAFT status clears
-         * the workflow stage, since it no longer applies.
+         * Tests that editing a DRAFT contract into a non-DRAFT status (the only
+         * one an edit may set: CANCELLED) clears the workflow stage, since it
+         * no longer applies.
          */
         @Test
         @Order(102)
-        @DisplayName("Update contract clears workflowStage when status changes away from DRAFT")
+        @DisplayName("Update contract clears workflowStage when a draft is cancelled")
         void shouldClearWorkflowStageWhenEditedAwayFromDraft() {
             mockAuthentication("admin", "ADMIN");
             Roles adminRole = Roles.builder().role("ADMIN").build();
@@ -761,7 +761,7 @@ class ContractServiceTest {
                     .build();
 
             ContractDTO updateDTO = new ContractDTO(uid(1), uid(1), new com.donatodev.bcm_backend.dto.CounterpartyDTO(uid(1), "Client", com.donatodev.bcm_backend.entity.CounterpartyType.CUSTOMER, null, null, null, null, null, null, null, null, null), "CNTR-EDIT-ACTIVE", null, null,
-                    ContractStatus.ACTIVE, LocalDate.of(2027, Month.JUNE, 15),
+                    ContractStatus.CANCELLED, LocalDate.of(2027, Month.JUNE, 15),
                     LocalDate.of(2027, Month.JUNE, 15).plusDays(10), uid(1), uid(1), null, null, null, null);
 
             when(contractsRepository.findByIdAndOrganization_Id(uid(1), TENANT)).thenReturn(Optional.of(existing));

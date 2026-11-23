@@ -9,7 +9,12 @@ import java.util.UUID;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import jakarta.persistence.LockModeType;
 
 import com.donatodev.bcm_backend.entity.Organization;
 
@@ -28,4 +33,15 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
      * particular tend to get renamed to something more realistic.
      */
     Optional<Organization> findFirstByOrderByCreatedAtAsc();
+
+    /**
+     * The organization, its row locked until the caller's transaction ends
+     * (OWASP ASVS 2.3.4): a quota is counted and then used, and two requests of
+     * the same organization doing that at once would both see room for one
+     * more. Holding this lock, they run one after the other. Only for the
+     * caller's own organization, inside a transaction.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT o FROM Organization o WHERE o.id = :id")
+    Optional<Organization> findByIdForUpdate(@Param("id") UUID id);
 }

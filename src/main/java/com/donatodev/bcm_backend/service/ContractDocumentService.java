@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -63,6 +64,7 @@ public class ContractDocumentService {
     private final SemanticSearchService semanticSearchService;
     private final ContractTermsExtractor termsExtractor;
     private final UploadChecks uploadChecks;
+    private final StorageQuotaService storageQuota;
 
     public ContractDocumentService(ContractDocumentRepository documentRepository,
                                    ContractAccessGuard contractAccessGuard,
@@ -71,7 +73,9 @@ public class ContractDocumentService {
                                    MlProxyService mlProxyService,
                                    SemanticSearchService semanticSearchService,
                                    ContractTermsExtractor termsExtractor,
-                                   UploadChecks uploadChecks) {
+                                   UploadChecks uploadChecks,
+                                   StorageQuotaService storageQuota) {
+        this.storageQuota = storageQuota;
         this.documentRepository = documentRepository;
         this.contractAccessGuard = contractAccessGuard;
         this.localStorageService = localStorageService;
@@ -82,7 +86,8 @@ public class ContractDocumentService {
         this.uploadChecks = uploadChecks;
     }
 
-    @Transactional(rollbackFor = IOException.class)
+    // READ COMMITTED: the stored files are summed after locking the organization (QuotaTransactions).
+    @Transactional(rollbackFor = IOException.class, isolation = Isolation.READ_COMMITTED)
     public ContractDocumentDTO uploadDocument(UUID contractId, MultipartFile file) throws IOException {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
@@ -93,7 +98,8 @@ public class ContractDocumentService {
         return toDTO(doc, 1);
     }
 
-    @Transactional(rollbackFor = IOException.class)
+    // READ COMMITTED: the stored files are summed after locking the organization (QuotaTransactions).
+    @Transactional(rollbackFor = IOException.class, isolation = Isolation.READ_COMMITTED)
     public ContractDocumentDTO uploadNewVersion(UUID contractId, UUID documentId, MultipartFile file) throws IOException {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
@@ -252,6 +258,8 @@ public class ContractDocumentService {
 
     private ContractDocument saveNewVersion(Contracts contract, UUID orgId, byte[] bytes, String fileName,
                                              UUID versionGroupId, int versionNumber) {
+        // Before a byte is written: a full quota leaves nothing on disk.
+        storageQuota.requireRoom(orgId, bytes.length);
         String storagePath = localStorageService.storeDocument(orgId, contract.getId(), bytes);
         // No row will point at the file if the transaction rolls back.
         AfterTransaction.onRollback(() -> localStorageService.deleteQuietly(storagePath));

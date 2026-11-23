@@ -60,6 +60,8 @@ public class SecurityEvents {
         RATE_LIMITED("SECURITY_RATE_LIMITED", true),
         /** A user went over the per-minute budget of a costly endpoint. */
         COST_LIMITED("SECURITY_COST_LIMITED", true),
+        /** A user went over the per-minute budget of changes (WriteBudgetLimiter). */
+        WRITE_LIMITED("SECURITY_WRITE_LIMITED", true),
         /** The public demo account tried an action disabled for it. */
         DEMO_BLOCKED("SECURITY_DEMO_BLOCKED", true),
         /** An address asked for more registration codes than allowed. */

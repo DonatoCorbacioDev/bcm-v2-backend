@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.donatodev.bcm_backend.entity.ContractDocument;
@@ -28,4 +30,8 @@ public interface ContractDocumentRepository extends JpaRepository<ContractDocume
     // Scoped through the contract rather than the row's own org_id column,
     // which older rows may lack: the contract is always set and always knows its org.
     List<ContractDocument> findAllByContract_Organization_Id(UUID organizationId);
+
+    /** Bytes the organization's documents take, every version counted (StorageQuotaService). */
+    @Query("SELECT COALESCE(SUM(d.fileSize), 0) FROM ContractDocument d WHERE d.contract.organization.id = :orgId")
+    long sumFileSizeByOrganization(@Param("orgId") UUID orgId);
 }

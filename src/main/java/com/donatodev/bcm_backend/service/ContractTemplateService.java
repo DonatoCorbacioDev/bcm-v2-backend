@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.donatodev.bcm_backend.config.TenantContext;
@@ -97,7 +98,8 @@ public class ContractTemplateService {
         templateRepository.delete(findInScope(id, orgId));
     }
 
-    @Transactional
+    // READ COMMITTED: it creates a contract, counted against the plan (QuotaTransactions).
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public ContractDTO instantiateTemplate(UUID templateId, InstantiateTemplateDTO req) {
         UUID orgId = TenantContext.require();
         ContractTemplate template = findInScope(templateId, orgId);

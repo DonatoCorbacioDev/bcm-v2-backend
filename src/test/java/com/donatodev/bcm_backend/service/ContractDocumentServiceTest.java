@@ -75,6 +75,7 @@ class ContractDocumentServiceTest {
     // Real rules, not a mock: they are pure and fast, and their own accuracy
     // is measured in ContractTermsExtractorEvaluationTest.
     @Spy private ContractTermsExtractor termsExtractor = new ContractTermsExtractor();
+    @Mock private StorageQuotaService storageQuota;
 
     @InjectMocks
     private ContractDocumentService contractDocumentService;

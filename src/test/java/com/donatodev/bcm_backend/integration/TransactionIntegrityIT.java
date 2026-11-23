@@ -311,6 +311,53 @@ class TransactionIntegrityIT extends AbstractMySQLIntegrationTest {
         }
     }
 
+    @Nested
+    @DisplayName("quotas under simultaneous requests (organization row lock)")
+    @SuppressWarnings("unused")
+    class QuotaRaces {
+
+        @Test
+        @DisplayName("simultaneous creations with one contract left in the plan: exactly one is created")
+        void lastContractSlot() throws Exception {
+            int limit = 15; // FREE (TierLimitService)
+            new TransactionTemplate(transactions).executeWithoutResult(tx -> {
+                Organization org = em.find(Organization.class, orgId);
+                BusinessAreas area = em.find(BusinessAreas.class, areaId);
+                Counterparty supplier = em.find(Counterparty.class, counterpartyId);
+                Managers profile = em.find(Managers.class, managerId);
+                for (int i = 1; i < limit - 1; i++) {
+                    save(Contracts.builder().organization(org).businessArea(area).counterparty(supplier)
+                            .manager(profile).contractNumber(UUID.randomUUID().toString())
+                            .startDate(LocalDate.of(2026, 1, 1)).endDate(LocalDate.of(2026, 12, 31))
+                            .status(ContractStatus.DRAFT).build());
+                }
+            });
+            assertThat(contractCount()).isEqualTo(limit - 1);
+
+            List<Integer> statuses = simultaneously(() -> mvc.perform(post("/contracts")
+                    .header("Authorization", "Bearer " + adminToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(newContractJson(UUID.randomUUID().toString())))
+                    .andReturn().getResponse().getStatus());
+
+            assertThat(statuses.stream().filter(s -> s / 100 == 2)).hasSize(1);
+            assertThat(statuses.stream().filter(s -> s / 100 != 2)).allMatch(s -> s == 409);
+            assertThat(contractCount()).isEqualTo(limit);
+        }
+    }
+
+    private int contractCount() {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM contracts WHERE organization_id = ?", Integer.class,
+                orgId.toString());
+    }
+
+    private String newContractJson(String contractNumber) {
+        return """
+                {"counterpartyId":"%s","contractNumber":"%s","projectName":"Nuovo","status":"DRAFT",
+                 "startDate":"2026-01-01","endDate":"2026-12-31","areaId":"%s","managerId":"%s"}
+                """.formatted(counterpartyId, contractNumber, areaId, managerId);
+    }
+
     private String resetLink() {
         Users user = new TransactionTemplate(transactions).execute(tx -> em.find(Users.class, userId));
         return passwordResetTokenService.createToken(user);

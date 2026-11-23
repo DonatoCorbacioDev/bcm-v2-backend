@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -58,13 +59,16 @@ public class ElectronicInvoiceService {
     private final FatturaPaXmlParserService fatturaPaXmlParserService;
     private final InvoiceMatchingService invoiceMatchingService;
     private final UploadChecks uploadChecks;
+    private final StorageQuotaService storageQuota;
 
     public ElectronicInvoiceService(ElectronicInvoiceRepository invoiceRepository,
                                      ContractAccessGuard contractAccessGuard,
                                      LocalStorageService localStorageService,
                                      FatturaPaXmlParserService fatturaPaXmlParserService,
                                      InvoiceMatchingService invoiceMatchingService,
-                                     UploadChecks uploadChecks) {
+                                     UploadChecks uploadChecks,
+                                     StorageQuotaService storageQuota) {
+        this.storageQuota = storageQuota;
         this.invoiceRepository = invoiceRepository;
         this.contractAccessGuard = contractAccessGuard;
         this.localStorageService = localStorageService;
@@ -73,7 +77,8 @@ public class ElectronicInvoiceService {
         this.uploadChecks = uploadChecks;
     }
 
-    @Transactional(rollbackFor = IOException.class)
+    // READ COMMITTED: the stored files are summed after locking the organization (QuotaTransactions).
+    @Transactional(rollbackFor = IOException.class, isolation = Isolation.READ_COMMITTED)
     public ElectronicInvoiceDTO uploadInvoice(UUID contractId, MultipartFile file) throws IOException {
         Contracts contract = contractAccessGuard.getContractInScope(contractId);
         contractAccessGuard.checkManagerCanAccess(contract);
@@ -89,6 +94,8 @@ public class ElectronicInvoiceService {
                     "Questa fattura risulta già caricata (fornitore, numero e tipo documento coincidono)");
         }
 
+        // Before a byte is written: a full quota leaves nothing on disk.
+        storageQuota.requireRoom(orgId, bytes.length);
         String storagePath = localStorageService.storeInvoice(orgId, contractId, bytes);
         // No row will point at the file if the transaction rolls back.
         AfterTransaction.onRollback(() -> localStorageService.deleteQuietly(storagePath));

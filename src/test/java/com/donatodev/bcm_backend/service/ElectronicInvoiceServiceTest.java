@@ -71,7 +71,7 @@ class ElectronicInvoiceServiceTest {
         TenantContext.set(TENANT);
         electronicInvoiceService = new ElectronicInvoiceService(
                 invoiceRepository, contractAccessGuard, localStorageService, fatturaPaXmlParserService,
-                invoiceMatchingService, com.donatodev.bcm_backend.support.TestUploads.checks());
+                invoiceMatchingService, com.donatodev.bcm_backend.support.TestUploads.checks(), storageQuota);
         ReflectionTestUtils.setField(electronicInvoiceService, "backendBaseUrl", BACKEND_URL);
 
         SecurityContext ctx = SecurityContextHolder.createEmptyContext();
@@ -90,6 +90,7 @@ class ElectronicInvoiceServiceTest {
     @Mock private LocalStorageService localStorageService;
     @Mock private FatturaPaXmlParserService fatturaPaXmlParserService;
     @Mock private InvoiceMatchingService invoiceMatchingService;
+    @Mock private StorageQuotaService storageQuota;
 
     private ElectronicInvoiceService electronicInvoiceService;
 
