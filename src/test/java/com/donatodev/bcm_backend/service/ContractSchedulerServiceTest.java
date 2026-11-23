@@ -219,6 +219,28 @@ class ContractSchedulerServiceTest {
         // ── Notification tests ─────────────────────────────────────────────
 
         @Test
+        @DisplayName("names and numbers a user typed reach the reminder encoded, never as markup")
+        void reminderEncodesUserText() {
+            Managers manager = buildManager(uid(1), "<i>Anna</i>", "O'Brien & Co", "anna@example.com");
+            Contracts contract = buildContract(uid(1), "CNT<1>", "<script>alert(1)</script>", "\"Progetto\"", manager);
+            when(contractsRepository.findByStatusAndEndDate(eq(ContractStatus.ACTIVE), any(LocalDate.class)))
+                    .thenReturn(List.of(contract))
+                    .thenReturn(Collections.emptyList());
+
+            schedulerService.sendExpirationNotifications();
+
+            org.mockito.ArgumentCaptor<String> body = org.mockito.ArgumentCaptor.forClass(String.class);
+            verify(emailService).sendEmail(eq("anna@example.com"), anyString(), body.capture());
+            org.assertj.core.api.Assertions.assertThat(body.getValue())
+                    .doesNotContain("<script>").doesNotContain("<i>Anna</i>").doesNotContain("CNT<1>")
+                    .contains("&lt;script&gt;alert(1)&lt;/script&gt;")
+                    .contains("&lt;i&gt;Anna&lt;/i&gt;")
+                    .contains("O&#39;Brien &amp; Co")
+                    .contains("CNT&lt;1&gt;")
+                    .contains("&quot;Progetto&quot;");
+        }
+
+        @Test
         @Order(9)
         @DisplayName("Should send notification for contract at 30-day threshold")
         void shouldSendExpirationNotifications() {

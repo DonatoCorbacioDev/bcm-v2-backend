@@ -78,26 +78,28 @@ public class ExportService {
                 cell.setCellStyle(headerStyle);
             }
 
+            // Every value is text a user typed (OWASP ASVS 1.2.10, formula
+            // injection): a counterparty named "=HYPERLINK(...)" must stay a
+            // name. A string cell is never evaluated as written; quote-prefixed,
+            // it stays text even after someone edits it in Excel, as a leading
+            // apostrophe typed there would, without changing the value itself.
+            CellStyle textStyle = workbook.createCellStyle();
+            textStyle.setQuotePrefixed(true);
+
             // Fill data rows
             int rowNum = 1;
             for (ContractDTO contract : contracts) {
                 Row row = sheet.createRow(rowNum++);
-                row.createCell(0).setCellValue(contract.contractNumber());
-                row.createCell(1).setCellValue(contract.counterparty().name());
-                row.createCell(2).setCellValue(contract.projectName());
-                row.createCell(3).setCellValue(contract.status().toString());
-                row.createCell(4).setCellValue(contract.startDate().toString());
-                row.createCell(5).setCellValue(
-                        contract.endDate() != null ? contract.endDate().toString() : "N/A"
-                );
-                row.createCell(6).setCellValue(
-                        contract.manager() != null
+                text(row, 0, contract.contractNumber(), textStyle);
+                text(row, 1, contract.counterparty().name(), textStyle);
+                text(row, 2, contract.projectName(), textStyle);
+                text(row, 3, contract.status().toString(), textStyle);
+                text(row, 4, contract.startDate().toString(), textStyle);
+                text(row, 5, contract.endDate() != null ? contract.endDate().toString() : "N/A", textStyle);
+                text(row, 6, contract.manager() != null
                         ? contract.manager().firstName() + " " + contract.manager().lastName()
-                        : "N/A"
-                );
-                row.createCell(7).setCellValue(
-                        contract.area() != null ? contract.area().name() : "N/A"
-                );
+                        : "N/A", textStyle);
+                text(row, 7, contract.area() != null ? contract.area().name() : "N/A", textStyle);
             }
 
             // Auto-size all columns
@@ -221,5 +223,12 @@ public class ExportService {
         cell.setPadding(4);
         cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
         table.addCell(cell);
+    }
+
+    /** A spreadsheet cell holding text, never a formula (see exportToExcel). */
+    private static void text(Row row, int column, String value, CellStyle style) {
+        Cell cell = row.createCell(column);
+        cell.setCellValue(value);
+        cell.setCellStyle(style);
     }
 }

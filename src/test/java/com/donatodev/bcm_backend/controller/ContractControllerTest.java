@@ -512,41 +512,6 @@ class ContractControllerTest {
         }
 
         /**
-         * Test searching contracts with invalid status should ignore it and
-         * continue.
-         */
-        @Test
-        @Order(17)
-        @DisplayName("Should ignore invalid status in search and continue")
-        @WithMockUser(username = "admin", roles = "ADMIN")
-        void shouldIgnoreInvalidStatusInSearch() throws Exception {
-            Roles role = rolesRepository.save(Roles.builder().role("ADMIN").build());
-            Managers manager = managersRepository.save(Managers.builder().organization(testOrg)
-                    .firstName("Test").lastName("Manager").email("test@example.com")
-                    .phoneNumber("123456").department("Test").build());
-
-            usersRepository.save(Users.builder().organization(testOrg)
-                    .username("admin").passwordHash("admin").role(role).verified(true).build());
-
-            BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
-                    .name("Test Area").description("Test").build());
-
-            contractsRepository.save(Contracts.builder().organization(testOrg)
-                    .counterparty(counterpartiesRepository.save(Counterparty.builder().organization(testOrg).name("TestClient").type(CounterpartyType.CUSTOMER).build())).contractNumber("TEST-1").wbsCode("WBS-TEST")
-                    .projectName("Test Project").businessArea(area).manager(manager)
-                    .startDate(LocalDate.of(2027, Month.JUNE, 15)).endDate(LocalDate.of(2027, Month.JUNE, 15).plusDays(30))
-                    .status(ContractStatus.ACTIVE).build());
-
-            // Pass an invalid status that will be caught and ignored
-            mockMvc.perform(get("/contracts/search")
-                    .param("status", "INVALID_STATUS_IGNORED")
-                    .param("page", "0")
-                    .param("size", "10"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content").isArray());
-        }
-
-        /**
          * Test searching contracts with blank status should treat it as null.
          */
         @Test
@@ -613,6 +578,24 @@ class ContractControllerTest {
                     .param("size", "10"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content").isArray());
+        }
+
+        @Test
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        @DisplayName("GET /contracts/search - a status that is not one is refused, not ignored")
+        void unknownStatusIsRefused() throws Exception {
+            mockMvc.perform(get("/contracts/search").param("status", "PAID"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("Stato del contratto non valido"));
+        }
+
+        @Test
+        @WithMockUser(username = "admin", roles = "ADMIN")
+        @DisplayName("GET /contracts/search - a search text longer than any field is refused, by name")
+        void overlongSearchIsRefused() throws Exception {
+            mockMvc.perform(get("/contracts/search").param("q", "x".repeat(256)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("Parametro non valido: q"));
         }
 
         @Test

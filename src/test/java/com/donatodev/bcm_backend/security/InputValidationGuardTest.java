@@ -16,7 +16,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.MethodParameter;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
@@ -89,6 +91,28 @@ class InputValidationGuardTest {
         }
         assertThat(unbounded).as("text fields without @Size, @Pattern, @Email or @ValidPassword")
                 .isEqualTo(new TreeSet<>(UNBOUNDED_TEXT.keySet()));
+    }
+
+    /** Text query and path parameters with no bound of their own, and why. */
+    private static final Map<String, String> UNBOUNDED_PARAMETERS = Map.of();
+
+    @Test
+    @DisplayName("every text query or path parameter has a bound, or is listed with the reason it has none")
+    void everyTextParameterIsBounded() {
+        Set<String> unbounded = new TreeSet<>();
+        for (HandlerMethod handler : ourHandlers()) {
+            for (MethodParameter parameter : handler.getMethodParameters()) {
+                if (parameter.getParameterType() == String.class
+                        && (parameter.hasParameterAnnotation(RequestParam.class)
+                                || parameter.hasParameterAnnotation(PathVariable.class))
+                        && !parameter.hasParameterAnnotation(Size.class)
+                        && !parameter.hasParameterAnnotation(Pattern.class)) {
+                    unbounded.add(name(handler) + "." + parameter.getParameterName());
+                }
+            }
+        }
+        assertThat(unbounded).as("text parameters without @Size or @Pattern")
+                .isEqualTo(new TreeSet<>(UNBOUNDED_PARAMETERS.keySet()));
     }
 
     private static boolean bounded(Field field) {

@@ -85,4 +85,12 @@ class LoginAttemptMonitorTest {
 
         assertThat(LoginAttemptMonitor.lockedEmailBody("x")).contains("password");
     }
+
+    @Test
+    @DisplayName("the locked account's name reaches the email encoded, never as markup")
+    void usernameIsEncoded() {
+        assertThat(LoginAttemptMonitor.lockedEmailBody("<b onmouseover=\"x\">bob</b>"))
+                .doesNotContain("<b onmouseover")
+                .contains("&lt;b onmouseover=&quot;x&quot;&gt;bob&lt;/b&gt;");
+    }
 }

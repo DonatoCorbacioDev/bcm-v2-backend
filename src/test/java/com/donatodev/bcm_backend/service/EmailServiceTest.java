@@ -87,6 +87,17 @@ class EmailServiceTest {
     }
 
     @Test
+    @DisplayName("the reset link is encoded for the href attribute it sits in")
+    void resetLinkIsEncodedForItsAttribute() throws Exception {
+        when(mailSender.createMimeMessage()).thenReturn(message);
+
+        emailService.sendResetPasswordEmail(RECIPIENT, "https://bcm.test/reset?token=abc&x=\"><b>", "anna", "Alfa");
+
+        assertThat(htmlPart()).contains("href=\"https://bcm.test/reset?token=abc&amp;x=&quot;&gt;&lt;b&gt;\"")
+                .doesNotContain("\"><b>");
+    }
+
+    @Test
     @DisplayName("sends the registration code, saying what typing it signs")
     void shouldSendRegistrationCode() throws Exception {
         when(mailSender.createMimeMessage()).thenReturn(message);

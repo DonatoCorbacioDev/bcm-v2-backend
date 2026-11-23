@@ -215,6 +215,9 @@ class ExportServiceTest {
                 for (int column : new int[] {0, 1, 2}) {
                     assertThat(row.getCell(column).getCellType()).as("column %d", column)
                             .isEqualTo(org.apache.poi.ss.usermodel.CellType.STRING);
+                    // Still text once edited in Excel (ASVS 1.2.10).
+                    assertThat(row.getCell(column).getCellStyle().getQuotePrefixed()).as("column %d quoted", column)
+                            .isTrue();
                 }
                 assertThat(row.getCell(0).getStringCellValue()).isEqualTo(formula);
                 assertThat(row.getCell(1).getStringCellValue()).isEqualTo("+cmd|' /C calc'!A0");

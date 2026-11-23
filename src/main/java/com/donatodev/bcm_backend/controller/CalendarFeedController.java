@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.donatodev.bcm_backend.dto.CalendarFeedUrlDTO;
 import com.donatodev.bcm_backend.service.CalendarFeedService;
 
+import jakarta.validation.constraints.Size;
+
 @RestController
 public class CalendarFeedController {
 
@@ -40,7 +42,9 @@ public class CalendarFeedController {
     }
 
     @GetMapping("/calendar/{token}.ics")
-    public ResponseEntity<String> getIcsFeed(@PathVariable String token) {
+    // A bound, not the exact form (64 hex characters): any token that is not
+    // one stays a plain 404, which says nothing about what a real one looks like.
+    public ResponseEntity<String> getIcsFeed(@PathVariable @Size(max = 64) String token) {
         String ics = calendarFeedService.buildIcsFeed(token);
         return ResponseEntity.ok()
                 .contentType(TEXT_CALENDAR)

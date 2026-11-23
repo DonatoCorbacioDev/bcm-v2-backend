@@ -87,6 +87,28 @@ class MonthlyReporterTest {
         }
 
         @Test
+        @DisplayName("an organization name carrying HTML reaches the report encoded, never as markup")
+        void organizationNameIsEncoded() {
+            Organization org = Organization.builder().id(uid(1)).name("<script>alert(1)</script> & \"Co\"")
+                    .subscriptionTier(SubscriptionTier.FREE).build();
+            Managers manager = new Managers();
+            manager.setId(uid(1));
+            manager.setEmail("admin@testorg.com");
+            Users admin = Users.builder().id(uid(1)).username("admin")
+                    .role(Roles.builder().role("ADMIN").build())
+                    .manager(manager).organization(org).build();
+            when(organizationRepository.findAll()).thenReturn(List.of(org));
+            when(usersRepository.findByOrganizationIdAndRoleRole(uid(1), "ADMIN")).thenReturn(List.of(admin));
+
+            monthlyReporter.sendMonthlyReports();
+
+            ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+            verify(emailService).sendEmail(eq("admin@testorg.com"), anyString(), body.capture());
+            assertThat(body.getValue()).doesNotContain("<script>")
+                    .contains("&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;Co&quot;");
+        }
+
+        @Test
         @DisplayName("formatEuro uses Italian grouping, the symbol after the amount and no cents, HTML-escaped")
         void formatEuroIsItalian() {
             // The no-break space and the symbol come out as entities, so the

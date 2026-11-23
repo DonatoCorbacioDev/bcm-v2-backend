@@ -78,7 +78,8 @@ public class EmailService implements IEmailService {
                 "<p>Ciao!</p><p>Clicca sul link qui sotto per reimpostare la password dell'account <strong>"
                 + HtmlUtils.htmlEscape(String.valueOf(username)) + "</strong> dell'organizzazione <strong>"
                 + HtmlUtils.htmlEscape(String.valueOf(organizationName)) + "</strong>:</p>"
-                + "<p><a href=\"" + resetLink + "\">Reimposta password</a></p>",
+                // Built by the server, but encoded for its context like the rest (OWASP ASVS 1.2.1).
+                + "<p><a href=\"" + HtmlUtils.htmlEscape(String.valueOf(resetLink)) + "\">Reimposta password</a></p>",
                 "Error sending reset password email");
     }
 

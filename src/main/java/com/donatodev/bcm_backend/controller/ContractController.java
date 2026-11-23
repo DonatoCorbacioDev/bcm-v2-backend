@@ -20,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -173,15 +174,18 @@ public class ContractController {
     public ResponseEntity<Page<ContractDTO>> search(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String q,
-            @RequestParam(required = false) String status
+            // As long as the longest field it is matched against (number, counterparty name).
+            @RequestParam(required = false) @Size(max = 255) String q,
+            @RequestParam(required = false) @Size(max = 20) String status
     ) {
         ContractStatus st = null;
         if (status != null && !status.isBlank() && !"ALL".equals(Normalizer.normalize(status, Normalizer.Form.NFC).toUpperCase(Locale.ROOT))) {
             try {
                 st = ContractStatus.valueOf(Normalizer.normalize(status, Normalizer.Form.NFC).toUpperCase(Locale.ROOT));
-            } catch (IllegalArgumentException ignored) {
-                // Invalid status provided; fallback to no status filter
+            } catch (IllegalArgumentException unknown) {
+                // Refused, not ignored (OWASP ASVS 2.2.1): a status that is not
+                // one would otherwise return every contract, as if it matched.
+                throw new IllegalArgumentException("Stato del contratto non valido");
             }
         }
         Page<ContractDTO> result = contractService.searchPaged(q, st, page, size);

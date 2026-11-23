@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -321,6 +322,23 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ApiErrorResponse> handleMissingParameter(MissingServletRequestParameterException ex) {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "Parametro obbligatorio mancante: " + ex.getParameterName());
+    }
+
+    /**
+     * A query or path parameter outside its declared bounds ({@code @Size},
+     * {@code @Pattern} on the controller method, OWASP ASVS 2.2.1): validated by
+     * Spring itself, refused here with the parameter's name and never its value;
+     * left to the catch-all below it would be a 500.
+     */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ApiErrorResponse> handleParameterValidation(HandlerMethodValidationException ex) {
+        String names = ex.getParameterValidationResults().stream()
+                .map(result -> result.getMethodParameter().getParameterName())
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(java.util.stream.Collectors.joining(", "));
+        return buildErrorResponse(HttpStatus.BAD_REQUEST,
+                names.isEmpty() ? "Parametro non valido" : "Parametro non valido: " + names);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
