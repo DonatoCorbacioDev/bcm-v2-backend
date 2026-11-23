@@ -6,6 +6,7 @@
 package com.donatodev.bcm_backend.jwt;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -77,6 +78,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
                 securityEvents.record(SecurityEvents.Type.RATE_LIMITED, request.getServletPath());
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                // Written by hand: UTF-8 declared, not the servlet's ISO-8859-1 (ASVS 4.1.1).
+                response.setCharacterEncoding(StandardCharsets.UTF_8.name());
                 response.getWriter().write(
                         "{\"status\":429,\"message\":\"Too many requests. Please try again later.\"}");
                 return;

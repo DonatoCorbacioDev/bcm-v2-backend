@@ -80,6 +80,8 @@ class RateLimitingFilterTest {
         filter.doFilter(pathRequest("/auth/2fa/verify"), blocked, chain);
 
         assertEquals(429, blocked.getStatus());
+        // Written by hand: UTF-8 declared, never the servlet's ISO-8859-1 (ASVS 4.1.1).
+        assertEquals("application/json;charset=UTF-8", blocked.getContentType().replace(" ", ""));
     }
 
     @Test

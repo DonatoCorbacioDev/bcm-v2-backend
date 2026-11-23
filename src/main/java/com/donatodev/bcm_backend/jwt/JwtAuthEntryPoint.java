@@ -6,6 +6,7 @@
 package com.donatodev.bcm_backend.jwt;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
@@ -46,6 +47,9 @@ public class JwtAuthEntryPoint implements AuthenticationEntryPoint {
 
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        // Written by hand, so the servlet's default ISO-8859-1 would apply
+        // otherwise (OWASP ASVS 4.1.1): the body is UTF-8, and says so.
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
 
         ApiErrorResponse errorResponse = new ApiErrorResponse(
                 HttpServletResponse.SC_UNAUTHORIZED,
