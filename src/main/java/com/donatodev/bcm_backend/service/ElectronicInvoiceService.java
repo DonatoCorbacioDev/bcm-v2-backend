@@ -176,6 +176,12 @@ public class ElectronicInvoiceService {
                 .orElseThrow(() -> new ContractNotFoundException(
                         String.format(INVOICE_NOT_FOUND, invoiceId, contractId)));
 
+        // A paid invoice stays: deleted and uploaded again, it would no longer be
+        // in its batch and could be paid a second time (BUSINESS_RULES.md).
+        if (invoice.getSepaBatch() != null) {
+            throw new IllegalArgumentException("La fattura è già inclusa in un pagamento SEPA e non può essere eliminata");
+        }
+
         // The row first, the file once that is committed (see ContractDocumentService).
         String storagePath = invoice.getStoragePath();
         invoiceRepository.delete(invoice);

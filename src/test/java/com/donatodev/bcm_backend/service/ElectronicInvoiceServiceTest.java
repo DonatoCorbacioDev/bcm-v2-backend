@@ -481,6 +481,24 @@ class ElectronicInvoiceServiceTest {
         }
 
         @Test
+        @DisplayName("deleteInvoice: refuses an invoice already in a SEPA batch, which could otherwise be paid again")
+        void shouldRefuseDeletingInvoiceInSepaBatch() {
+            Contracts contract = fakeContract();
+            ElectronicInvoice invoice = fakeInvoice(contract, sampleLineItems());
+            invoice.setSepaBatch(new com.donatodev.bcm_backend.entity.SepaPaymentBatch());
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByIdAndContractId(INVOICE_ID, CONTRACT_ID))
+                    .thenReturn(Optional.of(invoice));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> electronicInvoiceService.deleteInvoice(CONTRACT_ID, INVOICE_ID));
+            assertTrue(ex.getMessage().contains("pagamento SEPA"));
+            org.mockito.Mockito.verify(invoiceRepository, org.mockito.Mockito.never()).delete(any());
+            org.mockito.Mockito.verifyNoInteractions(localStorageService);
+        }
+
+        @Test
         @Order(16)
         @DisplayName("deleteInvoice: throws ContractNotFoundException when invoice missing")
         void shouldThrowWhenInvoiceNotFoundOnDelete() {

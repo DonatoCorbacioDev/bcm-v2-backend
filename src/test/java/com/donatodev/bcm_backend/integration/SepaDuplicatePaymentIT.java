@@ -1,6 +1,7 @@
 package com.donatodev.bcm_backend.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import java.math.BigDecimal;
@@ -165,6 +166,41 @@ class SepaDuplicatePaymentIT extends AbstractMySQLIntegrationTest {
                 Integer.class, orgId.toString())).isZero();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_logs WHERE org_id = ? AND action = ?",
                 Integer.class, orgId.toString(), "SEPA_IBAN_MISMATCH_BLOCKED")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("an edit from a copy read before the SEPA payment cannot take the invoice out of its batch (@Version, V64)")
+    void staleInvoiceEditCannotClearItsBatch() {
+        TransactionTemplate tx = new TransactionTemplate(transactions);
+        assertThatThrownBy(() -> tx.executeWithoutResult(status -> {
+            ElectronicInvoice stale = em.find(ElectronicInvoice.class, invoiceId);
+            assertThat(stale.getSepaBatch()).isNull();
+            // The payment commits in another request while this copy is held,
+            // as when two people act on the same invoice at the same moment.
+            ExecutorService other = Executors.newSingleThreadExecutor();
+            try {
+                int created = other.submit(() -> mvc.perform(post("/contracts/" + contractId + "/sepa-payments")
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"invoiceIds\":[\"" + invoiceId + "\"]}"))
+                        .andReturn().getResponse().getStatus()).get(30, TimeUnit.SECONDS);
+                assertThat(created).isEqualTo(201);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(e);
+            } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException e) {
+                throw new IllegalStateException(e);
+            } finally {
+                other.shutdownNow();
+            }
+            stale.setSupplierBic("BCITITMMXXX");
+            em.flush();
+        })).isInstanceOfAny(jakarta.persistence.OptimisticLockException.class,
+                org.springframework.dao.OptimisticLockingFailureException.class);
+
+        // Still in its batch: it cannot be paid a second time.
+        assertThat(jdbc.queryForObject("SELECT sepa_batch_id FROM electronic_invoices WHERE id = ?",
+                String.class, invoiceId.toString())).isNotNull();
     }
 
     private <T> T save(T value) {

@@ -47,9 +47,9 @@ the contract ACTIVE; rejection, with a required comment, sends it back to DRAFT.
 | Amounts, values and file sizes are not negative | Bean Validation, CHECK in MySQL (V62) |
 | A SEPA payment goes only to the supplier's verified IBAN | `SepaPaymentService` (`SEPA_IBAN_MISMATCH_BLOCKED`) |
 | The first verified IBAN of a supplier is set by an administrator: a manager's first payment to it is refused until an administrator confirms the IBAN or generates that payment | `SepaPaymentService` (`SEPA_UNVERIFIED_IBAN_REFUSED`) |
-| The same invoices are never in two SEPA batches | `SepaPaymentService` (`DUPLICATE_PAYMENT_REFUSED`) |
+| The same invoices are never in two SEPA batches | `SepaPaymentService` (`DUPLICATE_PAYMENT_REFUSED`); an invoice in a batch cannot be edited or deleted (`ElectronicInvoiceService`), nor written from an out-of-date copy (V64) |
 | An invoice already loaded (supplier, number, document type) is refused | `ElectronicInvoiceService` |
-| An edit made from an out-of-date copy is refused (409) | `@Version` on contracts, counterparties, organizations (V61) |
+| An edit made from an out-of-date copy is refused (409) | `@Version` on contracts, counterparties, organizations (V61), electronic invoices (V64) |
 
 ## Quotas per plan
 

@@ -22,6 +22,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -35,6 +36,17 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 @SuperBuilder
 public class ElectronicInvoice extends StoredFile {
+
+    /**
+     * Optimistic locking (V64), as on contracts and counterparties (V61): an
+     * update made from a copy read before another one committed, such as a SEPA
+     * payment setting the batch, fails instead of writing the old batch back.
+     * A primitive on purpose: Spring Data tells a new row by its id, not by a
+     * missing version.
+     */
+    @Version
+    @Column(nullable = false)
+    private long version;
 
     @Column(name = "supplier_name")
     private String supplierName;
