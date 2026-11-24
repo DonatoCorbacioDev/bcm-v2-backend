@@ -30,7 +30,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private static final Set<String> RATE_LIMITED_PATHS = Set.of(
             "/auth/login", "/auth/2fa/verify", "/auth/2fa/enroll/setup", "/auth/2fa/enroll/confirm",
             "/auth/forgot-password", "/auth/reset-password",
-            "/auth/refresh", "/auth/complete-invite",
+            "/auth/refresh", "/auth/complete-invite", "/auth/reauth",
             "/organizations/register", "/organizations/register/resend",
             "/organizations/register/confirm",
             // Not a brute-force target, but each call reads the whole organization.

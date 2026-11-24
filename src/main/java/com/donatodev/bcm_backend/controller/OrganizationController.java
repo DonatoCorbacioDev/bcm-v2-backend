@@ -27,6 +27,7 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import com.donatodev.bcm_backend.auth.LoginOutcome;
 import com.donatodev.bcm_backend.auth.LoginResponseDTO;
 import com.donatodev.bcm_backend.auth.AuthResponseDTO;
+import com.donatodev.bcm_backend.auth.ReauthenticationService;
 import com.donatodev.bcm_backend.auth.RefreshCookieFactory;
 import com.donatodev.bcm_backend.dto.ConfirmOrganizationDeletionRequest;
 import com.donatodev.bcm_backend.dto.ConfirmRegistrationRequest;
@@ -57,12 +58,15 @@ public class OrganizationController {
     private final RefreshCookieFactory refreshCookieFactory;
     private final OrganizationExportService exportService;
     private final OrganizationDeletionService deletionService;
+    private final ReauthenticationService reauthenticationService;
 
     public OrganizationController(OrganizationService organizationService,
             OrganizationRegistrationService registrationService,
             RefreshCookieFactory refreshCookieFactory,
             OrganizationExportService exportService,
-            OrganizationDeletionService deletionService) {
+            OrganizationDeletionService deletionService,
+            ReauthenticationService reauthenticationService) {
+        this.reauthenticationService = reauthenticationService;
         this.organizationService = organizationService;
         this.registrationService = registrationService;
         this.refreshCookieFactory = refreshCookieFactory;
@@ -117,6 +121,8 @@ public class OrganizationController {
     @GetMapping("/me/export")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<StreamingResponseBody> exportMyOrganization() {
+        // Every contract, invoice and IBAN at once: the password again first (OWASP ASVS 7.5).
+        reauthenticationService.require();
         // Resolved here, on the request thread: the body below runs later on an
         // async thread, where TenantContext is no longer set.
         OrganizationDTO org = organizationService.getMyOrganization();

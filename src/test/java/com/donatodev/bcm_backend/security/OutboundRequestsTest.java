@@ -42,6 +42,9 @@ class OutboundRequestsTest {
             "builds the one client for the ML service: no redirects, URL from ml.fastapi.url (OutboundDestinations)",
             "service/MlProxyService.java",
             "calls the ML service at fixed paths; users pass only numbers, ids and a question in the JSON body",
+            "security/PwnedPasswordsClient.java",
+            "asks Have I Been Pwned whether a password leaked: fixed https address in the code, no redirects, "
+                    + "only 5 hex characters of a SHA-1 sent, two-second timeouts",
             "upload/MalwareScanner.java",
             "sends uploaded files to clamd for scanning; host and port fixed by app.malware-scan.*, never from a request");
 

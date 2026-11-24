@@ -68,6 +68,8 @@ class FunctionLevelAuthorizationTest {
             "InternalOrganizationController.changeTier",
             // The caller's own account.
             "CalendarFeedController.getFeedUrl", "CalendarFeedController.regenerateFeedUrl",
+            // Re-entering one's own password (ReauthenticationService); requires a session (SecurityConfig).
+            "AuthController.reauthenticate",
             "TwoFactorAuthController.status", "TwoFactorAuthController.setup",
             "TwoFactorAuthController.confirm", "TwoFactorAuthController.disable");
 

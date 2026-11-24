@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import com.donatodev.bcm_backend.support.TestReauth;
+
 import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -58,6 +60,9 @@ class ManagerControllerTest {
 
     /** The organization this class's requests and fixtures belong to, as a real token's would. */
     private Organization testOrg;
+
+    @Autowired
+    private com.donatodev.bcm_backend.jwt.JwtUtils jwtUtils;
 
     @Autowired
     private MockMvc mockMvc;
@@ -175,6 +180,7 @@ class ManagerControllerTest {
             ManagerDTO updatedDTO = new ManagerDTO(original.getId(), "Marco", "Verdi", "marco@example.com", "999", "Marketing");
 
             mockMvc.perform(put("/managers/{id}", original.getId())
+                    .header(TestReauth.HEADER, TestReauth.token(jwtUtils, "user", testOrg.getId()))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(updatedDTO)))
                     .andExpect(status().isOk())
@@ -231,6 +237,7 @@ class ManagerControllerTest {
                     "new@example.com", "999", "NewDept");
 
             mockMvc.perform(patch("/managers/{id}", original.getId())
+                    .header(TestReauth.HEADER, TestReauth.token(jwtUtils, "user", testOrg.getId()))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(patchedDTO)))
                     .andExpect(status().isOk())

@@ -56,7 +56,7 @@ class ClientIpOverHttpTest {
                 {
                   "organizationName": "Proxy Corp",
                   "adminUsername":    "proxyadmin",
-                  "adminPassword":    "password123",
+                  "adminPassword":    "Faro-Mareggiata-58",
                   "adminEmail":       "admin@proxycorp.com",
                   "adminFirstName":   "Proxy",
                   "adminLastName":    "Admin",

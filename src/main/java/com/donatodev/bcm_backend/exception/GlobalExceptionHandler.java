@@ -190,6 +190,12 @@ public class GlobalExceptionHandler {
     }
 
     /** A per-user limit on a costly operation (OWASP API4). */
+    /** An operation that asks for the password again first (ReauthenticationService): 428, for the frontend to ask. */
+    @ExceptionHandler(ReauthenticationRequiredException.class)
+    public ResponseEntity<ApiErrorResponse> handleReauthenticationRequired(ReauthenticationRequiredException ex) {
+        return buildErrorResponse(HttpStatus.PRECONDITION_REQUIRED, ex.getMessage());
+    }
+
     @ExceptionHandler(TooManyRequestsException.class)
     public ResponseEntity<ApiErrorResponse> handleTooManyRequests(TooManyRequestsException ex) {
         return buildErrorResponse(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage());

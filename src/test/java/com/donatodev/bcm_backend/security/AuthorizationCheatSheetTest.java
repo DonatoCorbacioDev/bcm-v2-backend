@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.security;
 
+import com.donatodev.bcm_backend.support.TestReauth;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -137,6 +139,7 @@ class AuthorizationCheatSheetTest {
         String managerHash = manager.getPasswordHash();
 
         mvc.perform(patch("/users/{id}", manager.getId()).header("Authorization", bearer(admin))
+                        .header(TestReauth.HEADER, TestReauth.token(jwt, admin.getUsername(), admin.getOrganization().getId()))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"password\":\"" + NEW_PASSWORD + "\"}"))
                 .andExpect(status().isOk());
         mvc.perform(put("/users/{id}", otherAdmin.getId()).header("Authorization", bearer(admin))

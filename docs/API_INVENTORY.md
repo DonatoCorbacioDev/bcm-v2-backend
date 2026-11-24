@@ -9,7 +9,7 @@ and the code disagree: don't edit it by hand, regenerate it with
 listed with its reason in `FunctionLevelAuthorizationTest` (OWASP API5). The full
 OpenAPI schema is served at `/api/v1/api-docs` outside production.
 
-139 endpoints.
+140 endpoints.
 
 | Path | Method | Access | Handler |
 |---|---|---|---|
@@ -25,6 +25,7 @@ OpenAPI schema is served at `/api/v1/api-docs` outside production.
 | `/auth/login` | POST | no role | `AuthController.login` |
 | `/auth/logout` | POST | no role | `AuthController.logout` |
 | `/auth/me` | GET | no role | `AuthController.getCurrentUser` |
+| `/auth/reauth` | POST | no role | `AuthController.reauthenticate` |
 | `/auth/refresh` | POST | no role | `AuthController.refresh` |
 | `/auth/reset-password` | POST | no role | `AuthController.resetPassword` |
 | `/billing/checkout-session` | POST | `hasRole('ADMIN')` | `BillingController.createCheckoutSession` |

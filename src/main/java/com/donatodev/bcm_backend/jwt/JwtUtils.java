@@ -62,6 +62,9 @@ public class JwtUtils {
     public static final String ISSUER = "bcm-backend";
     public static final String AUDIENCE_API = "bcm-api";
     public static final String AUDIENCE_MFA = "bcm-mfa";
+    /** A recent re-authentication (ReauthenticationService): never a session, never accepted as one. */
+    public static final String AUDIENCE_REAUTH = "bcm-reauth";
+    static final long REAUTH_TOKEN_TTL_MS = 5 * 60 * 1000L;
 
     public Clock getClock() {
         return this.clock;
@@ -179,6 +182,36 @@ public class JwtUtils {
                 .claim(CLAIM_MFA_SETUP, true)
                 .signWith(getSigningKey(), algorithm())
                 .compact();
+    }
+
+    /**
+     * Proof that the signed-in user has just entered their password again (and
+     * their 2FA code, if they use one), for the few operations that ask for it
+     * (OWASP ASVS 7.5): five minutes, its own audience, so it opens no session
+     * and no other endpoint accepts it.
+     */
+    public String generateReauthToken(Users user) {
+        Instant now = Instant.now();
+        UUID orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
+        return baseToken(user.getUsername(), AUDIENCE_REAUTH, now, now.plusMillis(REAUTH_TOKEN_TTL_MS))
+                .claim(CLAIM_ORG_ID, orgId != null ? orgId.toString() : null)
+                .signWith(getSigningKey(), algorithm())
+                .compact();
+    }
+
+    /** True for an unexpired re-authentication token of exactly this user in exactly this organization. */
+    public boolean isReauthTokenFor(String token, String username, UUID orgId) {
+        if (token == null || token.isBlank() || username == null || orgId == null) {
+            return false;
+        }
+        try {
+            return hasAudience(token, AUDIENCE_REAUTH)
+                    && username.equals(getUsernameFromJwtToken(token))
+                    && orgId.equals(getOrganizationIdFromToken(token))
+                    && !isTokenExpired(token);
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
     }
 
     /** True for a token from {@link #generateMfaSetupToken}; false for anything else, malformed or expired. */

@@ -118,6 +118,14 @@ class UserServiceTest {
     @Mock
     private AuditLogService auditLogService;
 
+    // Its own rules are PasswordStrengthServiceTest's; here only the length rule runs, as before.
+    @Mock
+    private PasswordStrengthService passwordStrength;
+
+    // ReauthenticationTest covers it; here it lets every change through.
+    @Mock
+    private com.donatodev.bcm_backend.auth.ReauthenticationService reauthenticationService;
+
     @InjectMocks
     private UserService userService;
 

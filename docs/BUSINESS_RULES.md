@@ -62,11 +62,54 @@ Both quotas are counted with the organization's row locked, so simultaneous
 requests cannot each take the last free place (`TransactionIntegrityIT`,
 `StorageQuotaServiceTest`).
 
+## Passwords
+
+Wherever a password is set (registration, invitation, change, reset, an
+administrator setting it): at least 8 characters, at most 72 bytes, no rule on
+which characters (OWASP ASVS 6.2: composition rules make passwords weaker),
+and then refused if it is
+
+- one of the 46,000 most used of 8 characters or more (the NCSC's list,
+  case-insensitive);
+- built on the account's own words: its username, its organization's name, its
+  person's names or email, or "bcm" (words of 4 letters or more);
+- already leaked, according to Have I Been Pwned: only 5 hex characters of the
+  password's SHA-1 leave the backend (k-anonymity); when the service does not
+  answer within 2 seconds, the rules above decide alone.
+
+`PasswordStrengthService`, `PasswordStrengthServiceTest`. The public demo
+account is left out: its password is on the login page on purpose.
+
+## Sessions
+
+| What | Rule |
+|---|---|
+| Sessions per account | One: a new sign-in ends the previous one; signing out ends all; a reused refresh token ends all |
+| Access token | 15 minutes |
+| Session, from its sign-in | 12 hours at most, however often renewed |
+| Inactivity | 30 minutes without a renewal ends it (`RefreshTokenService`); in the browser, 30 minutes without input signs out, with a warning 2 minutes before (`IdleSessionGuard`) |
+| Sign-in from another kind of device | its owner is emailed: device, address, time, what to do (`NewDeviceMonitor`); not on the first sign-in recorded, nor for the public demo |
+
+## Operations that ask for the password again
+
+Answered 428 without a fresh confirmation: the browser asks for the password
+(and the 2FA code, if the account uses one), `POST /auth/reauth` returns a
+token valid 5 minutes, and the request is repeated with it
+(`ReauthenticationService`, `ReauthenticationTest`). A wrong password counts
+towards the same lock as the sign-in.
+
+- changing an account's email (where its password resets are sent);
+- setting another user's password;
+- exporting the organization's data.
+
+Already confirmed in their own way: changing one's own password (the current
+one), turning 2FA off (a code), deleting the organization (an emailed code).
+
 ## Rate limits and budgets
 
 | What | Limit | Keyed by | Code |
 |---|---|---|---|
-| Sign-in, registration, password reset | 5 a minute | address | `RateLimitingFilter` |
+| Sign-in, registration, password reset, re-authentication | 5 a minute | address | `RateLimitingFilter` |
 | Session renewal | 30 a minute | address | `RateLimitingFilter` |
 | Changes (POST, PUT, PATCH, DELETE) | 60 a minute | user | `WriteBudgetLimiter` |
 | Heavy operations: exports, imports, uploads, file parsing, embeddings | 20 a minute | user | `CostlyOperationLimiter` |
@@ -95,7 +138,8 @@ recorded as a security event, reported weekly.
 | What | Lasts |
 |---|---|
 | Access token | 15 minutes |
-| Session (refresh token) | 7 days, not extended by renewing it |
+| Session (refresh token) | 12 hours from the sign-in, ended by 30 minutes of inactivity |
+| Re-authentication | 5 minutes |
 | Password reset link | 30 minutes, one use |
 | Registration and deletion codes | 15 minutes |
 | Organization deletion | 30 days to cancel it |

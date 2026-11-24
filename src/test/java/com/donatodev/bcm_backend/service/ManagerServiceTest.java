@@ -77,6 +77,10 @@ class ManagerServiceTest {
     @Mock
     private ManagerMapper managerMapper;
 
+    // ReauthenticationTest covers it; here it lets every change through.
+    @Mock
+    private com.donatodev.bcm_backend.auth.ReauthenticationService reauthenticationService;
+
     @InjectMocks
     private ManagerService managerService;
 

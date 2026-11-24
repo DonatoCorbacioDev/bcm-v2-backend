@@ -22,6 +22,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.donatodev.bcm_backend.auth.ReauthenticationService;
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.UserDTO;
 import com.donatodev.bcm_backend.dto.UserProfileDTO;
@@ -54,6 +55,8 @@ public class UserService {
 
 	private final SessionRevocationService sessionRevocationService;
 	private final AuditLogService auditLogService;
+	private final PasswordStrengthService passwordStrength;
+	private final ReauthenticationService reauthenticationService;
 
 	@Value("${app.frontend-base-url:http://localhost:3000}")
 	private String frontendBaseUrl;
@@ -71,8 +74,12 @@ public class UserService {
 			RolesRepository rolesRepository,
 			InviteTokenRepository inviteTokenRepository,
 			SessionRevocationService sessionRevocationService,
-			AuditLogService auditLogService
+			AuditLogService auditLogService,
+			PasswordStrengthService passwordStrength,
+			ReauthenticationService reauthenticationService
 	) {
+		this.passwordStrength = passwordStrength;
+		this.reauthenticationService = reauthenticationService;
 		this.usersRepository = usersRepository;
 		this.userMapper = userMapper;
 		this.passwordEncoder = passwordEncoder;
@@ -151,7 +158,7 @@ public class UserService {
 		// Client IDs must never turn account creation into an update of an existing user.
 		user.setId(null);
 		// The DTO allows no password (an update keeps the current one); a new user needs one.
-		PasswordPolicy.require(dto.password());
+		requireStrong(dto.password(), dto.username(), user.getOrganization(), user.getManager());
 		user.setPasswordHash(passwordEncoder.encode(dto.password()));
 		if (user.getManager() != null) {
 			// userMapper.toEntity() resolves the manager by ID without tenant
@@ -205,7 +212,7 @@ public class UserService {
 		// otherwise null the NOT NULL hash and fail the whole update.
 		boolean passwordChanged = dto.password() != null && !dto.password().isBlank();
 		if (passwordChanged) {
-			PasswordPolicy.require(dto.password());
+			requireStrong(dto.password(), dto.username(), user.getOrganization(), user.getManager());
 			user.setPasswordHash(passwordEncoder.encode(dto.password()));
 		}
 
@@ -268,7 +275,7 @@ public class UserService {
 	 */
 	@Transactional
 	public void updatePassword(Users user, String newPassword) {
-		PasswordPolicy.require(newPassword);
+		requireStrong(newPassword, user.getUsername(), user.getOrganization(), user.getManager());
 		user.setPasswordHash(passwordEncoder.encode(newPassword));
 		usersRepository.save(user);
 		sessionRevocationService.credentialsChanged(user);
@@ -393,7 +400,7 @@ public class UserService {
 
 		Users user = new Users();
 		user.setUsername(it.getUsername());
-		PasswordPolicy.require(rawPassword);
+		requireStrong(rawPassword, it.getUsername(), manager.getOrganization(), manager);
 		user.setPasswordHash(passwordEncoder.encode(rawPassword));
 		user.setManager(manager);
 		user.setRole(role);
@@ -436,7 +443,7 @@ public class UserService {
 
 		boolean passwordChanged = rawPassword != null && !rawPassword.isBlank();
 		if (passwordChanged) {
-			PasswordPolicy.require(rawPassword);
+			requireStrong(rawPassword, user.getUsername(), user.getOrganization(), user.getManager());
 			user.setPasswordHash(passwordEncoder.encode(rawPassword));
 		}
 
@@ -464,6 +471,20 @@ public class UserService {
 				"user=" + user.getUsername() + " role " + roleBefore + " -> " + roleAfter);
 	}
 
+	/**
+	 * Every password set for an account: the length rule, then not common, not
+	 * built on the account's or its organization's words, not leaked
+	 * (PasswordStrengthService, OWASP ASVS 6.2).
+	 */
+	private void requireStrong(String password, String username, Organization organization, Managers manager) {
+		PasswordPolicy.require(password);
+		passwordStrength.require(password, username,
+				organization == null ? null : organization.getName(),
+				manager == null ? null : manager.getFirstName(),
+				manager == null ? null : manager.getLastName(),
+				manager == null ? null : manager.getEmail());
+	}
+
 	private static String roleName(Roles role) {
 		return role == null ? null : role.getRole();
 	}
@@ -481,6 +502,11 @@ public class UserService {
 		if (targetIsAdmin && !target.getUsername().equals(AuthenticatedUserUtils.getUsernameOrNull())) {
 			throw new AccessDeniedException(
 					"non puoi impostare la password di un altro amministratore: può reimpostarla da \"Password dimenticata\"");
+		}
+		// Another account's password: the password of whoever sets it, again
+		// first (OWASP ASVS 7.5.1). A stolen session must not hand over accounts.
+		if (!java.util.Objects.equals(target.getUsername(), AuthenticatedUserUtils.getUsernameOrNull())) {
+			reauthenticationService.require();
 		}
 	}
 

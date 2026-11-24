@@ -30,7 +30,6 @@ import com.donatodev.bcm_backend.entity.Users;
 import com.donatodev.bcm_backend.exception.RegistrationCodeException;
 import com.donatodev.bcm_backend.repository.PendingRegistrationRepository;
 import com.donatodev.bcm_backend.security.SecurityEvents;
-import com.donatodev.bcm_backend.validation.PasswordPolicy;
 import com.donatodev.bcm_backend.util.AfterTransaction;
 
 /**
@@ -70,6 +69,7 @@ public class OrganizationRegistrationService {
     private final IEmailService emailService;
     private final SessionIssuer sessionIssuer;
     private final SecurityEvents securityEvents;
+    private final PasswordStrengthService passwordStrength;
     private final SecureRandom random = new SecureRandom();
 
     public OrganizationRegistrationService(
@@ -78,7 +78,9 @@ public class OrganizationRegistrationService {
             PasswordEncoder passwordEncoder,
             IEmailService emailService,
             SessionIssuer sessionIssuer,
-            SecurityEvents securityEvents) {
+            SecurityEvents securityEvents,
+            PasswordStrengthService passwordStrength) {
+        this.passwordStrength = passwordStrength;
         this.securityEvents = securityEvents;
         this.pendingRepository = pendingRepository;
         this.organizationService = organizationService;
@@ -96,7 +98,8 @@ public class OrganizationRegistrationService {
     public RegistrationStartedDTO start(OrganizationRegistrationRequest request, RequestOrigin origin) {
         organizationService.validateNewRegistration(
                 request.adminUsername(), request.adminEmail(), request.termsVersion());
-        PasswordPolicy.require(request.adminPassword());
+        passwordStrength.require(request.adminPassword(), request.adminUsername(), request.organizationName(),
+                request.adminFirstName(), request.adminLastName(), request.adminEmail());
         LocalDateTime now = now();
         // Starting over is no way around the limits of resend (OWASP API6): the
         // count of codes the address received carries over to the new attempt.

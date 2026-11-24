@@ -83,6 +83,8 @@ public class CorsConfig {
         // Configure allowed headers
         configuration.setAllowedHeaders(Arrays.asList(
                 "Authorization",
+                // A recent re-authentication (ReauthenticationService).
+                "X-Reauth-Token",
                 "Content-Type",
                 "X-Requested-With",
                 "Accept",

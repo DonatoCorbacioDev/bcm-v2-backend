@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import com.donatodev.bcm_backend.support.TestReauth;
+
 import com.donatodev.bcm_backend.support.TestTenant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -116,6 +118,7 @@ class OrganizationExportControllerTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private OrganizationRepository organizationRepository;
+    @Autowired private com.donatodev.bcm_backend.jwt.JwtUtils jwtUtils;
     @Autowired private UsersRepository usersRepository;
     @Autowired private ManagersRepository managersRepository;
     @Autowired private RolesRepository rolesRepository;
@@ -245,7 +248,7 @@ class OrganizationExportControllerTest {
 
     /** Runs the request through the async dispatch and returns the archive's entries by path. */
     private Map<String, byte[]> export() throws Exception {
-        MvcResult started = mockMvc.perform(get(EXPORT_URL))
+        MvcResult started = mockMvc.perform(get(EXPORT_URL).header(TestReauth.HEADER, TestReauth.token(jwtUtils, "export-admin", org.getId())))
                 .andExpect(request().asyncStarted())
                 .andReturn();
         byte[] zip = mockMvc.perform(asyncDispatch(started))
@@ -460,7 +463,7 @@ class OrganizationExportControllerTest {
     @WithMockUser(username = "export-admin", roles = "ADMIN")
     @DisplayName("Names the file after the organization and forbids caching")
     void setsDownloadHeaders() throws Exception {
-        MvcResult started = mockMvc.perform(get(EXPORT_URL)).andReturn();
+        MvcResult started = mockMvc.perform(get(EXPORT_URL).header(TestReauth.HEADER, TestReauth.token(jwtUtils, "export-admin", org.getId()))).andReturn();
         mockMvc.perform(asyncDispatch(started))
                 .andExpect(header().string("Content-Disposition",
                         matchesPattern(
@@ -472,7 +475,7 @@ class OrganizationExportControllerTest {
     @WithMockUser(username = "export-admin", roles = "ADMIN")
     @DisplayName("Lets a cross-origin frontend read the download name")
     void exposesContentDispositionToTheFrontend() throws Exception {
-        MvcResult started = mockMvc.perform(get(EXPORT_URL).header("Origin", "http://localhost:3000"))
+        MvcResult started = mockMvc.perform(get(EXPORT_URL).header("Origin", "http://localhost:3000").header(TestReauth.HEADER, TestReauth.token(jwtUtils, "export-admin", org.getId())))
                 .andReturn();
         mockMvc.perform(asyncDispatch(started))
                 .andExpect(header().string("Access-Control-Expose-Headers",

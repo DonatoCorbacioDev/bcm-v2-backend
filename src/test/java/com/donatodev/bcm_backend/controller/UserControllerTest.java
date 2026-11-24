@@ -1,5 +1,7 @@
 package com.donatodev.bcm_backend.controller;
 
+import com.donatodev.bcm_backend.support.TestReauth;
+
 import static com.donatodev.bcm_backend.support.TestIds.uid;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -63,6 +65,9 @@ class UserControllerTest {
 
     /** The organization this class's requests and fixtures belong to, as a real token's would. */
     private Organization testOrg;
+
+    @Autowired
+    private com.donatodev.bcm_backend.jwt.JwtUtils jwtUtils;
 
     @Autowired
     private MockMvc mockMvc;
@@ -132,7 +137,7 @@ class UserControllerTest {
             UserDTO dto = new UserDTO(
                     null,
                     "mario.rossi",
-                    "password123",
+                    "Faro-Mareggiata-58",
                     manager.getId(),
                     role.getId(),
                     null,
@@ -280,7 +285,7 @@ class UserControllerTest {
             UserDTO updatedDTO = new UserDTO(
                     originalUser.getId(),
                     "giovanni.verdi.new",
-                    "newpassword",
+                    "Onda-Scogliera-73",
                     manager.getId(),
                     role.getId(),
                     null,
@@ -289,6 +294,7 @@ class UserControllerTest {
 
             mockMvc.perform(put("/users/{id}", originalUser.getId())
                     .with(csrf())
+                    .header(TestReauth.HEADER, TestReauth.token(jwtUtils, "user", testOrg.getId()))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(updatedDTO)))
                     .andExpect(status().isOk())

@@ -49,6 +49,7 @@ class RefreshTokenServiceTest {
     @Mock private SessionRevocationService sessionRevocationService;
     @Mock private PublicDemoGuard publicDemoGuard;
     @Mock private SecurityEvents securityEvents;
+    @Mock private com.donatodev.bcm_backend.auth.NewDeviceMonitor newDeviceMonitor;
 
     @InjectMocks
     private RefreshTokenService refreshTokenService;
@@ -164,6 +165,23 @@ class RefreshTokenServiceTest {
 
             RefreshTokenException ex = assertThrows(RefreshTokenException.class,
                     () -> refreshTokenService.refreshAccessToken("expired-token"));
+
+            assertEquals(RefreshTokenService.INVALID_SESSION, ex.getMessage());
+            verify(refreshTokenRepository).delete(token);
+            verify(refreshTokenRepository, never()).revokeIfActive(any());
+            verify(sessionRevocationService, never()).endSessions(any());
+        }
+
+        @Test
+        @DisplayName("a session not renewed for longer than the idle timeout has ended: deleted, no replay")
+        void shouldEndAnIdleSession() {
+            ReflectionTestUtils.setField(refreshTokenService, "refreshIdleTimeoutMs", 30 * 60_000L);
+            RefreshToken token = active("idle-token", Users.builder().username("away").build(),
+                    Instant.now().plusSeconds(3600));
+            token.setCreatedAt(Instant.now().minusSeconds(31 * 60));
+
+            RefreshTokenException ex = assertThrows(RefreshTokenException.class,
+                    () -> refreshTokenService.refreshAccessToken("idle-token"));
 
             assertEquals(RefreshTokenService.INVALID_SESSION, ex.getMessage());
             verify(refreshTokenRepository).delete(token);

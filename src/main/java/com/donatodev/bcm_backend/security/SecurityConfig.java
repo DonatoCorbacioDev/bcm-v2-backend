@@ -82,6 +82,8 @@ public class SecurityConfig {
                 // has no JWT to present). Network-level restriction (reverse proxy /
                 // separate management port) is the real access control before public
                 // exposure — tracked in docs/SECURITY.md, not solved by JWT auth here.
+                // A re-authentication is made by a signed-in user, never before a session.
+                .requestMatchers(HttpMethod.POST, "/auth/reauth").authenticated()
                 .requestMatchers(AUTH_WHITELIST, "/actuator/health", "/actuator/prometheus").permitAll()
                 // The rest of the actuator (metrics, info, sbom...) describes the whole
                 // platform, every organization's traffic included: no tenant user may

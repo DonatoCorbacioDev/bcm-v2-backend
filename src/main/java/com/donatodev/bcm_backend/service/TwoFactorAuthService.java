@@ -252,6 +252,23 @@ public class TwoFactorAuthService {
     }
 
     /**
+     * The second factor proved again by a signed-in user (ReauthenticationService):
+     * a TOTP code under the same no-replay rule as the login, or an unused
+     * recovery code, which is then spent. False when 2FA is not active.
+     */
+    public boolean verifyCurrentCode(Users user, String code) {
+        if (code == null || code.isBlank() || !user.isTotpEnabled() || user.getTotpSecretEncrypted() == null) {
+            return false;
+        }
+        String secret = totpEncryptionService.decrypt(user.getTotpSecretEncrypted());
+        boolean ok = acceptTotpCode(user, secret, code) || consumeRecoveryCodeIfValid(user, code);
+        if (ok) {
+            usersRepository.save(user);
+        }
+        return ok;
+    }
+
+    /**
      * Accepts a TOTP code only for a time step later than the last one used
      * at login, and remembers the step: the same code can't log in twice.
      */

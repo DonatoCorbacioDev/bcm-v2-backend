@@ -24,6 +24,7 @@ import com.donatodev.bcm_backend.exception.RefreshTokenException;
 import com.donatodev.bcm_backend.jwt.JwtUtils;
 import com.donatodev.bcm_backend.repository.RefreshTokenRepository;
 import com.donatodev.bcm_backend.security.PublicDemoGuard;
+import com.donatodev.bcm_backend.auth.NewDeviceMonitor;
 import com.donatodev.bcm_backend.security.SecurityEvents;
 import com.donatodev.bcm_backend.util.TokenHash;
 
@@ -51,8 +52,12 @@ public class RefreshTokenService {
     private static final int TOKEN_BYTES = 32;
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    @Value("${jwt.refreshExpirationMs:604800000}")
+    @Value("${jwt.refreshExpirationMs:43200000}")
     private long refreshExpirationMs;
+
+    /** How long a session may go without a renewal before it ends (inactivity timeout). */
+    @Value("${jwt.refreshIdleTimeoutMs:1800000}")
+    private long refreshIdleTimeoutMs;
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtUtils jwtUtils;
@@ -60,10 +65,12 @@ public class RefreshTokenService {
     private final SessionRevocationService sessionRevocationService;
     private final PublicDemoGuard publicDemoGuard;
     private final SecurityEvents securityEvents;
+    private final NewDeviceMonitor newDeviceMonitor;
 
     public RefreshTokenService(RefreshTokenRepository refreshTokenRepository, JwtUtils jwtUtils,
             TwoFactorPolicy twoFactorPolicy, SessionRevocationService sessionRevocationService,
-            PublicDemoGuard publicDemoGuard, SecurityEvents securityEvents) {
+            PublicDemoGuard publicDemoGuard, SecurityEvents securityEvents, NewDeviceMonitor newDeviceMonitor) {
+        this.newDeviceMonitor = newDeviceMonitor;
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtUtils = jwtUtils;
         this.twoFactorPolicy = twoFactorPolicy;
@@ -82,6 +89,8 @@ public class RefreshTokenService {
         if (!isPublicDemo(user)) {
             refreshTokenRepository.deleteActiveByUser(user);
         }
+        // A new session, never a renewal: its owner is told if it comes from another device.
+        newDeviceMonitor.signedIn(user);
         return issueToken(user, Instant.now().plusMillis(refreshExpirationMs));
     }
 
@@ -104,6 +113,14 @@ public class RefreshTokenService {
         }
         if (!refreshToken.getExpiryDate().isAfter(Instant.now())) {
             // Just old, not stolen: removed, so presenting it again is no replay either.
+            refreshTokenRepository.delete(refreshToken);
+            throw new RefreshTokenException(INVALID_SESSION);
+        }
+        // Inactivity (OWASP ASVS 7.3.1): each token is issued at a renewal, so
+        // its age is the time since the session was last used. Past the idle
+        // timeout the session has ended, like an expired one: removed, no replay.
+        if (refreshToken.getCreatedAt() != null
+                && refreshToken.getCreatedAt().plusMillis(refreshIdleTimeoutMs).isBefore(Instant.now())) {
             refreshTokenRepository.delete(refreshToken);
             throw new RefreshTokenException(INVALID_SESSION);
         }

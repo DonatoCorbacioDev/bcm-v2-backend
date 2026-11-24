@@ -46,6 +46,7 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final RefreshCookieFactory refreshCookieFactory;
     private final TwoFactorAuthService twoFactorAuthService;
+    private final ReauthenticationService reauthenticationService;
     private final AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
 
     @Autowired
@@ -56,7 +57,9 @@ public class AuthController {
             PasswordResetTokenService passwordResetTokenService,
             RefreshTokenService refreshTokenService,
             RefreshCookieFactory refreshCookieFactory,
-            TwoFactorAuthService twoFactorAuthService) {
+            TwoFactorAuthService twoFactorAuthService,
+            ReauthenticationService reauthenticationService) {
+        this.reauthenticationService = reauthenticationService;
         this.authService = authService;
         this.userService = userService;
         this.passwordResetMailer = passwordResetMailer;
@@ -67,7 +70,7 @@ public class AuthController {
     }
 
     public AuthController() {
-        this(null, null, null, null, null, null, null);
+        this(null, null, null, null, null, null, null, null);
     }
 
     // There is deliberately no public POST /auth/register (nor the
@@ -143,6 +146,16 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookieFactory.create(result.session().refreshToken()).toString())
                 .body(new EnrollmentResponse(result.session().token(), result.recoveryCodes()));
+    }
+
+    /**
+     * The password again, and the 2FA code if the account uses one, before an
+     * operation that asks for them (ReauthenticationService): a token valid
+     * five minutes, to send back in X-Reauth-Token.
+     */
+    @PostMapping("/reauth")
+    public ResponseEntity<ReauthResponse> reauthenticate(@Valid @RequestBody ReauthRequest request) {
+        return ResponseEntity.ok(new ReauthResponse(reauthenticationService.confirm(request.password(), request.code())));
     }
 
     @PostMapping("/refresh")

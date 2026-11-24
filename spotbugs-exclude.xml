@@ -19,6 +19,35 @@
         <Bug pattern="SPRING_CSRF_PROTECTION_DISABLED"/>
     </Match>
 
+    <!-- WEAK_MESSAGE_DIGEST_SHA1 in PwnedPasswordsClient: SHA-1 is the index of Have I
+         Been Pwned's range API, which takes the first 5 hex characters of it; it protects
+         nothing here (passwords are stored as BCrypt hashes). -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.security.PwnedPasswordsClient"/>
+        <Bug pattern="WEAK_MESSAGE_DIGEST_SHA1"/>
+    </Match>
+
+    <!-- SERVLET_HEADER in ReauthenticationService: X-Reauth-Token is read to be verified,
+         like the Authorization header in JwtAuthenticationFilter: its signature, audience,
+         user, organization and expiry decide, never its mere presence. -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.auth.ReauthenticationService"/>
+        <Bug pattern="SERVLET_HEADER"/>
+    </Match>
+
+    <!-- IMPROPER_UNICODE in PasswordStrengthService (NFC, then Locale.ROOT, only to compare a
+         password with the list of common ones and the account's words: never stored, never
+         used to decide access) and ManagerService (whether an email changed, to ask for the
+         password again: a wrong answer can only ask once more, never skip the question). -->
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.PasswordStrengthService"/>
+        <Bug pattern="IMPROPER_UNICODE"/>
+    </Match>
+    <Match>
+        <Class name="com.donatodev.bcm_backend.service.ManagerService"/>
+        <Bug pattern="IMPROPER_UNICODE"/>
+    </Match>
+
     <!-- COOKIE_USAGE in RefreshCookieFactory: the refresh token is meant to be
          in a cookie, the one place a script cannot read it (HttpOnly, Secure,
          SameSite=Strict, sent to /auth only, __Secure- prefixed in production);

@@ -18,6 +18,7 @@ import com.donatodev.bcm_backend.dto.ManagerDTO;
 import com.donatodev.bcm_backend.entity.Managers;
 import com.donatodev.bcm_backend.entity.Organization;
 import com.donatodev.bcm_backend.exception.ManagerNotFoundException;
+import com.donatodev.bcm_backend.auth.ReauthenticationService;
 import com.donatodev.bcm_backend.mapper.ManagerMapper;
 import com.donatodev.bcm_backend.repository.ManagersRepository;
 
@@ -35,10 +36,13 @@ public class ManagerService {
 
 	private final ManagersRepository managersRepository;
     private final ManagerMapper managerMapper;
+    private final ReauthenticationService reauthenticationService;
 
-    public ManagerService(ManagersRepository managersRepository, ManagerMapper managerMapper) {
+    public ManagerService(ManagersRepository managersRepository, ManagerMapper managerMapper,
+            ReauthenticationService reauthenticationService) {
         this.managersRepository = managersRepository;
         this.managerMapper = managerMapper;
+        this.reauthenticationService = reauthenticationService;
     }
 
     /**
@@ -106,6 +110,12 @@ public class ManagerService {
         Managers manager = findManagerInScope(id)
                 .orElseThrow(() -> new ManagerNotFoundException(MANAGER_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
+        // The address password resets are sent to: changed only after the
+        // password again (OWASP ASVS 7.5.1), or a stolen session could point it
+        // at its own mailbox and reset the account's password.
+        if (managerDTO.email() != null && !managerDTO.email().equalsIgnoreCase(manager.getEmail())) {
+            reauthenticationService.require();
+        }
         manager.setFirstName(managerDTO.firstName());
         manager.setLastName(managerDTO.lastName());
         manager.setEmail(managerDTO.email());

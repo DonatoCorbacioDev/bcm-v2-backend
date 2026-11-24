@@ -130,7 +130,7 @@ class OrganizationControllerTest {
                 {
                   "organizationName": "%s",
                   "adminUsername":    "%s",
-                  "adminPassword":    "password123",
+                  "adminPassword":    "Faro-Mareggiata-58",
                   "adminEmail":       "%s",
                   "adminFirstName":   "Test",
                   "adminLastName":    "Admin",
@@ -144,6 +144,23 @@ class OrganizationControllerTest {
 
     private static String registration(String orgName, String username, String email) {
         return registration(orgName, username, email, LegalTerms.CURRENT_VERSION, true, true, true);
+    }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("a common password, or one built on the organization's name, is refused before anything is sent")
+    void weakAdminPasswordRefused() throws Exception {
+        String common = registration("Studio Vesuvio", "vadmin", "v@studio-vesuvio.example")
+                .replace("Faro-Mareggiata-58", "password123");
+        mockMvc.perform(post(REGISTER_URL).contentType(MediaType.APPLICATION_JSON).content(common))
+                .andExpect(status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value(com.donatodev.bcm_backend.service.PasswordStrengthServiceTestSupport.COMMON));
+        String ofTheOrganization = registration("Studio Vesuvio", "vadmin", "v@studio-vesuvio.example")
+                .replace("Faro-Mareggiata-58", "Vesuvio-Studio-2026");
+        mockMvc.perform(post(REGISTER_URL).contentType(MediaType.APPLICATION_JSON).content(ofTheOrganization))
+                .andExpect(status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value(com.donatodev.bcm_backend.service.PasswordStrengthServiceTestSupport.CONTEXT));
     }
 
     /** Step 1: returns the registrationId. */
@@ -210,8 +227,8 @@ class OrganizationControllerTest {
             assertTrue(organizationRepository.findAll().stream().noneMatch(o -> "Test Corp".equals(o.getName())));
 
             PendingRegistration pending = pendingRegistrationRepository.findAll().get(0);
-            assertNotEquals("password123", pending.getPasswordHash());
-            assertTrue(passwordEncoder.matches("password123", pending.getPasswordHash()));
+            assertNotEquals("Faro-Mareggiata-58", pending.getPasswordHash());
+            assertTrue(passwordEncoder.matches("Faro-Mareggiata-58", pending.getPasswordHash()));
             assertEquals(255, pending.getRequestUserAgent().length());
             assertEquals("127.0.0.1", pending.getRequestIp());
         }
@@ -340,7 +357,7 @@ class OrganizationControllerTest {
 
             Users admin = usersRepository.findByUsername("testadmin").orElseThrow();
             assertTrue(admin.isVerified());
-            assertTrue(passwordEncoder.matches("password123", admin.getPasswordHash()));
+            assertTrue(passwordEncoder.matches("Faro-Mareggiata-58", admin.getPasswordHash()));
             assertEquals(0, pendingRegistrationRepository.count());
 
             // The setup token opens nothing else.

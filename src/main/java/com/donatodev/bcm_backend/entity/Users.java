@@ -151,4 +151,8 @@ public class Users {
      */
     @Column(name = "locked_until")
     private LocalDateTime lockedUntil;
+
+    /** The kind of device of the last sign-in, "Chrome su Windows" (NewDeviceMonitor). */
+    @Column(name = "last_login_device", length = 100)
+    private String lastLoginDevice;
 }
