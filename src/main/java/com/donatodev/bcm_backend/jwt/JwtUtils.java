@@ -52,6 +52,8 @@ public class JwtUtils {
     private static final long MFA_SETUP_TOKEN_TTL_MS = 10 * 60 * 1000L;
     private static final String CLAIM_MFA_SETUP = "mfaSetup";
     private static final String CLAIM_ORG_ID = "orgId";
+    /** The account's immutable id: the username can be changed and given to another account. */
+    private static final String CLAIM_USER_ID = "uid";
 
     /**
      * Who issued the token and what it is for (RFC 7519 {@code iss}/{@code aud}).
@@ -107,7 +109,9 @@ public class JwtUtils {
         Instant now = clock.instant();
         Instant expiration = now.plusMillis(jwtExpirationMs);
 
+        UUID userId = userPrincipal instanceof AuthenticatedUser user ? user.getUserId() : null;
         return baseToken(userPrincipal.getUsername(), AUDIENCE_API, now, expiration)
+                .claim(CLAIM_USER_ID, userId != null ? userId.toString() : null)
                 .signWith(getSigningKey(), algorithm())
                 .compact();
     }
@@ -132,6 +136,7 @@ public class JwtUtils {
 
         return baseToken(user.getUsername(), AUDIENCE_API, now, expiration)
                 .claim(CLAIM_ORG_ID, orgId != null ? orgId.toString() : null)
+                .claim(CLAIM_USER_ID, user.getId() != null ? user.getId().toString() : null)
                 .signWith(getSigningKey(), algorithm())
                 .compact();
     }
@@ -279,6 +284,7 @@ public class JwtUtils {
             final String username = getUsernameFromJwtToken(token);
             return username.equals(userDetails.getUsername()) && !isTokenExpired(token)
                     && hasAudience(token, AUDIENCE_API)
+                    && issuedToSameAccount(token, userDetails)
                     && !issuedBeforeCredentialsChanged(token, userDetails);
         } catch (JwtException | IllegalArgumentException e) {
             return false;
@@ -299,6 +305,22 @@ public class JwtUtils {
      * Compared in whole seconds, like the {@code iat} claim, so the token issued
      * right after the change, in the same second, is still accepted.
      */
+    /**
+     * Whether the token was issued to the account now holding its username: the
+     * {@code uid} claim must be that account's id. A username freed by a rename
+     * or a deletion and given to another account would otherwise let a live
+     * token of the old holder act as the new one. Fails closed: a token without
+     * {@code uid} (issued before 2026-11-24) is refused, and the browser renews
+     * it with the refresh token.
+     */
+    private boolean issuedToSameAccount(String token, UserDetails userDetails) {
+        if (!(userDetails instanceof AuthenticatedUser user) || user.getUserId() == null) {
+            return false;
+        }
+        Object uid = getClaimFromToken(token, claims -> claims.get(CLAIM_USER_ID));
+        return uid instanceof String value && value.equals(user.getUserId().toString());
+    }
+
     private boolean issuedBeforeCredentialsChanged(String token, UserDetails userDetails) {
         if (!(userDetails instanceof AuthenticatedUser user) || user.getCredentialsChangedAt() == null) {
             return false;

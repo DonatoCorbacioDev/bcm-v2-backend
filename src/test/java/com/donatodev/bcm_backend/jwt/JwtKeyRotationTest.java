@@ -39,7 +39,8 @@ class JwtKeyRotationTest {
 
     private static final Users USER = Users.builder().id(UUID.randomUUID()).username("john").passwordHash("x")
             .role(Roles.builder().id(UUID.randomUUID()).role("ADMIN").build()).verified(true).build();
-    private static final User DETAILS = new User("john", "x", List.of(() -> "ROLE_ADMIN"));
+    private static final User DETAILS = new com.donatodev.bcm_backend.security.AuthenticatedUser(
+            USER.getId(), "john", "x", List.of(() -> "ROLE_ADMIN"), null);
 
     @Test
     void aTokenSignedWithThePreviousKeyIsStillAcceptedDuringTheRotation() {

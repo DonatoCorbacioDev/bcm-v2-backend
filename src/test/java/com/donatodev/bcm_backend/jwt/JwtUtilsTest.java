@@ -75,8 +75,10 @@ class JwtUtilsTest {
                 .verified(true)
                 .build();
 
-        // Create Spring Security user for validation
-        springUser = new User("john", "password", List.of(() -> "ROLE_ADMIN"));
+        // The signed-in user as the filter loads it: the account's id is what
+        // the token's uid claim is checked against.
+        springUser = new com.donatodev.bcm_backend.security.AuthenticatedUser(
+                uid(1), "john", "password", List.of(() -> "ROLE_ADMIN"), null);
     }
 
     @Test
@@ -468,13 +470,36 @@ class JwtUtilsTest {
         List<org.springframework.security.core.GrantedAuthority> roles = List.of(() -> "ROLE_ADMIN");
 
         assertFalse(jwtUtils.validateJwtToken(token,
-                new com.donatodev.bcm_backend.security.AuthenticatedUser("john", "x", roles, issuedAt + 1)));
+                new com.donatodev.bcm_backend.security.AuthenticatedUser(uid(1), "john", "x", roles, issuedAt + 1)));
         assertTrue(jwtUtils.validateJwtToken(token,
-                new com.donatodev.bcm_backend.security.AuthenticatedUser("john", "x", roles, issuedAt)));
+                new com.donatodev.bcm_backend.security.AuthenticatedUser(uid(1), "john", "x", roles, issuedAt)));
         assertTrue(jwtUtils.validateJwtToken(token,
-                new com.donatodev.bcm_backend.security.AuthenticatedUser("john", "x", roles, null)));
-        // A plain UserDetails carries no change time: nothing to compare.
+                new com.donatodev.bcm_backend.security.AuthenticatedUser(uid(1), "john", "x", roles, null)));
         assertTrue(jwtUtils.validateJwtToken(token, springUser));
+    }
+
+    @Test
+    @DisplayName("a token is accepted only for the account it was issued to, not for another one holding its username now")
+    void shouldRefuseTokenForAnotherAccountWithTheSameUsername() {
+        String token = jwtUtils.generateToken(testUser);
+        List<org.springframework.security.core.GrantedAuthority> roles = List.of(() -> "ROLE_ADMIN");
+
+        // "john" renamed or deleted, and the name given to another account (uid 2).
+        assertFalse(jwtUtils.validateJwtToken(token,
+                new com.donatodev.bcm_backend.security.AuthenticatedUser(uid(2), "john", "x", roles, null)));
+        // Fails closed: a UserDetails that carries no account id is refused.
+        assertFalse(jwtUtils.validateJwtToken(token, new User("john", "password", roles)));
+    }
+
+    @Test
+    @DisplayName("a session token without the uid claim (issued before 2026-11-24) is refused, and renewed by the refresh token")
+    void shouldRefuseTokenWithoutUserId() {
+        String token = Jwts.builder().subject("john").issuer("bcm-backend").audience().add("bcm-api").and()
+                .issuedAt(new java.util.Date()).expiration(new java.util.Date(System.currentTimeMillis() + 60_000))
+                .claim("orgId", uid(9).toString())
+                .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret))).compact();
+
+        assertFalse(jwtUtils.validateJwtToken(token, springUser));
     }
 
     @Test

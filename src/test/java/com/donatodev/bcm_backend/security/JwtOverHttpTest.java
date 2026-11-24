@@ -150,6 +150,17 @@ class JwtOverHttpTest {
     }
 
     @Test
+    @DisplayName("a token for another account that held this username (renamed or deleted), or with no account id: 401")
+    void otherAccountWithTheSameUsername() throws Exception {
+        SecretKey key = key();
+        MacAlgorithm pinned = JwtUtils.algorithmFor(key);
+        call(validToken(admin).claim("uid", java.util.UUID.randomUUID().toString()).signWith(key, pinned).compact())
+                .andExpect(status().isUnauthorized());
+        call(validToken(admin).claim("uid", null).signWith(key, pinned).compact())
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("a token from another issuer, or with none: 401")
     void wrongOrMissingIssuer() throws Exception {
         call(validToken(admin).issuer("someone-else").signWith(key()).compact())
@@ -217,7 +228,8 @@ class JwtOverHttpTest {
                 .subject(user.getUsername())
                 .issuedAt(Date.from(issuedAt))
                 .expiration(Date.from(expiresAt))
-                .claim("orgId", user.getOrganization().getId().toString());
+                .claim("orgId", user.getOrganization().getId().toString())
+                .claim("uid", user.getId().toString());
         return audience == null ? builder : builder.audience().add(audience).and();
     }
 
