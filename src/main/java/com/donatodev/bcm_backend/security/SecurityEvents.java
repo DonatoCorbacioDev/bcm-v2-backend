@@ -70,6 +70,8 @@ public class SecurityEvents {
         DUPLICATE_PAYMENT_REFUSED("SECURITY_DUPLICATE_PAYMENT_REFUSED", false),
         /** A SEPA payment to an IBAN other than the supplier's verified one. */
         SEPA_IBAN_MISMATCH_BLOCKED("SEPA_IBAN_MISMATCH_BLOCKED", false),
+        /** A manager's SEPA payment that would set a supplier's first verified IBAN. */
+        SEPA_UNVERIFIED_IBAN_REFUSED("SEPA_UNVERIFIED_IBAN_REFUSED", false),
         /**
          * A function or a record refused to the caller's role or account (OWASP
          * Authorization Cheat Sheet): repeated refusals are how a stolen account

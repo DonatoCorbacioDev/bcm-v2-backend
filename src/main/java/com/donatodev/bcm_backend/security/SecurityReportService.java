@@ -55,6 +55,8 @@ public class SecurityReportService {
             Map.entry(SecurityEvents.Type.REGISTRATION_CODE_REFUSED, "Codici di registrazione rifiutati"),
             Map.entry(SecurityEvents.Type.DUPLICATE_PAYMENT_REFUSED, "Pagamenti SEPA duplicati rifiutati"),
             Map.entry(SecurityEvents.Type.SEPA_IBAN_MISMATCH_BLOCKED, "Pagamenti SEPA bloccati per IBAN cambiato"),
+            Map.entry(SecurityEvents.Type.SEPA_UNVERIFIED_IBAN_REFUSED,
+                    "Primi pagamenti SEPA di un manager rifiutati: IBAN non ancora verificato"),
             Map.entry(SecurityEvents.Type.ACCESS_DENIED, "Funzioni o dati negati al ruolo dell'utente"),
             Map.entry(SecurityEvents.Type.LOGIN_FAILED, "Password sbagliate su account esistenti"),
             Map.entry(SecurityEvents.Type.MFA_FAILED, "Codici di verifica 2FA sbagliati"),

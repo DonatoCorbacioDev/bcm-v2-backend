@@ -32,6 +32,8 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import com.donatodev.bcm_backend.util.AuthenticatedUserUtils;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.w3c.dom.Document;
@@ -200,7 +202,10 @@ public class SepaPaymentService {
 
     /**
      * Guards against invoice-IBAN-swap fraud: the first SEPA payment for a
-     * counterparty learns and trusts its supplier IBAN; every later payment
+     * counterparty learns and trusts its supplier IBAN, and only when an
+     * administrator generates it (a manager's first payment is refused with
+     * {@link IbanMismatchException} until an administrator confirms the IBAN
+     * from the counterparty, or generates that first payment); every later payment
      * must match it exactly, or generation is blocked with
      * {@link IbanMismatchException} instead of silently paying whatever the
      * latest invoice XML says. A legitimate IBAN change must go through
@@ -217,6 +222,16 @@ public class SepaPaymentService {
             String invoiceIban = invoice.getSupplierIban().replace(" ", "").toUpperCase(Locale.ROOT);
             String verifiedIban = counterparty.getVerifiedIban();
             if (verifiedIban == null) {
+                // The first IBAN becomes the trusted one, which only an administrator
+                // may change afterwards: so only an administrator may set it. A
+                // manager can write an invoice's IBAN (payment details, FatturaPA
+                // upload), and would otherwise choose where every later payment goes.
+                if (!callerIsAdmin()) {
+                    logUnverifiedIbanRefused(counterparty, invoice, invoiceIban);
+                    throw new IbanMismatchException("L'IBAN di \"" + counterparty.getName()
+                            + "\" non è ancora verificato: chiedi a un amministratore di confermarlo"
+                            + " dalla scheda controparte prima del primo pagamento");
+                }
                 counterparty.setVerifiedIban(invoiceIban);
                 counterparty.setVerifiedBic(invoice.getSupplierBic());
                 counterparty = counterpartiesRepository.save(counterparty);
@@ -236,6 +251,22 @@ public class SepaPaymentService {
                 + " auto-learned from first SEPA payment (" + IbanValidator.mask(iban) + ")";
         auditLogService.save("VERIFIED_IBAN_LEARNED", "Counterparty", counterparty.getId(), username,
                 TenantContext.require(), details);
+    }
+
+    /** The role loaded from the database for this request (CustomUserDetailsService). */
+    private static boolean callerIsAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+    }
+
+    private void logUnverifiedIbanRefused(Counterparty counterparty, ElectronicInvoice invoice, String invoiceIban) {
+        String details = "SEPA payment refused: invoice " + invoice.getId() + " supplier IBAN ("
+                + IbanValidator.mask(invoiceIban) + ") would become the first verified IBAN of counterparty "
+                + counterparty.getId() + ", which only an administrator may set";
+        // Its own transaction, like the mismatch: the exception that follows rolls back the rest.
+        securityEvents.record(SecurityEvents.Type.SEPA_UNVERIFIED_IBAN_REFUSED, "Counterparty",
+                counterparty.getId(), details);
     }
 
     private void logIbanMismatchBlocked(Counterparty counterparty, ElectronicInvoice invoice,

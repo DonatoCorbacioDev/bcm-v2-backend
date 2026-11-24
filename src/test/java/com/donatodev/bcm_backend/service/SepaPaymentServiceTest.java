@@ -5,7 +5,6 @@ import java.util.UUID;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -42,6 +41,7 @@ import static org.mockito.Mockito.when;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.w3c.dom.Document;
@@ -72,7 +72,8 @@ class SepaPaymentServiceTest {
     void setup() {
         TenantContext.set(ORG_ID);
         SecurityContext ctx = SecurityContextHolder.createEmptyContext();
-        ctx.setAuthentication(new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList()));
+        ctx.setAuthentication(new UsernamePasswordAuthenticationToken("admin", null,
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
         SecurityContextHolder.setContext(ctx);
     }
 
@@ -629,6 +630,59 @@ class SepaPaymentServiceTest {
             assertEquals("IT60X0542811101000000123456", counterparty.getVerifiedIban());
             verify(counterpartiesRepository).save(counterparty);
             verify(auditLogService).save(eq("VERIFIED_IBAN_LEARNED"), eq("Counterparty"), eq(uid(7)), eq("admin"), any(), any());
+        }
+
+        @Test
+        @DisplayName("refuses a manager's first payment to a counterparty with no verified IBAN, and records it")
+        void shouldRefuseManagerSettingFirstVerifiedIban() {
+            SecurityContext ctx = SecurityContextHolder.createEmptyContext();
+            ctx.setAuthentication(new UsernamePasswordAuthenticationToken("manager", null,
+                    List.of(new SimpleGrantedAuthority("ROLE_MANAGER"))));
+            SecurityContextHolder.setContext(ctx);
+            Counterparty counterparty = Counterparty.builder().id(uid(7)).name("Fornitore Srl").type(CounterpartyType.SUPPLIER).build();
+            Contracts contract = fakeContractWithCounterparty(counterparty);
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+
+            List<UUID> invoiceIds = List.of(uid(10));
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, invoiceIds)).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+
+            IbanMismatchException ex = assertThrows(IbanMismatchException.class,
+                    () -> sepaPaymentService.createSepaPayment(CONTRACT_ID, invoiceIds, null));
+
+            assertTrue(ex.getMessage().contains("non è ancora verificato"));
+            assertEquals(null, counterparty.getVerifiedIban());
+            verify(counterpartiesRepository, never()).save(any());
+            verify(batchRepository, never()).save(any());
+            verify(securityEvents).record(eq(SecurityEvents.Type.SEPA_UNVERIFIED_IBAN_REFUSED), eq("Counterparty"),
+                    eq(uid(7)), contains("only an administrator may set"));
+        }
+
+        @Test
+        @DisplayName("lets a manager pay once the counterparty's IBAN is verified and matches")
+        void shouldAllowManagerWhenIbanVerified() {
+            SecurityContext ctx = SecurityContextHolder.createEmptyContext();
+            ctx.setAuthentication(new UsernamePasswordAuthenticationToken("manager", null,
+                    List.of(new SimpleGrantedAuthority("ROLE_MANAGER"))));
+            SecurityContextHolder.setContext(ctx);
+            Counterparty counterparty = Counterparty.builder().id(uid(7)).name("Fornitore Srl").type(CounterpartyType.SUPPLIER)
+                    .verifiedIban("IT60X0542811101000000123456").build();
+            Contracts contract = fakeContractWithCounterparty(counterparty);
+            Organization org = fakeOrganization("DE89370400440532013000", "COBADEFFXXX");
+            ElectronicInvoice invoice = fakeInvoice(uid(10), "IT60X0542811101000000123456", "EUR", new BigDecimal("100.00"));
+
+            when(contractAccessGuard.getContractInScope(CONTRACT_ID)).thenReturn(contract);
+            when(invoiceRepository.findByContractIdAndIdIn(CONTRACT_ID, List.of(uid(10)))).thenReturn(List.of(invoice));
+            when(organizationRepository.findById(ORG_ID)).thenReturn(Optional.of(org));
+            when(localStorageService.storeSepaPayment(eq(ORG_ID), eq(CONTRACT_ID), any())).thenReturn("sepa/5/1/uuid.xml");
+            when(batchRepository.save(any(SepaPaymentBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            sepaPaymentService.createSepaPayment(CONTRACT_ID, List.of(uid(10)), null);
+
+            verify(batchRepository).save(any(SepaPaymentBatch.class));
+            verify(counterpartiesRepository, never()).save(any());
         }
 
         @Test
