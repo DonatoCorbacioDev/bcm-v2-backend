@@ -101,10 +101,12 @@ towards the same lock as the sign-in.
 
 - changing an account's email (where its password resets are sent);
 - setting another user's password;
-- exporting the organization's data.
+- exporting the organization's data;
+- turning 2FA off (until 2026-11-24 a code alone, with no limit on wrong
+  ones and the login's code usable again: security audit).
 
 Already confirmed in their own way: changing one's own password (the current
-one), turning 2FA off (a code), deleting the organization (an emailed code).
+one), deleting the organization (an emailed code).
 
 ## Rate limits and budgets
 

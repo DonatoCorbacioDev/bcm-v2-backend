@@ -20,6 +20,7 @@ import com.donatodev.bcm_backend.dto.TotpStatusResponse;
 import com.donatodev.bcm_backend.service.TwoFactorAuthService;
 import com.donatodev.bcm_backend.security.DisabledInPublicDemo;
 import com.donatodev.bcm_backend.auth.CurrentSessionRenewer;
+import com.donatodev.bcm_backend.auth.ReauthenticationService;
 
 import jakarta.validation.Valid;
 
@@ -29,11 +30,15 @@ public class TwoFactorAuthController {
 
     private final TwoFactorAuthService twoFactorAuthService;
     private final CurrentSessionRenewer currentSessionRenewer;
+    // Here, not in the service: ReauthenticationService already depends on it.
+    private final ReauthenticationService reauthenticationService;
 
     public TwoFactorAuthController(TwoFactorAuthService twoFactorAuthService,
-                                   CurrentSessionRenewer currentSessionRenewer) {
+                                   CurrentSessionRenewer currentSessionRenewer,
+                                   ReauthenticationService reauthenticationService) {
         this.twoFactorAuthService = twoFactorAuthService;
         this.currentSessionRenewer = currentSessionRenewer;
+        this.reauthenticationService = reauthenticationService;
     }
 
     @GetMapping("/status")
@@ -57,9 +62,17 @@ public class TwoFactorAuthController {
                 .body(response);
     }
 
+    /**
+     * Turns 2FA off only after the password and the current code are proved
+     * again (POST /auth/reauth, answered 428 without it): there they go through
+     * the no-replay rule, the lockout and the per-IP limit of the login, so a
+     * stolen session can neither replay the login's code nor guess one here.
+     */
+    @DisabledInPublicDemo
     @PostMapping("/disable")
-    public ResponseEntity<Void> disable(@Valid @RequestBody TotpCodeRequest request) {
-        twoFactorAuthService.disable(request.code());
+    public ResponseEntity<Void> disable() {
+        reauthenticationService.require();
+        twoFactorAuthService.disable();
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, currentSessionRenewer.renewedRefreshCookie())
                 .build();

@@ -136,16 +136,17 @@ public class TwoFactorAuthService {
         return new TotpConfirmResponse(plainCodes);
     }
 
+    /**
+     * Turns 2FA off for the signed-in user. The second factor is not checked
+     * here: the caller has already proved the password and the current code
+     * (or a recovery code) through ReauthenticationService, under the login's
+     * no-replay rule, lockout and limits (TwoFactorAuthController).
+     */
     @Transactional
-    public void disable(String code) {
+    public void disable() {
         Users user = currentUserResolver.resolve();
         if (!user.isTotpEnabled() || user.getTotpSecretEncrypted() == null) {
             throw new IllegalArgumentException("La 2FA non è attiva");
-        }
-
-        String secret = totpEncryptionService.decrypt(user.getTotpSecretEncrypted());
-        if (!TotpUtil.verifyCode(secret, code) && !consumeRecoveryCodeIfValid(user, code)) {
-            throw new IllegalArgumentException(INVALID_CODE);
         }
 
         user.setTotpEnabled(false);

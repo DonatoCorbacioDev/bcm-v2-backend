@@ -23,9 +23,13 @@ import com.donatodev.bcm_backend.dto.TotpSetupResponse;
 import com.donatodev.bcm_backend.dto.TotpStatusResponse;
 import com.donatodev.bcm_backend.service.TwoFactorAuthService;
 import com.donatodev.bcm_backend.auth.CurrentSessionRenewer;
+import com.donatodev.bcm_backend.auth.ReauthenticationService;
+import com.donatodev.bcm_backend.exception.ReauthenticationRequiredException;
 import tools.jackson.databind.ObjectMapper;
 
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
@@ -39,6 +43,7 @@ class TwoFactorAuthControllerTest {
 
     @MockitoBean private TwoFactorAuthService twoFactorAuthService;
     @MockitoBean private CurrentSessionRenewer currentSessionRenewer;
+    @MockitoBean private ReauthenticationService reauthenticationService;
 
     @Test
     @DisplayName("GET /users/me/2fa/status without auth returns 401")
@@ -103,15 +108,27 @@ class TwoFactorAuthControllerTest {
 
     @Test
     @WithMockUser
-    @DisplayName("POST /users/me/2fa/disable with a valid code returns 204")
+    @DisplayName("POST /users/me/2fa/disable after the password and code are confirmed again returns 204")
     void shouldDisable() throws Exception {
         when(currentSessionRenewer.renewedRefreshCookie()).thenReturn("refresh_token=renewed; Path=/api/v1/auth");
 
-        mockMvc.perform(post("/users/me/2fa/disable")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new TotpCodeBody("123456"))))
+        mockMvc.perform(post("/users/me/2fa/disable"))
                 .andExpect(status().isNoContent())
                 .andExpect(header().string("Set-Cookie", "refresh_token=renewed; Path=/api/v1/auth"));
+        verify(reauthenticationService).require();
+        verify(twoFactorAuthService).disable();
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("POST /users/me/2fa/disable without a confirmation answers 428 and leaves 2FA on")
+    void shouldRequireReauthToDisable() throws Exception {
+        doThrow(new ReauthenticationRequiredException("Conferma la password per continuare"))
+                .when(reauthenticationService).require();
+
+        mockMvc.perform(post("/users/me/2fa/disable"))
+                .andExpect(status().is(428));
+        verify(twoFactorAuthService, never()).disable();
     }
 
     @Test
