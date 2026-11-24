@@ -146,6 +146,10 @@ public class UserService {
 	@Transactional
 	public Users registerUser(UserDTO dto) {
 		UUID orgId = TenantContext.require();
+		// An account with a password chosen by whoever creates it, an administrator's
+		// included: the creator's password first (OWASP ASVS 7.5.1), as for setting
+		// another user's password. Invitations need none: the link goes to the address.
+		reauthenticationService.require();
 		if (usersRepository.existsByUsername(dto.username())) {
 			throw new IllegalArgumentException("Username già esistente.");
 		}
@@ -216,18 +220,25 @@ public class UserService {
 			user.setPasswordHash(passwordEncoder.encode(dto.password()));
 		}
 
-		user.setManager(findManagerInScope(dto.managerId())
-				.orElseThrow(() -> new IllegalArgumentException("ID manager non trovato")));
+		Managers newManager = findManagerInScope(dto.managerId())
+				.orElseThrow(() -> new IllegalArgumentException("ID manager non trovato"));
+		Roles newRole = rolesRepository.findById(dto.roleId())
+				.orElseThrow(() -> new IllegalArgumentException("ID ruolo non trovato"));
+		boolean newApprover = Boolean.TRUE.equals(dto.canApproveContracts());
+		boolean managerChanged = !sameManager(user.getManager(), newManager);
+		requireMayHandOver(user, managerChanged,
+				!java.util.Objects.equals(roleName(user.getRole()), roleName(newRole))
+						|| newApprover != user.isCanApproveContracts(),
+				roleName(newRole));
 
+		user.setManager(newManager);
 		String roleBefore = roleName(user.getRole());
-		user.setRole(rolesRepository.findById(dto.roleId())
-				.orElseThrow(() -> new IllegalArgumentException("ID ruolo non trovato")));
-
-		user.setCanApproveContracts(Boolean.TRUE.equals(dto.canApproveContracts()));
+		user.setRole(newRole);
+		user.setCanApproveContracts(newApprover);
 
 		user = usersRepository.save(user);
 		auditRoleChange(user, roleBefore);
-		if (passwordChanged) {
+		if (passwordChanged || (managerChanged && !isCaller(user))) {
 			sessionRevocationService.credentialsChanged(user);
 		}
 		return userMapper.toDTO(user);
@@ -428,17 +439,27 @@ public class UserService {
 			user.setUsername(username);
 		}
 
-		String roleBefore = roleName(user.getRole());
+		Roles newRole = null;
 		if (role != null && !role.isBlank()) {
-			Roles r = rolesRepository.findByRole(role)
+			newRole = rolesRepository.findByRole(role)
 					.orElseThrow(() -> new IllegalArgumentException("Ruolo non trovato: " + role));
-			user.setRole(r);
 		}
-
+		Managers newManager = null;
 		if (managerId != null) {
-			Managers m = findManagerInScope(managerId)
+			newManager = findManagerInScope(managerId)
 					.orElseThrow(() -> new IllegalArgumentException("ID manager non trovato"));
-			user.setManager(m);
+		}
+		boolean managerChanged = newManager != null && !sameManager(user.getManager(), newManager);
+		boolean roleChanged = newRole != null && !java.util.Objects.equals(roleName(user.getRole()), roleName(newRole));
+		requireMayHandOver(user, managerChanged, roleChanged,
+				roleChanged ? roleName(newRole) : roleName(user.getRole()));
+
+		String roleBefore = roleName(user.getRole());
+		if (newRole != null) {
+			user.setRole(newRole);
+		}
+		if (newManager != null) {
+			user.setManager(newManager);
 		}
 
 		boolean passwordChanged = rawPassword != null && !rawPassword.isBlank();
@@ -449,10 +470,48 @@ public class UserService {
 
 		Users saved = usersRepository.save(user);
 		auditRoleChange(saved, roleBefore);
-		if (passwordChanged) {
+		if (passwordChanged || (managerChanged && !isCaller(saved))) {
 			sessionRevocationService.credentialsChanged(saved);
 		}
 		return saved;
+	}
+
+	/**
+	 * The changes that hand an account over, short of its password (security
+	 * audit 2026-11-24): the manager it is linked to is where its password
+	 * resets, sign-in alerts and deletion codes are mailed, so relinking it to a
+	 * manager with another address lets "Password dimenticata" deliver it there;
+	 * its role and approval right are what it may do. Each needs the caller's
+	 * password again (OWASP ASVS 7.5.1), as changing an email does. Relinking
+	 * another administrator is refused outright, as setting its password is
+	 * (requireMaySetPasswordOf); the last administrator keeps the role, or
+	 * nobody could manage the organization any more. Checked on the account as
+	 * it is now, before any field of the request is applied.
+	 */
+	private void requireMayHandOver(Users target, boolean managerChanged, boolean privilegeChanged, String roleAfter) {
+		if (!managerChanged && !privilegeChanged) {
+			return;
+		}
+		boolean targetIsAdmin = ROLE_ADMIN.equals(roleName(target.getRole()));
+		if (managerChanged && targetIsAdmin && !isCaller(target)) {
+			throw new AccessDeniedException(
+					"non puoi cambiare il responsabile collegato a un altro amministratore: è dove arrivano i suoi link di recupero");
+		}
+		reauthenticationService.require();
+		if (targetIsAdmin && !ROLE_ADMIN.equals(roleAfter) && target.getOrganization() != null
+				&& usersRepository.findByOrganizationIdAndRoleRole(target.getOrganization().getId(), ROLE_ADMIN).size() <= 1) {
+			throw new IllegalArgumentException("Non puoi togliere il ruolo all'ultimo amministratore dell'organizzazione");
+		}
+	}
+
+	private static boolean sameManager(Managers current, Managers next) {
+		UUID currentId = current == null ? null : current.getId();
+		UUID nextId = next == null ? null : next.getId();
+		return java.util.Objects.equals(currentId, nextId);
+	}
+
+	private static boolean isCaller(Users user) {
+		return java.util.Objects.equals(user.getUsername(), AuthenticatedUserUtils.getUsernameOrNull());
 	}
 
 	/**

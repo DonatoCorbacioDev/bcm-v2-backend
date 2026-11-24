@@ -375,9 +375,10 @@ class UserServiceTest {
         @Test
         @DisplayName("Update user without a password keeps the current one (no null hash)")
         void shouldKeepPasswordWhenUpdateHasNone() {
-            Users user = Users.builder().id(uid(1)).username("olduser").passwordHash("current-hash").build();
             Managers manager = Managers.builder().id(uid(2)).build();
             Roles role = Roles.builder().id(uid(3)).role("MANAGER").build();
+            Users user = Users.builder().id(uid(1)).username("olduser").passwordHash("current-hash")
+                    .manager(manager).role(role).build();
             UserDTO dto = new UserDTO(uid(1), "updatedUser", null, uid(2), uid(3), null, null);
 
             when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
@@ -392,6 +393,96 @@ class UserServiceTest {
             verify(passwordEncoder, never()).encode(any());
             // Same credentials: the user's sessions stay open.
             verify(sessionRevocationService, never()).credentialsChanged(any());
+        }
+
+        @Test
+        @DisplayName("Relinking a manager account to another manager asks the caller's password again and ends that user's sessions")
+        void relinkAsksPasswordAndEndsSessions() {
+            signedInAs("boss");
+            Roles managerRole = Roles.builder().id(uid(3)).role("MANAGER").build();
+            Managers current = Managers.builder().id(uid(2)).build();
+            Managers attacker = Managers.builder().id(uid(9)).build();
+            Users user = Users.builder().id(uid(1)).username("bob").passwordHash("h").manager(current).role(managerRole).build();
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
+            when(managersRepository.findByIdAndOrganizationId(uid(9), TENANT)).thenReturn(Optional.of(attacker));
+            when(usersRepository.save(user)).thenReturn(user);
+
+            userService.updateUserPartial(uid(1), null, null, uid(9), null);
+
+            verify(reauthenticationService).require();
+            verify(sessionRevocationService).credentialsChanged(user);
+        }
+
+        @Test
+        @DisplayName("Relinking another administrator is refused: it would redirect its password resets")
+        void relinkOfAnotherAdminIsRefused() {
+            signedInAs("boss");
+            Roles adminRole = Roles.builder().id(uid(4)).role("ADMIN").build();
+            Users other = Users.builder().id(uid(1)).username("other-admin").passwordHash("h")
+                    .manager(Managers.builder().id(uid(2)).build()).role(adminRole).build();
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(other));
+            when(managersRepository.findByIdAndOrganizationId(uid(9), TENANT))
+                    .thenReturn(Optional.of(Managers.builder().id(uid(9)).build()));
+
+            UUID id = uid(1);
+            UUID managerId = uid(9);
+            assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                    () -> userService.updateUserPartial(id, null, null, managerId, null));
+            verify(reauthenticationService, never()).require();
+            verify(usersRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("A role change without the caller's password again is refused (428) and nothing is saved")
+        void roleChangeNeedsReauth() {
+            signedInAs("boss");
+            Roles managerRole = Roles.builder().id(uid(3)).role("MANAGER").build();
+            Roles adminRole = Roles.builder().id(uid(4)).role("ADMIN").build();
+            Users user = Users.builder().id(uid(1)).username("bob").passwordHash("h").role(managerRole).build();
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(user));
+            when(rolesRepository.findByRole("ADMIN")).thenReturn(Optional.of(adminRole));
+            org.mockito.Mockito.doThrow(new com.donatodev.bcm_backend.exception.ReauthenticationRequiredException("x"))
+                    .when(reauthenticationService).require();
+
+            UUID id = uid(1);
+            assertThrows(com.donatodev.bcm_backend.exception.ReauthenticationRequiredException.class,
+                    () -> userService.updateUserPartial(id, null, "ADMIN", null, null));
+            assertEquals("MANAGER", user.getRole().getRole());
+            verify(usersRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("The organization's last administrator cannot be demoted")
+        void lastAdminKeepsTheRole() {
+            signedInAs("boss");
+            Organization org = Organization.builder().id(TENANT).build();
+            Roles adminRole = Roles.builder().id(uid(4)).role("ADMIN").build();
+            Roles managerRole = Roles.builder().id(uid(3)).role("MANAGER").build();
+            Users boss = Users.builder().id(uid(1)).username("boss").passwordHash("h").role(adminRole).organization(org).build();
+            when(usersRepository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(boss));
+            when(rolesRepository.findByRole("MANAGER")).thenReturn(Optional.of(managerRole));
+            when(usersRepository.findByOrganizationIdAndRoleRole(TENANT, "ADMIN")).thenReturn(List.of(boss));
+
+            UUID id = uid(1);
+            assertThrows(IllegalArgumentException.class, () -> userService.updateUserPartial(id, null, "MANAGER", null, null));
+            verify(usersRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Creating a user with a password asks the creator's password again")
+        void createUserAsksPassword() {
+            org.mockito.Mockito.doThrow(new com.donatodev.bcm_backend.exception.ReauthenticationRequiredException("x"))
+                    .when(reauthenticationService).require();
+            UserDTO dto = new UserDTO(null, "newbie", "Faro-Mareggiata-58", uid(2), uid(3), null, null);
+
+            assertThrows(com.donatodev.bcm_backend.exception.ReauthenticationRequiredException.class,
+                    () -> userService.createUser(dto));
+            verify(usersRepository, never()).save(any());
+        }
+
+        private void signedInAs(String username) {
+            SecurityContextHolder.getContext().setAuthentication(
+                    UsernamePasswordAuthenticationToken.authenticated(username, null, List.of()));
         }
 
         @Test

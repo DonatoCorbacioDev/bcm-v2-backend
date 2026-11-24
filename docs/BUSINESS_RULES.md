@@ -104,7 +104,12 @@ towards the same lock as the sign-in.
 - setting another user's password;
 - exporting the organization's data;
 - turning 2FA off (until 2026-11-24 a code alone, with no limit on wrong
-  ones and the login's code usable again: security audit).
+  ones and the login's code usable again: security audit);
+- creating a user with a password, and changing a user's role, approval right
+  or linked manager (the manager is where its password resets go: relinking it
+  ends that user's sessions). Relinking another administrator is refused, as
+  setting its password is, and the last administrator keeps the role
+  (security audit 2026-11-24).
 
 Already confirmed in their own way: changing one's own password (the current
 one), deleting the organization (an emailed code).

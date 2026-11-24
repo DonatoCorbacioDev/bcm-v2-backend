@@ -422,8 +422,13 @@ class BolaAuthorizationMatrixTest {
             default -> payload(resource);
         };
         body = "{\"id\":" + q(victimId) + "," + body.substring(1);
-        var response = mvc.perform(post("/" + resource).header("Authorization", "Bearer " + adminToken)
-                .contentType(MediaType.APPLICATION_JSON).content(body)).andReturn().getResponse();
+        var request = post("/" + resource).header("Authorization", "Bearer " + adminToken);
+        if (resource.equals("users")) {
+            // An account with a chosen password: the creator's password again (UserService.registerUser).
+            request = request.header(com.donatodev.bcm_backend.support.TestReauth.HEADER,
+                    com.donatodev.bcm_backend.support.TestReauth.token(jwt, admin.getUsername(), own.org().getId()));
+        }
+        var response = mvc.perform(request.contentType(MediaType.APPLICATION_JSON).content(body)).andReturn().getResponse();
         assertThat(response.getStatus()).as(response.getContentAsString()).isEqualTo(201);
         if (response.getStatus() == 201) {
             assertThat(json.readTree(response.getContentAsString()).get("id").asText()).isNotEqualTo(victimId.toString());

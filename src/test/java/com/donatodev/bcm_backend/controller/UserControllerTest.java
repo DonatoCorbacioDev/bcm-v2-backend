@@ -144,8 +144,17 @@ class UserControllerTest {
                     null
             );
 
+            // Without the creator's password again: 428, nothing created.
             mockMvc.perform(post("/users")
                     .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(dto)))
+                    .andExpect(status().is(428));
+
+            mockMvc.perform(post("/users")
+                    .with(csrf())
+                    .header(com.donatodev.bcm_backend.support.TestReauth.HEADER,
+                            com.donatodev.bcm_backend.support.TestReauth.token(jwtUtils, "user", testOrg.getId()))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(dto)))
                     .andExpect(status().isCreated())
