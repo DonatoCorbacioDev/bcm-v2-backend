@@ -58,15 +58,41 @@ class ContractImportXlsxOpeningTest {
 
     @Test
     void aZipBombIsRefused() throws IOException {
-        // 50 MB of zeros compress about a thousand times: far past the 1:100 ratio allowed.
+        // 15 MB of zeros compress about a thousand times: far past the 1:100 ratio allowed,
+        // while under the whole file's 20 MB, so POI's own ratio check is what refuses it.
         // A real workbook carrying one extra part that expands from a few KB.
-        byte[] bomb = workbookWithExtraPart("xl/media/padding.bin", new byte[50 * 1024 * 1024]);
+        byte[] bomb = workbookWithExtraPart("xl/media/padding.bin", new byte[15 * 1024 * 1024]);
         assertThat((long) bomb.length).isLessThan(UploadChecksLimit.XLSX);
 
         assertThatThrownBy(() -> ContractImportService.openXlsx(bomb))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Il file non è un file Excel .xlsx valido")
                 .rootCause().hasMessageContaining("Zip bomb");
+    }
+
+    @Test
+    void aWorkbookExpandingPastTheWholeFileLimitIsRefusedBeforePoiReadsIt() throws IOException {
+        // Two parts of 12 MB each: each one within POI's per-entry limit, 24 MB together.
+        byte[] wide = workbookWithExtraParts(new byte[12 * 1024 * 1024], new byte[12 * 1024 * 1024]);
+        assertThat((long) wide.length).isLessThan(UploadChecksLimit.XLSX);
+
+        assertThatThrownBy(() -> ContractImportService.openXlsx(wide))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(ContractImportService.TOO_LARGE_EXPANDED)
+                .hasNoCause();
+    }
+
+    @Test
+    void aWorkbookWithTooManyPartsIsRefused() throws IOException {
+        byte[][] parts = new byte[ContractImportService.MAX_ENTRIES][];
+        for (int i = 0; i < parts.length; i++) {
+            parts[i] = new byte[1];
+        }
+        byte[] many = workbookWithExtraParts(parts);
+
+        assertThatThrownBy(() -> ContractImportService.openXlsx(many))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(ContractImportService.TOO_MANY_PARTS);
     }
 
     @Test
@@ -78,6 +104,30 @@ class ContractImportXlsxOpeningTest {
 
     private static final class UploadChecksLimit {
         static final long XLSX = com.donatodev.bcm_backend.upload.UploadChecks.MAX_XLSX_BYTES;
+    }
+
+    private static byte[] workbookWithExtraParts(byte[]... contents) throws IOException {
+        byte[] bytes = workbookWithExtraPart("xl/media/extra-0.bin", contents[0]);
+        for (int i = 1; i < contents.length; i++) {
+            bytes = withExtraEntry(bytes, "xl/media/extra-" + i + ".bin", contents[i]);
+        }
+        return bytes;
+    }
+
+    private static byte[] withExtraEntry(byte[] zipBytes, String extra, byte[] content) throws IOException {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream(); ZipOutputStream zip = new ZipOutputStream(out);
+             java.util.zip.ZipInputStream in = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zipBytes))) {
+            for (ZipEntry entry = in.getNextEntry(); entry != null; entry = in.getNextEntry()) {
+                zip.putNextEntry(new ZipEntry(entry.getName()));
+                in.transferTo(zip);
+                zip.closeEntry();
+            }
+            zip.putNextEntry(new ZipEntry(extra));
+            zip.write(content);
+            zip.closeEntry();
+            zip.finish();
+            return out.toByteArray();
+        }
     }
 
     private static byte[] workbookWithExtraPart(String extra, byte[] content) throws IOException {

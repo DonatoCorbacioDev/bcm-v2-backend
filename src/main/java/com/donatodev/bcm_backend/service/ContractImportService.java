@@ -18,6 +18,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
@@ -62,10 +64,22 @@ public class ContractImportService {
     /**
      * Zip bomb limits for every .xlsx POI opens (OWASP File Upload Cheat Sheet):
      * an entry may expand at most 100 times its compressed size, and to at most
-     * 100 MB (POI's own default allows 4 GB). A 5000-row sheet is a few MB.
+     * 20 MB (POI's own default allows 4 GB). A 5000-row sheet is a few MB.
      */
     static final double MIN_INFLATE_RATIO = 0.01;
-    static final long MAX_ENTRY_BYTES = 100L * 1024 * 1024;
+    static final long MAX_ENTRY_BYTES = 20L * 1024 * 1024;
+
+    /**
+     * The whole file's limits, checked before POI reads it into memory: POI's
+     * are per entry, so several entries could add up to hundreds of MB of the
+     * heap every tenant shares (security audit 2026-11-24).
+     */
+    static final long MAX_TOTAL_UNCOMPRESSED_BYTES = 20L * 1024 * 1024;
+    static final int MAX_ENTRIES = 500;
+    static final String TOO_LARGE_EXPANDED =
+            "Il file è troppo grande una volta decompresso (massimo 20 MB): togli immagini o fogli non necessari";
+    static final String TOO_MANY_PARTS = "Il file contiene troppe parti (massimo " + MAX_ENTRIES + ")";
+    private static final String NOT_AN_XLSX = "Il file non è un file Excel .xlsx valido";
 
     static {
         ZipSecureFile.setMinInflateRatio(MIN_INFLATE_RATIO);
@@ -117,10 +131,38 @@ public class ContractImportService {
      * not a readable .xlsx, a zip bomb included, is the caller's input: 400.
      */
     static Workbook openXlsx(byte[] bytes) {
+        checkExpandedSize(bytes);
         try {
             return new XSSFWorkbook(new ByteArrayInputStream(bytes));
         } catch (IOException | RuntimeException e) {
-            throw new IllegalArgumentException("Il file non è un file Excel .xlsx valido", e);
+            throw new IllegalArgumentException(NOT_AN_XLSX, e);
+        }
+    }
+
+    /**
+     * Counts the bytes each entry really expands to, not what the archive
+     * declares (which can lie), and stops as soon as the file goes past
+     * {@link #MAX_TOTAL_UNCOMPRESSED_BYTES} or {@link #MAX_ENTRIES}: never more
+     * than that is decompressed, and POI never sees such a file.
+     */
+    static void checkExpandedSize(byte[] bytes) {
+        long total = 0;
+        int entries = 0;
+        byte[] buffer = new byte[8192];
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
+            for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
+                if (++entries > MAX_ENTRIES) {
+                    throw new IllegalArgumentException(TOO_MANY_PARTS);
+                }
+                for (int read = zip.read(buffer); read > 0; read = zip.read(buffer)) {
+                    total += read;
+                    if (total > MAX_TOTAL_UNCOMPRESSED_BYTES) {
+                        throw new IllegalArgumentException(TOO_LARGE_EXPANDED);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException(NOT_AN_XLSX, e);
         }
     }
 
