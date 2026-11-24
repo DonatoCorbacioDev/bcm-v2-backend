@@ -52,8 +52,26 @@ public class ManagerService {
      */
     public List<ManagerDTO> getAllManagers() {
         UUID orgId = TenantContext.require();
+        boolean admin = callerIsAdmin();
         return managersRepository.findByOrganizationId(orgId, Pageable.unpaged())
-                .stream().map(managerMapper::toDTO).toList();
+                .stream().map(managerMapper::toDTO)
+                .map(dto -> admin ? dto : withoutContacts(dto)).toList();
+    }
+
+    /**
+     * A manager sees its colleagues by name, not their email and phone: those
+     * are an administrator's (security audit 2026-11-24; on the public demo the
+     * list was readable by anyone with its published login).
+     */
+    private static ManagerDTO withoutContacts(ManagerDTO dto) {
+        return new ManagerDTO(dto.id(), dto.firstName(), dto.lastName(), null, null, dto.department());
+    }
+
+    /** The role loaded from the database for this request (CustomUserDetailsService). */
+    private static boolean callerIsAdmin() {
+        org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
     }
 
     /**

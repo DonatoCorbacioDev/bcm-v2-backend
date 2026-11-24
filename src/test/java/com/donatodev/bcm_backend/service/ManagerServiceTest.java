@@ -110,6 +110,36 @@ class ManagerServiceTest {
             assertEquals("Mario", result.get(0).firstName());
         }
 
+        @Test
+        @DisplayName("Get all managers: an administrator sees email and phone, a manager only names and departments")
+        void shouldHideColleaguesContactsFromAManager() {
+            Managers entity = Managers.builder().id(uid(1)).firstName("Mario").lastName("Rossi").build();
+            ManagerDTO dto = new ManagerDTO(uid(1), "Mario", "Rossi", "mario@example.com", "1234567890", "IT");
+            when(managersRepository.findByOrganizationId(TENANT, Pageable.unpaged())).thenReturn(new PageImpl<>(List.of(entity)));
+            when(managerMapper.toDTO(entity)).thenReturn(dto);
+            try {
+                authenticate("ROLE_ADMIN");
+                ManagerDTO asAdmin = managerService.getAllManagers().get(0);
+                assertEquals("mario@example.com", asAdmin.email());
+                assertEquals("1234567890", asAdmin.phoneNumber());
+
+                authenticate("ROLE_MANAGER");
+                ManagerDTO asManager = managerService.getAllManagers().get(0);
+                assertEquals("Mario", asManager.firstName());
+                assertEquals("IT", asManager.department());
+                org.junit.jupiter.api.Assertions.assertNull(asManager.email());
+                org.junit.jupiter.api.Assertions.assertNull(asManager.phoneNumber());
+            } finally {
+                org.springframework.security.core.context.SecurityContextHolder.clearContext();
+            }
+        }
+
+        private void authenticate(String authority) {
+            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                    new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("user", null,
+                            List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority(authority))));
+        }
+
         /**
          * Verifies that the correct ManagerDTO is returned for the given ID.
          */

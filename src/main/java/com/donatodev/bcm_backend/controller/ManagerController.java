@@ -38,10 +38,9 @@ public class ManagerController {
     /**
      * Retrieves all managers.
      * <p>
-     * Available to MANAGER too: the frontend uses this to populate manager
-     * pickers (e.g. assigning a "Responsabile" when instantiating a contract
-     * from a template), and manager name/email/phone/department are already
-     * exposed to MANAGER via the nested manager object on contract responses.
+     * Available to MANAGER too, by name and department only: the email and
+     * phone of colleagues are an administrator's (ManagerService.getAllManagers).
+     * A manager still sees its own contact details on its own contracts.
      *
      * @return a list of {@link ManagerDTO}
      */

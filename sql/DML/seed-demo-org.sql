@@ -57,6 +57,14 @@ UPDATE organizations SET iban = 'IT05X0760101600000045821936', bic = 'NRTVITM1XX
 UPDATE managers SET first_name = 'Marco', last_name = 'Bellini', department = 'Direzione'
 WHERE id = @demo_manager;
 
+-- ── Managers' contact details: synthetic, every night. The demo's login is
+-- public, so whatever a manager row of this organization holds is readable by
+-- anyone (security audit 2026-11-24 found two real addresses here). One address
+-- per row (unique with the organization), under the reserved .example domain;
+-- no phone. Mail meant for these managers (digests, reminders) goes nowhere.
+UPDATE managers SET email = CONCAT('manager-', REPLACE(id, '-', ''), '@nortiva.example'), phone_number = NULL
+WHERE organization_id = @org;
+
 -- ── Business areas: align org 3's original placeholder set to the same
 -- clean, coherent set used for the Nortiva brand elsewhere. Renamed in
 -- place (never deleted) so existing budgets/history keep their FK intact.
