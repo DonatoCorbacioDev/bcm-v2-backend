@@ -153,8 +153,15 @@ class BolaJwtMySQLIT extends AbstractMySQLIntegrationTest {
             }
             default -> throw new IllegalArgumentException(resource);
         };
-        var response = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/" + resource)
-                .header("Authorization", "Bearer " + adminToken).contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+        var request = org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/" + resource)
+                .header("Authorization", "Bearer " + adminToken);
+        if (resource.equals("users")) {
+            // An account with a chosen password: the creator's password again (UserService.registerUser).
+            request = request.header(com.donatodev.bcm_backend.support.TestReauth.HEADER,
+                    com.donatodev.bcm_backend.support.TestReauth.token(jwt, jwt.getUsernameFromJwtToken(adminToken),
+                            jwt.getOrganizationIdFromToken(adminToken)));
+        }
+        var response = mvc.perform(request.contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                 .content("{\"id\":" + q(victimId) + "," + fields + "}"))
                 .andExpect(status().isCreated()).andReturn().getResponse();
         tools.jackson.databind.JsonNode result = tools.jackson.databind.json.JsonMapper.builder().build().readTree(response.getContentAsString());
