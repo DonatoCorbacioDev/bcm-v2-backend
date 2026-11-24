@@ -10,12 +10,19 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Locale;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.stereotype.Service;
 
@@ -36,8 +43,20 @@ public class PdfBoxService {
     // Caps OCR cost on large scanned documents — Tesseract runs seconds per page.
     private static final int MAX_OCR_PAGES = 10;
     private static final float OCR_RENDER_DPI = 200f;
+    // The page's size is the uploader's choice: a few-KB PDF with a huge page
+    // would otherwise be drawn into hundreds of MB of the heap every tenant
+    // shares (security audit 2026-11-24). An A4 page at 200 DPI is about 4 MP.
+    static final long MAX_OCR_PIXELS = 20_000_000L;
+    // Below this, a page shrunk to fit the budget is too blurred to read.
+    static final float MIN_OCR_DPI = 50f;
+    // At most this many OCRs drawing pages at once, whatever the requests.
+    private static final int MAX_CONCURRENT_OCR = 2;
+    private static final long OCR_SLOT_WAIT_SECONDS = 60;
+
+    private static final Logger log = LoggerFactory.getLogger(PdfBoxService.class);
 
     private final OcrService ocrService;
+    private final Semaphore ocrSlots = new Semaphore(MAX_CONCURRENT_OCR, true);
 
     public PdfBoxService(OcrService ocrService) {
         this.ocrService = ocrService;
@@ -87,14 +106,55 @@ public class PdfBoxService {
     }
 
     private String extractTextViaOcr(PDDocument doc) throws IOException {
-        PDFRenderer renderer = new PDFRenderer(doc);
-        int pageCount = Math.min(doc.getNumberOfPages(), MAX_OCR_PAGES);
-        StringBuilder text = new StringBuilder();
-        for (int page = 0; page < pageCount; page++) {
-            BufferedImage image = renderer.renderImageWithDPI(page, OCR_RENDER_DPI);
-            text.append(ocrService.extractText(image)).append('\n');
+        if (!acquireOcrSlot()) {
+            log.warn("OCR skipped: no free slot within {} s, the document is kept without extracted text",
+                    OCR_SLOT_WAIT_SECONDS);
+            return "";
         }
-        return text.toString().trim();
+        try {
+            PDFRenderer renderer = new PDFRenderer(doc);
+            int pageCount = Math.min(doc.getNumberOfPages(), MAX_OCR_PAGES);
+            StringBuilder text = new StringBuilder();
+            for (int page = 0; page < pageCount; page++) {
+                float dpi = ocrDpiFor(doc.getPage(page));
+                if (dpi < 0) {
+                    log.warn("OCR skipped on page {}: too large to read within {} pixels", page + 1, MAX_OCR_PIXELS);
+                    continue;
+                }
+                // Grey: Tesseract reads no colour, and a pixel takes 1 byte instead of 4.
+                BufferedImage image = renderer.renderImageWithDPI(page, dpi, ImageType.GRAY);
+                text.append(ocrService.extractText(image)).append('\n');
+            }
+            return text.toString().trim();
+        } finally {
+            ocrSlots.release();
+        }
+    }
+
+    /**
+     * The resolution a page is drawn at for OCR: 200 DPI, lowered so that the
+     * image stays within {@link #MAX_OCR_PIXELS}, or -1 when that would take it
+     * under {@link #MIN_OCR_DPI} (the page is skipped). The size is the crop box
+     * times the page's UserUnit, an overestimate if the renderer ignores it.
+     */
+    static float ocrDpiFor(PDPage page) {
+        PDRectangle box = page.getCropBox();
+        double unit = page.getUserUnit();
+        double areaSquareInches = (box.getWidth() * unit / 72.0) * (box.getHeight() * unit / 72.0);
+        if (!(areaSquareInches > 0)) {
+            return -1;
+        }
+        double dpi = Math.min(OCR_RENDER_DPI, Math.sqrt(MAX_OCR_PIXELS / areaSquareInches));
+        return dpi < MIN_OCR_DPI ? -1 : (float) dpi;
+    }
+
+    private boolean acquireOcrSlot() {
+        try {
+            return ocrSlots.tryAcquire(OCR_SLOT_WAIT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     String extractField(String text, String... keywords) {

@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
@@ -35,6 +36,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
@@ -306,6 +308,53 @@ class PdfBoxServiceTest {
             pdfBoxService.extractRawText(scannedTwelvePagePdf);
 
             verify(ocrService, times(10)).extractText(any());
+        }
+
+        @Test
+        @DisplayName("extractRawText: an ordinary A4 page without text is still read at 200 DPI")
+        void shouldOcrA4AtFullResolution() throws IOException {
+            when(ocrService.extractText(any())).thenReturn("page text");
+
+            pdfBoxService.extractRawText(blankPdf(PDRectangle.A4.getWidth(), PDRectangle.A4.getHeight()));
+
+            ArgumentCaptor<BufferedImage> image = ArgumentCaptor.forClass(BufferedImage.class);
+            verify(ocrService).extractText(image.capture());
+            // 595 x 842 pt at 200/72: about 1653 x 2339 pixels.
+            assertEquals(1653, image.getValue().getWidth(), 1);
+            assertEquals(2339, image.getValue().getHeight(), 1);
+        }
+
+        @Test
+        @DisplayName("extractRawText: a huge page is drawn within the pixel budget, in grey")
+        void shouldBoundHugePageToPixelBudget() throws IOException {
+            when(ocrService.extractText(any())).thenReturn("page text");
+
+            // 4000 x 4000 pt: at 200 DPI it would be about 123 million pixels.
+            pdfBoxService.extractRawText(blankPdf(4000, 4000));
+
+            ArgumentCaptor<BufferedImage> image = ArgumentCaptor.forClass(BufferedImage.class);
+            verify(ocrService).extractText(image.capture());
+            long pixels = (long) image.getValue().getWidth() * image.getValue().getHeight();
+            assertTrue(pixels <= PdfBoxService.MAX_OCR_PIXELS, "pixels: " + pixels);
+            assertEquals(BufferedImage.TYPE_BYTE_GRAY, image.getValue().getType());
+        }
+
+        @Test
+        @DisplayName("extractRawText: a page too large to read even shrunk is skipped, never drawn")
+        void shouldSkipAbsurdPage() throws IOException {
+            String result = pdfBoxService.extractRawText(blankPdf(20000, 20000));
+
+            assertEquals("", result);
+            verify(ocrService, never()).extractText(any());
+            assertTrue(PdfBoxService.ocrDpiFor(new PDPage(new PDRectangle(20000, 20000))) < 0);
+        }
+    }
+
+    private static byte[] blankPdf(float widthPt, float heightPt) throws IOException {
+        try (PDDocument doc = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            doc.addPage(new PDPage(new PDRectangle(widthPt, heightPt)));
+            doc.save(out);
+            return out.toByteArray();
         }
     }
 }
