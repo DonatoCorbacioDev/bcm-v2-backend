@@ -89,4 +89,16 @@ public interface FinancialValuesRepository extends JpaRepository<FinancialValues
             """)
     double sumCostByCounterpartyUpToMonth(
             @Param("counterpartyId") UUID counterpartyId, @Param("year") int year, @Param("month") int month);
+
+    /** A manager's own share of a counterparty's expected costs: its contracts only. */
+    @Query("""
+            SELECT COALESCE(SUM(fv.financialAmount), 0.0)
+            FROM FinancialValues fv
+            WHERE fv.contract.counterparty.id = :counterpartyId
+              AND fv.contract.manager.id = :managerId
+              AND fv.financialType.category = com.donatodev.bcm_backend.entity.FinancialCategory.COST
+              AND fv.year = :year AND fv.month <= :month
+            """)
+    double sumCostByCounterpartyAndManagerUpToMonth(@Param("counterpartyId") UUID counterpartyId,
+            @Param("managerId") UUID managerId, @Param("year") int year, @Param("month") int month);
 }

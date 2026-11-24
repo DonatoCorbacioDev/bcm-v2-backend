@@ -51,16 +51,19 @@ public class CounterpartyService {
     private final ElectronicInvoiceRepository invoiceRepository;
     private final AuditLogService auditLogService;
     private final FinancialValuesRepository financialValuesRepository;
+    private final CurrentUserResolver currentUserResolver;
 
     public CounterpartyService(CounterpartiesRepository counterpartiesRepository, CounterpartyMapper counterpartyMapper,
                                 ContractsRepository contractsRepository, ElectronicInvoiceRepository invoiceRepository,
-                                AuditLogService auditLogService, FinancialValuesRepository financialValuesRepository) {
+                                AuditLogService auditLogService, FinancialValuesRepository financialValuesRepository,
+                                CurrentUserResolver currentUserResolver) {
         this.counterpartiesRepository = counterpartiesRepository;
         this.counterpartyMapper = counterpartyMapper;
         this.contractsRepository = contractsRepository;
         this.invoiceRepository = invoiceRepository;
         this.auditLogService = auditLogService;
         this.financialValuesRepository = financialValuesRepository;
+        this.currentUserResolver = currentUserResolver;
     }
 
     public List<CounterpartyDTO> getAllCounterparties() {
@@ -77,18 +80,39 @@ public class CounterpartyService {
 
     /**
      * Contracted value vs. confirmed-invoiced-to-date for the current year.
-     * Only {@code CONFIRMED} invoice matches count as invoiced.
+     * Only {@code CONFIRMED} invoice matches count as invoiced. An administrator
+     * sees the whole organization's figures; a manager only those of its own
+     * contracts with the counterparty, as on the dashboard
+     * ({@code ContractService#getInvoicingSummary}): a colleague's contracts it
+     * cannot open must not reach it as totals either (security audit 2026-11-24).
      */
     public CounterpartyInvoicingSummaryDTO getInvoicingSummary(UUID id) {
         Counterparty counterparty = findCounterpartyInScope(id)
                 .orElseThrow(() -> new CounterpartyNotFoundException(COUNTERPARTY_ID_PREFIX + id + NOT_FOUND_SUFFIX));
 
+        UUID managerId = callerIsAdmin() ? null : callerManagerId();
+        if (!callerIsAdmin() && managerId == null) {
+            // A manager with no profile has no contracts: nothing to add up (fails closed).
+            boolean comparable = counterparty.getType() == CounterpartyType.SUPPLIER
+                    || counterparty.getType() == CounterpartyType.BOTH;
+            return new CounterpartyInvoicingSummaryDTO(counterparty.getId(), counterparty.getName(),
+                    0, 0.0, 0.0, 0.0, 0L, null, 0.0, comparable);
+        }
+
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
         int year = today.getYear();
-        int activeContracts = contractsRepository.countActiveContractsByCounterpartyId(id);
-        double contractedValue = contractsRepository.sumActiveAnnualValueByCounterpartyId(id);
-        long invoiceCount = invoiceRepository.countByContractCounterpartyId(id);
-        LocalDate lastInvoiceDate = invoiceRepository.findLastInvoiceDateByCounterpartyId(id);
+        int activeContracts = managerId == null
+                ? contractsRepository.countActiveContractsByCounterpartyId(id)
+                : contractsRepository.countActiveContractsByCounterpartyIdAndManagerId(id, managerId);
+        double contractedValue = managerId == null
+                ? contractsRepository.sumActiveAnnualValueByCounterpartyId(id)
+                : contractsRepository.sumActiveAnnualValueByCounterpartyIdAndManagerId(id, managerId);
+        long invoiceCount = managerId == null
+                ? invoiceRepository.countByContractCounterpartyId(id)
+                : invoiceRepository.countByContractCounterpartyIdAndContractManagerId(id, managerId);
+        LocalDate lastInvoiceDate = managerId == null
+                ? invoiceRepository.findLastInvoiceDateByCounterpartyId(id)
+                : invoiceRepository.findLastInvoiceDateByCounterpartyIdAndManagerId(id, managerId);
 
         // Only a supplier's invoices reach BCM (received FatturaPA), so only
         // for a supplier is "invoiced vs expected" meaningful. Expected and
@@ -101,14 +125,32 @@ public class CounterpartyService {
         double expectedYtd = 0.0;
         double variancePercent = 0.0;
         if (comparable) {
-            invoicedYtd = invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(id, year).doubleValue();
-            expectedYtd = financialValuesRepository.sumCostByCounterpartyUpToMonth(id, year, today.getMonthValue());
+            invoicedYtd = (managerId == null
+                    ? invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndYear(id, year)
+                    : invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndManagerIdAndYear(id, managerId, year))
+                    .doubleValue();
+            expectedYtd = managerId == null
+                    ? financialValuesRepository.sumCostByCounterpartyUpToMonth(id, year, today.getMonthValue())
+                    : financialValuesRepository.sumCostByCounterpartyAndManagerUpToMonth(id, managerId, year,
+                            today.getMonthValue());
             variancePercent = expectedYtd == 0 ? 0.0 : ((invoicedYtd - expectedYtd) / expectedYtd) * 100.0;
         }
 
         return new CounterpartyInvoicingSummaryDTO(
                 counterparty.getId(), counterparty.getName(), activeContracts, contractedValue,
                 invoicedYtd, variancePercent, invoiceCount, lastInvoiceDate, expectedYtd, comparable);
+    }
+
+    /** The role loaded from the database for this request (CustomUserDetailsService). */
+    private static boolean callerIsAdmin() {
+        org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+    }
+
+    private UUID callerManagerId() {
+        com.donatodev.bcm_backend.entity.Users caller = currentUserResolver.resolve();
+        return caller.getManager() == null ? null : caller.getManager().getId();
     }
 
     /**

@@ -38,7 +38,7 @@ public class BudgetController {
      *
      * @return a list of {@link BudgetDTO}
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<BudgetDTO>> getAllBudgets() {
         List<BudgetDTO> budgets = budgetService.getAllBudgets();
@@ -51,7 +51,7 @@ public class BudgetController {
      * @param id the ID of the budget
      * @return the {@link BudgetDTO} with the specified ID
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{id}")
     public ResponseEntity<BudgetDTO> getBudgetById(@PathVariable UUID id) {
         BudgetDTO budget = budgetService.getBudgetById(id);

@@ -40,7 +40,6 @@ import org.springframework.test.context.ActiveProfiles;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Month;
-import java.util.Collections;
 
 import com.donatodev.bcm_backend.config.TenantContext;
 import com.donatodev.bcm_backend.dto.CounterpartyDTO;
@@ -71,7 +70,8 @@ class CounterpartyServiceTest {
     void setup() {
         TenantContext.set(TENANT);
         SecurityContext ctx = SecurityContextHolder.createEmptyContext();
-        ctx.setAuthentication(new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList()));
+        ctx.setAuthentication(new UsernamePasswordAuthenticationToken("admin", null,
+                java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
         SecurityContextHolder.setContext(ctx);
     }
 
@@ -98,6 +98,9 @@ class CounterpartyServiceTest {
 
     @Mock
     private com.donatodev.bcm_backend.repository.FinancialValuesRepository financialValuesRepository;
+
+    @Mock
+    private CurrentUserResolver currentUserResolver;
 
     @InjectMocks
     private CounterpartyService service;
@@ -400,6 +403,60 @@ class CounterpartyServiceTest {
                     .thenReturn(new BigDecimal("100.00"));
 
             assertEquals(0.0, service.getInvoicingSummary(uid(3)).variancePercent());
+        }
+
+        @Test
+        @DisplayName("getInvoicingSummary gives a manager its own contracts' figures only, never the colleagues'")
+        void shouldScopeInvoicingSummaryToTheManagersContracts() {
+            asManager();
+            com.donatodev.bcm_backend.entity.Managers profile =
+                    com.donatodev.bcm_backend.entity.Managers.builder().id(uid(50)).build();
+            when(currentUserResolver.resolve()).thenReturn(
+                    com.donatodev.bcm_backend.entity.Users.builder().id(uid(60)).username("manager").manager(profile).build());
+            Counterparty entity = Counterparty.builder().id(uid(1)).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
+            LocalDate today = LocalDate.now();
+            int year = today.getYear();
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(entity));
+            when(contractsRepository.countActiveContractsByCounterpartyIdAndManagerId(uid(1), uid(50))).thenReturn(1);
+            when(contractsRepository.sumActiveAnnualValueByCounterpartyIdAndManagerId(uid(1), uid(50))).thenReturn(100.0);
+            when(invoiceRepository.countByContractCounterpartyIdAndContractManagerId(uid(1), uid(50))).thenReturn(2L);
+            when(invoiceRepository.sumConfirmedInvoicedAmountByCounterpartyIdAndManagerIdAndYear(uid(1), uid(50), year))
+                    .thenReturn(new BigDecimal("80.00"));
+            when(financialValuesRepository.sumCostByCounterpartyAndManagerUpToMonth(uid(1), uid(50), year,
+                    today.getMonthValue())).thenReturn(100.0);
+
+            CounterpartyInvoicingSummaryDTO result = service.getInvoicingSummary(uid(1));
+
+            assertEquals(1, result.activeContracts());
+            assertEquals(100.0, result.contractedValue());
+            assertEquals(2L, result.invoiceCount());
+            assertEquals(80.0, result.invoicedYtd());
+            org.mockito.Mockito.verify(contractsRepository, org.mockito.Mockito.never()).countActiveContractsByCounterpartyId(any());
+            org.mockito.Mockito.verify(contractsRepository, org.mockito.Mockito.never()).sumActiveAnnualValueByCounterpartyId(any());
+            org.mockito.Mockito.verify(invoiceRepository, org.mockito.Mockito.never()).countByContractCounterpartyId(any());
+        }
+
+        @Test
+        @DisplayName("getInvoicingSummary gives a manager with no profile nothing to add up")
+        void shouldGiveAManagerWithoutProfileNoFigures() {
+            asManager();
+            when(currentUserResolver.resolve()).thenReturn(
+                    com.donatodev.bcm_backend.entity.Users.builder().id(uid(61)).username("manager").build());
+            Counterparty entity = Counterparty.builder().id(uid(1)).name("Alfa Srl").type(CounterpartyType.SUPPLIER).build();
+            when(repository.findByIdAndOrganizationId(uid(1), TENANT)).thenReturn(Optional.of(entity));
+
+            CounterpartyInvoicingSummaryDTO result = service.getInvoicingSummary(uid(1));
+
+            assertEquals(0, result.activeContracts());
+            assertEquals(0.0, result.contractedValue());
+            verifyNoInteractions(contractsRepository, invoiceRepository, financialValuesRepository);
+        }
+
+        private void asManager() {
+            SecurityContext ctx = SecurityContextHolder.createEmptyContext();
+            ctx.setAuthentication(new UsernamePasswordAuthenticationToken("manager", null,
+                    java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_MANAGER"))));
+            SecurityContextHolder.setContext(ctx);
         }
 
         @Test

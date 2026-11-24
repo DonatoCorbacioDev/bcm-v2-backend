@@ -32,9 +32,9 @@ OpenAPI schema is served at `/api/v1/api-docs` outside production.
 | `/billing/portal-session` | POST | `hasRole('ADMIN')` | `BillingController.createPortalSession` |
 | `/billing/webhook` | POST | no role | `BillingController.webhook` |
 | `/budgets/{id}` | DELETE | `hasRole('ADMIN')` | `BudgetController.deleteBudget` |
-| `/budgets/{id}` | GET | `hasAnyRole('ADMIN', 'MANAGER')` | `BudgetController.getBudgetById` |
+| `/budgets/{id}` | GET | `hasRole('ADMIN')` | `BudgetController.getBudgetById` |
 | `/budgets/{id}` | PUT | `hasRole('ADMIN')` | `BudgetController.updateBudget` |
-| `/budgets` | GET | `hasAnyRole('ADMIN', 'MANAGER')` | `BudgetController.getAllBudgets` |
+| `/budgets` | GET | `hasRole('ADMIN')` | `BudgetController.getAllBudgets` |
 | `/budgets` | POST | `hasRole('ADMIN')` | `BudgetController.createBudget` |
 | `/business-areas/{id}` | DELETE | `hasRole('ADMIN')` | `BusinessAreaController.deleteArea` |
 | `/business-areas/{id}` | GET | `hasAnyRole('ADMIN', 'MANAGER')` | `BusinessAreaController.getAreaById` |

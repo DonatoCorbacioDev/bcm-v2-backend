@@ -307,7 +307,7 @@ class BudgetControllerTest {
 
         @Test
         @Order(8)
-        @DisplayName("Manager can read budgets but not create them")
+        @DisplayName("Manager can neither create budgets nor read them: the organization's actual figures are an administrator's")
         @WithMockUser(roles = "MANAGER")
         void managerCannotCreateBudget() throws Exception {
             BusinessAreas area = businessAreasRepository.save(BusinessAreas.builder().organization(testOrg)
@@ -320,7 +320,7 @@ class BudgetControllerTest {
                     .andExpect(status().isForbidden());
 
             mockMvc.perform(get("/budgets"))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isForbidden());
         }
     }
 }

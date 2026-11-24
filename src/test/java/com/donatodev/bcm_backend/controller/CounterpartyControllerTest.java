@@ -66,6 +66,9 @@ class CounterpartyControllerTest {
     @Autowired
     private CounterpartiesRepository repository;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.donatodev.bcm_backend.service.CurrentUserResolver currentUserResolver;
+
     @Autowired
     private TestDataCleaner testDataCleaner;
 
@@ -243,11 +246,14 @@ class CounterpartyControllerTest {
 
         @Test
         @Order(12)
-        @DisplayName("MANAGER can read the invoicing summary (GET allowed)")
+        @DisplayName("MANAGER can read the invoicing summary (GET allowed), its own contracts' figures")
         @WithMockUser(roles = "MANAGER")
         void shouldAllowManagerToReadInvoicingSummary() throws Exception {
             Counterparty saved = repository.save(Counterparty.builder().organization(testOrg)
                     .name("Epsilon Srl").type(CounterpartyType.CUSTOMER).build());
+            org.mockito.Mockito.when(currentUserResolver.resolve()).thenReturn(com.donatodev.bcm_backend.entity.Users.builder()
+                    .username("user").manager(com.donatodev.bcm_backend.entity.Managers.builder()
+                            .id(java.util.UUID.randomUUID()).build()).build());
 
             mockMvc.perform(get("/counterparties/{id}/invoicing-summary", saved.getId()))
                     .andExpect(status().isOk());

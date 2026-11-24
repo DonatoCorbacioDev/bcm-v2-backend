@@ -101,7 +101,8 @@ class BolaAuthorizationMatrixTest {
         List<Route> routes = new ArrayList<>();
         for (String resource : List.of("business-areas", "financial-types", "counterparties", "managers", "users",
                 "budgets", "contract-templates", "financial-values", "contracts")) {
-            boolean readByManager = !Set.of("managers", "users").contains(resource);
+            // Budgets: the organization's actual figures, an administrator's (security audit 2026-11-24).
+            boolean readByManager = !Set.of("managers", "users", "budgets").contains(resource);
             routes.add(new Route("GET", "/" + resource + "/{id}", resource, readByManager));
             routes.add(new Route("PUT", "/" + resource + "/{id}", resource, resource.equals("financial-values")));
             routes.add(new Route("DELETE", "/" + resource + "/{id}", resource, false));
@@ -231,7 +232,9 @@ class BolaAuthorizationMatrixTest {
     static Stream<Arguments> listCases() {
         return Stream.of("/business-areas", "/financial-types", "/counterparties", "/budgets", "/contract-templates",
                         "/financial-values", "/contracts/search", "/contracts/export/excel", "/contracts/export/pdf")
-                .flatMap(path -> Stream.of(Arguments.of(path, false), Arguments.of(path, true)));
+                .flatMap(path -> path.equals("/budgets")
+                        ? Stream.of(Arguments.of(path, false))
+                        : Stream.of(Arguments.of(path, false), Arguments.of(path, true)));
     }
 
     @ParameterizedTest(name = "list/export {0}, manager={1}")

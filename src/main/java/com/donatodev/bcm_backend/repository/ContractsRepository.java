@@ -141,6 +141,15 @@ public interface ContractsRepository extends JpaRepository<Contracts, UUID> {
     @Query("SELECT COALESCE(SUM(c.annualValue), 0.0) FROM Contracts c WHERE c.counterparty.id = :counterpartyId AND c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE")
     double sumActiveAnnualValueByCounterpartyId(@Param("counterpartyId") UUID counterpartyId);
 
+    /** A manager's own share of a counterparty: its contracts only, not its colleagues'. */
+    @Query("SELECT COUNT(c) FROM Contracts c WHERE c.counterparty.id = :counterpartyId AND c.manager.id = :managerId AND c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE")
+    int countActiveContractsByCounterpartyIdAndManagerId(@Param("counterpartyId") UUID counterpartyId,
+                                                         @Param("managerId") UUID managerId);
+
+    @Query("SELECT COALESCE(SUM(c.annualValue), 0.0) FROM Contracts c WHERE c.counterparty.id = :counterpartyId AND c.manager.id = :managerId AND c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE")
+    double sumActiveAnnualValueByCounterpartyIdAndManagerId(@Param("counterpartyId") UUID counterpartyId,
+                                                            @Param("managerId") UUID managerId);
+
     @Query("""
           SELECT COUNT(c) FROM Contracts c
           WHERE c.status = com.donatodev.bcm_backend.entity.ContractStatus.ACTIVE

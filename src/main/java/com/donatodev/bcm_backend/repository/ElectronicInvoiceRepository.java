@@ -60,6 +60,26 @@ public interface ElectronicInvoiceRepository extends JpaRepository<ElectronicInv
 
     long countByContractCounterpartyId(UUID counterpartyId);
 
+    /** A manager's own share of a counterparty's invoices: those of its contracts only. */
+    long countByContractCounterpartyIdAndContractManagerId(UUID counterpartyId, UUID managerId);
+
+    @Query("SELECT MAX(ei.invoiceDate) FROM ElectronicInvoice ei WHERE ei.contract.counterparty.id = :counterpartyId AND ei.contract.manager.id = :managerId")
+    LocalDate findLastInvoiceDateByCounterpartyIdAndManagerId(@Param("counterpartyId") UUID counterpartyId,
+                                                              @Param("managerId") UUID managerId);
+
+    @Query("""
+            SELECT COALESCE(SUM(CASE WHEN ei.documentType = 'TD04'
+                    THEN -COALESCE(ei.taxableAmount, ei.totalAmount)
+                    ELSE COALESCE(ei.taxableAmount, ei.totalAmount) END), 0)
+            FROM ElectronicInvoice ei
+            WHERE ei.contract.counterparty.id = :counterpartyId
+              AND ei.contract.manager.id = :managerId
+              AND ei.matchStatus = com.donatodev.bcm_backend.entity.InvoiceMatchStatus.CONFIRMED
+              AND YEAR(ei.invoiceDate) = :year
+            """)
+    BigDecimal sumConfirmedInvoicedAmountByCounterpartyIdAndManagerIdAndYear(
+            @Param("counterpartyId") UUID counterpartyId, @Param("managerId") UUID managerId, @Param("year") int year);
+
     @Query("SELECT MAX(ei.invoiceDate) FROM ElectronicInvoice ei WHERE ei.contract.counterparty.id = :counterpartyId")
     LocalDate findLastInvoiceDateByCounterpartyId(@Param("counterpartyId") UUID counterpartyId);
 
