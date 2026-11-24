@@ -831,6 +831,18 @@ class MlProxyServiceTest {
         }
 
         @Test
+        @DisplayName("analyzeClauseRisk is refused to the free plan like every other LLM call, and never calls FastAPI")
+        void analyzeClauseRiskBlockedWhenTierDenies() {
+            ReflectionTestUtils.setField(mlProxyService, "fastApiUrl", FASTAPI_URL);
+            TenantContext.set(uid(5));
+            doThrow(new AccessDeniedException("Funzionalità ML non disponibile nel piano FREE"))
+                    .when(tierLimitService).requireMlAccess(uid(5));
+
+            assertThrows(AccessDeniedException.class, () -> mlProxyService.analyzeClauseRisk("testo"));
+            verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
+        }
+
+        @Test
         @Order(2)
         @DisplayName("getAgentInsights propagates AccessDeniedException and never calls FastAPI")
         void getAgentInsightsBlockedWhenTierDenies() {

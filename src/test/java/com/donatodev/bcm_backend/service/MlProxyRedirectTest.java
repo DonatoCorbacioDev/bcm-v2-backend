@@ -32,6 +32,17 @@ class MlProxyRedirectTest {
     private final MlProxyService service = new MlProxyService(restTemplate, mock(MlCacheService.class), meters,
             mock(UsersRepository.class), mock(MlClaimsSigner.class), mock(TierLimitService.class));
 
+    // The plan check of an LLM call reads the request's organization.
+    @org.junit.jupiter.api.BeforeEach
+    void enterTenant() {
+        com.donatodev.bcm_backend.config.TenantContext.set(java.util.UUID.randomUUID());
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void leaveTenant() {
+        com.donatodev.bcm_backend.config.TenantContext.clear();
+    }
+
     @Test
     @DisplayName("a 302 from the ML service is a 503 with no body and no Location")
     void redirectIsNotPassedOn() {

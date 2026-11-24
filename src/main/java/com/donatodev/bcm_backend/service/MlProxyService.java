@@ -105,7 +105,7 @@ public class MlProxyService {
         UUID managerId = resolveManagerId();
         String key = "FORECAST_" + months + cacheKeySuffix(managerId);
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/forecast").queryParam(QUERY_PARAM_MONTHS, months);
-        return cachedGet(key, uriBuilder, orgId, managerId, "forecast");
+        return cachedGet(key, uriBuilder, orgId, managerId, "forecast", false);
     }
 
     public ResponseEntity<String> getAgentInsights(int months) {
@@ -114,7 +114,8 @@ public class MlProxyService {
         UUID managerId = resolveManagerId();
         String key = "AGENT_INSIGHTS_" + months + cacheKeySuffix(managerId);
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/agent/insights").queryParam(QUERY_PARAM_MONTHS, months);
-        return cachedGet(key, uriBuilder, orgId, managerId, "agent-insights");
+        // The insights are written by the language model: a miss takes the shared LLM slot.
+        return cachedGet(key, uriBuilder, orgId, managerId, "agent-insights", true);
     }
 
     public ResponseEntity<String> getAnomalies() {
@@ -123,7 +124,7 @@ public class MlProxyService {
         UUID managerId = resolveManagerId();
         String key = "ANOMALIES" + cacheKeySuffix(managerId);
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(fastApiUrl + "/anomalies");
-        return cachedGet(key, uriBuilder, orgId, managerId, "anomalies");
+        return cachedGet(key, uriBuilder, orgId, managerId, "anomalies", false);
     }
 
     public ResponseEntity<String> getRiskScores() {
@@ -134,6 +135,8 @@ public class MlProxyService {
     }
 
     public ResponseEntity<String> analyzeClauseRisk(String text) {
+        // A language-model call like the others: not in the free plan (security audit 2026-11-24).
+        tierLimitService.requireMlAccess(TenantContext.require());
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         if (internalApiKey != null && !internalApiKey.isBlank()) {
@@ -243,14 +246,19 @@ public class MlProxyService {
      * Checks the DB cache first, and on a miss delegates to {@link #callMl}
      * and populates the cache with a successful response's body — the shared
      * shape of every cache-aware GET endpoint (forecast/agent-insights/anomalies),
-     * which otherwise differ only in cache key and FastAPI path.
+     * which otherwise differ only in cache key and FastAPI path. {@code languageModel}:
+     * the ML service generates the answer with the language model, so a miss runs
+     * under the shared LLM slot like the other LLM calls (security audit 2026-11-24).
      */
-    private ResponseEntity<String> cachedGet(String cacheKey, UriComponentsBuilder uriBuilder, UUID orgId, UUID managerId, String endpoint) {
+    private ResponseEntity<String> cachedGet(String cacheKey, UriComponentsBuilder uriBuilder, UUID orgId, UUID managerId,
+                                             String endpoint, boolean languageModel) {
         Optional<String> cached = mlCacheService.get(orgId, cacheKey);
         if (cached.isPresent()) {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(cached.get());
         }
-        ResponseEntity<String> response = callMl(uriBuilder, orgId, managerId, endpoint);
+        ResponseEntity<String> response = languageModel
+                ? withLlmSlot(() -> callMl(uriBuilder, orgId, managerId, endpoint))
+                : callMl(uriBuilder, orgId, managerId, endpoint);
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
             mlCacheService.put(orgId, cacheKey, response.getBody());
         }

@@ -38,8 +38,20 @@ class MlProxyLlmGateTest {
 
     private final RestTemplate restTemplate = mock(RestTemplate.class);
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
-    private final MlProxyService service = new MlProxyService(restTemplate, mock(MlCacheService.class), meters,
+    private final MlCacheService cache = mock(MlCacheService.class);
+    private final MlProxyService service = new MlProxyService(restTemplate, cache, meters,
             mock(UsersRepository.class), mock(MlClaimsSigner.class), mock(TierLimitService.class));
+    private static final java.util.UUID ORG = java.util.UUID.randomUUID();
+
+    /** An LLM call as a request makes it: inside its organization (the plan check reads it). */
+    private ResponseEntity<String> clauseRisk() {
+        com.donatodev.bcm_backend.config.TenantContext.set(ORG);
+        try {
+            return service.analyzeClauseRisk("clausola");
+        } finally {
+            com.donatodev.bcm_backend.config.TenantContext.clear();
+        }
+    }
     private final ExecutorService pool = Executors.newFixedThreadPool(MlProxyService.MAX_CONCURRENT_LLM_CALLS);
     private final CountDownLatch modelAnswers = new CountDownLatch(1);
 
@@ -63,11 +75,11 @@ class MlProxyLlmGateTest {
 
         List<Future<ResponseEntity<String>>> running = new ArrayList<>();
         for (int i = 0; i < MlProxyService.MAX_CONCURRENT_LLM_CALLS; i++) {
-            running.add(pool.submit(() -> service.analyzeClauseRisk("clausola")));
+            running.add(pool.submit(this::clauseRisk));
         }
         assertThat(slotsTaken.await(5, TimeUnit.SECONDS)).isTrue();
 
-        ResponseEntity<String> refused = service.analyzeClauseRisk("clausola");
+        ResponseEntity<String> refused = clauseRisk();
         assertThat(refused.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
         assertThat(refused.getBody()).contains("occupato");
         assertThat(meters.counter("bcm.ml.llm.busy").count()).isEqualTo(1.0);
@@ -77,6 +89,37 @@ class MlProxyLlmGateTest {
             assertThat(call.get(5, TimeUnit.SECONDS).getStatusCode()).isEqualTo(HttpStatus.OK);
         }
         // The slots were given back.
-        assertThat(service.analyzeClauseRisk("clausola").getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(clauseRisk().getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @DisplayName("agent insights not in the cache take the same slot: 503 while it is held; cached ones answer at once")
+    void insightsMissTakesTheSlot() throws Exception {
+        ReflectionTestUtils.setField(service, "fastApiUrl", "http://ml");
+        CountDownLatch slotsTaken = new CountDownLatch(MlProxyService.MAX_CONCURRENT_LLM_CALLS);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                .thenAnswer(invocation -> {
+                    slotsTaken.countDown();
+                    modelAnswers.await(5, TimeUnit.SECONDS);
+                    return ResponseEntity.ok("{\"risk\":\"low\"}");
+                });
+        for (int i = 0; i < MlProxyService.MAX_CONCURRENT_LLM_CALLS; i++) {
+            pool.submit(this::clauseRisk);
+        }
+        assertThat(slotsTaken.await(5, TimeUnit.SECONDS)).isTrue();
+
+        com.donatodev.bcm_backend.config.TenantContext.set(ORG);
+        try {
+            ResponseEntity<String> miss = service.getAgentInsights(3);
+            assertThat(miss.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+            org.mockito.Mockito.verify(restTemplate, org.mockito.Mockito.never())
+                    .exchange(org.mockito.ArgumentMatchers.contains("/agent/insights"), eq(HttpMethod.GET),
+                            any(HttpEntity.class), eq(String.class));
+
+            when(cache.get(eq(ORG), anyString())).thenReturn(java.util.Optional.of("{\"insights\":[]}"));
+            assertThat(service.getAgentInsights(3).getStatusCode()).isEqualTo(HttpStatus.OK);
+        } finally {
+            com.donatodev.bcm_backend.config.TenantContext.clear();
+        }
     }
 }
