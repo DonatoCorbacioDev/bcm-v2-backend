@@ -165,7 +165,8 @@ public class OrganizationRegistrationService {
      */
     @Transactional(noRollbackFor = RegistrationCodeException.class)
     public LoginOutcome confirm(String registrationId, String code, RequestOrigin origin) {
-        PendingRegistration pending = findLive(registrationId);
+        // Locked: concurrent wrong codes are all counted (findForUpdateByPublicId).
+        PendingRegistration pending = live(pendingRepository.findForUpdateByPublicId(registrationId));
 
         boolean matches = MessageDigest.isEqual(
                 hash(pending.getPublicId(), code).getBytes(StandardCharsets.US_ASCII),
@@ -227,7 +228,11 @@ public class OrganizationRegistrationService {
 
     /** An expired attempt stays until the purge: deleting it here would reset its count of codes. */
     private PendingRegistration findLive(String registrationId) {
-        PendingRegistration pending = pendingRepository.findByPublicId(registrationId)
+        return live(pendingRepository.findByPublicId(registrationId));
+    }
+
+    private PendingRegistration live(java.util.Optional<PendingRegistration> found) {
+        PendingRegistration pending = found
                 .orElseThrow(() -> new RegistrationCodeException(REGISTRATION_EXPIRED));
         // Expired at its expiry instant too.
         if (!pending.getExpiresAt().isAfter(now())) {

@@ -147,7 +147,8 @@ public class OrganizationDeletionService {
     public OrganizationDeletionDTO confirm(String code) {
         Users admin = currentUserResolver.resolve();
         Organization org = organizationOf(admin);
-        OrganizationDeletionCode pending = codeRepository.findByOrganizationId(org.getId())
+        // Locked: concurrent wrong codes are all counted (findForUpdateByOrganizationId).
+        OrganizationDeletionCode pending = codeRepository.findForUpdateByOrganizationId(org.getId())
                 .filter(c -> c.getUserId().equals(admin.getId()))
                 .orElseThrow(() -> new DeletionCodeException(CODE_EXPIRED));
         if (pending.getExpiresAt().isBefore(now())) {

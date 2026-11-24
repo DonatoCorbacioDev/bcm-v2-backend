@@ -10,15 +10,28 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.donatodev.bcm_backend.entity.PendingRegistration;
 
+import jakarta.persistence.LockModeType;
+
 public interface PendingRegistrationRepository extends JpaRepository<PendingRegistration, UUID> {
 
     Optional<PendingRegistration> findByPublicId(String publicId);
+
+    /**
+     * The same registration, its row locked until the transaction ends: the
+     * confirmations of one code wait for one another, so every wrong code is
+     * counted and the fifth closes it, however many arrive at once (security
+     * audit 2026-11-24); a right code can't create the organization twice.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM PendingRegistration p WHERE p.publicId = :publicId")
+    Optional<PendingRegistration> findForUpdateByPublicId(@Param("publicId") String publicId);
 
     /** The latest attempt for an address: how many codes it has already received, and when. */
     Optional<PendingRegistration> findFirstByAdminEmailOrderByCodeSentAtDesc(String email);
