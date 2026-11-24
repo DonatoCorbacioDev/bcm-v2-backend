@@ -47,10 +47,28 @@ public class SessionRevocationService {
         this.clock = clock;
     }
 
+    /**
+     * A new password or a 2FA change: every session ends, a pending reset link
+     * is deleted, and so is the calendar feed's link, which a session may have
+     * read and kept (it opens the feed without signing in). A new one is made
+     * the next time the profile shows it.
+     */
     @Transactional
     public void credentialsChanged(Users user) {
+        user.setCalendarToken(null);
         endSessions(user);
         passwordResetTokenRepository.findByUser(user).ifPresent(passwordResetTokenRepository::delete);
+    }
+
+    /**
+     * A stolen session shown by a refresh token used twice: every session ends
+     * and the calendar feed's link is deleted, as on a credential change. The
+     * reset link stays: its owner may be using it right now to take the account back.
+     */
+    @Transactional
+    public void sessionsCompromised(Users user) {
+        user.setCalendarToken(null);
+        endSessions(user);
     }
 
     /**

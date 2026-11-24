@@ -145,7 +145,7 @@ public class RefreshTokenService {
         securityEvents.recordFor(SecurityEvents.Type.REFRESH_REUSE, user.getUsername(),
                 user.getOrganization() == null ? null : user.getOrganization().getId(), null);
         if (!isPublicDemo(user)) {
-            sessionRevocationService.endSessions(user);
+            sessionRevocationService.sessionsCompromised(user);
         }
     }
 

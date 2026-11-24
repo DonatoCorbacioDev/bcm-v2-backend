@@ -204,7 +204,7 @@ class RefreshTokenServiceTest {
                     () -> refreshTokenService.refreshAccessToken("revoked-token"));
 
             assertEquals(RefreshTokenService.INVALID_SESSION, ex.getMessage());
-            verify(sessionRevocationService).endSessions(user);
+            verify(sessionRevocationService).sessionsCompromised(user);
             verify(securityEvents).recordFor(SecurityEvents.Type.REFRESH_REUSE, "victim", null, null);
         }
 
@@ -217,7 +217,7 @@ class RefreshTokenServiceTest {
 
             assertThrows(RefreshTokenException.class, () -> refreshTokenService.refreshAccessToken("raced-token"));
 
-            verify(sessionRevocationService).endSessions(user);
+            verify(sessionRevocationService).sessionsCompromised(user);
             verify(refreshTokenRepository, never()).save(any());
         }
 
@@ -231,6 +231,7 @@ class RefreshTokenServiceTest {
             assertThrows(RefreshTokenException.class, () -> refreshTokenService.refreshAccessToken("demo-token"));
 
             verify(securityEvents).recordFor(SecurityEvents.Type.REFRESH_REUSE, "demo", null, null);
+            verify(sessionRevocationService, never()).sessionsCompromised(any());
             verify(sessionRevocationService, never()).endSessions(any());
         }
     }
