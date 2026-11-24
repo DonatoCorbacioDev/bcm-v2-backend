@@ -25,6 +25,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.donatodev.bcm_backend.security.PublicDemoGuard;
@@ -353,6 +354,23 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * An upload cut short or not well formed is the client's fault: 400, logged
+     * as a warning (OWASP ZAP active scan, 2026-11-24). It was a 500 and an
+     * ERROR line each, so a stream of broken uploads filled the log with false
+     * alarms. A file over the limit keeps its own status (413), which
+     * {@link org.springframework.web.multipart.MaxUploadSizeExceededException}
+     * carries.
+     */
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiErrorResponse> handleMultipart(MultipartException ex) {
+        if (ex instanceof ErrorResponse) {
+            return handleUnexpected(ex);
+        }
+        logger.warn("Upload refused: malformed or interrupted multipart request");
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, MALFORMED_UPLOAD);
+    }
+
+    /**
      * Answers a {@link ResponseStatusException} directly, with its own status.
      * Left unhandled, Spring forwards it to {@code /error}, which the security
      * chain doesn't permit and which carries no JWT on that internal dispatch —
@@ -377,6 +395,8 @@ public class GlobalExceptionHandler {
      * file too large 413...); anything else is a 500 whose detail goes to the
      * log only, never to the client.
      */
+    static final String MALFORMED_UPLOAD = "Caricamento del file non valido o interrotto: riprova.";
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleUnexpected(Exception ex) {
         if (ex instanceof AsyncRequestNotUsableException) {

@@ -66,6 +66,25 @@ class GlobalExceptionHandlerTest {
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
             assertEquals("Parametro obbligatorio mancante: status", response.getBody().message());
         }
+
+        @Test
+        @DisplayName("an upload cut short answers 400, not 500")
+        void shouldReturn400ForMalformedUpload() {
+            ResponseEntity<ApiErrorResponse> response = new GlobalExceptionHandler().handleMultipart(
+                    new org.springframework.web.multipart.MultipartException("Failed to parse multipart servlet request"));
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(GlobalExceptionHandler.MALFORMED_UPLOAD, response.getBody().message());
+        }
+
+        @Test
+        @DisplayName("a file over the limit keeps its 413")
+        void fileTooLargeKeeps413() {
+            ResponseEntity<ApiErrorResponse> response = new GlobalExceptionHandler().handleMultipart(
+                    new org.springframework.web.multipart.MaxUploadSizeExceededException(10L * 1024 * 1024));
+
+            assertEquals(413, response.getStatusCode().value());
+        }
     }
 
     @Nested
