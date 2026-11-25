@@ -376,6 +376,30 @@ INSERT INTO contract_manager (contract_id, manager_id)
 SELECT c.id, c.manager_id FROM contracts c
 WHERE c.organization_id = @org AND c.contract_number LIKE 'NRT-%';
 
+-- ── Contract history (status changes) ─────────────────────────
+-- Wiped with the contracts above and, before this block, never refilled: the
+-- demo's "Cronologia modifiche" tab was always empty. Each contract gets the
+-- status changes its own dates imply, so the tab tells a true-looking story:
+-- every contract approved from draft on its start date, NRT-102 expired by
+-- the nightly expiry job on its end date (modified_by NULL: shown as
+-- "Sistema"), NRT-106 cancelled by its manager two months before its end.
+SET @demo_user := (SELECT id FROM users WHERE username = 'demo' AND organization_id = @org);
+
+INSERT INTO contract_history (id, contract_id, modified_by, modification_date, previous_status, new_status)
+SELECT UUID(), c.id, @demo_user, TIMESTAMP(c.start_date, '09:30:00'), 'DRAFT', 'ACTIVE'
+FROM contracts c
+WHERE c.organization_id = @org AND c.contract_number LIKE 'NRT-%' AND c.status IN ('ACTIVE', 'EXPIRED', 'CANCELLED');
+
+INSERT INTO contract_history (id, contract_id, modified_by, modification_date, previous_status, new_status)
+SELECT UUID(), c.id, NULL, TIMESTAMP(DATE_ADD(c.end_date, INTERVAL 1 DAY), '02:00:00'), 'ACTIVE', 'EXPIRED'
+FROM contracts c
+WHERE c.organization_id = @org AND c.contract_number = 'NRT-102';
+
+INSERT INTO contract_history (id, contract_id, modified_by, modification_date, previous_status, new_status)
+SELECT UUID(), c.id, @demo_user, TIMESTAMP(DATE_SUB(c.end_date, INTERVAL 2 MONTH), '11:15:00'), 'ACTIVE', 'CANCELLED'
+FROM contracts c
+WHERE c.organization_id = @org AND c.contract_number = 'NRT-106';
+
 -- ── Orphaned counterparties cleanup ─────────────────────────────
 -- Previous nights' Faker-generated counterparties (seed_synthetic_data.py)
 -- are never referenced by any contract any more (all org 3 contracts were
