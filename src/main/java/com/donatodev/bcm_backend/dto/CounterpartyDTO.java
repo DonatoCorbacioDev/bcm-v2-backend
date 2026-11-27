@@ -14,6 +14,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import com.donatodev.bcm_backend.validation.InputLimits;
+import com.donatodev.bcm_backend.validation.ValidVatNumber;
 
 /**
  * Data Transfer Object for Counterparty.
@@ -43,6 +44,7 @@ public record CounterpartyDTO(
         @NotBlank(message = "Nome obbligatorio")
         @Size(max = 255, message = "Il nome non può superare 255 caratteri") String name,
         @NotNull(message = "Tipo obbligatorio") CounterpartyType type,
+        @ValidVatNumber
         @Size(max = 50, message = "La partita IVA non può superare 50 caratteri") String vatNumber,
         @Size(max = 50, message = "Il codice fiscale non può superare 50 caratteri") String taxCode,
         @Size(max = 500, message = "L'indirizzo non può superare 500 caratteri") String address,

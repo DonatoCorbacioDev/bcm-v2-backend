@@ -100,7 +100,7 @@ class CounterpartyControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldCreateCounterparty() throws Exception {
             CounterpartyDTO dto = new CounterpartyDTO(null, "Logistics Srl", CounterpartyType.SUPPLIER,
-                    "IT00000000001", null, "Via Milano 1", "Anna Bianchi", "anna@logistics.it", "+39000000", null, null, null);
+                    "IT01234567897", null, "Via Milano 1", "Anna Bianchi", "anna@logistics.it", "+39000000", null, null, null);
 
             mockMvc.perform(post("/counterparties")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -108,6 +108,20 @@ class CounterpartyControllerTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("Logistics Srl"))
                     .andExpect(jsonPath("$.type").value("SUPPLIER"));
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("A malformed VAT number is rejected (8 digits, found in the interface review)")
+        @WithMockUser(roles = "ADMIN")
+        void shouldRejectMalformedVatNumber() throws Exception {
+            CounterpartyDTO dto = new CounterpartyDTO(null, "Impianti Srl", CounterpartyType.SUPPLIER,
+                    "IT00000000", null, null, null, null, null, null, null, null);
+
+            mockMvc.perform(post("/counterparties")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(dto)))
+                    .andExpect(status().isBadRequest());
         }
 
         @Test
