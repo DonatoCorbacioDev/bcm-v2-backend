@@ -46,7 +46,8 @@ public final class VatNumbers {
         int sum = 0;
         for (int i = 0; i < 10; i++) {
             int d = digits.charAt(i) - '0';
-            if (i % 2 == 1) {
+            // Every second digit (the 2nd, 4th...) is doubled.
+            if (i % 2 != 0) {
                 d *= 2;
                 if (d > 9) {
                     d -= 9;
