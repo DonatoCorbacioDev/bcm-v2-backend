@@ -50,6 +50,15 @@ class VatNumbersTest {
     }
 
     @Test
+    @DisplayName("says why: the wrong length, or a last digit that does not match")
+    void saysWhy() {
+        assertThat(VatNumbers.violation("IT00000000")).isEqualTo(VatNumbers.INVALID);
+        // Found in the interface review: 11 digits, check digit 4, written 9.
+        assertThat(VatNumbers.violation("IT04932843789")).isEqualTo(VatNumbers.WRONG_CHECK_DIGIT);
+        assertThat(VatNumbers.violation("IT01234567897")).isNull();
+    }
+
+    @Test
     @DisplayName("normalizes spaces and case")
     void normalizes() {
         assertThat(VatNumbers.normalize(" it 0123 ")).isEqualTo("IT0123");

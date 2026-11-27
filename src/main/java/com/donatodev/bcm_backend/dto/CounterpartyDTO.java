@@ -14,6 +14,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import com.donatodev.bcm_backend.validation.InputLimits;
+import com.donatodev.bcm_backend.validation.ItalianPostalCode;
 import com.donatodev.bcm_backend.validation.ValidVatNumber;
 
 /**
@@ -39,6 +40,7 @@ import com.donatodev.bcm_backend.validation.ValidVatNumber;
  * @param verifiedBic  BIC paired with {@code verifiedIban}, same read-only
  *                     rule and masking
  */
+@ItalianPostalCode
 public record CounterpartyDTO(
         UUID id,
         @NotBlank(message = "Nome obbligatorio")

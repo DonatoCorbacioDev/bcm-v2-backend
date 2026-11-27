@@ -13,8 +13,13 @@ import java.util.regex.Pattern;
  */
 public final class VatNumbers {
 
+    /** Not the shape of any VAT number: the wrong number of digits, or stray characters. */
     public static final String INVALID =
             "Partita IVA non valida: una partita IVA italiana ha 11 cifre (es. IT01234567897), una estera inizia con la sigla del paese";
+
+    /** Eleven digits, but the last one does not match the other ten: a typo or a made-up number. */
+    public static final String WRONG_CHECK_DIGIT =
+            "Questa partita IVA non esiste: controlla di averla copiata giusta (l'ultima cifra non corrisponde alle altre)";
 
     private static final Pattern ITALIAN = Pattern.compile("^(IT)?\\d+$");
     private static final Pattern FOREIGN = Pattern.compile("^[A-Z]{2}[A-Z0-9]{2,13}$");
@@ -29,20 +34,30 @@ public final class VatNumbers {
 
     /** True for a well-formed Italian or foreign VAT number; blank is not one. */
     public static boolean isValid(String raw) {
-        String vat = normalize(raw);
-        if (vat == null || vat.isEmpty()) {
-            return false;
-        }
-        if (ITALIAN.matcher(vat).matches()) {
-            return isValidItalian(vat.startsWith("IT") ? vat.substring(2) : vat);
-        }
-        return FOREIGN.matcher(vat).matches();
+        return violation(raw) == null;
     }
 
-    private static boolean isValidItalian(String digits) {
-        if (digits.length() != 11 || digits.chars().allMatch(c -> c == '0')) {
-            return false;
+    /**
+     * Why a VAT number is refused, in the words the user reads, or null when it
+     * is well formed. Blank is refused here; the field's optionality is the
+     * validator's business.
+     */
+    public static String violation(String raw) {
+        String vat = normalize(raw);
+        if (vat == null || vat.isEmpty()) {
+            return INVALID;
         }
+        if (ITALIAN.matcher(vat).matches()) {
+            String digits = vat.startsWith("IT") ? vat.substring(2) : vat;
+            if (digits.length() != 11 || digits.chars().allMatch(c -> c == '0')) {
+                return INVALID;
+            }
+            return checkDigitMatches(digits) ? null : WRONG_CHECK_DIGIT;
+        }
+        return FOREIGN.matcher(vat).matches() ? null : INVALID;
+    }
+
+    private static boolean checkDigitMatches(String digits) {
         int sum = 0;
         for (int i = 0; i < 10; i++) {
             int d = digits.charAt(i) - '0';
