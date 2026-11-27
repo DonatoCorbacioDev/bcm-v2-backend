@@ -124,6 +124,10 @@ public class ContractFinancialGenerationService {
                 .filter(fv -> !YearMonth.of(fv.getYear(), fv.getMonth()).isBefore(today))
                 .toList();
         financialValuesRepository.deleteAll(toDelete);
+        // Deletes reach the database now: Hibernate flushes inserts before
+        // deletes, and the rows created below take the same contract, type,
+        // month and year (one row each on MySQL: uq_fv_contract_type_month_year).
+        financialValuesRepository.flush();
         toDelete.forEach(fv -> bySlot.remove(YearMonth.of(fv.getYear(), fv.getMonth())));
 
         List<FinancialValues> toCreate = new ArrayList<>();
